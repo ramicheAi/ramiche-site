@@ -1,4 +1,5 @@
 "use client";
+import { cockpitFetch } from "@/lib/cockpit-fetch";
 
 /**
  * Reusable text-to-speech playback for the Command Center.
@@ -52,7 +53,8 @@ export function playVoiceReply(text: string, opts?: PlayOptions): VoicePlaybackH
     if (!sanitized) return;
 
     try {
-      const res = await fetch("/api/command-center/voice/speak", {
+      // cockpitFetch adds the P03 CSRF header; plain fetch is rejected by guardProtectedMutation.
+      const res = await cockpitFetch("/api/command-center/voice/speak", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: sanitized, voice: opts?.voice }),

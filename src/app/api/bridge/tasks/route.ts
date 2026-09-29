@@ -7,7 +7,6 @@ import { NextRequest, NextResponse } from "next/server";
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "apex-athlete-73755";
 const API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "";
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
-const BRIDGE_SECRET = (process.env.BRIDGE_API_SECRET || "").trim().replace(/\\n$/, "");
 function fsUrl(path: string) { const b = `${FIRESTORE_BASE}/${path}`; return API_KEY ? `${b}?key=${API_KEY}` : b; }
 
 export const dynamic = "force-dynamic";
@@ -15,11 +14,6 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   const p03Guard = await guardProtectedMutation(req);
   if (!p03Guard.ok) return p03Guard.response;
-
-  const authHeader = req.headers.get("x-bridge-secret");
-  if (!BRIDGE_SECRET || authHeader !== BRIDGE_SECRET) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
 
   try {
     const { action, taskId, title, description, assignee, priority, status } = await req.json();
@@ -103,11 +97,6 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const p03Guard = await guardPrivateRead(req);
   if (!p03Guard.ok) return p03Guard.response;
-
-  const authHeader = req.headers.get("x-bridge-secret");
-  if (!BRIDGE_SECRET || authHeader !== BRIDGE_SECRET) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
   try {
     const res = await fetch(
       `${FIRESTORE_BASE}/command-center-tasks?pageSize=100`,

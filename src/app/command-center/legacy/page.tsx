@@ -363,13 +363,10 @@ export default function CommandCenter() {
   const [cronForm, setCronForm] = useState({ name: '', schedule: '', agent: '', task: '' });
   const [taskForm, setTaskForm] = useState({ title: '', description: '', assignee: '', priority: 'medium' });
 
-  /* ── shared headers / shorthand for /api/bridge/* (GET requires the
-        x-bridge-secret header just like POST/PATCH; previously the GETs
-        hit a 401 silently and the dashboard rendered with empty data) ── */
-  const BRIDGE_SECRET_VALUE = 'parallax-bridge-2026';
+  /* ── shared init for /api/bridge/* (P05-B2): the browser authenticates with the
+        owner session + CSRF via cockpitFetch; it never holds a bridge secret. ── */
   const bridgeAuthInit: RequestInit = {
     cache: 'no-store',
-    headers: { 'x-bridge-secret': BRIDGE_SECRET_VALUE },
   };
 
   /* ── fetch crons (mount + every 60s) ── */
@@ -416,7 +413,7 @@ export default function CommandCenter() {
   }, []);
 
   /* ── CRUD handlers ── */
-  const bridgeHeaders = { 'Content-Type': 'application/json', 'x-bridge-secret': BRIDGE_SECRET_VALUE };
+  const bridgeHeaders = { 'Content-Type': 'application/json' };
 
   const handleCreateCron = async (name: string, schedule: string, agent: string, task: string) => {
     try {

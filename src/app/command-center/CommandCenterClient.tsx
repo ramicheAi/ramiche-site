@@ -247,11 +247,14 @@ function Cockpit({
            The HUD + alert ticker are position:fixed, so their left offset must
            track the rail width at each breakpoint. */
         @media (max-width: 1024px) {
-          #cc-content { margin-left: 66px; }
+          /* !important is load-bearing: #cc-content sets marginLeft:244 INLINE, and a
+             stylesheet rule never beats an inline style without it — omitting it left a
+             ~178px dead gutter on every CC page in 768-1024px windows. */
+          #cc-content { margin-left: 66px !important; }
           #cc-hud, #cc-alertbar { left: 66px !important; }
         }
         @media (max-width: 640px) {
-          #cc-content { margin-left: 56px; }
+          #cc-content { margin-left: 56px !important; }
           #cc-hud, #cc-alertbar { left: 56px !important; }
           /* HUD shrinks to 56px on phones (po-mobile.css) — ride the ticker up */
           #cc-alertbar { top: 56px !important; }

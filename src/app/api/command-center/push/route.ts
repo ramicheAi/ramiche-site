@@ -1,6 +1,9 @@
-import { guardProtectedMutation, guardPrivateRead } from "@/lib/server/protected-mutation";
+import { guardPrivateRead } from "@/lib/server/protected-mutation";
+import { guardServiceCaller } from "@/lib/server/service-caller";
+import { pushSignature } from "@/lib/server/cockpit-chat-data";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { randomUUID } from "node:crypto";
 import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
 
 export const dynamic = "force-dynamic";
@@ -14,14 +17,6 @@ function getSupabaseService() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return null;
   return createClient(url, key);
-}
-
-function authorize(req: NextRequest): boolean {
-  const expected = process.env.CC_PUSH_SECRET;
-  if (!expected) return false;
-  const header = req.headers.get("x-cc-push-secret") ?? req.headers.get("authorization") ?? "";
-  const token = header.replace(/^Bearer\s+/i, "").trim();
-  return token === expected;
 }
 
 interface PushBody {
@@ -40,19 +35,18 @@ interface PushBody {
  * proactive message into a Command Center channel without going through the
  * gateway round-trip. The message is inserted with sender_type='agent' so the
  * existing Supabase realtime subscription in `/command-center/chat` renders it
- * inline. `speak=true` is broadcast over a 'cc-push' realtime channel so the
- * layout-level toast can offer instant voice playback.
+ * inline. `speak=true` is stored as metadata.speak and delivered to the owner's
+ * layout-level toast through the owner-only SSE relay (P05-B2). It is no longer
+ * broadcast on the public `cc-push` Realtime channel, which any anon-key holder
+ * could subscribe to.
  *
- * Auth: requires `x-cc-push-secret` header (or `Authorization: Bearer <secret>`)
- *       matching `process.env.CC_PUSH_SECRET`.
+ * Auth (P05-B2): machine only, `x-cc-push-secret` matching CC_PUSH_SECRET via
+ *       guardServiceCaller("push"). The P03 owner-session requirement is removed
+ *       (agents have no browser session); the Authorization: Bearer form is no longer accepted.
  */
 export async function POST(req: NextRequest) {
-  const p03Guard = await guardProtectedMutation(req);
+  const p03Guard = await guardServiceCaller(req, "push");
   if (!p03Guard.ok) return p03Guard.response;
-
-  if (!authorize(req)) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  }
 
   let body: PushBody;
   try {
@@ -73,7 +67,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "content_too_long" }, { status: 400 });
   }
 
-  let channelId = (body.channelId ?? "").trim();
+  // Lowercase: Postgres returns uuids in lowercase, and the push signature must match the stored row.
+  let channelId = (body.channelId ?? "").trim().toLowerCase();
   if (!channelId) {
     const normalized = agentId === "dr-strange" ? "drstrange" : agentId;
     const dm = AGENT_DM_UUID[normalized];
@@ -102,13 +97,29 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Pre-allocated so the push signature can bind to this exact row.
+  const rowId = randomUUID();
+  const pushTs = Date.now();
   const insert = {
+    id: rowId,
     tenant_id: TENANT_ID,
     channel_id: channelId,
     sender_type: "agent" as const,
-    sender_agent_id: agentId,
+    // messages.sender_agent_id is a uuid column: store the agent's UUID (same map the
+    // chat webhook uses) and keep the short name in metadata. Before P05-B2 the short
+    // name went here and every push insert failed with a uuid syntax error.
+    sender_agent_id: AGENT_DM_UUID[agentId === "dr-strange" ? "drstrange" : agentId] ?? null,
     content,
     thread_parent_id: threadParentId,
+    // P05-B2: the speak request travels with the row. The owner-only SSE relay
+    // (chat/events?scope=push) delivers it; nothing is broadcast on a public channel.
+    metadata: {
+      source: "cc-push",
+      speak: !!body.speak,
+      agentId,
+      // Proof for the owner SSE relay that this row came through this authenticated route.
+      ...(body.speak ? { pushTs, pushSig: pushSignature(rowId, channelId, agentId, content, pushTs) } : {}),
+    },
   };
 
   const { data, error } = await svc
@@ -124,31 +135,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (body.speak) {
-    try {
-      const ch = svc.channel("cc-push");
-      await ch.send({
-        type: "broadcast",
-        event: "agent.speak",
-        payload: {
-          messageId: data.id,
-          channelId: data.channel_id,
-          agentId: data.sender_agent_id,
-          content: data.content,
-          createdAt: data.created_at,
-        },
-      });
-    } catch {
-      /* broadcast best-effort */
-    }
-  }
-
   return NextResponse.json({
     ok: true,
     message: {
       id: data.id,
       channelId: data.channel_id,
-      agentId: data.sender_agent_id,
+      agentId,
       content: data.content,
       createdAt: data.created_at,
     },
@@ -164,7 +156,7 @@ export async function GET(req: Request) {
   return NextResponse.json({
     ok: true,
     endpoint: "POST /api/command-center/push",
-    requires: ["x-cc-push-secret OR Authorization: Bearer", "agentId", "content"],
+    requires: ["x-cc-push-secret", "agentId", "content"],
     optional: ["channelId", "threadParentId", "speak"],
     configured: !!process.env.CC_PUSH_SECRET,
     serviceRoleConfigured: !!process.env.SUPABASE_SERVICE_ROLE_KEY,

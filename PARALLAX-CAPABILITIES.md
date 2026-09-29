@@ -164,6 +164,41 @@ not in your clone. Use the API/URL listed, or ask for it to be run on the host.
 
 ---
 
+## Sales and revenue
+
+### local-vendor-prospecting (skill)
+- **Where:** `~/.claude/skills/local-vendor-prospecting`
+- **What:** geo-radius prospecting for buyers who are physical and nearby (event vendors,
+  venues, planners, trades). Tiers decision makers, sweeps a radius, resolves every row to a
+  named human + direct number + one true detail, drafts an NEPQ opener each, outputs a CALL
+  SHEET to `~/.openclaw/workspace/callsheets/`.
+- **How:** load the skill. Uses `local-places` (repo skill) + keyless scraping toolkit.
+- **GATE:** prepares only. Never dials, never sends. Contact stays with Ramon.
+
+### agent-in-a-box (skill)
+- **Where:** `~/.claude/skills/agent-in-a-box`
+- **What:** the productized business-DNA agent offer (Mercury as reference implementation).
+  DNA intake -> build -> before/after proof gate -> pricing recommendation. Primary paid
+  offer against the 3-clients-by-2026-10-27 goal.
+- **GATE:** build freely. Pricing, contracts, client sends stop for Ramon.
+
+### THE AUTOMATION LAW (doctrine, governs both)
+- Automate the tasks AROUND a human touchpoint, never the touchpoint itself. Automate to
+  scale, not to replace. Root-cause diagnosis of 598 leads / 0 closed.
+
+
+## ROADMAP (direction of travel, not yet built)
+
+- **Multistream + clip factory** (Parallax Publish, next major arc). Go live to several
+  platforms at once (Twitch, Kick, YouTube, Instagram, TikTok), record the stream, then have
+  the system find the moments worth cutting, clip them, and push them out through the
+  publishing path that already exists. The pieces we already own that this stands on: the
+  publish fanout with per-account results, the media pipeline, the brief/hook doctrine for
+  framing a clip, and the learning loop to tell which clip shapes actually travel. The new
+  parts are the ingest/restream layer and the moment-detection pass (chat-velocity spikes,
+  audio energy, scene change, speech peaks). Build order when it starts: restream out first
+  (a solved problem), then recording, then clip detection, then auto-publish behind the gate.
+
 ## KNOWN CLEANUP (flagged, not yet done)
 - `~/parallax` and `~/parallaxbet-engine` hold divergent copies of the same betting code, and
   `~/parallax` also carries unrelated music-ops docs. A session could edit the stale copy.

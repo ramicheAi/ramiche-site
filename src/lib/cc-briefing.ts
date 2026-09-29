@@ -25,7 +25,8 @@ export interface BriefingEvent {
 }
 
 export interface BriefingInput {
-  now?: Date;
+  /** Date, or an ISO string when the input crossed a JSON boundary (POST body). */
+  now?: Date | string;
   agents: BriefingAgentInput;
   revenue: BriefingRevenueInput;
   events: BriefingEvent[];
@@ -106,7 +107,10 @@ function ucFirst(s: string): string {
 }
 
 export function composeBriefing(input: BriefingInput): ComposedBriefing {
-  const now = input.now ?? new Date();
+  // `now` survives JSON round-trips as a string — coerce, and never trust it blindly
+  // (a bad value here 500'd the whole route with "a.getHours is not a function").
+  const parsed = input.now instanceof Date ? input.now : input.now ? new Date(input.now) : new Date();
+  const now = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
   const greeting = `${greetingForHour(now.getHours())}, Ramon.`;
   const dateLine = `Today is ${dayOfWeek(now)}, ${monthName(now)} ${ordinal(now.getDate())}.`;
 

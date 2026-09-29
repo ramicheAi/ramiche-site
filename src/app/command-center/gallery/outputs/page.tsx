@@ -20,7 +20,7 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { cockpitChatData } from "@/lib/cockpit-chat-client";
 import { AGENT_UUID_TO_SHORT_ID } from "@/lib/cc-agent-dm-uuids";
 
 type GalleryAttachment = {
@@ -149,27 +149,21 @@ export default function GalleryPage() {
   const [nowTs] = useState<number>(() => Date.now());
 
   useEffect(() => {
-    if (!supabase) {
-      setError("Supabase client not configured");
-      setLoading(false);
-      return;
-    }
-    const sb = supabase;
     (async () => {
-      const { data: msgs, error: msgErr } = await sb
-        .from("messages")
-        .select("id, channel_id, sender_agent_id, attachments, created_at, content")
-        .not("attachments", "is", null)
-        .order("created_at", { ascending: false })
-        .limit(500);
-      if (msgErr) {
-        setError(msgErr.message);
+      // P05-B2: owner-guarded server route (service role) instead of anon-key selects.
+      let payload: { messages?: Record<string, unknown>[] | null; channels?: Record<string, unknown>[] | null; error?: { message: string } | null } | null = null;
+      try {
+        const res = await cockpitChatData.galleryOutputs();
+        payload = await res.json();
+        if (!res.ok) throw new Error(payload?.error?.message || `HTTP ${res.status}`);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "gallery load failed");
         setLoading(false);
         return;
       }
-      // Pull channel names in one extra query so the UI can show
-      // "#content-team" instead of raw UUIDs.
-      const { data: channels } = await sb.from("channels").select("id, name");
+      const msgs = payload?.messages ?? [];
+      // Channel names so the UI can show "#content-team" instead of raw UUIDs.
+      const channels = payload?.channels ?? [];
       const channelById = new Map<string, string>();
       for (const c of channels || []) {
         channelById.set(c.id as string, (c.name as string) || (c.id as string).slice(0, 8));

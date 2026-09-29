@@ -26,6 +26,12 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Build output dir is env-overridable so the always-on Command Center server
+  // (launchd `com.command-center`, started with NEXT_DIST_DIR=.next-cc) serves
+  // from a DEDICATED dir that a stray `next dev`/`next build` in this repo can
+  // never clobber. On Vercel NEXT_DIST_DIR is unset → defaults to ".next" → no
+  // behavior change for production deploys. See ~/Library/LaunchAgents.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   logging: {
     browserToTerminal: true,
   },

@@ -3,7 +3,7 @@ import { cockpitFetch } from '@/lib/cockpit-fetch';
 
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { cockpitRealtime } from "@/lib/cockpit-chat-client";
 
 const READ_KEY = "cc-chat-read-at";
 const POLL_MS = 25_000;
@@ -113,8 +113,9 @@ export function useChatPulse(): ChatPulse {
   }, [fetchPulse]);
 
   useEffect(() => {
-    const client = supabase;
-    if (!client) return;
+    // P05-B2: owner-guarded, content-free pulse stream (channel id only) replaces the
+    // browser's anon subscription to every `messages` INSERT across all channels.
+    const client = cockpitRealtime;
     const channel = client
       .channel("cc-pulse")
       .on(

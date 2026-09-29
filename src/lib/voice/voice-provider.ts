@@ -25,6 +25,12 @@ const VAPI_BASE = process.env.VAPI_BASE_URL || "https://api.vapi.ai";
 const MODEL_PROVIDER = process.env.VAPI_MODEL_PROVIDER || "openai";
 const MODEL = process.env.VAPI_MODEL || "gpt-4o";
 const VOICE_ID = process.env.VAPI_VOICE_ID || "cjVigY5qzO86Huf0OWal"; // ElevenLabs "Eric"
+// eleven_turbo_v2 (English) is REQUIRED for phoneme pronunciation rules — v2_5/multilingual
+// ignores them. Trade-off: English-only. Paired with the pronunciation dict below.
+const VOICE_MODEL = process.env.VAPI_VOICE_MODEL || "eleven_turbo_v2";
+// Pronunciation dictionary so TTS says the founder's name right: "Ramon" → R AA M AH N (rah-mun).
+const PRON_DICT_ID = process.env.VAPI_PRON_DICT_ID || "cG4PCkZDu7VnYjJZymq9";
+const PRON_DICT_VERSION = process.env.VAPI_PRON_DICT_VERSION || "Ha4enbJ5fbyjrAiPly6b";
 const TEST_FIRST_MESSAGE =
   "Hey — this is Mercury, your Parallax AI voice agent. How's the audio sounding on your end?";
 
@@ -82,12 +88,15 @@ export async function placeVapiCall(input: PlaceCallInput): Promise<PlaceCallRes
     voice: {
       provider: "11labs",
       voiceId: VOICE_ID,
-      model: "eleven_turbo_v2_5",
+      model: VOICE_MODEL,
       stability: 0.7,
       similarityBoost: 0.85,
       style: 0.15,
       useSpeakerBoost: true,
       speed: 0.9,
+      ...(PRON_DICT_ID && PRON_DICT_VERSION
+        ? { pronunciationDictionaryLocators: [{ pronunciationDictionaryId: PRON_DICT_ID, versionId: PRON_DICT_VERSION }] }
+        : {}),
     },
     transcriber: { provider: "deepgram", model: "nova-3" },
     startSpeakingPlan: { waitSeconds: 0.8 },

@@ -6,7 +6,7 @@ import { useState, useEffect, useRef, useCallback, useMemo, Component, type CSSP
 import Image from "next/image";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { supabase } from "@/lib/supabase";
+import { cockpitChatData, cockpitRealtime } from "@/lib/cockpit-chat-client";
 import { parseMentions } from "@/lib/chat-routing";
 import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
 import {
@@ -2035,7 +2035,7 @@ export default function CommandCenterChatPage() {
   useEffect(() => {
     setMounted(true);
     return () => {
-      supabase?.removeAllChannels();
+      /* realtime streams are closed by their own effects (P05-B2) */
     };
   }, []);
 
@@ -2209,18 +2209,16 @@ export default function CommandCenterChatPage() {
   /* ── load data from Supabase on mount ── */
   useEffect(() => {
     const loadData = async () => {
-      if (!supabase) {
+      const boot = await cockpitChatData.bootstrap();
+      if (boot.error) {
         if (!pendingDmRef.current) setActiveChannel(DEFAULT_CHANNELS[1]);
         setMessages(DEFAULT_MESSAGES as unknown as Message[]);
         setLoading(false);
         return;
       }
       try {
-        // Load channels
-        const { data: channelsData } = await supabase
-          .from("channels")
-          .select("*")
-          .order("last_activity_at", { ascending: false });
+        // Load channels (owner-guarded server route; P05-B2)
+        const channelsData = boot.channels;
 
         if (channelsData && channelsData.length > 0) {
           const mapped = channelsData.map((ch: Record<string, unknown>) => ({
@@ -2248,10 +2246,7 @@ export default function CommandCenterChatPage() {
         }
 
         // Load agents - always keep all 20 from DEFAULT_AGENTS
-        const { data: agentsData } = await supabase
-          .from("agent_profiles")
-          .select("*")
-          .order("name");
+        const agentsData = boot.agents;
 
         if (agentsData && agentsData.length > 0) {
           const supaMap = new Map(
@@ -2302,17 +2297,10 @@ export default function CommandCenterChatPage() {
         Resolve names/colors via agentsRef so we don't need agents in deps. */
   useEffect(() => {
     if (!activeChannel && viewMode !== "dm") return;
-    if (!supabase) return; // don't wipe to defaults; polling effect handles status separately
-    const sb = supabase;
     const channelId = viewMode === "dm" && activeAgent ? getDmChannelId(activeAgent.id) : activeChannel?.id;
     if (!channelId) return;
     const loadMessages = async () => {
-      const { data } = await sb
-        .from("messages")
-        .select("*")
-        .eq("channel_id", channelId)
-        .order("created_at", { ascending: true })
-        .limit(100);
+      const { data } = await cockpitChatData.messages(channelId, { limit: 100, order: "asc" });
 
       if (data) {
         const currentAgents = agentsRef.current;
@@ -2357,10 +2345,7 @@ export default function CommandCenterChatPage() {
           // channel that they just sent a message in.
           setMessages((prev) => (prev.length > 0 ? prev : mapped));
         } else {
-        const { data: reactRows, error: reactErr } = await sb
-          .from("message_reactions")
-          .select("message_id, emoji, user_id")
-          .in("message_id", ids);
+        const { data: reactRows, error: reactErr } = await cockpitChatData.reactions(ids);
 
         const byMid = new Map<string, ReactionRow[]>();
         if (!reactErr) {
@@ -2406,12 +2391,8 @@ export default function CommandCenterChatPage() {
 
   /* ── real-time subscription for new messages ── */
   useEffect(() => {
-    if (!supabase) {
-      setRealtimeStatus("unavailable");
-      return;
-    }
     if (!activeChannel && viewMode !== "dm") return;
-    const sb = supabase;
+    const sb = cockpitRealtime; // owner-guarded SSE relay (P05-B2); no anon key
 
     // Get the correct channel UUID for filtering
     const channelId = viewMode === "dm" && activeAgent ? getDmChannelId(activeAgent.id) : activeChannel?.id;
@@ -2546,10 +2527,7 @@ export default function CommandCenterChatPage() {
             const messageId = row?.message_id as string | undefined;
             if (!messageId) return;
             void (async () => {
-              const { data: rows, error } = await sb
-                .from("message_reactions")
-                .select("emoji, user_id")
-                .eq("message_id", messageId);
+              const { data: rows, error } = await cockpitChatData.reactions([messageId]);
               if (error) return;
               const agg = aggregateReactions((rows ?? []) as ReactionRow[], CC_REACTION_USER_ID);
               setMessages((prev) => {
@@ -2629,7 +2607,6 @@ export default function CommandCenterChatPage() {
      realtimeStatusRef.current !== "connected" so when the WS recovers,
      polling stops on the next tick and dedupe handles the overlap window. */
   useEffect(() => {
-    if (!supabase) return;
     if (!activeChannel && viewMode !== "dm") return;
     const channelId =
       viewMode === "dm" && activeAgent ? getDmChannelId(activeAgent.id) : activeChannel?.id;
@@ -2637,19 +2614,13 @@ export default function CommandCenterChatPage() {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(channelId)) {
       return;
     }
-    const sb = supabase;
     let cancelled = false;
 
     const tick = async () => {
       if (cancelled) return;
       if (realtimeStatusRef.current === "connected") return; // WS alive — skip
       try {
-        const { data, error } = await sb
-          .from("messages")
-          .select("*")
-          .eq("channel_id", channelId)
-          .order("created_at", { ascending: false })
-          .limit(50); // was 20 — bump so high-traffic channels don't lose tail
+        const { data, error } = await cockpitChatData.messages(channelId, { limit: 50, order: "desc" });
         if (error || !data || cancelled) return;
         const fresh = [...data].reverse(); // oldest → newest
         setMessages((prev) => {
@@ -3054,30 +3025,22 @@ export default function CommandCenterChatPage() {
         });
     };
 
-    if (supabase) {
-      const { data: inserted, error } = await supabase
-        .from("messages")
-        .insert({
-          channel_id: targetChannelId,
-          sender_user_id: "00000000-0000-0000-0000-000000000001",
-          sender_type: "user",
-          content: trimmed || "(attachment)",
-          tenant_id: "11111111-1111-1111-1111-111111111111",
-          attachments: uploads.length > 0 ? uploads : [],
-          status: "sent",
-          thread_parent_id: threadPid,
-          metadata: {
-            targetAgent: isDM ? activeAgent!.id : undefined,
-            isDM: isDM,
-            dmChannelId: isDM ? targetChannelId : undefined,
-            channelName: isDM ? `DM: ${activeAgent!.name}` : (activeChannel?.name || "general"),
-            source: "command-center-ui",
-          },
-        })
-        .select("id")
-        .single();
+    {
+      // P05-B2: persisted by the owner-guarded server route (sender/tenant fixed server-side).
+      const { data: inserted, error } = await cockpitChatData.insertUserMessage({
+        channelId: targetChannelId,
+        content: trimmed || "(attachment)",
+        attachments: uploads.length > 0 ? uploads : [],
+        threadParentId: threadPid ?? null,
+        metadata: {
+          targetAgent: isDM ? activeAgent!.id : undefined,
+          isDM: isDM,
+          dmChannelId: isDM ? targetChannelId : undefined,
+          channelName: isDM ? `DM: ${activeAgent!.name}` : (activeChannel?.name || "general"),
+        },
+      });
 
-      if (error) {
+      if (error || !inserted) {
         console.error("Supabase send failed:", error);
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
         setWaitingForResponse(false);
@@ -3094,14 +3057,6 @@ export default function CommandCenterChatPage() {
         )
       );
       runRelay(realId);
-    } else {
-      lastPendingUserMessageIdRef.current = null;
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === tempId ? { ...m, deliveryStatus: "sent" } : m
-        )
-      );
-      runRelay();
     }
     } finally {
       sendingRef.current = false;
@@ -3237,11 +3192,7 @@ export default function CommandCenterChatPage() {
   };
 
   const refreshMessageReactions = async (messageId: string) => {
-    if (!supabase) return;
-    const { data: rows, error } = await supabase
-      .from("message_reactions")
-      .select("emoji, user_id")
-      .eq("message_id", messageId);
+    const { data: rows, error } = await cockpitChatData.reactions([messageId]);
     if (error) return;
     const agg = aggregateReactions((rows ?? []) as ReactionRow[], CC_REACTION_USER_ID);
     setMessages((prev) =>
@@ -3467,10 +3418,14 @@ export default function CommandCenterChatPage() {
      ══════════════════════════════════════════════════════════════════════════ */
   return (
     <div
+      className="chat-root"
       style={{
         display: "flex",
         flexDirection: "column",
-        height: "calc(100vh - 56px)",
+        // The desktop HUD is 64px (layout paddingTop) — subtracting 56 left the page
+        // 8px taller than the viewport, clipping the composer. 56 is mobile-only
+        // (overridden in the responsive styles block below).
+        height: "calc(100vh - 64px)",
         width: "100%",
         background: COLORS.bg.main,
         color: COLORS.text.primary,
@@ -4299,9 +4254,9 @@ export default function CommandCenterChatPage() {
               </div>
             ) : (
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.text.primary, display: "flex", alignItems: "center", gap: 8 }}>
-                  <span>{activeChannel?.name || "Select a channel"}</span>
-                  <RealtimeBadge status={realtimeStatus} />
+                <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.text.primary, display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{activeChannel?.name || "Select a channel"}</span>
+                  <span style={{ flexShrink: 0, display: "inline-flex" }}><RealtimeBadge status={realtimeStatus} /></span>
                 </div>
                 <div
                   style={{
@@ -4730,7 +4685,7 @@ export default function CommandCenterChatPage() {
           style={{
             flex: 1,
             overflowY: "auto",
-            padding: "16px 20px",
+            padding: "8px 16px 12px",
           }}
         >
           {Object.entries(groupedMessages).map(([date, dateMessages]) => (
@@ -4741,7 +4696,7 @@ export default function CommandCenterChatPage() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  margin: "24px 0 16px",
+                  margin: "16px 0 8px",
                 }}
               >
                 <div
@@ -4773,7 +4728,7 @@ export default function CommandCenterChatPage() {
               </div>
 
               {/* Messages for this date */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 {dateMessages.map((message) => (
                   <div
                     key={message.id}
@@ -4781,9 +4736,9 @@ export default function CommandCenterChatPage() {
                     onClick={() => handleMessageClick(message)}
                     style={{
                       display: "flex",
-                      gap: 12,
-                      padding: "10px 12px",
-                      borderRadius: 12,
+                      gap: 10,
+                      padding: "6px 10px",
+                      borderRadius: 10,
                       cursor: "pointer",
                       transition: "background 150ms ease",
                       position: "relative",
@@ -5729,7 +5684,9 @@ export default function CommandCenterChatPage() {
                   background: COLORS.bg.card,
                   border: `1px solid ${COLORS.border.default}`,
                   borderRadius: 12,
-                  padding: "10px 148px 10px 14px",
+                  // right padding must clear the inline overlay: @ + # (24 each) +
+                  // mic (36) + SEND (~62) + gaps — 148 caused mic/SEND overlap.
+                  padding: "10px 184px 10px 14px",
                   color: COLORS.text.primary,
                   fontSize: 13,
                   fontFamily: FONT_FAMILY,
@@ -6223,7 +6180,18 @@ export default function CommandCenterChatPage() {
 
       {/* ═══════ RESPONSIVE STYLES ═══════ */}
       <style>{`
+        /* placeholder must never wrap — in narrow panes a wrapped placeholder gets
+           clipped by the textarea's fixed height (clean-context QA finding) */
+        .chat-input-textarea::placeholder {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
         @media (max-width: 767px) {
+          /* mobile HUD is 56px (layout padding-top override), not the desktop 64 */
+          .chat-root {
+            height: calc(100vh - 56px) !important;
+          }
           .chat-sidebar {
             position: fixed !important;
             top: 0 !important;

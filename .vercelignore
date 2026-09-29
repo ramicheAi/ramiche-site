@@ -8,3 +8,5 @@ public/projects/galactik-antics/galactik-antics-source.tar.gz
 
 # YOLO build artifacts — not needed for production site, causes "copy to subdirectory of itself" error
 public/yolo-builds
+# Isolated Command Center build dir (local always-on server) — never deploy
+.next-cc/

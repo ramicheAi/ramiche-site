@@ -18,6 +18,8 @@ import { cockpitFetch } from '@/lib/cockpit-fetch';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '@/components/command-center/po/Brand';
 import QuantPanel from '@/components/command-center/po/QuantPanel';
+import TradeJournal from '@/components/command-center/po/TradeJournal';
+import QuantLab from '@/components/command-center/po/QuantLab';
 import { PAGE } from '@/lib/po-data';
 import { usePoTheme } from '@/components/command-center/PoShell';
 import { poPlay } from '@/lib/po-sound';
@@ -286,6 +288,13 @@ export default function FinanceHQ() {
 
         {/* quant / Simons — real MERIDIAN snapshot (honest, no mock data) */}
         <QuantPanel />
+
+        {/* trade journal — Simons' ELI5 paper-trade round-trip history */}
+        <TradeJournal />
+
+        {/* quant lab — strategy promotion pipeline, catalyst/earnings risk,
+            cross-asset linkage board, and trade-quality autopsy */}
+        <QuantLab />
       </div>
     </div>
   );

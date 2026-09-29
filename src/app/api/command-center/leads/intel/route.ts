@@ -2,7 +2,7 @@ import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextResponse } from "next/server";
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { callProxyJSON, startBackgroundGen } from "@/lib/lead-gen";
+import { callProxyJSON, startBackgroundGen, generationStale } from "@/lib/lead-gen";
 import { parseBody, badRequest } from "@/lib/api-security";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +31,8 @@ export async function POST(req: Request) {
 
   const meta = (lead.meta && typeof lead.meta === "object" ? lead.meta : {}) as Record<string, unknown>;
   if (meta.intel && body.regenerate !== true) return NextResponse.json({ intel: meta.intel, status: "done" });
-  if (meta.intelStatus === "generating" && body.regenerate !== true) return NextResponse.json({ status: "generating" });
+  // Stale "generating" (a restart killed the in-process run) falls through and re-kicks.
+  if (meta.intelStatus === "generating" && body.regenerate !== true && !generationStale(meta, leadId, "intel")) return NextResponse.json({ status: "generating" });
   if (meta.intelStatus === "error" && body.regenerate !== true) return NextResponse.json({ status: "error", error: (meta.intelError as string) || "research failed" });
 
   const name = lead.company || lead.name || "the business";

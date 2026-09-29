@@ -1,4 +1,6 @@
-import { guardProtectedMutation } from "@/lib/server/protected-mutation";
+import { guardPrivateRead, guardProtectedMutation } from "@/lib/server/protected-mutation";
+import { noStoreJson, parseUuidList } from "@/lib/server/cockpit-chat-data";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { CC_REACTION_USER_ID, isAllowedReactionEmoji } from "@/lib/chat-reactions";
@@ -16,8 +18,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 /**
  * Toggle a reaction on a message (insert or delete).
- * `userId` defaults to the CC commander UUID but can be overridden per call once
- * real auth is wired through PIN/session.
+ * The reacting user is always the verified owner (CC commander UUID); a body
+ * `userId` is ignored (P05-B2).
  * Requires `message_reactions` table — see docs/supabase-cc-chat-migrations.sql
  */
 export async function POST(req: NextRequest) {
@@ -25,7 +27,7 @@ export async function POST(req: NextRequest) {
   if (!p03Guard.ok) return p03Guard.response;
 
   try {
-    const body = (await req.json()) as { messageId?: string; emoji?: string; userId?: string };
+    const body = (await req.json()) as { messageId?: string; emoji?: string };
     const messageId = body.messageId?.trim();
     const emoji = body.emoji?.trim();
     if (!messageId || !emoji) {
@@ -43,10 +45,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, skipped: true, reason: "no_service_role" }, { status: 200 });
     }
 
-    const requestedUserId = body.userId?.trim();
-    const userId = requestedUserId && UUID_RE.test(requestedUserId)
-      ? requestedUserId
-      : CC_REACTION_USER_ID;
+    // P05-B2: identity comes from the verified owner session, never from the request body.
+    const userId = CC_REACTION_USER_ID;
 
     const { data: existing } = await svc
       .from("message_reactions")
@@ -75,4 +75,21 @@ export async function POST(req: NextRequest) {
     console.error("[chat/reactions]", e);
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
+}
+
+/**
+ * P05-B2: owner-only read of reactions for up to 200 messages
+ * (`?messageIds=<uuid>,<uuid>`). Replaces the browser's anon-key select.
+ */
+export async function GET(req: NextRequest) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+  const ids = parseUuidList(new URL(req.url).searchParams.get("messageIds"), 200);
+  if (ids === null) return noStoreJson({ data: null, error: { message: "invalid messageIds" } }, 400);
+  if (ids.length === 0) return noStoreJson({ data: [], error: null });
+  const svc = getSupabaseAdmin();
+  if (!svc) return noStoreJson({ data: null, error: { message: "Supabase not configured" } }, 503);
+  const { data, error } = await svc.from("message_reactions").select("message_id, emoji, user_id").in("message_id", ids);
+  if (error) return noStoreJson({ data: null, error: { message: "reactions query failed" } }, 502);
+  return noStoreJson({ data: data ?? [], error: null });
 }

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
 import { playVoiceReply, type VoicePlaybackHandle } from "@/lib/voice-playback";
 
 const TOKENS = {
@@ -66,7 +65,7 @@ function tintFor(agentId: string): string {
 }
 
 /**
- * Listens for agent push broadcasts on the Supabase `cc-push` channel and pops
+ * Listens for agent push events on the owner-only SSE relay and pops
  * a transient toast with a Speak / Open chat CTA. Auto-speaks when the
  * broadcast carries `speak: true`. Toasts auto-dismiss after 12 s.
  */
@@ -94,33 +93,26 @@ export function PushToast() {
   }, []);
 
   useEffect(() => {
-    const client = supabase;
-    if (!client) return;
-    const channel = client
-      .channel("cc-push")
-      .on("broadcast", { event: "agent.speak" }, (payload) => {
-        const raw = (payload?.payload ?? {}) as Partial<PushPayload> & { speak?: boolean };
-        if (!raw.messageId || !raw.agentId || !raw.content) return;
-        const item: ToastItem = {
-          id: `${raw.messageId}-${Date.now()}`,
-          messageId: String(raw.messageId),
-          channelId: String(raw.channelId ?? ""),
-          agentId: String(raw.agentId),
-          content: String(raw.content),
-          createdAt: String(raw.createdAt ?? new Date().toISOString()),
-          speakRequested: true,
-        };
-        setItems((prev) => [...prev, item].slice(-3));
-        void speak(item);
-      })
-      .subscribe();
-    return () => {
-      try {
-        client.removeChannel(channel);
-      } catch {
-        /* ignore */
-      }
-    };
+    // P05-B2: owner-only SSE relay instead of the public `cc-push` broadcast channel.
+    if (typeof EventSource === "undefined") return;
+    const es = new EventSource("/api/command-center/chat/events?scope=push", { withCredentials: true });
+    es.addEventListener("push", (ev) => {
+      let raw: Partial<PushPayload>;
+      try { raw = JSON.parse((ev as MessageEvent).data) as Partial<PushPayload>; } catch { return; }
+      if (!raw.messageId || !raw.agentId || !raw.content) return;
+      const item: ToastItem = {
+        id: `${raw.messageId}-${Date.now()}`,
+        messageId: String(raw.messageId),
+        channelId: String(raw.channelId ?? ""),
+        agentId: String(raw.agentId),
+        content: String(raw.content),
+        createdAt: String(raw.createdAt ?? new Date().toISOString()),
+        speakRequested: true,
+      };
+      setItems((prev) => [...prev, item].slice(-3));
+      void speak(item);
+    });
+    return () => es.close();
   }, [speak]);
 
   useEffect(() => {

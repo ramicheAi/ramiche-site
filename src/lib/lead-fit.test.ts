@@ -11,6 +11,12 @@ describe("isChain", () => {
     expect(isChain("Discount Subway Tiles")).toBe(false);
     expect(isChain("Joe's Local Diner")).toBe(false);
   });
+  it("catches franchise location-variants (suffix dropped) + multi-word brands anywhere", () => {
+    expect(isChain("Crunch Oakland Park")).toBe(true); // Crunch Fitness, "fitness" dropped (the leak)
+    expect(isChain("Bob's Planet Fitness")).toBe(true); // multi-word brand mid-name
+    expect(isChain("F45 Training Tampa")).toBe(true);
+    expect(isChain("Crunchy Tacos")).toBe(false); // "crunch" is not a whole word here
+  });
 });
 
 describe("normalizeName", () => {

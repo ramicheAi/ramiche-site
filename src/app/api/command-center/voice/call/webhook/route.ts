@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { callProxyJSON } from "@/lib/lead-gen";
 import type { CallDiscovery } from "@/lib/voice/discovery-schema";
+import { guardServiceCaller, guardOwnerOrService } from "@/lib/server/service-caller";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -16,7 +17,7 @@ export const runtime = "nodejs";
  * doesn't retry-storm.
  */
 export async function POST(req: Request) {
-  const p03Guard = await guardProtectedMutation(req);
+  const p03Guard = await guardServiceCaller(req, "vapi");
   if (!p03Guard.ok) return p03Guard.response;
 
   try {

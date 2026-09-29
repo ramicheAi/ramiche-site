@@ -22,6 +22,27 @@ function proxyConfig(): { url: string; token: string } {
 // Prevent a poll from kicking off a duplicate generation for the same field.
 const inFlight = new Set<string>();
 
+/**
+ * A "generating" status is only trustworthy while the generation is actually
+ * running IN THIS PROCESS. If the server restarts (deploy, crash, watchdog
+ * kickstart) mid-generation, the DB keeps saying "generating" forever and every
+ * Prep click waits on a ghost. Treat a generating older than maxAgeMs — or one
+ * with no StartedAt stamp and nothing in flight here — as dead, so the route
+ * falls through to startBackgroundGen (whose inFlight guard dedupes the truly
+ * live case) and the generation self-heals.
+ */
+export function generationStale(
+  meta: Record<string, unknown>,
+  leadId: string,
+  field: string,
+  maxAgeMs = 8 * 60_000,
+): boolean {
+  if (meta[`${field}Status`] !== "generating") return false;
+  if (inFlight.has(`${leadId}:${field}`)) return false; // genuinely running here
+  const started = Date.parse((meta[`${field}StartedAt`] as string) || "");
+  return Number.isNaN(started) || Date.now() - started > maxAgeMs;
+}
+
 /** Call the local Claude Max proxy and parse a JSON object out of the reply. */
 export async function callProxyJSON(
   system: string,
@@ -82,13 +103,14 @@ export async function startBackgroundGen(
   inFlight.add(key);
 
   const meta = await readMeta(db, leadId);
-  await db.from("pipeline_leads").update({ meta: { ...meta, [`${field}Status`]: "generating" } }).eq("id", leadId);
+  await db.from("pipeline_leads").update({ meta: { ...meta, [`${field}Status`]: "generating", [`${field}StartedAt`]: new Date().toISOString() } }).eq("id", leadId);
 
   // Intentionally NOT awaited — runs to completion on the persistent node server.
   void (async () => {
     try {
       const result = await generate();
       const m = await readMeta(db, leadId);
+      delete m[`${field}Error`]; // success clears any stale failure from an earlier run
       await db.from("pipeline_leads").update({ meta: { ...m, [field]: result, [`${field}Status`]: "done", [`${field}At`]: new Date().toISOString() } }).eq("id", leadId);
     } catch (e) {
       const m = await readMeta(db, leadId);

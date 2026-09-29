@@ -7,8 +7,8 @@ import { guardPrivateRead, guardProtectedMutation } from "@/lib/server/protected
 
 import { NextRequest, NextResponse } from "next/server";
 import { fsUrl, toFirestoreFields, fromFirestoreFields } from "@/lib/firestore-bridge-rest";
+import { guardServiceCaller, guardOwnerOrService } from "@/lib/server/service-caller";
 
-const BRIDGE_SECRET = (process.env.BRIDGE_API_SECRET || "").trim().replace(/\\n$/, "");
 
 export const dynamic = "force-dynamic";
 
@@ -196,13 +196,8 @@ export async function PATCH(req: NextRequest) {
 
 // POST: Sync data from local machine
 export async function POST(req: NextRequest) {
-  const p03Guard = await guardProtectedMutation(req);
+  const p03Guard = await guardServiceCaller(req, "bridge");
   if (!p03Guard.ok) return p03Guard.response;
-
-  const authHeader = (req.headers.get("x-bridge-secret") || "").trim().replace(/\\n$/, "");
-  if (!BRIDGE_SECRET || authHeader !== BRIDGE_SECRET) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
 
   try {
     const body = await req.json();

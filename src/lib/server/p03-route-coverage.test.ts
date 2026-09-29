@@ -7,6 +7,9 @@ import { issueCsrfToken } from './csrf';
 const { sessionVerifier } = vi.hoisted(() => ({sessionVerifier: vi.fn()}));
 vi.mock('@/lib/firebase-admin', async importOriginal => ({...await importOriginal<object>(), verifySessionCookie: sessionVerifier}));
 const ROOT=path.resolve('src/app/api');
+// P05-B2: routes whose callers are machines (or owner-or-machine). They are covered by
+// b2-machine-route-coverage.test.ts with equally strict denial scenarios.
+import { B2_MACHINE_OR_MIXED } from './b2-route-policy';
 function files(dir:string):string[] { return readdirSync(dir,{withFileTypes:true}).flatMap(e=> e.isDirectory()?files(path.join(dir,e.name)):e.name==='route.ts'?[path.join(dir,e.name)]:[]); }
 const routes=[...files(path.join(ROOT,'command-center')),...files(path.join(ROOT,'bridge'))];
 const OWNER='owner_fixture_only';const COOKIE='fixture-session-'.repeat(5);const SECRET='fixture-not-a-real-secret-'.repeat(3);const ORIGIN='https://cockpit.example';
@@ -16,7 +19,7 @@ describe('Every cockpit route denies independently of middleware',()=>{
  it('places each canonical guard before handler work, including reads and streams',()=>{
   for(const file of routes){
    const rel=path.relative(ROOT,file);
-   if(['command-center/telegram/webhook/route.ts','command-center/auth/pin/route.ts'].includes(rel))continue;
+   if((['command-center/telegram/webhook/route.ts','command-center/auth/pin/route.ts'].includes(rel)||B2_MACHINE_OR_MIXED.has(rel)))continue;
    const source=ts.createSourceFile(file,readFileSync(file,'utf8'),ts.ScriptTarget.Latest,true);
    for(const fn of source.statements){
     if(!ts.isFunctionDeclaration(fn)||!fn.name||!fn.modifiers?.some(m=>m.kind===ts.SyntaxKind.ExportKeyword)||! /^(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)$/.test(fn.name.text))continue;
@@ -28,7 +31,7 @@ describe('Every cockpit route denies independently of middleware',()=>{
  });
  for(const file of routes){
   const relative=path.relative(ROOT,file);
-  if(['command-center/telegram/webhook/route.ts','command-center/auth/pin/route.ts'].includes(relative))continue;
+  if((['command-center/telegram/webhook/route.ts','command-center/auth/pin/route.ts'].includes(relative)||B2_MACHINE_OR_MIXED.has(relative)))continue;
   const source=ts.createSourceFile(file,readFileSync(file,'utf8'),ts.ScriptTarget.Latest,true);
   const methods=source.statements.flatMap(s=>ts.isFunctionDeclaration(s)&&s.name&&s.modifiers?.some(m=>m.kind===ts.SyntaxKind.ExportKeyword)&&/^(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)$/.test(s.name.text)?[s.name.text]:[]);
   // revenue delegates GET to stripe-revenue; dynamic call exercises that re-export too.

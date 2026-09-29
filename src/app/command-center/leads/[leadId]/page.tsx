@@ -8,7 +8,9 @@ import Link from "next/link";
 import { deliveryFor } from "@/lib/delivery-playbook";
 import { SEO_AI_STANDARD, standardCounts } from "@/lib/seo-ai-visibility";
 import { AV_WORKFLOWS, PARALLAX_AV_EDGE, fillTemplate } from "@/lib/ai-visibility-playbook";
+import { CALL_OUTCOMES, outcomeMeta, agoLabel, type CallEntry, type CallOutcome } from "@/lib/call-outcomes";
 import { InstrumentPage, Panel } from "@/components/command-center/po/Instrument";
+import { ParallaxDialer } from "@/components/command-center/ParallaxDialer";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    DEAL ROOM — everything to close + deliver one client, in one place.
@@ -19,7 +21,7 @@ import { InstrumentPage, Panel } from "@/components/command-center/po/Instrument
 interface RecItem { id: string; name: string; billing: "one-time" | "monthly"; price: number; value: string; }
 interface Kit {
   threePillarPitch?: string[]; talkingPoints?: string[]; discoveryQuestions?: string[];
-  callScript?: { clarify?: string; label?: string; overview?: string; sell?: string; explainAndClose?: string };
+  callScript?: { clarify?: string; label?: string; overview?: string; sell?: string; explainAndClose?: string; voicemail?: string };
   objections?: { objection: string; rebuttal: string }[];
   coldEmail?: { subject?: string; body?: string };
   followUps?: { when?: string; channel?: string; message?: string }[];
@@ -30,14 +32,32 @@ interface Intel {
   strengths?: string[]; gaps?: string[]; competitors?: { name: string; edge: string }[]; owner?: string | null;
   personalizedHooks?: string[]; recentSignals?: string[];
 }
+interface Person {
+  name?: string | null; role?: string; confidence?: "verified" | "likely" | "unknown";
+  linkedin?: string | null; email?: string | null; emailStatus?: "found" | "guessed" | "none";
+  emailSource?: string | null; phone?: string | null; evidence?: string[]; mxValid?: boolean;
+}
 interface Lead {
   id: string; name: string | null; company: string | null; product: string | null; contact_email: string | null;
   stage: string; value: number; notes: string | null;
-  meta: { website?: string | null; audit?: { healthScore?: number; gaps?: string[] }; recommendation?: { items: RecItem[]; oneTimeTotal: number; monthlyTotal: number; rationale: string[] }; kit?: Kit; intel?: Intel; intelStatus?: string; disqualified?: boolean; disqualifyReason?: string } | null;
+  meta: { website?: string | null; phone?: string | null; audit?: { healthScore?: number; gaps?: string[] }; recommendation?: { items: RecItem[]; oneTimeTotal: number; monthlyTotal: number; rationale: string[] }; kit?: Kit; intel?: Intel; intelStatus?: string; person?: { person?: Person; altContacts?: { name?: string; role?: string; channel?: string }[] }; personStatus?: string; disqualified?: boolean; disqualifyReason?: string; calls?: CallEntry[]; lastCall?: CallEntry } | null;
 }
 
 const ACCENT = "var(--c-green)";
 function scoreColor(s: number) { return s >= 70 ? "var(--c-green)" : s >= 40 ? "var(--c-amber)" : "var(--c-red)"; }
+
+/** POST + parse defensively. A server restart mid-poll returns an HTML error page;
+ *  raw res.json() then throws "Unexpected token '<'" at the user. Turn that into a
+ *  transient, human-readable state the poll loops can ride out. */
+async function postJSON(url: string, payload: unknown): Promise<Record<string, unknown>> {
+  try {
+    const res = await cockpitFetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+    const text = await res.text();
+    try { return JSON.parse(text); } catch { return { status: "transient", error: `server hiccup (HTTP ${res.status}) — retrying` }; }
+  } catch {
+    return { status: "transient", error: "network blip — retrying" };
+  }
+}
 
 export default function DealRoom() {
   const { leadId } = useParams<{ leadId: string }>();
@@ -45,6 +65,7 @@ export default function DealRoom() {
   const [tab, setTab] = useState("offer");
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [callNote, setCallNote] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -55,19 +76,18 @@ export default function DealRoom() {
 
   const genKit = useCallback(async (regenerate = false) => {
     setBusy("kit"); setMsg(null);
-    const post = (regen: boolean) =>
-      cockpitFetch("/api/command-center/leads/kit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ leadId, regenerate: regen }) }).then((r) => r.json());
+    const post = (regen: boolean) => postJSON("/api/command-center/leads/kit", { leadId, regenerate: regen });
     const apply = (kit: Kit) => setLead((p) => (p ? { ...p, meta: { ...p.meta, kit } } : p));
     try {
       let d = await post(regenerate);
-      if (d.kit) { apply(d.kit); return; }
-      if (d.error) { setMsg(d.error); return; }
+      if (d.kit) { apply(d.kit as Kit); return; }
+      if (d.error && d.status !== "transient") { setMsg(String(d.error)); return; }
       // generating → poll (each call is fast, so the tunnel never times out)
       for (let i = 0; i < 50; i++) {
         await new Promise((r) => setTimeout(r, 4000));
         d = await post(false);
-        if (d.kit) { apply(d.kit); return; }
-        if (d.error) { setMsg(`Kit failed: ${d.error}. Click Regenerate to retry.`); return; }
+        if (d.kit) { apply(d.kit as Kit); return; }
+        if (d.error && d.status !== "transient") { setMsg(`Kit failed: ${d.error}. Click Regenerate to retry.`); return; }
       }
       setMsg("Kit is taking longer than usual — give it a moment and reopen this client.");
     } finally { setBusy(null); }
@@ -75,17 +95,16 @@ export default function DealRoom() {
 
   const research = useCallback(async (regenerate = false) => {
     setBusy("intel"); setMsg(null);
-    const post = (regen: boolean) =>
-      cockpitFetch("/api/command-center/leads/intel", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ leadId, regenerate: regen }) }).then((r) => r.json());
+    const post = (regen: boolean) => postJSON("/api/command-center/leads/intel", { leadId, regenerate: regen });
     const apply = (intel: Intel) => setLead((p) => (p ? { ...p, meta: { ...p.meta, intel } } : p));
     try {
       let d = await post(regenerate);
-      if (d.intel) { apply(d.intel); return; }
+      if (d.intel) { apply(d.intel as Intel); return; }
       if (d.status === "error") { setMsg(`Research failed: ${d.error}. Click Research to retry.`); return; }
       for (let i = 0; i < 60; i++) {
         await new Promise((r) => setTimeout(r, 4000));
         d = await post(false);
-        if (d.intel) { apply(d.intel); return; }
+        if (d.intel) { apply(d.intel as Intel); return; }
         if (d.status === "error") { setMsg(`Research failed: ${d.error}. Click Research to retry.`); return; }
       }
       setMsg("Research is taking longer than usual — reopen this client in a minute.");
@@ -95,21 +114,27 @@ export default function DealRoom() {
   // One-click: research → diagnose (research-grounded) → sales kit. Everything ready.
   const prepClient = useCallback(async () => {
     setBusy("prep"); setMsg(null);
-    const pollGen = async (url: string, field: "intel" | "kit") => {
-      const post = (regenerate?: boolean) => cockpitFetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ leadId, ...(regenerate ? { regenerate: true } : {}) }) }).then((r) => r.json());
+    const pollGen = async (url: string, field: "intel" | "kit" | "person") => {
+      const post = (regenerate?: boolean) => postJSON(url, { leadId, ...(regenerate ? { regenerate: true } : {}) });
       let d = await post();
       if (d[field]) return;
       // A stale cached error (from an earlier failed run) won't clear on its own — the
       // route returns it verbatim unless we force a fresh run. Retry ONCE with regenerate.
       if (d.status === "error") d = await post(true);
-      for (let i = 0; i < 60; i++) { await new Promise((r) => setTimeout(r, 4000)); d = await post(); if (d[field]) return; if (d.status === "error") throw new Error(d.error || "failed"); }
+      for (let i = 0; i < 60; i++) { await new Promise((r) => setTimeout(r, 4000)); d = await post(); if (d[field]) return; if (d.status === "error") throw new Error(String(d.error || "failed")); }
       throw new Error("timed out");
     };
     try {
       if (!lead?.meta?.intel) { setMsg("🔍 Researching the business on the web… (~1–2 min)"); await pollGen("/api/command-center/leads/intel", "intel"); }
+      // Stage 2: enrich the PERSON (owner via state registry/LinkedIn/socials) — the
+      // company is found, now find the human. Non-fatal: a dry run still preps fine.
+      if (!lead?.meta?.person) {
+        setMsg("🕵 Finding the decision maker (registry + LinkedIn + socials)…");
+        try { await pollGen("/api/command-center/leads/enrich", "person"); } catch { /* enrichment is best-effort */ }
+      }
       setMsg("⚗ Diagnosing their digital presence + pricing the offer…");
-      const dres = await cockpitFetch("/api/command-center/pipeline/diagnose", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ leadId }) });
-      const dd = await dres.json();
+      const dd = await postJSON("/api/command-center/pipeline/diagnose", { leadId });
+      if (dd.status === "transient") throw new Error(String(dd.error || "server restarting — click Prep again"));
       if (dd.disqualified) { await load(); setMsg(`⛔ Not a fit — ${dd.reason} Marked lost; moving on.`); return; }
       setMsg("✦ Writing the call script, rebuttals & outreach…");
       await pollGen("/api/command-center/leads/kit", "kit");
@@ -129,16 +154,28 @@ export default function DealRoom() {
     } finally { setBusy(null); }
   }, [lead, leadId]);
 
+  const logCall = useCallback(async (outcome: CallOutcome) => {
+    setBusy("call"); setMsg(null);
+    try {
+      const d = await postJSON("/api/command-center/leads/call", { leadId, outcome, ...(callNote.trim() ? { note: callNote.trim() } : {}) });
+      if (d.logged) {
+        setCallNote("");
+        await load();
+        const o = outcomeMeta(outcome);
+        setMsg(`📞 Call logged — ${o.short}${d.stage === "qualified" && outcome !== "callback" ? " → moved to QUALIFIED" : d.stage === "lost" ? " → marked LOST" : ""}. ${outcome === "booked" ? "BAMFAM — meeting on the books. 🔥" : outcome === "interested" ? "Strike while warm: send the proposal today." : outcome === "callback" ? "Callback scheduled for tomorrow 10am — it'll surface on the Leads list." : ""}`);
+      } else setMsg(String(d.error || "Failed to log call"));
+    } finally { setBusy(null); }
+  }, [leadId, load, callNote]);
+
   const sendEmail = useCallback(async () => {
     if (!window.confirm("Send this cold email now from your Parallax Ventures email?")) return;
     setBusy("send"); setMsg(null);
     try {
-      const res = await cockpitFetch("/api/command-center/leads/send", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ leadId }) });
-      const d = await res.json();
+      const d = await postJSON("/api/command-center/leads/send", { leadId });
       if (d.sent) { setMsg(`✉ Sent to ${d.to}.`); await load(); }
       else if (d.needsSetup) setMsg("Email sending isn't connected yet — use ‘Open in Email’ below for now. (Add SMTP creds to enable one-click send.)");
       else if (d.noEmail) setMsg("No contact email found for this lead — re-run Research, or it may not have one public.");
-      else setMsg(d.error || "Send failed");
+      else setMsg(String(d.error || "Send failed"));
     } finally { setBusy(null); }
   }, [leadId, load]);
 
@@ -149,6 +186,8 @@ export default function DealRoom() {
   const audit = lead.meta?.audit; const rec = lead.meta?.recommendation; const kit = lead.meta?.kit; const intel = lead.meta?.intel;
   const diagnosed = !!audit; const acv = rec ? rec.oneTimeTotal + rec.monthlyTotal * 12 : lead.value;
   const biz = lead.company || lead.name || "Lead";
+  const phone = lead.meta?.phone || lead.meta?.person?.person?.phone || null;
+  const hadWarmCall = (lead.meta?.calls ?? []).some((c) => c.outcome === "interested" || c.outcome === "booked");
   const TABS = [["profile", "Profile"], ["offer", "The Offer"], ["script", "Call Script"], ["objections", "Objections"], ["outreach", "Outreach"], ["delivery", "Delivery"]];
 
   return (
@@ -175,6 +214,49 @@ export default function DealRoom() {
         {acv ? <> · <b style={{ color: "var(--c-gold)" }}>${acv.toLocaleString()} ACV</b></> : null}
       </div>
 
+      {/* Browser dialer on the Parallax line. Record toggle only appears once this
+          lead has a prior interested/booked call — a true cold dial never shows it,
+          so there's no code path to accidentally record an undisclosed first call. */}
+      {phone ? (
+        <div style={{ margin: "10px 0 4px" }}>
+          <ParallaxDialer phone={phone} leadId={leadId} allowRecordToggle={hadWarmCall} />
+        </div>
+      ) : null}
+
+      {/* ── Call log — one click per dial, outcome moves the pipeline ── */}
+      <div style={{ marginTop: 14, borderRadius: "var(--r-md)", border: "1px solid var(--line)", background: "var(--ink-1)", padding: "12px 16px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, fontWeight: 800, color: "var(--t-hi)", whiteSpace: "nowrap" }}>📞 I called —</span>
+          {CALL_OUTCOMES.map((o) => (
+            <button key={o.key} onClick={() => logCall(o.key)} disabled={busy !== null}
+              style={{ padding: "6px 12px", fontSize: 12, fontWeight: 700, borderRadius: 20, cursor: busy ? "default" : "pointer", whiteSpace: "nowrap", background: `${o.color}14`, color: o.color, border: `1px solid ${o.color}55`, opacity: busy === "call" ? 0.6 : 1 }}>
+              {o.label}
+            </button>
+          ))}
+        </div>
+        {/* 20-second debrief — type or use OS dictation; attaches to the outcome you tap.
+            This is the legal-everywhere coaching loop: YOUR notes, not a recording. */}
+        <input
+          value={callNote}
+          onChange={(e) => setCallNote(e.target.value)}
+          placeholder="20-sec debrief before you tap an outcome (objections heard, tone, what to try next) — optional, feeds coaching + client intel"
+          style={{ marginTop: 10, width: "100%", boxSizing: "border-box", fontSize: 12.5, padding: "8px 12px", borderRadius: 8, border: "1px solid var(--line)", background: "var(--ink-0)", color: "var(--t-hi)", outline: "none" }}
+        />
+        {(lead.meta?.calls?.length ?? 0) > 0 && (
+          <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line)", display: "flex", flexDirection: "column", gap: 4 }}>
+            {[...(lead.meta?.calls ?? [])].slice(-4).reverse().map((c, i) => {
+              const o = outcomeMeta(c.outcome);
+              return (
+                <div key={`${c.at}-${i}`} style={{ fontSize: 11.5, color: "var(--t-lo)" }}>
+                  <span style={{ color: o.color, fontWeight: 700 }}>{o.short}</span> · {agoLabel(c.at)}{c.note ? <span> — {c.note}</span> : null}
+                </div>
+              );
+            })}
+            <div style={{ fontSize: 10.5, color: "var(--t-lo)" }}>{lead.meta?.calls?.length} call{(lead.meta?.calls?.length ?? 0) > 1 ? "s" : ""} logged</div>
+          </div>
+        )}
+      </div>
+
       {msg && <div style={{ marginTop: 14, padding: "10px 14px", borderRadius: "var(--r-sm)", background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", color: "#86efac", fontSize: 13 }}>{msg}</div>}
       {lead.meta?.disqualified && <div style={{ marginTop: 14, padding: "12px 16px", borderRadius: "var(--r-sm)", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5", fontSize: 13 }}>⛔ <b>Not a fit.</b> {lead.meta.disqualifyReason} Marked Lost so the engine focuses on businesses that actually need us. (Profile below is still here if you want to see why.)</div>}
 
@@ -190,7 +272,7 @@ export default function DealRoom() {
           </div>
 
           <div style={{ marginTop: 22 }}>
-            {tab === "profile" && (intel ? <Profile intel={intel} /> : <Empty text="Click ⚡ Prep this Client above — your agent browses the web to profile this exact business (type, services, reviews, competitors, owner, personalized hooks)." />)}
+            {tab === "profile" && (intel ? <Profile intel={intel} person={lead?.meta?.person?.person} /> : <Empty text="Click ⚡ Prep this Client above — your agent browses the web to profile this exact business (type, services, reviews, competitors, owner, personalized hooks)." />)}
             {tab === "offer" && rec && <Offer rec={rec} acv={acv} />}
             {tab !== "offer" && tab !== "profile" && !kit && <Empty text="Click ⚡ Prep this Client above — your agent writes the call script, rebuttals, and outreach tailored to this client." />}
             {tab === "script" && kit && <Script kit={kit} copy={copy} copied={copied} />}
@@ -205,15 +287,32 @@ export default function DealRoom() {
 }
 
 /* ── Sections ─────────────────────────────────────────────────────────────── */
-function Profile({ intel }: { intel: Intel }) {
+function Profile({ intel, person }: { intel: Intel; person?: Person }) {
   const op = intel.onlinePresence || {};
+  const confColor = person?.confidence === "verified" ? "var(--c-green)" : person?.confidence === "likely" ? "var(--c-amber)" : "var(--t-lo)";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       <div>
         <div style={{ fontSize: 15, fontWeight: 800, color: "var(--c-cyan)" }}>{intel.businessType || "Business"}</div>
-        {intel.owner ? <div style={{ fontSize: 12, color: "var(--t-lo)", marginTop: 2 }}>Owner: {intel.owner}</div> : null}
+        {!person?.name && intel.owner ? <div style={{ fontSize: 12, color: "var(--t-lo)", marginTop: 2 }}>Owner: {intel.owner}</div> : null}
         <p style={{ fontSize: 13.5, color: "var(--t-hi)", lineHeight: 1.65, marginTop: 8 }}>{intel.summary}</p>
       </div>
+      {person?.name ? (
+        <div style={{ borderRadius: 10, border: "1px solid rgba(34,197,94,0.35)", background: "rgba(34,197,94,0.05)", padding: "12px 14px" }}>
+          <H>Decision maker — who you&apos;re actually selling to</H>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+            <span style={{ fontSize: 15, fontWeight: 800, color: "var(--t-hi)" }}>{person.name}</span>
+            {person.role ? <span style={{ fontSize: 12, color: "var(--t-mid)" }}>{person.role}</span> : null}
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: confColor, textTransform: "uppercase" }}>{person.confidence || "unknown"}</span>
+          </div>
+          <div style={{ fontSize: 12.5, color: "var(--t-mid)", lineHeight: 1.9, marginTop: 6 }}>
+            {person.email ? <>Email: <b style={{ color: person.mxValid === false ? "var(--c-red)" : person.emailStatus === "found" ? "var(--c-green)" : "var(--c-amber)" }}>{person.email}</b> <span style={{ color: "var(--t-lo)" }}>({person.emailStatus === "found" ? `found — ${person.emailSource || "public source"}` : "pattern guess — verify before sending"}{person.mxValid === false ? " · domain doesn't accept mail" : person.mxValid ? " · domain accepts mail ✓" : ""})</span><br /></> : null}
+            {person.linkedin ? <>LinkedIn: <a href={person.linkedin} target="_blank" rel="noreferrer" style={{ color: "var(--c-cyan)" }}>{person.linkedin}</a><br /></> : null}
+            {person.phone ? <>Direct: {person.phone}<br /></> : null}
+          </div>
+          {person.evidence?.length ? <div style={{ fontSize: 11, color: "var(--t-lo)", marginTop: 6, lineHeight: 1.7 }}>{person.evidence.map((e, i) => <div key={i}>· {e}</div>)}</div> : null}
+        </div>
+      ) : null}
       {intel.personalizedHooks?.length ? <div style={{ borderRadius: 10, border: "1px solid rgba(56,189,248,0.3)", background: "rgba(56,189,248,0.05)", padding: "12px 14px" }}>
         <H>Personalized hooks — prove you researched them</H>
         <ul style={{ margin: 0, paddingLeft: 18, color: "#bae6fd", fontSize: 13, lineHeight: 1.8 }}>{intel.personalizedHooks.map((h, i) => <li key={i}>{h}</li>)}</ul>
@@ -270,11 +369,11 @@ function Offer({ rec, acv }: { rec: { items: RecItem[]; oneTimeTotal: number; mo
 }
 function Script({ kit, copy, copied }: { kit: Kit; copy: (k: string, t: string) => void; copied: string | null }) {
   const s = kit.callScript || {};
-  const rows: [string, string | undefined][] = [["1 · Clarify", s.clarify], ["2 · Label the gap", s.label], ["3 · Overview the pain", s.overview], ["4 · Sell the outcome", s.sell], ["5 · Explain + close", s.explainAndClose]];
-  const full = rows.map(([k, v]) => `${k}\n${v || ""}`).join("\n\n");
+  const rows: [string, string | undefined][] = [["1 · Opener — 10 seconds, permission + honest reason", s.clarify], ["2 · The hook — one verified fact", s.label], ["3 · One question, then listen", s.overview], ["4 · Sell the meeting, not the site", s.sell], ["5 · Close the slot (+ price pivot — never quote on a cold call)", s.explainAndClose], ["☎ Voicemail — 25 seconds", s.voicemail]];
+  const full = rows.filter(([, v]) => v).map(([k, v]) => `${k}\n${v || ""}`).join("\n\n");
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><H>CLOSER call script</H><CopyBtn k="script" copied={copied} onClick={() => copy("script", full)} /></div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><H>Cold-call script — goal: book the 15-min meeting (BAMFAM)</H><CopyBtn k="script" copied={copied} onClick={() => copy("script", full)} /></div>
       {kit.threePillarPitch?.length ? <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "0 0 16px" }}>{kit.threePillarPitch.map((p, i) => <span key={i} style={{ fontSize: 12, padding: "5px 11px", borderRadius: 20, background: "rgba(34,197,94,0.1)", color: "#86efac" }}>{p}</span>)}</div> : null}
       {rows.map(([k, v]) => v && <div key={k} style={{ marginBottom: 14 }}><div style={{ fontSize: 11, color: ACCENT, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 5 }}>{k}</div><div style={{ fontSize: 13.5, color: "var(--t-hi)", lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{v}</div></div>)}
       {kit.discoveryQuestions?.length ? <><H>Discovery questions</H><ul style={{ margin: 0, paddingLeft: 18, color: "var(--t-mid)", fontSize: 13, lineHeight: 1.8 }}>{kit.discoveryQuestions.map((q, i) => <li key={i}>{q}</li>)}</ul></> : null}
@@ -302,8 +401,14 @@ function Outreach({ kit, copy, copied, email, biz, onSend, sending }: { kit: Kit
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <H>Cold email{email ? ` → ${email}` : " · no contact email found"}</H>
         <div style={{ display: "flex", gap: 6 }}>
-          <button onClick={onSend} disabled={sending} style={{ fontSize: 11, fontWeight: 800, padding: "6px 14px", borderRadius: 6, background: sending ? "var(--line)" : ACCENT, color: sending ? "var(--t-lo)" : "#001b0c", border: "none", cursor: sending ? "default" : "pointer" }}>{sending ? "Sending…" : "🚀 Send Now"}</button>
-          <a href={mailto} style={{ fontSize: 11, fontWeight: 700, padding: "6px 12px", borderRadius: 6, background: "rgba(34,197,94,0.12)", color: ACCENT, border: "1px solid #22c55e55", textDecoration: "none" }}>✉ Open in Email</a>
+          {email ? (
+            <>
+              <button onClick={onSend} disabled={sending} style={{ fontSize: 11, fontWeight: 800, padding: "6px 14px", borderRadius: 6, background: sending ? "var(--line)" : ACCENT, color: sending ? "var(--t-lo)" : "#001b0c", border: "none", cursor: sending ? "default" : "pointer" }}>{sending ? "Sending…" : "🚀 Send Now"}</button>
+              <a href={mailto} style={{ fontSize: 11, fontWeight: 700, padding: "6px 12px", borderRadius: 6, background: "rgba(34,197,94,0.12)", color: ACCENT, border: "1px solid #22c55e55", textDecoration: "none" }}>✉ Open in Email</a>
+            </>
+          ) : (
+            <span title="Research found no public email — use the phone + call script" style={{ fontSize: 11, fontWeight: 700, padding: "6px 12px", borderRadius: 6, background: "rgba(245,158,11,0.1)", color: "var(--c-amber)", border: "1px solid rgba(245,158,11,0.4)" }}>📞 Phone-first lead — no public email exists</span>
+          )}
           <CopyBtn k="email" copied={copied} onClick={() => copy("email", emailFull)} />
         </div>
       </div>

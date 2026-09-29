@@ -5,6 +5,7 @@ import { geocode, searchBusinesses } from "@/lib/prospector";
 import { qualifyProspect, normalizeName } from "@/lib/lead-fit";
 import { learnedTargets } from "@/lib/icp-learning";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { guardServiceCaller, guardOwnerOrService } from "@/lib/server/service-caller";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -80,7 +81,7 @@ async function run() {
 }
 
 export async function POST(req: Request) {
-  const p03Guard = await guardProtectedMutation(req);
+  const p03Guard = await guardOwnerOrService(req, "cron", "mutation");
   if (!p03Guard.ok) return p03Guard.response;
  return run(); }
 export async function GET(req: Request) {

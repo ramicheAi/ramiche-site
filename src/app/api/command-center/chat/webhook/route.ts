@@ -2,6 +2,8 @@ import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { telegramAttachApproveButton } from "@/lib/telegram-cc-bot";
+import { guardServiceCaller, guardOwnerOrService } from "@/lib/server/service-caller";
+import { UUID_RE, sanitizeAttachments } from "@/lib/server/cockpit-chat-data";
 
 export const dynamic = "force-dynamic";
 
@@ -31,21 +33,12 @@ const AGENT_DM_UUID: Record<string, string> = {
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // P05-B2: service role only. No anon-key fallback: misconfiguration is a clean 503.
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return null;
   return createClient(url, key);
 }
 
-function authOk(req: NextRequest): boolean {
-  const expected =
-    process.env.OPENCLAW_CC_WEBHOOK_TOKEN ||
-    process.env.OPENCLAW_GATEWAY_TOKEN ||
-    "";
-  if (!expected) return false;
-  const auth = req.headers.get("authorization");
-  if (!auth?.startsWith("Bearer ")) return false;
-  return auth.slice(7) === expected;
-}
 
 /**
  * POST — OpenClaw / automations push agent messages into CC Supabase.
@@ -62,19 +55,16 @@ function authOk(req: NextRequest): boolean {
  * (requires TELEGRAM_BOT_TOKEN). Wire OpenClaw to POST here after sendMessage.
  */
 export async function POST(req: NextRequest) {
-  const p03Guard = await guardProtectedMutation(req);
+  const p03Guard = await guardServiceCaller(req, "openclaw-webhook");
   if (!p03Guard.ok) return p03Guard.response;
 
-  if (!authOk(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   try {
     const body = await req.json();
     const agentId = String(body.agentId || "").toLowerCase().trim();
     const channelId = String(body.channelId || "").trim();
     const content = String(body.content || "").trim();
-    const attachments = Array.isArray(body.attachments) ? body.attachments : [];
+    const attachments = sanitizeAttachments(body.attachments, process.env.NEXT_PUBLIC_SUPABASE_URL, { allowHttps: true });
     const metadataRaw =
       body.metadata && typeof body.metadata === "object"
         ? (body.metadata as Record<string, unknown>)
@@ -82,6 +72,15 @@ export async function POST(req: NextRequest) {
 
     if (!agentId || !channelId || !content) {
       return NextResponse.json({ error: "agentId, channelId, content required" }, { status: 400 });
+    }
+    if (!UUID_RE.test(channelId)) {
+      return NextResponse.json({ error: "channelId must be a UUID" }, { status: 400 });
+    }
+    if (attachments === null) {
+      return NextResponse.json({ error: "invalid attachments" }, { status: 400 });
+    }
+    if (content.length > 20000) {
+      return NextResponse.json({ error: "content too long" }, { status: 400 });
     }
 
     const supabase = getSupabase();

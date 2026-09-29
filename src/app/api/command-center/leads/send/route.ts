@@ -4,6 +4,7 @@ import nodemailer from "nodemailer";
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { PARALLAX } from "@/lib/parallax-co";
+import { humanizeCopy } from "@/lib/humanize";
 import { parseBody, badRequest, isValidEmail } from "@/lib/api-security";
 
 export const dynamic = "force-dynamic";
@@ -37,8 +38,10 @@ export async function POST(req: Request) {
   const kit = meta.kit as { coldEmail?: { subject?: string; body?: string } } | undefined;
   const intel = meta.intel as { contactEmail?: string | null } | undefined;
   const to = (lead.contact_email || intel?.contactEmail || "") as string;
-  const subject = kit?.coldEmail?.subject;
-  const text = kit?.coldEmail?.body;
+  // Last-line-of-defense humanize: strip AI tells (dashes, placeholders, etc.) from
+  // ANY draft before it leaves — kit, loop, or manual.
+  const subject = humanizeCopy(kit?.coldEmail?.subject || "");
+  const text = humanizeCopy(kit?.coldEmail?.body || "");
 
   if (!subject || !text) return badRequest("No cold email yet — run Prep this Client first.");
   if (!to || !isValidEmail(to)) return NextResponse.json({ error: "No valid contact email for this lead.", noEmail: true }, { status: 400 });
@@ -49,6 +52,28 @@ export async function POST(req: Request) {
   const from = process.env.EMAIL_FROM || PARALLAX.email;
   if (!host || !user || !pass) {
     return NextResponse.json({ needsSetup: true, error: "SMTP not configured — add SMTP_HOST/SMTP_USER/SMTP_PASS/EMAIL_FROM to send. Use the mail-app draft for now." }, { status: 200 });
+  }
+
+  // THE FROM DOMAIN MUST MATCH THE AUTHENTICATED ACCOUNT.
+  //
+  // Gmail accepts a foreign envelope sender with a 250 and then REWRITES the visible From
+  // header to whichever account actually authenticated, unless that address is a verified
+  // "Send mail as" alias. A mismatch therefore does not fail. It sends, quietly, showing
+  // an address the recipient was never meant to see. On cold outreach that is worse than
+  // not sending: the one impression is spent and it looks careless.
+  //
+  // Verified 2026-08-26: EMAIL_FROM was hello@parallaxvinc.com while SMTP_USER was a
+  // gmail.com account. The envelope came back 250 and nothing warned.
+  const fromAddr = (from.match(/<([^>]+)>/)?.[1] ?? from).trim().toLowerCase();
+  const fromDomain = fromAddr.split("@")[1];
+  const userDomain = user.trim().toLowerCase().split("@")[1];
+  if (fromDomain && userDomain && fromDomain !== userDomain) {
+    return NextResponse.json({
+      needsSetup: true,
+      error: `Refusing to send: EMAIL_FROM is ${fromAddr} but SMTP_USER authenticates as ${user}. `
+           + `The provider would rewrite the From header and the recipient would see ${user}. `
+           + `Set SMTP_USER to an address on ${fromDomain} with its own app password.`,
+    }, { status: 200 });
   }
 
   try {

@@ -1,6 +1,7 @@
 import { guardPrivateRead } from "@/lib/server/protected-mutation";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { guardServiceCaller, guardOwnerOrService } from "@/lib/server/service-caller";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -31,7 +32,7 @@ function monthKey(timestamp: number): string {
 }
 
 export async function GET(req: Request) {
-  const p03Guard = await guardPrivateRead(req);
+  const p03Guard = await guardOwnerOrService(req, "cron", "read");
   if (!p03Guard.ok) return p03Guard.response;
 
   const stripe = getStripe();
