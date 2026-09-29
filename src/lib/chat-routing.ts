@@ -2,28 +2,9 @@
  * CC Chat routing — @mentions and multi-agent targets (shared by API + UI).
  */
 
-const AGENT_IDS = [
-  "atlas",
-  "triage",
-  "shuri",
-  "proximon",
-  "aetherion",
-  "simons",
-  "mercury",
-  "vee",
-  "ink",
-  "echo",
-  "haven",
-  "widow",
-  "drstrange",
-  "kiyosaki",
-  "michael",
-  "selah",
-  "prophets",
-  "themaestro",
-  "nova",
-  "themis",
-] as const;
+import { chatAgentIds } from "@/lib/agent-registry-core";
+
+const AGENT_IDS = chatAgentIds();
 
 export const KNOWN_AGENT_IDS = new Set<string>(AGENT_IDS);
 
