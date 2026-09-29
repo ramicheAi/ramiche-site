@@ -31,6 +31,7 @@ import {
   resolveChatSessionKey,
 } from "@/lib/openclaw-gateway";
 import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
+import { claudeTierMap, type ClaudeTier } from "@/lib/agent-registry";
 import { processImageMarkers } from "@/lib/image-gen/markers";
 
 export const TENANT_ID = "11111111-1111-1111-1111-111111111111";
@@ -169,28 +170,7 @@ export function getSupabaseServiceForApprove(): SupabaseClient | null {
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
-const AGENT_MODEL_TIER: Record<string, "opus" | "sonnet" | "haiku"> = {
-  atlas: "opus",
-  themis: "sonnet",
-  drstrange: "sonnet",
-  simons: "opus",
-  kiyosaki: "sonnet",
-  proximon: "sonnet",
-  widow: "sonnet",
-  shuri: "sonnet",
-  aetherion: "sonnet",
-  selah: "sonnet",
-  prophets: "sonnet",
-  mercury: "sonnet",
-  vee: "sonnet",
-  ink: "sonnet",
-  echo: "sonnet",
-  haven: "sonnet",
-  michael: "sonnet",
-  themaestro: "sonnet",
-  nova: "sonnet",
-  triage: "haiku",
-};
+const AGENT_MODEL_TIER: Record<string, ClaudeTier> = claudeTierMap();
 
 function modelForAgent(agentId: string): string {
   const tier = AGENT_MODEL_TIER[agentId.toLowerCase()] ?? "sonnet";

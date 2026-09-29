@@ -4,32 +4,10 @@ import { createClient } from "@supabase/supabase-js";
 import { telegramAttachApproveButton } from "@/lib/telegram-cc-bot";
 import { guardServiceCaller, guardOwnerOrService } from "@/lib/server/service-caller";
 import { UUID_RE, sanitizeAttachments } from "@/lib/server/cockpit-chat-data";
+import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
 
 export const dynamic = "force-dynamic";
 
-/** Same UUID map as chat/route.ts — agent messages resolve in UI */
-const AGENT_DM_UUID: Record<string, string> = {
-  atlas: "aa000001-0000-0000-0000-000000000000",
-  triage: "aa000002-0000-0000-0000-000000000000",
-  shuri: "aa000003-0000-0000-0000-000000000000",
-  proximon: "aa000004-0000-0000-0000-000000000000",
-  aetherion: "aa000005-0000-0000-0000-000000000000",
-  simons: "aa000006-0000-0000-0000-000000000000",
-  mercury: "aa000007-0000-0000-0000-000000000000",
-  vee: "aa000008-0000-0000-0000-000000000000",
-  ink: "aa000009-0000-0000-0000-000000000000",
-  echo: "aa000010-0000-0000-0000-000000000000",
-  haven: "aa000011-0000-0000-0000-000000000000",
-  widow: "aa000012-0000-0000-0000-000000000000",
-  drstrange: "aa000013-0000-0000-0000-000000000000",
-  kiyosaki: "aa000014-0000-0000-0000-000000000000",
-  michael: "aa000015-0000-0000-0000-000000000000",
-  selah: "aa000016-0000-0000-0000-000000000000",
-  prophets: "aa000017-0000-0000-0000-000000000000",
-  themaestro: "aa000018-0000-0000-0000-000000000000",
-  nova: "aa000019-0000-0000-0000-000000000000",
-  themis: "aa000020-0000-0000-0000-000000000000",
-};
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
