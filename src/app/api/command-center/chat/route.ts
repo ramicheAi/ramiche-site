@@ -7,6 +7,7 @@ import {
 } from "@/lib/openclaw-gateway";
 import { resolveChatTargets } from "@/lib/chat-routing";
 import { AGENT_DM_UUID, AGENT_UUID_TO_SHORT_ID } from "@/lib/cc-agent-dm-uuids";
+import { claudeTierMap, personaMap, type ClaudeTier } from "@/lib/agent-registry";
 import { processImageMarkers } from "@/lib/image-gen/markers";
 
 export const dynamic = "force-dynamic";
@@ -74,28 +75,7 @@ function cleanEnv(name: string): string | undefined {
 // breaks character with "I'm Claude, an Anthropic assistant" when given a
 // formal handoff prompt. Only TRIAGE stays on Haiku since it's a pure log-
 // analysis utility with no customer-facing persona to maintain.
-const AGENT_MODEL_TIER: Record<string, "opus" | "sonnet" | "haiku"> = {
-  atlas: "opus",
-  themis: "sonnet",
-  drstrange: "sonnet",
-  simons: "opus",
-  kiyosaki: "sonnet",
-  proximon: "sonnet",
-  widow: "sonnet",
-  shuri: "sonnet",
-  aetherion: "sonnet",
-  selah: "sonnet",
-  prophets: "sonnet",
-  mercury: "sonnet",
-  vee: "sonnet",
-  ink: "sonnet",
-  echo: "sonnet",
-  haven: "sonnet",
-  michael: "sonnet",
-  themaestro: "sonnet",
-  nova: "sonnet",
-  triage: "haiku",
-};
+const AGENT_MODEL_TIER: Record<string, ClaudeTier> = claudeTierMap();
 
 function modelForAgent(agentId: string): string {
   const tier = AGENT_MODEL_TIER[agentId.toLowerCase()] ?? "sonnet";
@@ -115,28 +95,7 @@ function modelForLMStudio(): string | undefined {
   return cleanEnv("CC_LMSTUDIO_MODEL");
 }
 
-const AGENT_PERSONAS: Record<string, { role: string; style: string }> = {
-  atlas: { role: "Operations Lead & Strategic Command", style: "Calm, sharp, direct. Systems thinker." },
-  triage: { role: "Debugging & Log Analysis", style: "Methodical, detail-oriented. Asks clarifying questions." },
-  shuri: { role: "Frontend Engineering & Code Generation", style: "Fast-moving, practical. Code-first answers." },
-  proximon: { role: "Systems Architecture & Infrastructure", style: "Thoughtful, architectural. Considers scale." },
-  aetherion: { role: "Creative Director & Visual Design", style: "Visionary, aesthetic-focused. Thinks in imagery." },
-  simons: { role: "Data Analysis & Quantitative Strategy", style: "Numbers-driven, precise. Evidence-based." },
-  mercury: { role: "Sales Strategy & Revenue", style: "Persuasive, results-oriented. Revenue-focused." },
-  vee: { role: "Brand Strategy & Marketing", style: "Brand-aware, strategic. Audience-first thinking." },
-  ink: { role: "Copywriting & Content Creation", style: "Creative writer, concise. Words matter." },
-  echo: { role: "Community Engagement & Social", style: "Friendly, community-minded. Engagement-focused." },
-  haven: { role: "Support & Client Onboarding", style: "Warm, helpful, patient. Customer success." },
-  widow: { role: "Cybersecurity & Threat Analysis", style: "Vigilant, security-first. Trust nothing." },
-  drstrange: { role: "Strategic Forecasting & Scenarios", style: "Forward-looking, probabilistic. Maps futures." },
-  kiyosaki: { role: "Financial Strategy & Capital", style: "Wealth-minded, asset-focused. Cash flow thinking." },
-  michael: { role: "Swim Coaching & Athlete Development", style: "Motivating, technical. Performance-driven." },
-  selah: { role: "Psychology & Wellness", style: "Empathetic, insightful. Mental performance." },
-  prophets: { role: "Spiritual Counsel & Wisdom", style: "Thoughtful, grounded in faith. Purpose-driven." },
-  themaestro: { role: "Music Production & Audio", style: "Creative, technical. Sound-obsessed." },
-  nova: { role: "3D Fabrication & Overnight Builds", style: "Maker mindset, iterative. Build-test-iterate." },
-  themis: { role: "Legal, Governance & Compliance", style: "Precise, careful. Risk-aware." },
-};
+const AGENT_PERSONAS: Record<string, { role: string; style: string }> = personaMap();
 
 /**
  * Service role — used for ALL server-side inserts and updates so RLS on the

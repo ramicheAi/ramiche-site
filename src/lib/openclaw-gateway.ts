@@ -13,6 +13,8 @@
  *   gateway.auth.token in openclaw.json).
  */
 
+import { openclawSessionKeyMap } from "@/lib/agent-registry";
+
 const DEFAULT_BASE = "http://127.0.0.1:24511";
 
 export function isOpenClawGatewayConfigured(): boolean {
@@ -94,28 +96,7 @@ export async function gatewayToolsInvoke(body: {
  *    michael    → swimelite
  *    themaestro → maestro
  *  Env OPENCLAW_AGENT_SESSION_KEYS (JSON) overrides this map per agent. */
-const DEFAULT_AGENT_SESSION_KEYS: Record<string, string> = {
-  atlas: "agent:main:main",
-  triage: "agent:triage:main",
-  shuri: "agent:shuri:main",
-  proximon: "agent:proximon:main",
-  aetherion: "agent:aetherion:main",
-  simons: "agent:simons:main",
-  mercury: "agent:mercury:main",
-  vee: "agent:vee:main",
-  ink: "agent:ink:main",
-  echo: "agent:echo:main",
-  haven: "agent:haven:main",
-  widow: "agent:widow:main",
-  drstrange: "agent:strange:main",
-  kiyosaki: "agent:kiyosaki:main",
-  michael: "agent:swimelite:main",
-  selah: "agent:selah:main",
-  prophets: "agent:prophets:main",
-  themaestro: "agent:maestro:main",
-  nova: "agent:nova:main",
-  themis: "agent:themis:main",
-};
+const DEFAULT_AGENT_SESSION_KEYS: Record<string, string> = openclawSessionKeyMap();
 
 /** Map UI agent id → OpenClaw session key. Lookup priority:
  *    1. env OPENCLAW_AGENT_SESSION_KEYS JSON map (per-agent override)
