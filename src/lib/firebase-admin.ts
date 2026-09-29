@@ -8,6 +8,7 @@
 import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
 import { getAuth, type Auth } from "firebase-admin/auth";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
+import { verifyWithOneRetry } from "@/lib/server/verify-retry";
 
 let adminApp: App | null = null;
 let adminAuth: Auth | null = null;
@@ -76,13 +77,12 @@ export async function verifySessionCookie(
   cookie: string
 ): Promise<{ uid: string; email?: string; signInProvider?: string } | null> {
   getAdminApp();
-  if (!adminAuth) return null;
-  try {
-    const decoded = await adminAuth.verifySessionCookie(cookie, true);
-    return { uid: decoded.uid, email: decoded.email, signInProvider: decoded.firebase?.sign_in_provider };
-  } catch {
-    return null;
-  }
+  const auth = adminAuth;
+  if (!auth) return null;
+  // Revocation-checked verification. A genuine rejection denies immediately; an
+  // indeterminate upstream/network failure is retried once, then fails closed.
+  const decoded = await verifyWithOneRetry(() => auth.verifySessionCookie(cookie, true));
+  return decoded ? { uid: decoded.uid, email: decoded.email, signInProvider: decoded.firebase?.sign_in_provider } : null;
 }
 
 // ── Firestore Admin Operations ───────────────────────────────

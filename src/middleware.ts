@@ -60,6 +60,15 @@ export async function middleware(req: NextRequest) {
   if (pathname === '/' && req.nextUrl.hostname === 'command.parallaxvinc.com') {
     return NextResponse.redirect(new URL('/command-center', req.url));
   }
+  // An already-verified owner never needs the login form: the SAME full owner check as the
+  // cockpit (verified session + exact PARALLAX_OWNER_UID) must pass before redirecting.
+  // No/invalid/revoked/expired/wrong-owner sessions still get the login page.
+  if (pathname === '/command-login') {
+    const identity = await requireOwnerIdentity(req);
+    const response = identity.ok ? NextResponse.redirect(new URL('/command-center', req.url)) : NextResponse.next();
+    response.headers.set('cache-control', 'private, no-store');
+    return response;
+  }
   if (pathname === '/command-center' || pathname.startsWith('/command-center/') || pathname === '/status.json') {
     const identity = await requireOwnerIdentity(req);
     if (!identity.ok) {
@@ -98,6 +107,7 @@ export const config = {
     "/apex-athlete/coach/:path*",
     "/apex-athlete/athlete",
     "/apex-athlete/athlete/:path*",
+    "/command-login",
     "/command-center",
     "/command-center/:path*",
     "/api/command-center/:path*",
