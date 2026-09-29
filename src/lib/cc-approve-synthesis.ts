@@ -24,13 +24,14 @@
  */
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import {
-  gatewaySessionsSend,
-  isOpenClawGatewayConfigured,
-  resolveChatSessionKey,
-} from "@/lib/openclaw-gateway";
+import { isOpenClawGatewayConfigured, resolveChatSessionKey } from "@/lib/openclaw-gateway";
 import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
-import { claudeTierMap, type ClaudeTier } from "@/lib/agent-registry";
+import {
+  claudeModelForAgent,
+  cleanEnv,
+  executeCompletion,
+  executeOpenClaw,
+} from "@/lib/provider-adapter";
 import { processImageMarkers } from "@/lib/image-gen/markers";
 
 export const TENANT_ID = "11111111-1111-1111-1111-111111111111";
@@ -155,27 +156,12 @@ export type ApproveEvent =
 type OnEvent = (event: ApproveEvent) => void;
 const NOOP_EVENT: OnEvent = () => {};
 
-function cleanEnv(name: string): string | undefined {
-  const raw = process.env[name];
-  if (!raw) return undefined;
-  const cleaned = raw.replace(/[\s\x00-\x1f\x7f]+$/u, "").replace(/^\s+/u, "");
-  return cleaned || undefined;
-}
 
 export function getSupabaseServiceForApprove(): SupabaseClient | null {
   const url = cleanEnv("NEXT_PUBLIC_SUPABASE_URL");
   const key = cleanEnv("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !key) return null;
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
-}
-
-const AGENT_MODEL_TIER: Record<string, ClaudeTier> = claudeTierMap();
-
-function modelForAgent(agentId: string): string {
-  const tier = AGENT_MODEL_TIER[agentId.toLowerCase()] ?? "sonnet";
-  if (tier === "opus") return cleanEnv("CC_CLAUDE_MODEL_OPUS") || "claude-opus-4-6";
-  if (tier === "sonnet") return cleanEnv("CC_CLAUDE_MODEL_SONNET") || "claude-sonnet-4-6";
-  return cleanEnv("CC_CLAUDE_MODEL_HAIKU") || "claude-haiku-4-5";
 }
 
 function displayName(agentId: string): string {
@@ -327,30 +313,20 @@ async function callClaudeMax(
   model: string,
   timeoutMs: number
 ): Promise<string | null> {
-  const claudeUrl = cleanEnv("CLAUDE_MAX_PROXY_URL") || "http://127.0.0.1:3456/v1/chat/completions";
-  const claudeToken = cleanEnv("CLAUDE_MAX_PROXY_TOKEN") || "not-needed";
-  try {
-    const res = await fetch(claudeUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${claudeToken}` },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userTurn },
-        ],
-        max_tokens: 1500,
-        temperature: 0.4,
-      }),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const text = data.choices?.[0]?.message?.content;
-    return typeof text === "string" ? text : null;
-  } catch {
-    return null;
-  }
+  const r = await executeCompletion({
+    provider: "claude-max",
+    model,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userTurn },
+    ],
+    maxTokens: 1500,
+    temperature: 0.4,
+    timeoutMs,
+    context: { purpose: "approve-execution" },
+  });
+  if (!r.ok) return null;
+  return typeof r.text === "string" ? r.text : null;
 }
 
 async function callLMStudio(
@@ -358,28 +334,20 @@ async function callLMStudio(
   userTurn: string,
   timeoutMs: number
 ): Promise<string | null> {
-  const lmUrl = cleanEnv("LM_STUDIO_URL") || "http://127.0.0.1:1234/v1/chat/completions";
-  try {
-    const res = await fetch(lmUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userTurn },
-        ],
-        max_tokens: 1500,
-        temperature: 0.4,
-      }),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const text = data.choices?.[0]?.message?.content;
-    return typeof text === "string" ? text : null;
-  } catch {
-    return null;
-  }
+  // No model is pinned here (unlike chat/route.ts): LM Studio uses whatever is loaded.
+  const r = await executeCompletion({
+    provider: "lm-studio",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userTurn },
+    ],
+    maxTokens: 1500,
+    temperature: 0.4,
+    timeoutMs,
+    context: { purpose: "approve-execution" },
+  });
+  if (!r.ok) return null;
+  return typeof r.text === "string" ? r.text : null;
 }
 
 /** Dispatch a prompt to the owner agent. Returns the agent's text + which backend served it. */
@@ -395,14 +363,19 @@ async function dispatchExecution(
     process.env.OPENCLAW_CHAT_PRIMARY === "true";
   if (openclawPrimary && isOpenClawGatewayConfigured()) {
     const sessionKey = resolveChatSessionKey(owner);
-    const gw = await gatewaySessionsSend(sessionKey, prompt, 90);
-    if (gw.ok && gw.reply) return { ok: true, text: gw.reply, via: "openclaw" };
+    const gw = await executeOpenClaw({
+      sessionKey,
+      message: prompt,
+      timeoutSeconds: 90,
+      context: { agentId: owner, purpose: "approve-execution" },
+    });
+    if (gw.ok) return { ok: true, text: gw.text, via: "openclaw" };
   }
 
   const claudeText = await callClaudeMax(
     prompt,
     "Execute the task now and produce the deliverable.",
-    modelForAgent(owner),
+    claudeModelForAgent(owner),
     DISPATCH_TIMEOUT_MS
   );
   if (claudeText && claudeText.trim()) return { ok: true, text: claudeText, via: "claude-max" };
@@ -437,7 +410,7 @@ async function runVerifier(
   const text = await callClaudeMax(
     prompt,
     "Return only the JSON verdict.",
-    modelForAgent("atlas"),
+    claudeModelForAgent("atlas"),
     VERIFIER_TIMEOUT_MS
   );
   if (!text) return null;
