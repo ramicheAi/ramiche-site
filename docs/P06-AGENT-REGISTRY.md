@@ -1,6 +1,21 @@
 # P06 Packet 1: Canonical Agent Registry
 
-Source of truth: `src/lib/agent-registry.ts`. Base: `origin/main` at `42e3921`.
+Source of truth: `src/lib/agent-registry-core.ts` (client-safe identity) joined by id with
+`src/lib/agent-registry.ts` (server-only details). Base: `origin/main` at `42e3921`.
+
+## Client-safe / server-only boundary
+
+| Module | Contains | Imported by |
+|---|---|---|
+| `agent-registry-core.ts` | id, directoryId, aliases, name, status, channels, DM UUID | client code (via `chat-routing.ts`, `cc-agent-dm-uuids.ts`) and server |
+| `agent-registry.ts` | persona text, OpenClaw session keys, runtime tier, declared provider/model, skills/capabilities, escalation | server only |
+
+The core has no imports; the server module imports the core, never the reverse. The server module
+joins by id and throws at load if the two disagree. `agent-registry.test.ts` enforces: core has no
+imports or internal strings, client-imported modules import the core only, and no `"use client"`
+file can transitively reach the server registry. Measured on production builds: persona prompts,
+OpenClaw session keys and registry-only field names are absent from client JS; remaining model/skill
+strings in client chunks are identical to `origin/main` (they come from existing UI files).
 
 ## What is canonical now
 
@@ -33,6 +48,7 @@ runtime default `claude-sonnet-4-6`). Pinned in `agent-registry.test.ts`.
 | `openclaw-gateway.ts` `DEFAULT_AGENT_SESSION_KEYS` | `openclawSessionKeyMap()` |
 | `chat/route.ts` and `cc-approve-synthesis.ts` `AGENT_MODEL_TIER` (identical copies) | `claudeTierMap()` |
 | `chat/route.ts` `AGENT_PERSONAS` | `personaMap()` |
+| `chat/stream/route.ts` `AGENT_PERSONAS` (identical copy, found in review) | `personaMap()` |
 | `agents/route.ts` and `export/handler.ts` `STATIC_AGENTS` (identical copies) | `directoryAgents()` |
 
 ## Left for later (migration targets)
@@ -45,6 +61,7 @@ runtime default `claude-sonnet-4-6`). Pinned in `agent-registry.test.ts`.
 | `legacy/page.tsx`, `terminal/page.tsx` (fake static print with stale models and wrong roles) | Legacy or decorative surfaces. |
 | `po-data.ts` `AGENTS` | 15 of 22 ids are not real agents. Remove or relabel, product decision. |
 | `agent-metrics.json` | Not imported anywhere. Delete candidate (stale models and roles). |
+| `agents/route.ts` `getRecentlyActiveAgents` fallback list (10 ids marked active when git has no signal) | Separate product policy (which agents show as active), not identity or config. Ids are a subset of the registry. Left in place. |
 | `modelForAgent` tier to model-string logic (2 copies) | Provider Adapter packet owns this. |
 | `shared-projects.ts`, `yolo-builds` `agentMap`, `manage/page.tsx` model tables | Display-name keyed or model-catalog data. |
 

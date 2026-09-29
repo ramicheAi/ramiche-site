@@ -1,4 +1,4 @@
-import { agentDmUuidMap } from "@/lib/agent-registry";
+import { agentDmUuidMap } from "@/lib/agent-registry-core";
 
 /**
  * CC Chat — agent short id → UUID used as `sender_agent_id` for agent messages

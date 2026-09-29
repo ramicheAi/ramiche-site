@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { readFileSync } from "fs";
+import { readFileSync, readdirSync, statSync, existsSync } from "fs";
 import { join } from "path";
+import { AGENT_CORE } from "./agent-registry-core";
 import {
   AGENT_REGISTRY,
   getAgent,
@@ -166,6 +167,7 @@ describe("migrated surfaces contain no hand-written agent rosters", () => {
     "src/lib/openclaw-gateway.ts",
     "src/lib/cc-approve-synthesis.ts",
     "src/app/api/command-center/chat/route.ts",
+    "src/app/api/command-center/chat/stream/route.ts",
     "src/app/api/command-center/chat/webhook/route.ts",
     "src/app/api/command-center/agents/route.ts",
     "src/app/api/command-center/export/handler.ts",
@@ -179,21 +181,102 @@ describe("migrated surfaces contain no hand-written agent rosters", () => {
       expect(src, `${f}: tier table entry`).not.toMatch(/\b(?:shuri|proximon|kiyosaki|themaestro|prophets)\s*:\s*"(?:opus|sonnet|haiku)"/);
       expect(src, `${f}: directory entry`).not.toMatch(/\bmodel:\s*"(?:claude-|qwen3|kimi|gemini-)[^"]*",\s*provider:/);
       expect(src, `${f}: id array`).not.toMatch(/"shuri",\s*\n?\s*"proximon"/);
+      expect(src, `${f}: persona table entry`).not.toMatch(/\b[a-z]+:\s*\{\s*role:\s*"[^"]+",\s*style:\s*"/);
     }
   });
 
   it("migrated files import from the registry", () => {
     const viaRegistry = [
-      "src/lib/chat-routing.ts",
-      "src/lib/cc-agent-dm-uuids.ts",
       "src/lib/openclaw-gateway.ts",
       "src/lib/cc-approve-synthesis.ts",
       "src/app/api/command-center/chat/route.ts",
+      "src/app/api/command-center/chat/stream/route.ts",
       "src/app/api/command-center/agents/route.ts",
       "src/app/api/command-center/export/handler.ts",
     ];
-    for (const f of viaRegistry) expect(read(f), f).toMatch(/@\/lib\/agent-registry/);
+    for (const f of viaRegistry) expect(read(f), f).toMatch(/@\/lib\/agent-registry"/);
+    // client-imported modules use the client-safe core only
+    for (const f of ["src/lib/chat-routing.ts", "src/lib/cc-agent-dm-uuids.ts"]) {
+      expect(read(f), f).toMatch(/@\/lib\/agent-registry-core"/);
+      expect(read(f), f).not.toMatch(/@\/lib\/agent-registry"/);
+    }
     expect(read("src/app/api/command-center/chat/webhook/route.ts")).toMatch(/@\/lib\/cc-agent-dm-uuids/);
+  });
+});
+
+describe("client-safe / server-only boundary", () => {
+  const SERVER_REGISTRY = "src/lib/agent-registry.ts";
+
+  it("the client-safe core has no imports and no internal configuration", () => {
+    const src = read("src/lib/agent-registry-core.ts");
+    expect(src).not.toMatch(/^\s*import\s/m);
+    for (const forbidden of [
+      /personaStyle|persona/i,
+      /openclawSessionKey|agent:[a-z]+:main/,
+      /declared|escalation|capabilities|skills/i,
+      /claude-(opus|sonnet|haiku)|qwen|gemini|kimi|deepseek/i,
+      /claudeTier|runtime/,
+    ]) {
+      // Comments may explain what is excluded; check code only.
+      const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+      expect(code, String(forbidden)).not.toMatch(forbidden);
+    }
+  });
+
+  it("core fields are exactly the non-sensitive identity subset", () => {
+    for (const c of AGENT_CORE) {
+      expect(Object.keys(c).sort()).toEqual(["aliases", "channels", "directoryId", "dmUuid", "id", "name", "status"]);
+    }
+    expect(AGENT_REGISTRY.map((a) => a.id)).toEqual(AGENT_CORE.map((c) => c.id));
+  });
+
+  it("no 'use client' file can transitively reach the server-only registry", () => {
+    const resolve = (spec: string, from: string): string | null => {
+      let base: string;
+      if (spec.startsWith("@/")) base = join("src", spec.slice(2));
+      else if (spec.startsWith(".")) base = join(from, "..", spec);
+      else return null;
+      for (const c of [base + ".ts", base + ".tsx", join(base, "index.ts"), join(base, "index.tsx"), base]) {
+        if (existsSync(join(process.cwd(), c)) && statSync(join(process.cwd(), c)).isFile()) return c;
+      }
+      return null;
+    };
+    const importsOf = (f: string): string[] => {
+      const src = read(f);
+      const out: string[] = [];
+      for (const m of src.matchAll(/(?:import|export)\s[^;]*?from\s+["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g)) {
+        const r = resolve(m[1] ?? m[2], f);
+        if (r) out.push(r);
+      }
+      return out;
+    };
+    const walk = (dir: string, acc: string[] = []): string[] => {
+      for (const n of readdirSync(join(process.cwd(), dir))) {
+        const rel = join(dir, n);
+        const st = statSync(join(process.cwd(), rel));
+        if (st.isDirectory()) walk(rel, acc);
+        else if (/\.(ts|tsx)$/.test(n) && !/\.test\./.test(n)) acc.push(rel);
+      }
+      return acc;
+    };
+    const clientFiles = walk("src").filter((f) => /^\s*["']use client["']/.test(read(f)));
+    expect(clientFiles.length).toBeGreaterThan(10);
+    const offenders: string[] = [];
+    for (const cf of clientFiles) {
+      const seen = new Set<string>();
+      const stack = [cf];
+      while (stack.length) {
+        const f = stack.pop()!;
+        if (seen.has(f)) continue;
+        seen.add(f);
+        if (f === SERVER_REGISTRY) {
+          offenders.push(cf);
+          break;
+        }
+        stack.push(...importsOf(f));
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 });
 

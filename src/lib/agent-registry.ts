@@ -1,9 +1,11 @@
 /**
- * Canonical agent registry (P06 Packet 1): one record per agent identity.
+ * Canonical agent registry, SERVER-ONLY details (P06 Packet 1).
  *
- * Every surface that needs an agent's id, DM UUID, OpenClaw session key, Claude
- * tier, persona or directory metadata should derive it from here through the
- * selectors below, never from a hand-written table.
+ * Identity lives in `agent-registry-core.ts` (client-safe). This module adds the
+ * internal per-agent configuration keyed by the same `id`: persona, OpenClaw session
+ * key, runtime tier and the declared directory metadata. DO NOT import this module
+ * from browser code; client-facing modules must import `agent-registry-core` only
+ * (enforced by `agent-registry.test.ts`).
  *
  * TRUTH RULES
  * - `runtime` records what the code in this repo actually does today. For
@@ -21,8 +23,12 @@
  * - `"unknown"` is an explicit value, never a silent default.
  */
 
+import { AGENT_CORE, chatAgentIds, agentDmUuidMap, type AgentCore, type AgentChannel } from "@/lib/agent-registry-core";
+
+export { AGENT_CORE, chatAgentIds, agentDmUuidMap };
+export type { AgentCore, AgentChannel };
+
 export type ClaudeTier = "opus" | "sonnet" | "haiku";
-export type AgentChannel = "cc-chat";
 
 export interface AgentDeclared {
   /** Provider label as declared in the directory (not verified against runtime). */
@@ -35,39 +41,24 @@ export interface AgentDeclared {
   readonly providerNote?: string;
 }
 
-export interface AgentDefinition {
-  /** Canonical, chat-safe id. Matches chat routing, DM UUIDs and the OpenClaw gateway. */
-  readonly id: string;
-  /** Key used by /api/command-center/agents and the export (differs only for Dr Strange). */
-  readonly directoryId: string;
-  readonly aliases: readonly string[];
-  readonly name: string;
+export interface AgentServerDetails {
   /** Role slug as served by the roster API. */
   readonly role: string;
   readonly description: string;
   readonly personaStyle: string | null;
-  readonly status: "active" | "inactive";
-  /** Where this agent can be addressed. Empty = not addressable in chat. */
-  readonly channels: readonly AgentChannel[];
-  readonly dmUuid: string | null;
   /** OpenClaw session key (backend/adapter target); null = none known. */
   readonly openclawSessionKey: string | null;
   readonly runtime: { readonly claudeTier: ClaudeTier | "unknown" };
   readonly declared: AgentDeclared;
 }
 
-export const AGENT_REGISTRY: readonly AgentDefinition[] = [
-  {
-    id: "archivist",
-    directoryId: "archivist",
-    aliases: [],
-    name: "Archivist",
+export type AgentDefinition = AgentCore & AgentServerDetails;
+
+const AGENT_SERVER_DETAILS: Readonly<Record<string, AgentServerDetails>> = {
+  "archivist": {
     role: "workspace-indexer",
     description: "Workspace indexer: file lookup, route mapping, codebase queries",
     personaStyle: null,
-    status: "active",
-    channels: [],
-    dmUuid: null,
     openclawSessionKey: null,
     runtime: { claudeTier: "unknown" },
     declared: {
@@ -77,17 +68,10 @@ export const AGENT_REGISTRY: readonly AgentDefinition[] = [
       escalationLevel: "level-0",
     },
   },
-  {
-    id: "atlas",
-    directoryId: "atlas",
-    aliases: [],
-    name: "Atlas",
+  "atlas": {
     role: "operations-lead",
     description: "Operations Lead & Strategic Command",
     personaStyle: "Calm, sharp, direct. Systems thinker.",
-    status: "active",
-    channels: ["cc-chat"],
-    dmUuid: "aa000001-0000-0000-0000-000000000000",
     openclawSessionKey: "agent:main:main",
     runtime: { claudeTier: "opus" },
     declared: {
@@ -97,17 +81,10 @@ export const AGENT_REGISTRY: readonly AgentDefinition[] = [
       escalationLevel: "final",
     },
   },
-  {
-    id: "triage",
-    directoryId: "triage",
-    aliases: [],
-    name: "Triage",
+  "triage": {
     role: "debugging",
     description: "Debugging & Log Analysis",
     personaStyle: "Methodical, detail-oriented. Asks clarifying questions.",
-    status: "active",
-    channels: ["cc-chat"],
-    dmUuid: "aa000002-0000-0000-0000-000000000000",
     openclawSessionKey: "agent:triage:main",
     runtime: { claudeTier: "haiku" },
     declared: {
@@ -118,17 +95,10 @@ export const AGENT_REGISTRY: readonly AgentDefinition[] = [
       escalationLevel: "specialist",
     },
   },
-  {
-    id: "shuri",
-    directoryId: "shuri",
-    aliases: [],
-    name: "Shuri",
+  "shuri": {
     role: "engineering",
     description: "Frontend Engineering & Code Generation",
     personaStyle: "Fast-moving, practical. Code-first answers.",
-    status: "active",
-    channels: ["cc-chat"],
-    dmUuid: "aa000003-0000-0000-0000-000000000000",
     openclawSessionKey: "agent:shuri:main",
     runtime: { claudeTier: "sonnet" },
     declared: {
@@ -139,17 +109,10 @@ export const AGENT_REGISTRY: readonly AgentDefinition[] = [
       escalationLevel: "executor",
     },
   },
-  {
-    id: "proximon",
-    directoryId: "proximon",
-    aliases: [],
-    name: "Proximon",
+  "proximon": {
     role: "architecture",
     description: "Systems Architecture & Infrastructure",
     personaStyle: "Thoughtful, architectural. Considers scale.",
-    status: "active",
-    channels: ["cc-chat"],
-    dmUuid: "aa000004-0000-0000-0000-000000000000",
     openclawSessionKey: "agent:proximon:main",
     runtime: { claudeTier: "sonnet" },
     declared: {
@@ -160,17 +123,10 @@ export const AGENT_REGISTRY: readonly AgentDefinition[] = [
       escalationLevel: "specialist",
     },
   },
-  {
-    id: "aetherion",
-    directoryId: "aetherion",
-    aliases: [],
-    name: "Aetherion",
+  "aetherion": {
     role: "creative-director",
     description: "Creative Director & Visual Design",
     personaStyle: "Visionary, aesthetic-focused. Thinks in imagery.",
-    status: "active",
-    channels: ["cc-chat"],
-    dmUuid: "aa000005-0000-0000-0000-000000000000",
     openclawSessionKey: "agent:aetherion:main",
     runtime: { claudeTier: "sonnet" },
     declared: {
@@ -181,17 +137,10 @@ export const AGENT_REGISTRY: readonly AgentDefinition[] = [
       escalationLevel: "specialist",
     },
   },
-  {
-    id: "simons",
-    directoryId: "simons",
-    aliases: [],
-    name: "Simons",
+  "simons": {
     role: "data-analysis",
     description: "Data Analysis & Quantitative Strategy",
     personaStyle: "Numbers-driven, precise. Evidence-based.",
-    status: "active",
-    channels: ["cc-chat"],
-    dmUuid: "aa000006-0000-0000-0000-000000000000",
     openclawSessionKey: "agent:simons:main",
     runtime: { claudeTier: "opus" },
     declared: {
@@ -202,17 +151,10 @@ export const AGENT_REGISTRY: readonly AgentDefinition[] = [
       escalationLevel: "specialist",
     },
   },
-  {
-    id: "mercury",
-    directoryId: "mercury",
-    aliases: [],
-    name: "Mercury",
+  "mercury": {
     role: "sales",
     description: "Sales Strategy & Revenue",
     personaStyle: "Persuasive, results-oriented. Revenue-focused.",
-    status: "active",
-    channels: ["cc-chat"],
-    dmUuid: "aa000007-0000-0000-0000-000000000000",
     openclawSessionKey: "agent:mercury:main",
     runtime: { claudeTier: "sonnet" },
     declared: {
@@ -223,17 +165,10 @@ export const AGENT_REGISTRY: readonly AgentDefinition[] = [
       escalationLevel: "specialist",
     },
   },
-  {
-    id: "vee",
-    directoryId: "vee",
-    aliases: [],
-    name: "Vee",
+  "vee": {
     role: "brand-strategy",
     description: "Brand Strategy & Marketing",
     personaStyle: "Brand-aware, strategic. Audience-first thinking.",
-    status: "active",
-    channels: ["cc-chat"],
-    dmUuid: "aa000008-0000-0000-0000-000000000000",
     openclawSessionKey: "agent:vee:main",
     runtime: { claudeTier: "sonnet" },
     declared: {
@@ -244,17 +179,10 @@ export const AGENT_REGISTRY: readonly AgentDefinition[] = [
       escalationLevel: "specialist",
     },
   },
-  {
-    id: "ink",
-    directoryId: "ink",
-    aliases: [],
-    name: "Ink",
+  "ink": {
     role: "copywriting",
     description: "Copywriting & Content Creation",
     personaStyle: "Creative writer, concise. Words matter.",
-    status: "active",
-    channels: ["cc-chat"],
-    dmUuid: "aa000009-0000-0000-0000-000000000000",
     openclawSessionKey: "agent:ink:main",
     runtime: { claudeTier: "sonnet" },
     declared: {
@@ -265,17 +193,10 @@ export const AGENT_REGISTRY: readonly AgentDefinition[] = [
       escalationLevel: "executor",
     },
   },
-  {
-    id: "echo",
-    directoryId: "echo",
-    aliases: [],
-    name: "Echo",
+  "echo": {
     role: "community",
     description: "Community Engagement & Social",
     personaStyle: "Friendly, community-minded. Engagement-focused.",
-    status: "active",
-    channels: ["cc-chat"],
-    dmUuid: "aa000010-0000-0000-0000-000000000000",
     openclawSessionKey: "agent:echo:main",
     runtime: { claudeTier: "sonnet" },
     declared: {
@@ -287,17 +208,10 @@ export const AGENT_REGISTRY: readonly AgentDefinition[] = [
       providerNote: "Local M5 MacBook",
     },
   },
-  {
-    id: "haven",
-    directoryId: "haven",
-    aliases: [],
-    name: "Haven",
+  "haven": {
     role: "support",
     description: "Support & Client Onboarding",
     personaStyle: "Warm, helpful, patient. Customer success.",
-    status: "active",
-    channels: ["cc-chat"],
-    dmUuid: "aa000011-0000-0000-0000-000000000000",
     openclawSessionKey: "agent:haven:main",
     runtime: { claudeTier: "sonnet" },
     declared: {
@@ -308,17 +222,10 @@ export const AGENT_REGISTRY: readonly AgentDefinition[] = [
       escalationLevel: "executor",
     },
   },
-  {
-    id: "widow",
-    directoryId: "widow",
-    aliases: [],
-    name: "Widow",
+  "widow": {
     role: "security",
     description: "Cybersecurity & Threat Analysis",
     personaStyle: "Vigilant, security-first. Trust nothing.",
-    status: "active",
-    channels: ["cc-chat"],
-    dmUuid: "aa000012-0000-0000-0000-000000000000",
     openclawSessionKey: "agent:widow:main",
     runtime: { claudeTier: "sonnet" },
     declared: {
@@ -330,17 +237,10 @@ export const AGENT_REGISTRY: readonly AgentDefinition[] = [
       providerNote: "Local M5 MacBook",
     },
   },
-  {
-    id: "drstrange",
-    directoryId: "dr-strange",
-    aliases: ["dr-strange"],
-    name: "Dr Strange",
+  "drstrange": {
     role: "forecasting",
     description: "Strategic Forecasting & Scenarios",
     personaStyle: "Forward-looking, probabilistic. Maps futures.",
-    status: "active",
-    channels: ["cc-chat"],
-    dmUuid: "aa000013-0000-0000-0000-000000000000",
     openclawSessionKey: "agent:strange:main",
     runtime: { claudeTier: "sonnet" },
     declared: {
@@ -351,17 +251,10 @@ export const AGENT_REGISTRY: readonly AgentDefinition[] = [
       escalationLevel: "specialist",
     },
   },
-  {
-    id: "kiyosaki",
-    directoryId: "kiyosaki",
-    aliases: [],
-    name: "Kiyosaki",
+  "kiyosaki": {
     role: "finance",
     description: "Financial Strategy & Capital",
     personaStyle: "Wealth-minded, asset-focused. Cash flow thinking.",
-    status: "active",
-    channels: ["cc-chat"],
-    dmUuid: "aa000014-0000-0000-0000-000000000000",
     openclawSessionKey: "agent:kiyosaki:main",
     runtime: { claudeTier: "sonnet" },
     declared: {
@@ -372,17 +265,10 @@ export const AGENT_REGISTRY: readonly AgentDefinition[] = [
       escalationLevel: "specialist",
     },
   },
-  {
-    id: "michael",
-    directoryId: "michael",
-    aliases: [],
-    name: "Michael",
+  "michael": {
     role: "swim-coaching",
     description: "Swim Coaching & Athlete Development",
     personaStyle: "Motivating, technical. Performance-driven.",
-    status: "active",
-    channels: ["cc-chat"],
-    dmUuid: "aa000015-0000-0000-0000-000000000000",
     openclawSessionKey: "agent:swimelite:main",
     runtime: { claudeTier: "sonnet" },
     declared: {
@@ -394,17 +280,10 @@ export const AGENT_REGISTRY: readonly AgentDefinition[] = [
       providerNote: "Local M5 MacBook",
     },
   },
-  {
-    id: "selah",
-    directoryId: "selah",
-    aliases: [],
-    name: "Selah",
+  "selah": {
     role: "psychology",
     description: "Psychology & Wellness",
     personaStyle: "Empathetic, insightful. Mental performance.",
-    status: "active",
-    channels: ["cc-chat"],
-    dmUuid: "aa000016-0000-0000-0000-000000000000",
     openclawSessionKey: "agent:selah:main",
     runtime: { claudeTier: "sonnet" },
     declared: {
@@ -416,17 +295,10 @@ export const AGENT_REGISTRY: readonly AgentDefinition[] = [
       providerNote: "Local M5 MacBook",
     },
   },
-  {
-    id: "prophets",
-    directoryId: "prophets",
-    aliases: [],
-    name: "Prophets",
+  "prophets": {
     role: "spiritual",
     description: "Spiritual Counsel & Wisdom",
     personaStyle: "Thoughtful, grounded in faith. Purpose-driven.",
-    status: "active",
-    channels: ["cc-chat"],
-    dmUuid: "aa000017-0000-0000-0000-000000000000",
     openclawSessionKey: "agent:prophets:main",
     runtime: { claudeTier: "sonnet" },
     declared: {
@@ -438,17 +310,10 @@ export const AGENT_REGISTRY: readonly AgentDefinition[] = [
       providerNote: "Local M5 MacBook",
     },
   },
-  {
-    id: "themaestro",
-    directoryId: "themaestro",
-    aliases: [],
-    name: "TheMAESTRO",
+  "themaestro": {
     role: "music",
     description: "Music Production & Audio",
     personaStyle: "Creative, technical. Sound-obsessed.",
-    status: "active",
-    channels: ["cc-chat"],
-    dmUuid: "aa000018-0000-0000-0000-000000000000",
     openclawSessionKey: "agent:maestro:main",
     runtime: { claudeTier: "sonnet" },
     declared: {
@@ -460,17 +325,10 @@ export const AGENT_REGISTRY: readonly AgentDefinition[] = [
       providerNote: "Local M5 MacBook",
     },
   },
-  {
-    id: "nova",
-    directoryId: "nova",
-    aliases: [],
-    name: "Nova",
+  "nova": {
     role: "fabrication",
     description: "3D Fabrication & Overnight Builds",
     personaStyle: "Maker mindset, iterative. Build-test-iterate.",
-    status: "active",
-    channels: ["cc-chat"],
-    dmUuid: "aa000019-0000-0000-0000-000000000000",
     openclawSessionKey: "agent:nova:main",
     runtime: { claudeTier: "sonnet" },
     declared: {
@@ -481,17 +339,10 @@ export const AGENT_REGISTRY: readonly AgentDefinition[] = [
       escalationLevel: "executor",
     },
   },
-  {
-    id: "themis",
-    directoryId: "themis",
-    aliases: [],
-    name: "Themis",
+  "themis": {
     role: "governance",
     description: "Legal, Governance & Compliance",
     personaStyle: "Precise, careful. Risk-aware.",
-    status: "active",
-    channels: ["cc-chat"],
-    dmUuid: "aa000020-0000-0000-0000-000000000000",
     openclawSessionKey: "agent:themis:main",
     runtime: { claudeTier: "sonnet" },
     declared: {
@@ -502,7 +353,21 @@ export const AGENT_REGISTRY: readonly AgentDefinition[] = [
       escalationLevel: "authority",
     },
   },
-];
+};
+
+/** Full record = client-safe core joined with server details by id. Throws on any mismatch (fail loud). */
+export const AGENT_REGISTRY: readonly AgentDefinition[] = (() => {
+  const coreIds = new Set(AGENT_CORE.map((c) => c.id));
+  for (const id of Object.keys(AGENT_SERVER_DETAILS)) {
+    if (!coreIds.has(id)) throw new Error(`agent-registry: server details for unknown core id "${id}"`);
+  }
+  return AGENT_CORE.map((c) => {
+    const d = AGENT_SERVER_DETAILS[c.id];
+    if (!d) throw new Error(`agent-registry: core agent "${c.id}" has no server details`);
+    return { ...c, ...d };
+  });
+})();
+
 
 /* ── Lookups ─────────────────────────────────────────────────────────── */
 
@@ -530,18 +395,6 @@ export function listAgents(filter?: { channel?: AgentChannel; status?: "active" 
 }
 
 /* ── Derived views (replace the old hand-written tables) ─────────────── */
-
-/** Ids addressable in CC chat, in registry order. */
-export function chatAgentIds(): string[] {
-  return listAgents({ channel: "cc-chat" }).map((a) => a.id);
-}
-
-/** short id -> DM UUID (chat agents only). */
-export function agentDmUuidMap(): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const a of AGENT_REGISTRY) if (a.dmUuid) out[a.id] = a.dmUuid;
-  return out;
-}
 
 /** short id -> OpenClaw session key (agents with a known key). */
 export function openclawSessionKeyMap(): Record<string, string> {

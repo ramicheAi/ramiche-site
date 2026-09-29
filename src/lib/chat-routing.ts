@@ -2,7 +2,7 @@
  * CC Chat routing — @mentions and multi-agent targets (shared by API + UI).
  */
 
-import { chatAgentIds } from "@/lib/agent-registry";
+import { chatAgentIds } from "@/lib/agent-registry-core";
 
 const AGENT_IDS = chatAgentIds();
 
