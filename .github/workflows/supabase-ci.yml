@@ -1,16 +1,64 @@
 name: Supabase CI/CD
+
+# Safety model:
+#   - Pull requests and pushes only run `validate`, a static check of the migration files. No Supabase secret is
+#     read, no link, no database connection, so nothing here can touch a database.
+#   - `db` runs ONLY from a manual workflow_dispatch. It always shows the pending list (`db push --dry-run`) first.
+#     A real `db push` additionally needs mode=apply, confirm=APPLY, and the run must be on main.
+#   - Missing credentials fail loudly (by name, never by value); an empty secret is never the safety mechanism.
+
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'supabase/migrations/**'
   pull_request:
     branches: [main]
     paths:
       - 'supabase/migrations/**'
+      - '.github/workflows/supabase-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - '.github/workflows/supabase-ci.yml'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'dry-run lists pending migrations only. apply runs a real db push (needs confirm=APPLY, main only).'
+        type: choice
+        options: [dry-run, apply]
+        default: dry-run
+      confirm:
+        description: 'Type APPLY to allow a real db push. Ignored for dry-run.'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
 
 jobs:
-  migrate:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check migration file names and ordering
+        run: |
+          set -eu
+          fail=0
+          prev=""
+          for f in $(ls supabase/migrations/*.sql | sort); do
+            b=$(basename "$f")
+            case "$b" in
+              [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_*.sql) ;;
+              *) echo "::error file=$f::migration name must start with a 14-digit version and an underscore"; fail=1 ;;
+            esac
+            v=${b%%_*}
+            if [ "$v" = "$prev" ]; then echo "::error file=$f::duplicate migration version $v"; fail=1; fi
+            prev=$v
+          done
+          [ "$fail" -eq 0 ] && echo "migration files OK: $(ls supabase/migrations/*.sql | wc -l) file(s)"
+          exit "$fail"
+
+  db:
+    # Never runs for pull_request or push. Only a person clicking "Run workflow".
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -18,8 +66,22 @@ jobs:
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
+      - name: Require credentials (names only, values are never printed)
+        run: |
+          missing=""
+          [ -n "$SUPABASE_ACCESS_TOKEN" ] || missing="$missing SUPABASE_ACCESS_TOKEN"
+          [ -n "$SUPABASE_DB_PASSWORD" ] || missing="$missing SUPABASE_DB_PASSWORD"
+          [ -n "$SUPABASE_PROJECT_ID" ] || missing="$missing SUPABASE_PROJECT_ID"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required secret(s):$missing"
+            exit 1
+          fi
       - uses: supabase/setup-cli@v1
         with:
           version: latest
-      - run: supabase link --project-ref $SUPABASE_PROJECT_ID
-      - run: supabase db push
+      - run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
+      - name: Pending migrations (dry run, changes nothing)
+        run: supabase db push --dry-run
+      - name: Apply (real db push)
+        if: inputs.mode == 'apply' && inputs.confirm == 'APPLY' && github.ref == 'refs/heads/main'
+        run: supabase db push
