@@ -21,6 +21,15 @@
  *   verbatim so the API output does not change, and it disagrees with `runtime`
  *   for several agents. Use `declaredVsRuntime()` to see the gaps.
  * - `"unknown"` is an explicit value, never a silent default.
+ *
+ * WHY THE TIERS ARE WHAT THEY ARE (moved here from chat/route.ts, unchanged in meaning):
+ * ATLAS gets Opus (orchestrator) and SIMONS gets Opus. Specialists that do real reasoning get
+ * Sonnet. Any agent whose value comes from a STRONG, distinct persona (sales, brand, copy,
+ * community, support, music, fabrication) also gets Sonnet: Haiku's safety guardrails kick in too
+ * aggressively and the agent breaks character ("I'm Claude, an Anthropic assistant") on a formal
+ * handoff prompt. Only TRIAGE stays on Haiku, a pure log-analysis utility with no customer-facing
+ * persona to maintain. The tier -> model string mapping and env overrides live in
+ * `provider-adapter.ts` (`claudeModelForTier`).
  */
 
 import { AGENT_CORE, chatAgentIds, agentDmUuidMap, type AgentCore, type AgentChannel } from "@/lib/agent-registry-core";

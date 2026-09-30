@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { readFileSync, readdirSync, statSync, existsSync } from "fs";
+import { readFileSync } from "fs";
 import { join } from "path";
 import { AGENT_CORE } from "./agent-registry-core";
+import { clientFiles, clientFilesReaching } from "./client-boundary.test-helper";
 import {
   AGENT_REGISTRY,
   getAgent,
@@ -188,7 +189,7 @@ describe("migrated surfaces contain no hand-written agent rosters", () => {
   it("migrated files import from the registry", () => {
     const viaRegistry = [
       "src/lib/openclaw-gateway.ts",
-      "src/lib/cc-approve-synthesis.ts",
+      "src/lib/provider-adapter.ts", // owns tier -> model; consumes the registry's runtime tiers
       "src/app/api/command-center/chat/route.ts",
       "src/app/api/command-center/chat/stream/route.ts",
       "src/app/api/command-center/agents/route.ts",
@@ -231,52 +232,8 @@ describe("client-safe / server-only boundary", () => {
   });
 
   it("no 'use client' file can transitively reach the server-only registry", () => {
-    const resolve = (spec: string, from: string): string | null => {
-      let base: string;
-      if (spec.startsWith("@/")) base = join("src", spec.slice(2));
-      else if (spec.startsWith(".")) base = join(from, "..", spec);
-      else return null;
-      for (const c of [base + ".ts", base + ".tsx", join(base, "index.ts"), join(base, "index.tsx"), base]) {
-        if (existsSync(join(process.cwd(), c)) && statSync(join(process.cwd(), c)).isFile()) return c;
-      }
-      return null;
-    };
-    const importsOf = (f: string): string[] => {
-      const src = read(f);
-      const out: string[] = [];
-      for (const m of src.matchAll(/(?:import|export)\s[^;]*?from\s+["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g)) {
-        const r = resolve(m[1] ?? m[2], f);
-        if (r) out.push(r);
-      }
-      return out;
-    };
-    const walk = (dir: string, acc: string[] = []): string[] => {
-      for (const n of readdirSync(join(process.cwd(), dir))) {
-        const rel = join(dir, n);
-        const st = statSync(join(process.cwd(), rel));
-        if (st.isDirectory()) walk(rel, acc);
-        else if (/\.(ts|tsx)$/.test(n) && !/\.test\./.test(n)) acc.push(rel);
-      }
-      return acc;
-    };
-    const clientFiles = walk("src").filter((f) => /^\s*["']use client["']/.test(read(f)));
-    expect(clientFiles.length).toBeGreaterThan(10);
-    const offenders: string[] = [];
-    for (const cf of clientFiles) {
-      const seen = new Set<string>();
-      const stack = [cf];
-      while (stack.length) {
-        const f = stack.pop()!;
-        if (seen.has(f)) continue;
-        seen.add(f);
-        if (f === SERVER_REGISTRY) {
-          offenders.push(cf);
-          break;
-        }
-        stack.push(...importsOf(f));
-      }
-    }
-    expect(offenders).toEqual([]);
+    expect(clientFiles().length).toBeGreaterThan(10);
+    expect(clientFilesReaching(SERVER_REGISTRY)).toEqual([]);
   });
 });
 

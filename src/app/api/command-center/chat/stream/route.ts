@@ -1,11 +1,8 @@
 import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import {
-  gatewaySessionsSend,
-  isOpenClawGatewayConfigured,
-  resolveChatSessionKey,
-} from "@/lib/openclaw-gateway";
+import { isOpenClawGatewayConfigured, resolveChatSessionKey } from "@/lib/openclaw-gateway";
+import { executeOpenClaw, streamCompletion } from "@/lib/provider-adapter";
 import { resolveChatTargets } from "@/lib/chat-routing";
 import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
 import { personaMap } from "@/lib/agent-registry";
@@ -40,11 +37,6 @@ export const maxDuration = 90;
 
 type ReplySource = "openclaw" | "gemini" | "deepseek" | "openrouter" | "fallback";
 
-const GEMINI_STREAM_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse";
-const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
-const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-
 function getSupabaseService() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -62,88 +54,6 @@ function buildSystemPrompt(target: string, channelName: string | undefined) {
 
 function sseEvent(name: string, data: unknown) {
   return `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`;
-}
-
-async function* geminiStream(
-  systemPrompt: string,
-  userMessage: string,
-  apiKey: string
-): AsyncGenerator<string, void, unknown> {
-  const res = await fetch(`${GEMINI_STREAM_URL}&key=${apiKey}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ role: "user", parts: [{ text: userMessage }] }],
-      generationConfig: { maxOutputTokens: 500, temperature: 0.7 },
-    }),
-    signal: AbortSignal.timeout(45_000),
-  });
-  if (!res.ok || !res.body) return;
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buf = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    let nl: number;
-    while ((nl = buf.indexOf("\n")) !== -1) {
-      const line = buf.slice(0, nl).trim();
-      buf = buf.slice(nl + 1);
-      if (!line.startsWith("data:")) continue;
-      const payload = line.slice(5).trim();
-      if (!payload || payload === "[DONE]") continue;
-      try {
-        const j = JSON.parse(payload) as {
-          candidates?: { content?: { parts?: { text?: string }[] } }[];
-        };
-        const txt = j.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (txt) yield txt;
-      } catch {
-        /* ignore partial */
-      }
-    }
-  }
-}
-
-async function* openaiStyleStream(
-  url: string,
-  headers: Record<string, string>,
-  bodyJson: Record<string, unknown>
-): AsyncGenerator<string, void, unknown> {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...headers },
-    body: JSON.stringify({ ...bodyJson, stream: true }),
-    signal: AbortSignal.timeout(45_000),
-  });
-  if (!res.ok || !res.body) return;
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buf = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    let nl: number;
-    while ((nl = buf.indexOf("\n")) !== -1) {
-      const line = buf.slice(0, nl).trim();
-      buf = buf.slice(nl + 1);
-      if (!line.startsWith("data:")) continue;
-      const payload = line.slice(5).trim();
-      if (!payload || payload === "[DONE]") continue;
-      try {
-        const j = JSON.parse(payload) as {
-          choices?: { delta?: { content?: string } }[];
-        };
-        const txt = j.choices?.[0]?.delta?.content;
-        if (txt) yield txt;
-      } catch {
-        /* ignore */
-      }
-    }
-  }
 }
 
 export async function POST(req: NextRequest) {
@@ -249,18 +159,20 @@ export async function POST(req: NextRequest) {
         if (isOpenClawGatewayConfigured()) {
           const sessionKey = resolveChatSessionKey(target);
           const routed = `[CC chat → ${displayName} / session ${sessionKey}]\n${systemPrompt}\n\nUser:\n${message}`;
-          const gw = await gatewaySessionsSend(sessionKey, routed, 90);
-          if (gw.ok && gw.reply) {
-            send("chunk", { agent: target, delta: gw.reply });
-            await finalize(gw.reply, "openclaw");
+          const gw = await executeOpenClaw({
+            sessionKey,
+            message: routed,
+            timeoutSeconds: 90,
+            context: { agentId: target, purpose: "chat-stream" },
+          });
+          if (gw.ok) {
+            send("chunk", { agent: target, delta: gw.text });
+            await finalize(gw.text, "openclaw");
             return;
           }
           if (openclawStrict) {
             send("error", {
-              error:
-                !gw.ok && "error" in gw
-                  ? gw.error
-                  : "OpenClaw gateway did not return a reply",
+              error: gw.error,
               source: "openclaw",
             });
             controller.close();
@@ -273,7 +185,14 @@ export async function POST(req: NextRequest) {
         if (geminiKey) {
           let acc = "";
           try {
-            for await (const delta of geminiStream(systemPrompt, message, geminiKey)) {
+            const s = streamCompletion({
+              provider: "gemini",
+              apiKey: geminiKey,
+              systemPrompt,
+              userMessage: message,
+              context: { agentId: target, purpose: "chat-stream" },
+            });
+            for await (const delta of s.deltas) {
               acc += delta;
               send("chunk", { agent: target, delta });
             }
@@ -291,19 +210,14 @@ export async function POST(req: NextRequest) {
         if (deepseekKey) {
           let acc = "";
           try {
-            for await (const delta of openaiStyleStream(
-              DEEPSEEK_URL,
-              { Authorization: `Bearer ${deepseekKey}` },
-              {
-                model: "deepseek-chat",
-                messages: [
-                  { role: "system", content: systemPrompt },
-                  { role: "user", content: message },
-                ],
-                max_tokens: 500,
-                temperature: 0.7,
-              }
-            )) {
+            const s = streamCompletion({
+              provider: "deepseek",
+              apiKey: deepseekKey,
+              systemPrompt,
+              userMessage: message,
+              context: { agentId: target, purpose: "chat-stream" },
+            });
+            for await (const delta of s.deltas) {
               acc += delta;
               send("chunk", { agent: target, delta });
             }
@@ -321,23 +235,14 @@ export async function POST(req: NextRequest) {
         if (openrouterKey) {
           let acc = "";
           try {
-            for await (const delta of openaiStyleStream(
-              OPENROUTER_URL,
-              {
-                Authorization: `Bearer ${openrouterKey}`,
-                "HTTP-Referer": "https://ramiche-site.vercel.app",
-                "X-Title": "Parallax Command Center",
-              },
-              {
-                model: "anthropic/claude-sonnet-4",
-                messages: [
-                  { role: "system", content: systemPrompt },
-                  { role: "user", content: message },
-                ],
-                max_tokens: 500,
-                temperature: 0.7,
-              }
-            )) {
+            const s = streamCompletion({
+              provider: "openrouter",
+              apiKey: openrouterKey,
+              systemPrompt,
+              userMessage: message,
+              context: { agentId: target, purpose: "chat-stream" },
+            });
+            for await (const delta of s.deltas) {
               acc += delta;
               send("chunk", { agent: target, delta });
             }

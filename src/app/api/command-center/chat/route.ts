@@ -1,14 +1,17 @@
 import { guardPrivateRead, guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import {
-  gatewaySessionsSend,
-  isOpenClawGatewayConfigured,
-  resolveChatSessionKey,
-} from "@/lib/openclaw-gateway";
+import { isOpenClawGatewayConfigured, resolveChatSessionKey } from "@/lib/openclaw-gateway";
 import { resolveChatTargets } from "@/lib/chat-routing";
 import { AGENT_DM_UUID, AGENT_UUID_TO_SHORT_ID } from "@/lib/cc-agent-dm-uuids";
-import { claudeTierMap, personaMap, type ClaudeTier } from "@/lib/agent-registry";
+import { personaMap } from "@/lib/agent-registry";
+import {
+  claudeModelForAgent,
+  cleanEnv,
+  executeCompletion,
+  executeOpenClaw,
+  lmStudioModel,
+} from "@/lib/provider-adapter";
 import { processImageMarkers } from "@/lib/image-gen/markers";
 
 export const dynamic = "force-dynamic";
@@ -54,53 +57,7 @@ export async function HEAD(req: Request) {
  * gateway `sessions_send` is kept for future agent-orchestration but is
  * opt-in via OPENCLAW_CHAT_PRIMARY=1 because the Mac gateway is flaky.
  */
-const CLAUDE_MAX_DEFAULT_URL = "http://127.0.0.1:3456/v1/chat/completions";
-const LM_STUDIO_DEFAULT_URL = "http://127.0.0.1:1234/v1/chat/completions";
 
-/**
- * Trim whitespace + ALL control chars (incl. trailing \n / \r) from an env
- * value. Vercel's env-vars UI occasionally stores values pasted from a
- * terminal or chat app with a trailing newline; node's strict fetch then
- * rejects the resulting Authorization header / URL with "Invalid header
- * value" and every provider call silently fails. cleanEnv() is the single
- * choke-point so a malformed secret can never break the chat again.
- */
-function cleanEnv(name: string): string | undefined {
-  const raw = process.env[name];
-  if (!raw) return undefined;
-  const cleaned = raw.replace(/[\s\x00-\x1f\x7f]+$/u, "").replace(/^\s+/u, "");
-  return cleaned || undefined;
-}
-
-/** Per-agent Claude model tier. ATLAS gets Opus (orchestrator). Specialists
- *  that do real reasoning get Sonnet. Lightweight assistants (TRIAGE, NOVA,
- *  community/social agents) get Haiku for speed + cost. Tier overrideable
- *  via env: CC_CLAUDE_MODEL_ATLAS, CC_CLAUDE_MODEL_DEFAULT, etc. */
-// Tiering rule: any agent whose value to Ramon comes from a STRONG, distinct
-// persona (sales, brand, copy, community, support, music, fabrication) gets
-// Sonnet — Haiku's safety guardrails kick in too aggressively and the agent
-// breaks character with "I'm Claude, an Anthropic assistant" when given a
-// formal handoff prompt. Only TRIAGE stays on Haiku since it's a pure log-
-// analysis utility with no customer-facing persona to maintain.
-const AGENT_MODEL_TIER: Record<string, ClaudeTier> = claudeTierMap();
-
-function modelForAgent(agentId: string): string {
-  const tier = AGENT_MODEL_TIER[agentId.toLowerCase()] ?? "sonnet";
-  const overrideOpus = cleanEnv("CC_CLAUDE_MODEL_OPUS");
-  const overrideSonnet = cleanEnv("CC_CLAUDE_MODEL_SONNET");
-  const overrideHaiku = cleanEnv("CC_CLAUDE_MODEL_HAIKU");
-  if (tier === "opus") return overrideOpus || "claude-opus-4-6";
-  if (tier === "sonnet") return overrideSonnet || "claude-sonnet-4-6";
-  return overrideHaiku || "claude-haiku-4-5";
-}
-
-/** LM Studio loads whatever model the user has selected in the desktop app,
- *  and that model id is what /v1/chat/completions expects. When this env is
- *  unset we omit the field and most LM Studio builds respond with the active
- *  loaded model regardless; setting CC_LMSTUDIO_MODEL pins a specific one. */
-function modelForLMStudio(): string | undefined {
-  return cleanEnv("CC_LMSTUDIO_MODEL");
-}
 
 const AGENT_PERSONAS: Record<string, { role: string; style: string }> = personaMap();
 
@@ -350,8 +307,6 @@ async function regenerateAtlasDelegationReply(
   systemPrompt: string,
   userMessage: string
 ): Promise<string | null> {
-  const claudeUrl = cleanEnv("CLAUDE_MAX_PROXY_URL") || CLAUDE_MAX_DEFAULT_URL;
-  const claudeToken = cleanEnv("CLAUDE_MAX_PROXY_TOKEN") || "not-needed";
   const handles = violations.map((v) => `@${v}`).join(", ");
   const fixSystem =
     `${systemPrompt}\n\n--- STRICT DELEGATION (PROGRAMMATIC) ---\n` +
@@ -360,34 +315,24 @@ async function regenerateAtlasDelegationReply(
     `1. Include a fenced JSON block (markdown triple-backtick around json) with an "actions" array — EVERY mentioned agent (${handles}) MUST appear as an "owner" with a concrete "task" string.\n` +
     `2. OR remove ALL @mentions of agents other than yourself and answer alone.\n\n` +
     `Output ONLY the corrected reply. No preamble or apology.\n\nDraft:\n---\n${draft}\n---`;
-  try {
-    const res = await fetch(claudeUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${claudeToken}`,
-      },
-      body: JSON.stringify({
-        model: modelForAgent("atlas"),
-        messages: [
-          { role: "system", content: fixSystem },
-          { role: "user", content: userMessage },
-        ],
-        max_tokens: 500,
-        temperature: 0.25,
-      }),
-      signal: AbortSignal.timeout(45_000),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const out = data.choices?.[0]?.message?.content?.trim();
-    return out || null;
-  } catch (err) {
-    console.error("[chat] strict delegation rewrite failed:", err);
+  const r = await executeCompletion({
+    provider: "claude-max",
+    model: claudeModelForAgent("atlas"),
+    messages: [
+      { role: "system", content: fixSystem },
+      { role: "user", content: userMessage },
+    ],
+    maxTokens: 500,
+    temperature: 0.25,
+    timeoutMs: 45_000,
+    context: { agentId: "atlas", purpose: "strict-delegation-rewrite" },
+  });
+  if (!r.ok) {
+    if (r.kind === "exception") console.error("[chat] strict delegation rewrite failed:", r.error);
     return null;
   }
+  const out = r.text?.trim();
+  return out || null;
 }
 
 /** Last-resort: attach a minimal fenced JSON plan covering mentioned agents
@@ -483,23 +428,27 @@ async function generateAgentReply(
     // short enough that we fall through to Claude Max well before the
     // route's own maxDuration. Was 90s, which made one flaky agent kill
     // the entire response.
-    const gw = await gatewaySessionsSend(sessionKey, routed, 25);
-    if (gw.ok && gw.reply) {
-      agentResponse = gw.reply;
+    const gw = await executeOpenClaw({
+      sessionKey,
+      message: routed,
+      timeoutSeconds: 25,
+      context: { agentId: target, purpose: "agent-reply" },
+    });
+    if (gw.ok) {
+      agentResponse = gw.text;
       responseSource = "openclaw";
       attempts.push({ provider: "openclaw", status: "ok" });
     } else {
       attempts.push({
         provider: "openclaw",
         status: "error",
-        detail: !gw.ok && "error" in gw ? gw.error : "no reply",
+        detail: gw.error,
       });
       if (openclawStrict) {
         return {
           text: "",
           source: "openclaw",
-          openClawError:
-            !gw.ok && "error" in gw ? gw.error : "OpenClaw gateway did not return a reply",
+          openClawError: gw.error,
           attempts,
         };
       }
@@ -519,107 +468,90 @@ async function generateAgentReply(
   //               reach the same Claude Max subscription.
   //    CLAUDE_MAX_PROXY_TOKEN is sent as Bearer when set; if empty we fall
   //    back to "not-needed" which the local bridge accepts.
-  const claudeUrl = cleanEnv("CLAUDE_MAX_PROXY_URL") || CLAUDE_MAX_DEFAULT_URL;
-  const claudeToken = cleanEnv("CLAUDE_MAX_PROXY_TOKEN") || "not-needed";
+  //    Request construction lives in `provider-adapter`; fallback order stays here.
   if (!agentResponse) {
-    try {
-      // When images are attached, switch to OpenAI's vision content array
-      // (which every modern Claude-as-OpenAI proxy supports). Mixed content:
-      //   [{type:"text", text:"…"}, {type:"image_url", image_url:{url:"…"}}, …]
-      // Without images we keep the plain string form so older proxies don't choke.
-      const userContent: unknown =
-        imageUrls.length > 0
-          ? [
-              { type: "text", text: userMessage },
-              ...imageUrls.map((url) => ({ type: "image_url", image_url: { url } })),
-            ]
-          : userMessage;
-      const res = await fetch(claudeUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${claudeToken}`,
-        },
-        body: JSON.stringify({
-          model: modelForAgent(target),
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userContent },
-          ],
-          max_tokens: 300,
-          temperature: 0.7,
-        }),
-        signal: AbortSignal.timeout(45_000),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        agentResponse = data.choices?.[0]?.message?.content || null;
-        if (agentResponse) {
-          responseSource = "claude-max";
-          attempts.push({ provider: "claude-max", status: "ok" });
-        } else {
-          attempts.push({ provider: "claude-max", status: "error", detail: "empty choices" });
-        }
+    // When images are attached, switch to OpenAI's vision content array
+    // (which every modern Claude-as-OpenAI proxy supports). Mixed content:
+    //   [{type:"text", text:"…"}, {type:"image_url", image_url:{url:"…"}}, …]
+    // Without images we keep the plain string form so older proxies don't choke.
+    const userContent: unknown =
+      imageUrls.length > 0
+        ? [
+            { type: "text", text: userMessage },
+            ...imageUrls.map((url) => ({ type: "image_url", image_url: { url } })),
+          ]
+        : userMessage;
+    const r = await executeCompletion({
+      provider: "claude-max",
+      model: claudeModelForAgent(target),
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent },
+      ],
+      maxTokens: 300,
+      temperature: 0.7,
+      timeoutMs: 45_000,
+      captureErrorBody: true,
+      context: { agentId: target, purpose: "agent-reply" },
+    });
+    if (r.ok) {
+      agentResponse = r.text;
+      if (agentResponse) {
+        responseSource = "claude-max";
+        attempts.push({ provider: "claude-max", status: "ok" });
       } else {
-        const body = await res.text().catch(() => "");
-        attempts.push({
-          provider: "claude-max",
-          status: "error",
-          detail: `HTTP ${res.status}${body ? ` — ${body.slice(0, 200)}` : ""}`,
-        });
+        attempts.push({ provider: "claude-max", status: "error", detail: "empty choices" });
       }
-    } catch (err) {
+    } else if (r.kind === "http") {
       attempts.push({
         provider: "claude-max",
         status: "error",
-        detail: `exception: ${err instanceof Error ? err.message : err}`,
+        detail: `HTTP ${r.httpStatus}${r.bodySnippet ? ` — ${r.bodySnippet}` : ""}`,
       });
-      console.error("[chat] Claude Max proxy error:", err);
+    } else {
+      attempts.push({
+        provider: "claude-max",
+        status: "error",
+        detail: `exception: ${r.error instanceof Error ? r.error.message : r.error}`,
+      });
+      console.error("[chat] Claude Max proxy error:", r.error);
     }
   }
 
   // ── LM Studio (fallback). Loaded model whatever the user picked in the
   //    LM Studio "Local Server" tab. Used only if Claude Max proxy fails.
-  const lmStudioUrl = cleanEnv("LM_STUDIO_URL") || LM_STUDIO_DEFAULT_URL;
   if (!agentResponse) {
-    try {
-      const lmModel = modelForLMStudio();
-      const lmBody: Record<string, unknown> = {
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userMessage },
-        ],
-        max_tokens: 300,
-        temperature: 0.7,
-      };
-      if (lmModel) lmBody.model = lmModel;
-      const res = await fetch(lmStudioUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(lmBody),
-        signal: AbortSignal.timeout(60_000),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        agentResponse = data.choices?.[0]?.message?.content || null;
-        if (agentResponse) {
-          responseSource = "lm-studio";
-          attempts.push({ provider: "lm-studio", status: "ok" });
-        } else {
-          attempts.push({ provider: "lm-studio", status: "error", detail: "empty choices" });
-        }
+    const r = await executeCompletion({
+      provider: "lm-studio",
+      model: lmStudioModel(),
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+      maxTokens: 300,
+      temperature: 0.7,
+      timeoutMs: 60_000,
+      captureErrorBody: true,
+      context: { agentId: target, purpose: "agent-reply" },
+    });
+    if (r.ok) {
+      agentResponse = r.text;
+      if (agentResponse) {
+        responseSource = "lm-studio";
+        attempts.push({ provider: "lm-studio", status: "ok" });
       } else {
-        const body = await res.text().catch(() => "");
-        attempts.push({
-          provider: "lm-studio",
-          status: "error",
-          detail: `HTTP ${res.status}${body ? ` — ${body.slice(0, 200)}` : ""}`,
-        });
+        attempts.push({ provider: "lm-studio", status: "error", detail: "empty choices" });
       }
-    } catch (err) {
+    } else if (r.kind === "http") {
+      attempts.push({
+        provider: "lm-studio",
+        status: "error",
+        detail: `HTTP ${r.httpStatus}${r.bodySnippet ? ` — ${r.bodySnippet}` : ""}`,
+      });
+    } else {
       // Most common: LM Studio's Local Server isn't started → ECONNREFUSED.
       // We treat this as a soft skip so it doesn't dominate the diagnostic.
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = r.error instanceof Error ? r.error.message : String(r.error);
       const econnrefused = /ECONNREFUSED|fetch failed/i.test(msg);
       attempts.push({
         provider: "lm-studio",
@@ -785,68 +717,45 @@ ${userMessage}
 Drafts from the agents (most recent only — these are the takes you're synthesizing):
 ${draftBlock}`;
 
-  const claudeUrl = cleanEnv("CLAUDE_MAX_PROXY_URL") || CLAUDE_MAX_DEFAULT_URL;
-  const claudeToken = cleanEnv("CLAUDE_MAX_PROXY_TOKEN") || "not-needed";
   let text: string | null = null;
   let source: ReplySource = "fallback";
-
-  try {
-    const res = await fetch(claudeUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${claudeToken}`,
-      },
-      body: JSON.stringify({
-        model: modelForAgent("atlas"), // synthesis always runs on Atlas's tier (opus)
-        messages: [
-          { role: "system", content: synthesisPrompt },
-          { role: "user", content: "Run the synthesis now." },
-        ],
-        max_tokens: 800,
-        temperature: 0.4, // slightly lower for more deterministic plan structure
-      }),
-      signal: AbortSignal.timeout(60_000),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      text = data.choices?.[0]?.message?.content || null;
-      if (text) source = "claude-max";
-    }
-  } catch (err) {
-    console.error("[chat/synthesis] Claude Max proxy error:", err);
+  const claude = await executeCompletion({
+    provider: "claude-max",
+    model: claudeModelForAgent("atlas"),
+    messages: [
+      { role: "system", content: synthesisPrompt },
+      { role: "user", content: "Run the synthesis now." },
+    ],
+    maxTokens: 800,
+    temperature: 0.4,
+    timeoutMs: 60_000,
+    context: { agentId: "atlas", purpose: "synthesis" },
+  });
+  if (claude.ok) {
+    text = claude.text;
+    if (text) source = "claude-max";
+  } else if (claude.kind === "exception") {
+    console.error("[chat/synthesis] Claude Max proxy error:", claude.error);
   }
-
   if (!text) {
-    // LM Studio fallback — same prompt, whatever local model is loaded.
-    const lmStudioUrl = cleanEnv("LM_STUDIO_URL") || LM_STUDIO_DEFAULT_URL;
-    try {
-      const lmBody: Record<string, unknown> = {
-        messages: [
-          { role: "system", content: synthesisPrompt },
-          { role: "user", content: "Run the synthesis now." },
-        ],
-        max_tokens: 800,
-        temperature: 0.4,
-      };
-      const lmModel = modelForLMStudio();
-      if (lmModel) lmBody.model = lmModel;
-      const res = await fetch(lmStudioUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(lmBody),
-        signal: AbortSignal.timeout(75_000),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        text = data.choices?.[0]?.message?.content || null;
-        if (text) source = "lm-studio";
-      }
-    } catch {
-      /* synthesis is best-effort — if both backends fail we skip the pass */
+    // LM Studio fallback.
+    const lm = await executeCompletion({
+      provider: "lm-studio",
+      model: lmStudioModel(),
+      messages: [
+        { role: "system", content: synthesisPrompt },
+        { role: "user", content: "Run the synthesis now." },
+      ],
+      maxTokens: 800,
+      temperature: 0.4,
+      timeoutMs: 75_000,
+      context: { agentId: "atlas", purpose: "synthesis" },
+    });
+    if (lm.ok) {
+      text = lm.text;
+      if (text) source = "lm-studio";
     }
   }
-
   if (!text) return null;
 
   // Pull the JSON block out so Phase C can execute on it. We accept either a
@@ -965,59 +874,40 @@ ${synthesisText}
 Parsed plan JSON (for structural reference):
 ${JSON.stringify(plan)}`;
 
-  const claudeUrl = cleanEnv("CLAUDE_MAX_PROXY_URL") || CLAUDE_MAX_DEFAULT_URL;
-  const claudeToken = cleanEnv("CLAUDE_MAX_PROXY_TOKEN") || "not-needed";
   let raw: string | null = null;
-  try {
-    const res = await fetch(claudeUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${claudeToken}`,
-      },
-      body: JSON.stringify({
-        model: modelForAgent("atlas"),
-        messages: [
-          { role: "system", content: critiquePrompt },
-          { role: "user", content: "Output the JSON now. No other text." },
-        ],
-        max_tokens: 400,
-        temperature: 0.3,
-      }),
-      signal: AbortSignal.timeout(45_000),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      raw = data.choices?.[0]?.message?.content || null;
-    }
-  } catch (err) {
-    console.error("[chat/critic] Claude Max proxy error:", err);
+  const claude = await executeCompletion({
+    provider: "claude-max",
+    model: claudeModelForAgent("atlas"),
+    messages: [
+      { role: "system", content: critiquePrompt },
+      { role: "user", content: "Output the JSON now. No other text." },
+    ],
+    maxTokens: 400,
+    temperature: 0.3,
+    timeoutMs: 45_000,
+    context: { agentId: "atlas", purpose: "critique" },
+  });
+  if (claude.ok) {
+    raw = claude.text;
+  } else if (claude.kind === "exception") {
+    console.error("[chat/critic] Claude Max proxy error:", claude.error);
   }
   if (!raw) {
-    const lmStudioUrl = cleanEnv("LM_STUDIO_URL") || LM_STUDIO_DEFAULT_URL;
-    try {
-      const lmBody: Record<string, unknown> = {
-        messages: [
-          { role: "system", content: critiquePrompt },
-          { role: "user", content: "Output the JSON now. No other text." },
-        ],
-        max_tokens: 400,
-        temperature: 0.3,
-      };
-      const lmModel = modelForLMStudio();
-      if (lmModel) lmBody.model = lmModel;
-      const res = await fetch(lmStudioUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(lmBody),
-        signal: AbortSignal.timeout(60_000),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        raw = data.choices?.[0]?.message?.content || null;
-      }
-    } catch {
-      /* critic is best-effort */
+    // LM Studio fallback.
+    const lm = await executeCompletion({
+      provider: "lm-studio",
+      model: lmStudioModel(),
+      messages: [
+        { role: "system", content: critiquePrompt },
+        { role: "user", content: "Output the JSON now. No other text." },
+      ],
+      maxTokens: 400,
+      temperature: 0.3,
+      timeoutMs: 60_000,
+      context: { agentId: "atlas", purpose: "critique" },
+    });
+    if (lm.ok) {
+      raw = lm.text;
     }
   }
   if (!raw) return null;
@@ -1117,62 +1007,43 @@ Then a fenced JSON block with the refined plan in the same shape as before:
 
 Output the refined synthesis only — do not narrate the changes.`;
 
-  const claudeUrl = cleanEnv("CLAUDE_MAX_PROXY_URL") || CLAUDE_MAX_DEFAULT_URL;
-  const claudeToken = cleanEnv("CLAUDE_MAX_PROXY_TOKEN") || "not-needed";
   let text: string | null = null;
   let source: ReplySource = "fallback";
-  try {
-    const res = await fetch(claudeUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${claudeToken}`,
-      },
-      body: JSON.stringify({
-        model: modelForAgent("atlas"),
-        messages: [
-          { role: "system", content: refinePrompt },
-          { role: "user", content: "Produce the refined synthesis now." },
-        ],
-        max_tokens: 800,
-        temperature: 0.4,
-      }),
-      signal: AbortSignal.timeout(60_000),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      text = data.choices?.[0]?.message?.content || null;
-      if (text) source = "claude-max";
-    }
-  } catch (err) {
-    console.error("[chat/refine] Claude Max proxy error:", err);
+  const claude = await executeCompletion({
+    provider: "claude-max",
+    model: claudeModelForAgent("atlas"),
+    messages: [
+      { role: "system", content: refinePrompt },
+      { role: "user", content: "Produce the refined synthesis now." },
+    ],
+    maxTokens: 800,
+    temperature: 0.4,
+    timeoutMs: 60_000,
+    context: { agentId: "atlas", purpose: "refine" },
+  });
+  if (claude.ok) {
+    text = claude.text;
+    if (text) source = "claude-max";
+  } else if (claude.kind === "exception") {
+    console.error("[chat/refine] Claude Max proxy error:", claude.error);
   }
   if (!text) {
-    const lmStudioUrl = cleanEnv("LM_STUDIO_URL") || LM_STUDIO_DEFAULT_URL;
-    try {
-      const lmBody: Record<string, unknown> = {
-        messages: [
-          { role: "system", content: refinePrompt },
-          { role: "user", content: "Produce the refined synthesis now." },
-        ],
-        max_tokens: 800,
-        temperature: 0.4,
-      };
-      const lmModel = modelForLMStudio();
-      if (lmModel) lmBody.model = lmModel;
-      const res = await fetch(lmStudioUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(lmBody),
-        signal: AbortSignal.timeout(75_000),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        text = data.choices?.[0]?.message?.content || null;
-        if (text) source = "lm-studio";
-      }
-    } catch {
-      /* refine is best-effort — original plan still ships if this fails */
+    // LM Studio fallback.
+    const lm = await executeCompletion({
+      provider: "lm-studio",
+      model: lmStudioModel(),
+      messages: [
+        { role: "system", content: refinePrompt },
+        { role: "user", content: "Produce the refined synthesis now." },
+      ],
+      maxTokens: 800,
+      temperature: 0.4,
+      timeoutMs: 75_000,
+      context: { agentId: "atlas", purpose: "refine" },
+    });
+    if (lm.ok) {
+      text = lm.text;
+      if (text) source = "lm-studio";
     }
   }
   if (!text) return null;
