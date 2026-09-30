@@ -5,19 +5,73 @@ rules_version = '2';
 //     cp firestore.rules.proposed firestore.rules
 // Deploy this IDENTICAL file from EVERY repo that targets apex-athlete-73755
 // (mettle, ramiche-site, GALACTIK-ANTICS 2) so "last deploy wins" drift can no
-// longer open a hole. Do NOT deploy until the Admin-SDK roster route is wired
-// (see SECURITY-FIX-PROPOSAL.md) or coach roster sync will break.
+// longer open a hole. CANONICAL UNION (2026-07-15): this exact file lives in
+// mettle, ramiche-site AND "GALACTIK-ANTICS 2" — all three deploy to project
+// apex-athlete-73755 and LAST DEPLOY WINS, so the three copies must stay
+// byte-identical. The entitlements block belongs to Galactik; the org deny
+// wall belongs to METTLE. Never remove either. Update ALL THREE together.
 // ════════════════════════════════════════════════════════════════════════
 service cloud.firestore {
   match /databases/{database}/documents {
 
     // ── Mettle / apex-athlete (youth PII) — Admin SDK only ──────────────
     match /organizations/{orgId}/{document=**} { allow read, write: if false; }
+
+    // V1 realtime leaderboard (2026-07-22): ONE exception to the youth-PII
+    // lockdown above. `organizations/{orgId}/public/leaderboard` is a SCRUBBED,
+    // server-written projection (see buildLeaderboardProjection — athlete name,
+    // group, gender, lifetime xp, seasonXP, streak, sport ONLY; never a PIN,
+    // parent contact, email, birthday, reflection, or coach note). It exists so
+    // authenticated clients can `onSnapshot` the board for sub-second updates
+    // WITHOUT the sensitive roster ever becoming client-readable. Firestore
+    // grants on ANY matching allow, so this read grant wins over the `if false`
+    // recursive match above for THIS doc only; writes stay server-Admin-only.
+    // COACHES ONLY (Ramon's call, 2026-07-23). Enumerated coach/owner role
+    // claims — NOT `role != null`, because athletes carry a `role: "athlete"`
+    // custom claim (api/auth/athlete-link) that must be excluded. Athletes /
+    // parents / anonymous / claim-less coaches are denied and fall back to the
+    // server-proxied poll; no surface breaks. Org-scoping (only THIS org's
+    // coaches) is a follow-up — coach claims aren't org-bound today.
+    // ORG-SCOPED coaches-only (2026-07-23, hardened from the role-claim check):
+    // the reader's uid must be in THIS org's denormalized `coachUids` array on
+    // the org root (maintained by coachFirestoreIndexFromCoachRows on every
+    // coach write). This binds the read to the specific org — a coach of org A
+    // can no longer read org B's board — AND is coach-only (coachUids holds only
+    // coach/owner uids, never athletes). `.data.get('coachUids', [])` denies
+    // safely if the field is absent. One get() per listen; negligible for a
+    // board with a handful of coaches. Non-coaches / other orgs' coaches fall
+    // back to the server-proxied poll; nothing breaks. Writes server-Admin-only.
+    match /organizations/{orgId}/public/leaderboard {
+      allow read: if request.auth != null
+        && request.auth.uid in get(/databases/$(database)/documents/organizations/$(orgId)).data.get('coachUids', []);
+      allow write: if false;
+    }
     match /subscriptions/{doc}                 { allow read, write: if false; }
     match /connectedAccounts/{doc}             { allow read, write: if false; }
     match /push_subscriptions/{id}             { allow read, write: if request.auth != null; }
-    match /meet-schedules/{doc}                { allow read: if true;  allow write: if false; }
-    match /meet-results/{doc}                  { allow read: if true;  allow write: if false; }
+    // WS-4 4a (multi-org hardening, 2026-07-18): these two were the #1 leak
+    // risk in the ruleset — `allow read: if true` meant ANY client holding
+    // the (public) Web SDK config could open a direct Firestore connection
+    // and enumerate EVERY org's meet names, dates, and athleteIds (child
+    // identifiers), completely bypassing the org-scoped checks the Next.js
+    // API layer already enforced (see /api/meet-schedule GET). The only
+    // legitimate reader left an unauthenticated REST dependency in
+    // /api/meet-results/cron; that route is now Admin-SDK-only (see its
+    // header comment), so both collections can go Admin-only like
+    // `organizations/**`. Nothing else in the app reads these two
+    // collections via the client SDK (verified: no `firebase/firestore`
+    // client import touches `meet-schedules` or `meet-results` anywhere in
+    // src/ — the public "athlete card" / recruiting-profile pages read
+    // Admin-SDK-backed server routes, never Firestore directly), so this
+    // is safe to close without breaking that feature.
+    match /meet-schedules/{doc}                { allow read, write: if false; }
+    match /meet-results/{doc}                  { allow read, write: if false; }
+    // WS-4 4c (federation→club→team hierarchy, 2026-07-18): new top-level
+    // collection for an ASAJ-style parent org over member clubs. Admin-SDK
+    // only, same as `organizations/**` — federation rollups and admin
+    // management are server-verified (isFederationAdmin) app-layer checks,
+    // never a direct client read. See src/lib/federation-server.ts.
+    match /federations/{federationId}/{document=**} { allow read, write: if false; }
 
     // ── ramiche-site command center — Admin SDK only (server reads only) ─
     match /command-center/{document=**}        { allow read, write: if false; }
@@ -32,8 +86,67 @@ service cloud.firestore {
     match /lore/{loreId}             { allow read: if true; allow write: if false; }
     match /commerceOrders/{sessionId}    { allow read, write: if false; }
     match /stripeWebhookEvents/{eventId} { allow read, write: if false; }
+    // invite token index (audit A-06) — maps a hashed invite token to the org
+    // that owns it, so redeeming an invite is one read instead of a scan of
+    // every club. Admin SDK only. A client READ would be an enumeration
+    // oracle over which invites exist; a client WRITE would let anyone point
+    // someone else's invite token at their own org and harvest the joiner.
+    // The default-deny at the bottom already covers it — this is explicit so
+    // that a future rule added above cannot widen it by accident.
+    match /invite_tokens/{tokenHash}     { allow read, write: if false; }
+    // white-label hostname ownership (audit A-07) — maps a hostname to the org
+    // that owns it. Admin SDK only. A client WRITE would let anyone point
+    // another club's verified domain at their own org; a client READ enumerates
+    // every customer's custom domain. Default-deny already covers it; explicit
+    // so a rule added above cannot widen it by accident.
+    match /domain_mappings/{hostname}    { allow read, write: if false; }
+    // org slug reservations (audit A-03) — decides which signup wins a club
+    // URL. Admin SDK only. A client WRITE could reserve every plausible club
+    // name, or release a live club's own; a client READ enumerates pending
+    // signups. Default-deny already covers it; explicit so a rule added above
+    // cannot widen it by accident.
+    match /org_slugs/{slug}              { allow read, write: if false; }
+    // in-flight family registrations (audit A-04) — records which steps of a
+    // self-registration have finished so a retry can resume. Admin SDK only.
+    // A client WRITE could plant a parentUid and be handed somebody else's
+    // account on the next attempt; a client READ enumerates families
+    // mid-signup. Default-deny already covers it; explicit so a rule added
+    // above cannot widen it by accident.
+    match /registration_applications/{applicationId} { allow read, write: if false; }
+    // digital purchase entitlements — granted ONLY by the Stripe webhook via
+    // Admin SDK; owners may read their own, nobody may write from the client
+    // (client-writable ownership would let anyone grant themselves products)
+    match /entitlements/{userId}/{document=**} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+    }
 
-    // ── Default deny everything else (this floor is currently MISSING) ──
+    // ── Named-but-denied (2026-09-05) ───────────────────────────────────
+    // Nine top-level collections this app writes had NO explicit rule. Every
+    // one was already denied by the catch-all below, so this was a LATENT
+    // hole rather than a live one — but the convention four blocks above
+    // exists for a reason: an unnamed collection relies on the default deny,
+    // and a rule added ABOVE it for some other purpose can shadow it without
+    // anybody noticing. Naming them is what makes that impossible.
+    //
+    // `athlete_health` is why this was worth doing: it holds a child's health
+    // record, and it was the one store in this list a wrong rule would hurt
+    // most. The two caches hold a named child's race times. The rest are
+    // server bookkeeping that would be an enumeration oracle if read.
+    //
+    // Held by the census in src/__tests__/firestore-rules.test.ts, which walks
+    // the compliance registry so the TENTH one cannot arrive unnamed.
+    match /athlete_health/{athleteId}/{document=**} { allow read, write: if false; }
+    match /audit_admin/{doc}                        { allow read, write: if false; }
+    match /benchmarks/{doc}                         { allow read, write: if false; }
+    match /billing_notifications/{digest}           { allow read, write: if false; }
+    match /operator_decisions/{decisionId}          { allow read, write: if false; }
+    match /org_metrics/{orgId}                      { allow read, write: if false; }
+    match /stripe_events/{eventId}                  { allow read, write: if false; }
+    match /swimcloud_cache/{doc}                    { allow read, write: if false; }
+    match /usa_swimming_cache/{doc}                 { allow read, write: if false; }
+
+    // ── Default deny everything else ────────────────────────────────────
     match /{document=**} { allow read, write: if false; }
   }
 }
