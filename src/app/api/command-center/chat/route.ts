@@ -4,6 +4,7 @@ import { isOpenClawGatewayConfigured, resolveChatSessionKey } from "@/lib/opencl
 import { resolveChatTargets } from "@/lib/chat-routing";
 import { AGENT_DM_UUID, AGENT_UUID_TO_SHORT_ID } from "@/lib/cc-agent-dm-uuids";
 import { personaMap } from "@/lib/agent-registry";
+import type { ExecutionCorrelation } from "@/lib/execution-events";
 import {
   claudeModelForAgent,
   cleanEnv,
@@ -298,7 +299,8 @@ async function regenerateAtlasDelegationReply(
   draft: string,
   violations: string[],
   systemPrompt: string,
-  userMessage: string
+  userMessage: string,
+  correlation?: ExecutionCorrelation
 ): Promise<string | null> {
   const handles = violations.map((v) => `@${v}`).join(", ");
   const fixSystem =
@@ -318,7 +320,7 @@ async function regenerateAtlasDelegationReply(
     maxTokens: 500,
     temperature: 0.25,
     timeoutMs: 45_000,
-    context: { agentId: "atlas", purpose: "strict-delegation-rewrite" },
+    context: { agentId: "atlas", purpose: "strict-delegation-rewrite", correlation },
   });
   if (!r.ok) {
     if (r.kind === "exception") console.error("[chat] strict delegation rewrite failed:", r.error);
@@ -356,7 +358,8 @@ async function generateAgentReply(
   singleTargetStrict: boolean,
   groupRoster: string[],
   history: HistoryTurn[],
-  imageUrls: string[]
+  imageUrls: string[],
+  correlation?: ExecutionCorrelation
 ): Promise<{
   text: string;
   source: ReplySource;
@@ -425,7 +428,7 @@ async function generateAgentReply(
       sessionKey,
       message: routed,
       timeoutSeconds: 25,
-      context: { agentId: target, purpose: "agent-reply" },
+      context: { agentId: target, purpose: "agent-reply", correlation },
     });
     if (gw.ok) {
       agentResponse = gw.text;
@@ -485,7 +488,7 @@ async function generateAgentReply(
       temperature: 0.7,
       timeoutMs: 45_000,
       captureErrorBody: true,
-      context: { agentId: target, purpose: "agent-reply" },
+      context: { agentId: target, purpose: "agent-reply", correlation },
     });
     if (r.ok) {
       agentResponse = r.text;
@@ -525,7 +528,7 @@ async function generateAgentReply(
       temperature: 0.7,
       timeoutMs: 60_000,
       captureErrorBody: true,
-      context: { agentId: target, purpose: "agent-reply" },
+      context: { agentId: target, purpose: "agent-reply", correlation },
     });
     if (r.ok) {
       agentResponse = r.text;
@@ -575,7 +578,8 @@ async function generateAgentReply(
         draft,
         viol,
         systemPrompt,
-        userMessage
+        userMessage,
+        correlation
       );
       if (!fixed) {
         console.warn("[chat] CC_STRICT_DELEGATION: rewrite failed", viol);
@@ -640,7 +644,8 @@ async function generateSynthesis(
   drafts: Array<{ agent: string; response: string }>,
   history: HistoryTurn[],
   channelName: string | undefined,
-  roster: string[]
+  roster: string[],
+  correlation?: ExecutionCorrelation
 ): Promise<{ text: string; plan: SynthesisPlan | null; source: ReplySource } | null> {
   if (drafts.length < 2) return null;
 
@@ -722,7 +727,7 @@ ${draftBlock}`;
     maxTokens: 800,
     temperature: 0.4,
     timeoutMs: 60_000,
-    context: { agentId: "atlas", purpose: "synthesis" },
+    context: { agentId: "atlas", purpose: "synthesis", correlation },
   });
   if (claude.ok) {
     text = claude.text;
@@ -742,7 +747,7 @@ ${draftBlock}`;
       maxTokens: 800,
       temperature: 0.4,
       timeoutMs: 75_000,
-      context: { agentId: "atlas", purpose: "synthesis" },
+      context: { agentId: "atlas", purpose: "synthesis", correlation },
     });
     if (lm.ok) {
       text = lm.text;
@@ -824,7 +829,8 @@ async function generateCritique(
   synthesisText: string,
   plan: SynthesisPlan,
   history: HistoryTurn[],
-  roster: string[]
+  roster: string[],
+  correlation?: ExecutionCorrelation
 ): Promise<SynthesisCritique | null> {
   const draftBlock = drafts
     .map((d) => `[${d.agent}]: ${d.response.trim()}`)
@@ -878,7 +884,7 @@ ${JSON.stringify(plan)}`;
     maxTokens: 400,
     temperature: 0.3,
     timeoutMs: 45_000,
-    context: { agentId: "atlas", purpose: "critique" },
+    context: { agentId: "atlas", purpose: "critique", correlation },
   });
   if (claude.ok) {
     raw = claude.text;
@@ -897,7 +903,7 @@ ${JSON.stringify(plan)}`;
       maxTokens: 400,
       temperature: 0.3,
       timeoutMs: 60_000,
-      context: { agentId: "atlas", purpose: "critique" },
+      context: { agentId: "atlas", purpose: "critique", correlation },
     });
     if (lm.ok) {
       raw = lm.text;
@@ -949,7 +955,8 @@ async function refineSynthesis(
   channelName: string | undefined,
   roster: string[],
   originalSynthesis: { text: string; plan: SynthesisPlan },
-  critique: SynthesisCritique
+  critique: SynthesisCritique,
+  correlation?: ExecutionCorrelation
 ): Promise<{ text: string; plan: SynthesisPlan | null; source: ReplySource } | null> {
   const draftBlock = drafts
     .map((d) => `[${d.agent}]: ${d.response.trim()}`)
@@ -1012,7 +1019,7 @@ Output the refined synthesis only — do not narrate the changes.`;
     maxTokens: 800,
     temperature: 0.4,
     timeoutMs: 60_000,
-    context: { agentId: "atlas", purpose: "refine" },
+    context: { agentId: "atlas", purpose: "refine", correlation },
   });
   if (claude.ok) {
     text = claude.text;
@@ -1032,7 +1039,7 @@ Output the refined synthesis only — do not narrate the changes.`;
       maxTokens: 800,
       temperature: 0.4,
       timeoutMs: 75_000,
-      context: { agentId: "atlas", purpose: "refine" },
+      context: { agentId: "atlas", purpose: "refine", correlation },
     });
     if (lm.ok) {
       text = lm.text;
@@ -1087,6 +1094,10 @@ export async function POST(req: NextRequest) {
         ? threadParentId
         : undefined;
 
+    // The user's message id, when the client sent one: the natural handle for everything this turn causes.
+    const correlation: ExecutionCorrelation | undefined = userMessageId
+      ? { type: "chat_message", id: userMessageId }
+      : undefined;
     const targets = resolveChatTargets({ mentionedAgents, agentName, channelMembers });
     const groupMode = targets.length > 1;
     const singleTargetStrict = targets.length === 1;
@@ -1150,7 +1161,8 @@ export async function POST(req: NextRequest) {
           singleTargetStrict,
           targets,
           history,
-          imageUrls
+          imageUrls,
+          correlation
         )
       )
     );
@@ -1318,7 +1330,8 @@ export async function POST(req: NextRequest) {
           })),
         ],
         channelName,
-        targets
+        targets,
+        correlation
       );
 
       // ─── INSERT synthesis FIRST, then run the critic ─────────────────────
@@ -1408,7 +1421,8 @@ export async function POST(req: NextRequest) {
               createdAt: new Date().toISOString(),
             })),
           ],
-          targets
+          targets,
+          correlation
         );
 
         // Only run refine if we still have a comfortable budget for it.
@@ -1448,7 +1462,8 @@ export async function POST(req: NextRequest) {
             channelName,
             targets,
             { text: synthesisResult.text, plan: synthesisResult.plan },
-            critique
+            critique,
+            correlation
           );
           if (refined?.text) {
             originalPlanBeforeRefine = synthesisResult.plan;

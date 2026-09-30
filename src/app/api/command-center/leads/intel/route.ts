@@ -47,6 +47,6 @@ export async function POST(req: Request) {
   ].join("\n");
   const user = `Research this real business now:\nName: ${name}\nType (from listing): ${category}\nLocation: ${location}\nKnown website: ${website}\n\nUse your web tools, then return the JSON.`;
 
-  await startBackgroundGen(db, leadId, "intel", () => callProxyJSON(sys, user, { timeoutMs: 170_000 }));
+  await startBackgroundGen(db, leadId, "intel", () => callProxyJSON(sys, user, { timeoutMs: 170_000, correlation: { type: "lead", id: leadId } }));
   return NextResponse.json({ status: "generating" });
 }

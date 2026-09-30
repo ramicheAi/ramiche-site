@@ -54,6 +54,6 @@ export async function POST(req: Request) {
     "Write the full, research-grounded sales kit as JSON now.",
   ].join("\n");
 
-  await startBackgroundGen(db, leadId, "kit", () => callProxyJSON(sys, user, { timeoutMs: 170_000 }));
+  await startBackgroundGen(db, leadId, "kit", () => callProxyJSON(sys, user, { timeoutMs: 170_000, correlation: { type: "lead", id: leadId } }));
   return NextResponse.json({ status: "generating" });
 }

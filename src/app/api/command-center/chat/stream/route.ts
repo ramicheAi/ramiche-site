@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { isOpenClawGatewayConfigured, resolveChatSessionKey } from "@/lib/openclaw-gateway";
 import { executeOpenClaw, streamCompletion } from "@/lib/provider-adapter";
+import type { ExecutionCorrelation } from "@/lib/execution-events";
 import { resolveChatTargets } from "@/lib/chat-routing";
 import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
 import { personaMap } from "@/lib/agent-registry";
@@ -87,6 +88,10 @@ export async function POST(req: NextRequest) {
   const channelId = body.channelId;
   const channelName = body.channelName;
   const userMessageId = body.userMessageId;
+  // The user's message id, when the client sent one.
+  const correlation: ExecutionCorrelation | undefined = userMessageId
+    ? { type: "chat_message", id: userMessageId }
+    : undefined;
   const threadParentId = body.threadParentId;
   const threadUuid =
     threadParentId &&
@@ -159,7 +164,7 @@ export async function POST(req: NextRequest) {
             sessionKey,
             message: routed,
             timeoutSeconds: 90,
-            context: { agentId: target, purpose: "chat-stream" },
+            context: { agentId: target, purpose: "chat-stream", correlation },
           });
           if (gw.ok) {
             send("chunk", { agent: target, delta: gw.text });
@@ -186,7 +191,7 @@ export async function POST(req: NextRequest) {
               apiKey: geminiKey,
               systemPrompt,
               userMessage: message,
-              context: { agentId: target, purpose: "chat-stream" },
+              context: { agentId: target, purpose: "chat-stream", correlation },
             });
             for await (const delta of s.deltas) {
               acc += delta;
@@ -211,7 +216,7 @@ export async function POST(req: NextRequest) {
               apiKey: deepseekKey,
               systemPrompt,
               userMessage: message,
-              context: { agentId: target, purpose: "chat-stream" },
+              context: { agentId: target, purpose: "chat-stream", correlation },
             });
             for await (const delta of s.deltas) {
               acc += delta;
@@ -236,7 +241,7 @@ export async function POST(req: NextRequest) {
               apiKey: openrouterKey,
               systemPrompt,
               userMessage: message,
-              context: { agentId: target, purpose: "chat-stream" },
+              context: { agentId: target, purpose: "chat-stream", correlation },
             });
             for await (const delta of s.deltas) {
               acc += delta;

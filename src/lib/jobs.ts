@@ -92,7 +92,7 @@ export async function runJob(jobId: string): Promise<void> {
       captureErrorBody: 300,
       // This caller never threw on a literal JSON `null` body; it fell through to "empty result".
       nullBodyIsEmpty: true,
-      context: { purpose: "job" },
+      context: { purpose: "job", correlation: { type: "job", id: jobId } },
     });
     if (!r.ok) {
       if (r.kind === "http") throw new Error(`proxy HTTP ${r.httpStatus}: ${r.bodySnippet ?? ""}`);

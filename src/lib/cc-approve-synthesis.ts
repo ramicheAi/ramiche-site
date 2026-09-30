@@ -311,7 +311,8 @@ async function callClaudeMax(
   systemPrompt: string,
   userTurn: string,
   model: string,
-  timeoutMs: number
+  timeoutMs: number,
+  agentId?: string
 ): Promise<string | null> {
   const r = await executeCompletion({
     provider: "claude-max",
@@ -323,7 +324,7 @@ async function callClaudeMax(
     maxTokens: 1500,
     temperature: 0.4,
     timeoutMs,
-    context: { purpose: "approve-execution" },
+    context: { purpose: "approve-execution", agentId },
   });
   if (!r.ok) return null;
   return typeof r.text === "string" ? r.text : null;
@@ -332,7 +333,8 @@ async function callClaudeMax(
 async function callLMStudio(
   systemPrompt: string,
   userTurn: string,
-  timeoutMs: number
+  timeoutMs: number,
+  agentId?: string
 ): Promise<string | null> {
   // No model is pinned here (unlike chat/route.ts): LM Studio uses whatever is loaded.
   const r = await executeCompletion({
@@ -344,7 +346,7 @@ async function callLMStudio(
     maxTokens: 1500,
     temperature: 0.4,
     timeoutMs,
-    context: { purpose: "approve-execution" },
+    context: { purpose: "approve-execution", agentId },
   });
   if (!r.ok) return null;
   return typeof r.text === "string" ? r.text : null;
@@ -376,14 +378,16 @@ async function dispatchExecution(
     prompt,
     "Execute the task now and produce the deliverable.",
     claudeModelForAgent(owner),
-    DISPATCH_TIMEOUT_MS
+    DISPATCH_TIMEOUT_MS,
+    owner
   );
   if (claudeText && claudeText.trim()) return { ok: true, text: claudeText, via: "claude-max" };
 
   const lmText = await callLMStudio(
     prompt,
     "Execute the task now and produce the deliverable.",
-    DISPATCH_TIMEOUT_MS + 15_000
+    DISPATCH_TIMEOUT_MS + 15_000,
+    owner
   );
   if (lmText && lmText.trim()) return { ok: true, text: lmText, via: "lm-studio" };
 
@@ -411,7 +415,8 @@ async function runVerifier(
     prompt,
     "Return only the JSON verdict.",
     claudeModelForAgent("atlas"),
-    VERIFIER_TIMEOUT_MS
+    VERIFIER_TIMEOUT_MS,
+    "atlas"
   );
   if (!text) return null;
   try {
