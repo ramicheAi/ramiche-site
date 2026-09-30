@@ -4,6 +4,7 @@
 // generation runs in the background (we're on a persistent `next start` node, so
 // this completes), and the result is written to the lead's meta for the UI to poll.
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { CLAUDE_MAX_DEFAULT_URL, executeCompletion } from "@/lib/provider-adapter";
 
 // Read proxy config at CALL TIME, not module-load. In the long-running `next start`
 // server the module-level const evaluated before env was fully applied, freezing the
@@ -14,7 +15,7 @@ function proxyConfig(): { url: string; token: string } {
   const clean = (v: string | undefined, fallback: string) =>
     ((v ?? "").trim().replace(/^["']|["']$/g, "").trim() || fallback);
   return {
-    url: clean(process.env.CLAUDE_MAX_PROXY_URL, "http://127.0.0.1:3456/v1/chat/completions"),
+    url: clean(process.env.CLAUDE_MAX_PROXY_URL, CLAUDE_MAX_DEFAULT_URL),
     token: clean(process.env.CLAUDE_MAX_PROXY_TOKEN, "not-needed"),
   };
 }
@@ -51,26 +52,31 @@ export async function callProxyJSON(
 ): Promise<unknown> {
   const { url, token } = proxyConfig();
   const once = async (): Promise<unknown> => {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 180_000);
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ model: opts.model ?? "claude-sonnet-4-5", stream: false, messages: [{ role: "system", content: system }, { role: "user", content: user }] }),
-        signal: ctrl.signal,
-      });
-      if (!res.ok) throw new Error(`agent proxy HTTP ${res.status}`);
-      const j = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-      const raw = (j.choices?.[0]?.message?.content || "").trim();
-      const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-      const start = cleaned.indexOf("{");
-      const end = cleaned.lastIndexOf("}");
-      const jsonStr = start >= 0 && end > start ? cleaned.slice(start, end + 1) : cleaned;
-      return JSON.parse(jsonStr);
-    } finally {
-      clearTimeout(timer);
+    const r = await executeCompletion({
+      provider: "claude-max",
+      model: opts.model ?? "claude-sonnet-4-5",
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      sendStreamFalse: true,
+      timeoutMs: opts.timeoutMs ?? 180_000,
+      timeoutStyle: "abort-controller",
+      proxy: { url, token },
+      context: { purpose: "lead-gen" },
+    });
+    if (!r.ok) {
+      if (r.kind === "http") throw new Error(`agent proxy HTTP ${r.httpStatus}`);
+      throw r.error;
     }
+    // `r?.` (not `r.`) is deliberate: for non-string content V8 words the resulting TypeError from the
+    // expression, and this form keeps that text identical to the pre-adapter code (it lands in the lead's error field).
+    const raw = ((r?.rawContent as string | undefined) || "").trim();
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+    const jsonStr = start >= 0 && end > start ? cleaned.slice(start, end + 1) : cleaned;
+    return JSON.parse(jsonStr);
   };
   try {
     return await once();

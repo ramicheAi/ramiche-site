@@ -3,8 +3,9 @@ import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 // Jobs backbone: dispatch a tracked job to a tool-enabled Claude Code instance
 // via the local Claude Max proxy (the reliable path the builder uses).
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { CLAUDE_MAX_DEFAULT_URL, executeCompletion } from "@/lib/provider-adapter";
 
-const PROXY_URL = process.env.CLAUDE_MAX_PROXY_URL || "http://127.0.0.1:3456/v1/chat/completions";
+const PROXY_URL = process.env.CLAUDE_MAX_PROXY_URL || CLAUDE_MAX_DEFAULT_URL;
 const DEFAULT_MODEL = process.env.CC_JOBS_MODEL || "claude-sonnet-4-5";
 const JOB_TIMEOUT_MS = 15 * 60 * 1000; // 15 min ceiling
 
@@ -44,9 +45,7 @@ function buildPrompt(kind: JobKind, title: string, input: Record<string, unknown
   return lines.join("\n");
 }
 
-function extractContent(json: unknown): string {
-  const choices = (json as { choices?: Array<{ message?: { content?: unknown } }> })?.choices;
-  const c = choices?.[0]?.message?.content;
+function extractContent(c: unknown): string {
   if (typeof c === "string") return c.trim();
   if (Array.isArray(c)) return c.map((p) => (typeof p === "string" ? p : (p as { text?: string })?.text ?? "")).join("").trim();
   return "";
@@ -84,20 +83,26 @@ export async function runJob(jobId: string, request?: Request): Promise<void> {
   const model = (job.input?.model as string) || DEFAULT_MODEL;
   const prompt = buildPrompt(kind, job.title, (job.input ?? {}) as Record<string, unknown>);
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), JOB_TIMEOUT_MS);
   try {
-    const res = await fetch(PROXY_URL, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ model, stream: false, messages: [{ role: "user", content: prompt }] }),
-      signal: controller.signal,
+    const r = await executeCompletion({
+      provider: "claude-max",
+      model,
+      messages: [{ role: "user", content: prompt }],
+      sendStreamFalse: true,
+      timeoutMs: JOB_TIMEOUT_MS,
+      timeoutStyle: "abort-controller",
+      // No Authorization header (this caller never sent one) and the URL was read at module load.
+      proxy: { url: PROXY_URL, token: null },
+      captureErrorBody: 300,
+      // This caller never threw on a literal JSON `null` body; it fell through to "empty result".
+      nullBodyIsEmpty: true,
+      context: { purpose: "job" },
     });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      throw new Error(`proxy HTTP ${res.status}: ${body.slice(0, 300)}`);
+    if (!r.ok) {
+      if (r.kind === "http") throw new Error(`proxy HTTP ${r.httpStatus}: ${r.bodySnippet ?? ""}`);
+      throw r.error;
     }
-    const text = extractContent(await res.json());
+    const text = extractContent(r.rawContent);
     if (!text) throw new Error("empty result from agent");
 
     await db.from("jobs").update({
@@ -116,7 +121,5 @@ export async function runJob(jobId: string, request?: Request): Promise<void> {
       finished_at: new Date().toISOString(),
     }).eq("id", jobId);
     await logEvent(jobId, "status", { status: "failed", error: msg });
-  } finally {
-    clearTimeout(timer);
   }
 }

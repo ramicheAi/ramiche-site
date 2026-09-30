@@ -266,6 +266,92 @@ describe("executeCompletion", () => {
   });
 });
 
+/* ── Packet 2b: optional request features, each defaulting to the Packet 2 behavior ── */
+describe("executeCompletion: optional features for peripheral callers", () => {
+  const msgs = [{ role: "user" as const, content: "hi" }];
+  const base = { provider: "claude-max" as const, model: "m", messages: msgs };
+
+  it("proxy override replaces URL and token; token null sends no Authorization header at all", async () => {
+    mockFetch(() => ok("x"));
+    await executeCompletion({ ...base, proxy: { url: "http://p.test/v1", token: "tok" }, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+    expect(recs[0].url).toBe("http://p.test/v1");
+    expect(recs[0].headers).toEqual({ "Content-Type": "application/json", Authorization: "Bearer tok" });
+    await executeCompletion({ ...base, proxy: { url: "http://p.test/v1", token: null }, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+    expect(recs[1].headers).toEqual({ "Content-Type": "application/json" });
+    expect(recs[1].headers).not.toHaveProperty("Authorization");
+  });
+
+  it("maxTokens / temperature are omitted when undefined; stream:false only when asked", async () => {
+    mockFetch(() => ok("x"));
+    await executeCompletion({ ...base, timeoutMs: 1000 });
+    expect(Object.keys(recs[0].body).sort()).toEqual(["messages", "model"]);
+    await executeCompletion({ ...base, timeoutMs: 1000, sendStreamFalse: true });
+    expect(recs[1].body.stream).toBe(false);
+    expect(Object.keys(recs[1].body).sort()).toEqual(["messages", "model", "stream"]);
+    await executeCompletion({ ...base, timeoutMs: 1000, temperature: 0, maxTokens: 0 }); // zero is a value, not "unset"
+    expect(recs[2].body).toMatchObject({ temperature: 0, max_tokens: 0 });
+  });
+
+  it("no timeoutMs means NO signal and NO timer (the request is unbounded)", async () => {
+    const st = vi.spyOn(globalThis, "setTimeout");
+    mockFetch(() => ok("x"));
+    let sawSignal: unknown = "unset";
+    vi.stubGlobal("fetch", async (_u: string, init?: RequestInit) => {
+      sawSignal = init?.signal;
+      return ok("x");
+    });
+    await executeCompletion({ ...base });
+    expect(sawSignal).toBeUndefined();
+    expect(st.mock.calls.filter((c) => (c[1] as number) >= 1000)).toHaveLength(0);
+  });
+
+  it("abort-controller style aborts with an AbortError at the deadline; signal-timeout style uses AbortSignal.timeout", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.stubGlobal("fetch", (_u: string, init?: RequestInit) => new Promise((_res, rej) => init!.signal!.addEventListener("abort", () => rej(init!.signal!.reason))));
+    const pending = executeCompletion({ ...base, timeoutMs: 5_000, timeoutStyle: "abort-controller" });
+    await vi.advanceTimersByTimeAsync(4_999);
+    let settled = false;
+    void pending.then(() => (settled = true));
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    const r = await pending;
+    expect(r).toMatchObject({ ok: false, kind: "exception" });
+    expect(r.ok === false && (r.error as Error).name).toBe("AbortError");
+    vi.useRealTimers();
+    mockFetch(() => ok("x"));
+    await executeCompletion({ ...base, timeoutMs: 7_000 });
+    expect(recs[0].timeoutMs).toBe(7_000); // default style still goes through AbortSignal.timeout
+  });
+
+  it("the abort-controller timer is cleared once the response has been read", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    mockFetch(() => ok("x"));
+    await executeCompletion({ ...base, timeoutMs: 5_000, timeoutStyle: "abort-controller" });
+    expect(vi.getTimerCount()).toBe(0);
+    vi.useRealTimers();
+  });
+
+  it("captureErrorBody accepts a length", async () => {
+    mockFetch(() => new Response("y".repeat(500), { status: 500 }));
+    const r = await executeCompletion({ ...base, timeoutMs: 1000, captureErrorBody: 300 });
+    expect(r.ok === false && r.bodySnippet).toBe("y".repeat(300));
+    const empty = await (async () => { mockFetch(() => new Response("", { status: 502 })); return executeCompletion({ ...base, timeoutMs: 1000, captureErrorBody: 300 }); })();
+    expect(empty.ok === false && empty.bodySnippet).toBe("");
+  });
+
+  it("nullBodyIsEmpty turns a literal null body into an empty reply instead of an exception; rawContent passes through", async () => {
+    mockFetch(() => new Response("null", { status: 200 }));
+    expect(await executeCompletion({ ...base, timeoutMs: 1000 })).toMatchObject({ ok: false, kind: "exception" });
+    mockFetch(() => new Response("null", { status: 200 }));
+    expect(await executeCompletion({ ...base, timeoutMs: 1000, nullBodyIsEmpty: true })).toMatchObject({ ok: true, text: null, rawContent: undefined });
+    const parts = [{ type: "text", text: "a" }];
+    mockFetch(() => ok(parts as unknown as string));
+    const r = await executeCompletion({ ...base, timeoutMs: 1000 });
+    expect(r.ok && r.rawContent).toEqual(parts);
+  });
+});
+
 /* ── 6. streaming stays streaming ────────────────────────────────────── */
 const enc = new TextEncoder();
 const gem = (text: string, usage?: object) => `data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }], ...(usage ? { usageMetadata: usage } : {}) })}\n\n`;
