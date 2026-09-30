@@ -53,7 +53,7 @@ export async function POST(req: Request) {
       discovery = (await callProxyJSON(
         `Extract a CallDiscovery JSON object from this phone-call transcript between an AI agent (Mercury) and a local business owner. Return ONLY JSON with keys: business{name,vertical,city,ownerName}, bestContact{phone,email,preferredChannel,bestTime}, language, servicesWanted[], budgetSignal, timeline, decisionMaker, brand{vibe,colorsLiked,competitorsAdmired,competitorsToBeat}, existingAssets{logo,photos,menu,domain,socials}, mustHaves[], outcome (one of booked|deposit_taken|callback|not_interested|no_answer|voicemail), objections[], consent{toCall,toRecord}. Use null/empty when unknown.`,
         transcript,
-        { timeoutMs: 120_000 },
+        { timeoutMs: 120_000, correlation: { type: "lead", id: leadId } },
       )) as Partial<CallDiscovery>;
     } catch {
       /* extraction is best-effort */

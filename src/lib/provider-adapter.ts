@@ -23,15 +23,38 @@
 
 import { claudeTierMap, type ClaudeTier } from "@/lib/agent-registry";
 import { gatewaySessionsSend } from "@/lib/openclaw-gateway";
+import {
+  recordExecution,
+  type ExecutionContext,
+  type ExecutionFacts,
+  type ExecutionProvider,
+} from "@/lib/execution-events";
 
 /* ── Shared types ────────────────────────────────────────────────────── */
 
 export type ProviderId = "claude-max" | "lm-studio" | "openclaw" | "gemini" | "deepseek" | "openrouter";
 
-/** Why a call is being made. Informational only; never used to change behavior. */
-export interface ExecutionContext {
-  agentId?: string;
-  purpose?: string;
+export type { ExecutionContext } from "@/lib/execution-events";
+
+/**
+ * Telemetry hand-off. Builds nothing and persists nothing itself: it passes the observed FACTS (never prompt or
+ * response text) to the execution-events writer, which makes one bounded attempt and cannot throw. The extra guard
+ * here means no failure in telemetry can ever alter the outcome of a model call.
+ */
+async function emitExecution(facts: ExecutionFacts): Promise<void> {
+  try {
+    await recordExecution(facts);
+  } catch {
+    /* telemetry never affects execution */
+  }
+}
+
+const newExecutionId = (): string => globalThis.crypto.randomUUID();
+
+/** A timer- or signal-driven abort is a timeout; anything else thrown is an exception. */
+function failureFromError(err: unknown): NonNullable<ExecutionFacts["failure"]> {
+  const name = err && typeof err === "object" ? (err as { name?: unknown }).name : undefined;
+  return { kind: name === "TimeoutError" || name === "AbortError" ? "timeout" : "exception" };
 }
 
 /** Token counts exactly as supplied by the provider. Fields the provider did not send stay undefined. */
@@ -149,7 +172,7 @@ export interface CompletionRequest {
    * exception), which is what the chat call sites do. `jobs` never threw on `null`, so it opts in.
    */
   nullBodyIsEmpty?: boolean;
-  context?: ExecutionContext;
+  context: ExecutionContext;
 }
 
 export type CompletionResult =
@@ -162,6 +185,10 @@ export type CompletionResult =
       text: string | null;
       /** `choices[0].message.content` exactly as the provider sent it (string, content-part array, anything). */
       rawContent: unknown;
+      /** The `model` string in the provider's response, verbatim. The Claude Max proxy reports a normalized family label, so this is a hint, not an identity. */
+      modelReported?: string;
+      /** Identifies this execution in telemetry. Generated before the call. */
+      executionId: string;
       finishReason?: string;
       usage?: UsageMetadata;
       httpStatus: number;
@@ -172,6 +199,7 @@ export type CompletionResult =
       provider: "claude-max" | "lm-studio";
       model: string | undefined;
       kind: "http" | "exception";
+      executionId: string;
       httpStatus?: number;
       /** First 200 chars of the response body, only when `captureErrorBody` was set. */
       bodySnippet?: string;
@@ -180,7 +208,7 @@ export type CompletionResult =
       latencyMs: number;
     };
 
-export async function executeCompletion(req: CompletionRequest): Promise<CompletionResult> {
+async function runCompletion(req: CompletionRequest, executionId: string): Promise<CompletionResult> {
   const isClaude = req.provider === "claude-max";
   const url = isClaude
     ? req.proxy?.url ?? (cleanEnv("CLAUDE_MAX_PROXY_URL") || CLAUDE_MAX_DEFAULT_URL)
@@ -226,6 +254,7 @@ export async function executeCompletion(req: CompletionRequest): Promise<Complet
         provider: req.provider,
         model: req.model,
         kind: "http",
+        executionId,
         httpStatus: res.status,
         ...(snippet !== undefined ? { bodySnippet: snippet } : {}),
         latencyMs: Date.now() - started,
@@ -244,6 +273,8 @@ export async function executeCompletion(req: CompletionRequest): Promise<Complet
       model: req.model,
       text: rawContent || null,
       rawContent,
+      ...(typeof data?.model === "string" ? { modelReported: data.model as string } : {}),
+      executionId,
       ...(typeof finish === "string" ? { finishReason: finish } : {}),
       ...(usage ? { usage } : {}),
       httpStatus: res.status,
@@ -255,12 +286,38 @@ export async function executeCompletion(req: CompletionRequest): Promise<Complet
       provider: req.provider,
       model: req.model,
       kind: "exception",
+      executionId,
       error: err,
       latencyMs: Date.now() - started,
     };
   } finally {
     if (timer !== undefined) clearTimeout(timer);
   }
+}
+
+export async function executeCompletion(req: CompletionRequest): Promise<CompletionResult> {
+  const executionId = newExecutionId();
+  const startedAtMs = Date.now();
+  const result = await runCompletion(req, executionId);
+  await emitExecution({
+    executionId,
+    startedAtMs,
+    latencyMs: result.latencyMs,
+    provider: req.provider,
+    context: req.context,
+    modelRequested: req.model ?? null,
+    modelReported: result.ok ? result.modelReported ?? null : null,
+    hasText: result.ok && Boolean(result.text),
+    ...(result.ok
+      ? { usage: result.usage, finishReason: result.finishReason }
+      : {
+          failure:
+            result.kind === "http"
+              ? { kind: "http" as const, httpStatus: result.httpStatus }
+              : failureFromError(result.error),
+        }),
+  });
+  return result;
 }
 
 /* ── Streaming (gemini, deepseek, openrouter) ────────────────────────── */
@@ -270,10 +327,12 @@ export interface StreamRequest {
   apiKey: string;
   systemPrompt: string;
   userMessage: string;
-  context?: ExecutionContext;
+  context: ExecutionContext;
 }
 
 export interface StreamOutcome {
+  /** Identifies this execution in telemetry. Generated before the call. */
+  executionId: string;
   provider: "gemini" | "deepseek" | "openrouter";
   /** Model requested; fixed per streaming provider. */
   model: string;
@@ -307,10 +366,14 @@ export const STREAM_MODELS = {
 
 export function streamCompletion(req: StreamRequest): StreamHandle {
   const model = STREAM_MODELS[req.provider];
-  const outcome: StreamOutcome = { provider: req.provider, model };
+  const executionId = newExecutionId();
+  const startedAtMs = Date.now();
+  const outcome: StreamOutcome = { executionId, provider: req.provider, model };
 
   async function* run(): AsyncGenerator<string, void, unknown> {
     const started = Date.now();
+    let produced = false;
+    let failure: ExecutionFacts["failure"];
     let url: string;
     let headers: Record<string, string>;
     let body: Record<string, unknown>;
@@ -353,6 +416,7 @@ export function streamCompletion(req: StreamRequest): StreamHandle {
         signal: AbortSignal.timeout(STREAM_TIMEOUT_MS),
       });
       outcome.httpStatus = res.status;
+      if (!res.ok) failure = { kind: "http", httpStatus: res.status };
       if (!res.ok || !res.body) return;
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -377,7 +441,10 @@ export function streamCompletion(req: StreamRequest): StreamHandle {
               const u = usageFromGemini(j.usageMetadata);
               if (u) outcome.usage = u;
               const txt = j.candidates?.[0]?.content?.parts?.[0]?.text;
-              if (txt) yield txt;
+              if (txt) {
+                produced = true;
+                yield txt;
+              }
             } else {
               const j = JSON.parse(payload) as {
                 choices?: { delta?: { content?: string } }[];
@@ -386,15 +453,34 @@ export function streamCompletion(req: StreamRequest): StreamHandle {
               const u = usageFromOpenAi(j.usage);
               if (u) outcome.usage = u;
               const txt = j.choices?.[0]?.delta?.content;
-              if (txt) yield txt;
+              if (txt) {
+                produced = true;
+                yield txt;
+              }
             }
           } catch {
             /* ignore partial / malformed chunks */
           }
         }
       }
+    } catch (err) {
+      failure = failureFromError(err);
+      throw err;
     } finally {
       outcome.latencyMs = Date.now() - started;
+      await emitExecution({
+        executionId,
+        startedAtMs,
+        latencyMs: outcome.latencyMs,
+        provider: req.provider,
+        context: req.context,
+        modelRequested: model,
+        modelReported: null,
+        hasText: produced,
+        usage: outcome.usage,
+        streamed: true,
+        ...(failure ? { failure } : {}),
+      });
     }
   }
 
@@ -407,26 +493,49 @@ export interface OpenClawRequest {
   sessionKey: string;
   message: string;
   timeoutSeconds: number;
-  context?: ExecutionContext;
+  context: ExecutionContext;
 }
 
 export type OpenClawResult =
-  | { ok: true; provider: "openclaw"; model: "unknown"; text: string; latencyMs: number }
-  | { ok: false; provider: "openclaw"; model: "unknown"; error: string; latencyMs: number };
+  | { ok: true; provider: "openclaw"; model: "unknown"; executionId: string; text: string; latencyMs: number }
+  | { ok: false; provider: "openclaw"; model: "unknown"; executionId: string; error: string; latencyMs: number };
 
 /**
  * `sessions_send` through the OpenClaw gateway. The model and provider behind an OpenClaw
  * session are configured outside this repo, so the model is always reported as "unknown".
  */
 export async function executeOpenClaw(req: OpenClawRequest): Promise<OpenClawResult> {
+  const executionId = newExecutionId();
   const started = Date.now();
-  const gw = await gatewaySessionsSend(req.sessionKey, req.message, req.timeoutSeconds);
+  const facts = (extra: Pick<ExecutionFacts, "hasText"> & { failure?: ExecutionFacts["failure"] }): ExecutionFacts => ({
+    executionId,
+    startedAtMs: started,
+    latencyMs: Date.now() - started,
+    provider: "openclaw" satisfies ExecutionProvider,
+    context: req.context,
+    // OpenClaw's underlying model and usage are not observable from here.
+    modelRequested: null,
+    modelReported: null,
+    ...extra,
+  });
+  let gw: Awaited<ReturnType<typeof gatewaySessionsSend>>;
+  try {
+    gw = await gatewaySessionsSend(req.sessionKey, req.message, req.timeoutSeconds);
+  } catch (err) {
+    await emitExecution(facts({ hasText: false, failure: { kind: "exception" } }));
+    throw err; // unchanged: the gateway's own throw still propagates to the caller
+  }
   const latencyMs = Date.now() - started;
-  if (gw.ok && gw.reply) return { ok: true, provider: "openclaw", model: "unknown", text: gw.reply, latencyMs };
+  if (gw.ok && gw.reply) {
+    await emitExecution(facts({ hasText: true }));
+    return { ok: true, provider: "openclaw", model: "unknown", executionId, text: gw.reply, latencyMs };
+  }
+  await emitExecution(facts({ hasText: false, failure: { kind: "gateway" } }));
   return {
     ok: false,
     provider: "openclaw",
     model: "unknown",
+    executionId,
     error: !gw.ok && "error" in gw ? gw.error : "no reply",
     latencyMs,
   };

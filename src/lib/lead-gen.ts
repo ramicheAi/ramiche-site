@@ -5,6 +5,7 @@
 // this completes), and the result is written to the lead's meta for the UI to poll.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { CLAUDE_MAX_DEFAULT_URL, executeCompletion } from "@/lib/provider-adapter";
+import type { ExecutionCorrelation } from "@/lib/execution-events";
 
 // Read proxy config at CALL TIME, not module-load. In the long-running `next start`
 // server the module-level const evaluated before env was fully applied, freezing the
@@ -48,7 +49,7 @@ export function generationStale(
 export async function callProxyJSON(
   system: string,
   user: string,
-  opts: { model?: string; timeoutMs?: number } = {},
+  opts: { model?: string; timeoutMs?: number; correlation?: ExecutionCorrelation } = {},
 ): Promise<unknown> {
   const { url, token } = proxyConfig();
   const once = async (): Promise<unknown> => {
@@ -63,7 +64,7 @@ export async function callProxyJSON(
       timeoutMs: opts.timeoutMs ?? 180_000,
       timeoutStyle: "abort-controller",
       proxy: { url, token },
-      context: { purpose: "lead-gen" },
+      context: { purpose: "lead-gen", correlation: opts.correlation },
     });
     if (!r.ok) {
       if (r.kind === "http") throw new Error(`agent proxy HTTP ${r.httpStatus}`);

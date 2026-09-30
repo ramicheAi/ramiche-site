@@ -76,6 +76,8 @@ export async function POST(req: Request) {
 
   // Deterministically strip AI tells (dashes, bracket placeholders, etc.) from the
   // whole kit — the prompt asks, this enforces.
-  await startBackgroundGen(db, leadId, "kit", async () => humanizeDeep(await callProxyJSON(sys, user, { timeoutMs: 170_000 })));
+  await startBackgroundGen(db, leadId, "kit", async () =>
+    humanizeDeep(await callProxyJSON(sys, user, { timeoutMs: 170_000, correlation: { type: "lead", id: leadId } })),
+  );
   return NextResponse.json({ status: "generating" });
 }
