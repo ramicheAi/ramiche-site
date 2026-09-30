@@ -122,11 +122,33 @@ export interface CompletionRequest {
   /** Model to request. Omit for LM Studio to let it use whatever is loaded. */
   model?: string;
   messages: ChatMessage[];
-  maxTokens: number;
-  temperature: number;
-  timeoutMs: number;
-  /** Read the (truncated) body of a non-2xx response. Off by default so failures cost nothing extra. */
-  captureErrorBody?: boolean;
+  /** Omitted from the body when undefined (some callers never sent it). */
+  maxTokens?: number;
+  /** Omitted from the body when undefined (some callers never sent it). */
+  temperature?: number;
+  /** Send an explicit `"stream": false`. Off by default; some callers always sent it, others never. */
+  sendStreamFalse?: boolean;
+  /** Milliseconds before the request is aborted. Undefined = NO timeout (the request may run unbounded). */
+  timeoutMs?: number;
+  /**
+   * How the timeout aborts. "signal-timeout" (default) uses `AbortSignal.timeout`, which rejects with a
+   * `TimeoutError`. "abort-controller" uses a timer + `AbortController`, which rejects with an `AbortError`;
+   * callers that test `err.name === "AbortError"` need this. The timer covers reading the body and is cleared afterwards.
+   */
+  timeoutStyle?: "signal-timeout" | "abort-controller";
+  /**
+   * claude-max only: override the endpoint and auth. The caller resolves the values, so it also decides WHEN the
+   * environment is read (module load vs call time). `token: null` sends no Authorization header at all.
+   * Without this, the URL/token come from CLAUDE_MAX_PROXY_URL/TOKEN at call time (token defaults to "not-needed").
+   */
+  proxy?: { url: string; token: string | null };
+  /** Read the (truncated) body of a non-2xx response. `true` = 200 chars, a number = that many. Off by default. */
+  captureErrorBody?: boolean | number;
+  /**
+   * Treat a literal JSON `null` body as an empty reply. Default false: `null` throws (a TypeError, reported as an
+   * exception), which is what the chat call sites do. `jobs` never threw on `null`, so it opts in.
+   */
+  nullBodyIsEmpty?: boolean;
   context?: ExecutionContext;
 }
 
@@ -138,6 +160,8 @@ export type CompletionResult =
       model: string | undefined;
       /** `choices[0].message.content` as returned; null when missing/empty. Not validated beyond truthiness. */
       text: string | null;
+      /** `choices[0].message.content` exactly as the provider sent it (string, content-part array, anything). */
+      rawContent: unknown;
       finishReason?: string;
       usage?: UsageMetadata;
       httpStatus: number;
@@ -159,32 +183,44 @@ export type CompletionResult =
 export async function executeCompletion(req: CompletionRequest): Promise<CompletionResult> {
   const isClaude = req.provider === "claude-max";
   const url = isClaude
-    ? cleanEnv("CLAUDE_MAX_PROXY_URL") || CLAUDE_MAX_DEFAULT_URL
+    ? req.proxy?.url ?? (cleanEnv("CLAUDE_MAX_PROXY_URL") || CLAUDE_MAX_DEFAULT_URL)
     : cleanEnv("LM_STUDIO_URL") || LM_STUDIO_DEFAULT_URL;
-  const headers: Record<string, string> = isClaude
-    ? {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${cleanEnv("CLAUDE_MAX_PROXY_TOKEN") || "not-needed"}`,
-      }
-    : { "Content-Type": "application/json" };
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (isClaude) {
+    const token = req.proxy ? req.proxy.token : cleanEnv("CLAUDE_MAX_PROXY_TOKEN") || "not-needed";
+    if (token !== null) headers.Authorization = `Bearer ${token}`;
+  }
 
-  // Key order matches the original call sites: claude-max sends `model` first, LM Studio appends it last.
+  // Key order matches the chat call sites: claude-max sends `model` first, LM Studio appends it last.
   const body: Record<string, unknown> = isClaude ? { model: req.model } : {};
+  if (req.sendStreamFalse) body.stream = false;
   body.messages = req.messages;
-  body.max_tokens = req.maxTokens;
-  body.temperature = req.temperature;
+  if (req.maxTokens !== undefined) body.max_tokens = req.maxTokens;
+  if (req.temperature !== undefined) body.temperature = req.temperature;
   if (!isClaude && req.model) body.model = req.model;
 
   const started = Date.now();
+  let signal: AbortSignal | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  if (req.timeoutMs !== undefined) {
+    if (req.timeoutStyle === "abort-controller") {
+      const ctrl = new AbortController();
+      timer = setTimeout(() => ctrl.abort(), req.timeoutMs);
+      signal = ctrl.signal;
+    } else {
+      signal = AbortSignal.timeout(req.timeoutMs);
+    }
+  }
   try {
     const res = await fetch(url, {
       method: "POST",
       headers,
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(req.timeoutMs),
+      ...(signal ? { signal } : {}),
     });
     if (!res.ok) {
-      const snippet = req.captureErrorBody ? (await res.text().catch(() => "")).slice(0, 200) : undefined;
+      const max = typeof req.captureErrorBody === "number" ? req.captureErrorBody : 200;
+      const snippet = req.captureErrorBody ? (await res.text().catch(() => "")).slice(0, max) : undefined;
       return {
         ok: false,
         provider: req.provider,
@@ -197,15 +233,17 @@ export async function executeCompletion(req: CompletionRequest): Promise<Complet
     }
     const data = await res.json();
     // `data.choices` (not `data?.choices`) on purpose: a literal JSON `null` body must throw here,
-    // into the exception path, exactly as the pre-adapter call sites did.
-    const choice = data.choices?.[0];
+    // into the exception path, exactly as the pre-adapter call sites did. `nullBodyIsEmpty` opts out.
+    const choice = req.nullBodyIsEmpty ? data?.choices?.[0] : data.choices?.[0];
+    const rawContent = choice?.message?.content;
     const finish = choice?.finish_reason;
     const usage = usageFromOpenAi(data?.usage);
     return {
       ok: true,
       provider: req.provider,
       model: req.model,
-      text: choice?.message?.content || null,
+      text: rawContent || null,
+      rawContent,
       ...(typeof finish === "string" ? { finishReason: finish } : {}),
       ...(usage ? { usage } : {}),
       httpStatus: res.status,
@@ -220,6 +258,8 @@ export async function executeCompletion(req: CompletionRequest): Promise<Complet
       error: err,
       latencyMs: Date.now() - started,
     };
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
   }
 }
 
