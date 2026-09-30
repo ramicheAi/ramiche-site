@@ -395,3 +395,39 @@ begin
   assert (select is_nullable from information_schema.columns where table_name = 'model_pricing' and column_name = 'source_url') = 'NO';
   assert (select is_nullable from information_schema.columns where table_name = 'model_pricing' and column_name = 'retrieved_on') = 'NO';
 end $$;
+
+-- @test an all-zero Claude Max shape can never be labelled reported or partial, and real partial usage still works
+do $$
+declare bad int := 0; v record;
+begin
+  begin  -- 0/0/0 labelled provider_reported (the direct-insert / backfill case)
+    insert into public.execution_events (id, started_at, provider, model_requested, purpose, outcome, usage_quality, billing_mode, input_tokens, output_tokens, total_tokens)
+      values (gen_random_uuid(), '2026-10-15T12:00:00Z', 'claude-max', 'claude-opus-4-6', 'agent-reply', 'ok', 'provider_reported', 'subscription', 0, 0, 0);
+    raise exception 'claude-max 0/0/0 provider_reported accepted';
+  exception when check_violation then bad := bad + 1; end;
+  begin  -- 0/0 with a null total labelled partial
+    insert into public.execution_events (id, started_at, provider, model_requested, purpose, outcome, usage_quality, billing_mode, input_tokens, output_tokens)
+      values (gen_random_uuid(), '2026-10-15T12:00:00Z', 'claude-max', 'claude-opus-4-6', 'agent-reply', 'ok', 'partial', 'subscription', 0, 0);
+    raise exception 'claude-max 0/0 partial accepted';
+  exception when check_violation then bad := bad + 1; end;
+  begin  -- a lone zero labelled partial
+    insert into public.execution_events (id, started_at, provider, model_requested, purpose, outcome, usage_quality, billing_mode, input_tokens)
+      values (gen_random_uuid(), '2026-10-15T12:00:00Z', 'claude-max', 'claude-opus-4-6', 'agent-reply', 'ok', 'partial', 'subscription', 0);
+    raise exception 'claude-max lone zero partial accepted';
+  exception when check_violation then bad := bad + 1; end;
+  begin  -- non-zero counts still cannot be "provider_reported" for Claude Max
+    insert into public.execution_events (id, started_at, provider, model_requested, purpose, outcome, usage_quality, billing_mode, input_tokens, output_tokens, total_tokens)
+      values (gen_random_uuid(), '2026-10-15T12:00:00Z', 'claude-max', 'claude-opus-4-6', 'agent-reply', 'ok', 'provider_reported', 'subscription', 10, 5, 15);
+    raise exception 'claude-max provider_reported accepted';
+  exception when check_violation then bad := bad + 1; end;
+  assert bad = 4, format('expected 4 rejections, got %s', bad);
+  assert (select count(*) from public.execution_events) = 0, 'a rejected row was stored';
+  -- valid non-zero partial usage still succeeds and is priced; zero never becomes a $0 cost
+  insert into public.execution_events (id, started_at, provider, model_requested, purpose, outcome, usage_quality, billing_mode, input_tokens, output_tokens) values
+    ('00000000-0000-0000-0000-0000000000b1', '2026-10-15T12:00:00Z', 'claude-max', 'claude-opus-4-6', 'agent-reply', 'ok', 'partial', 'subscription', 1000000, 1000000),
+    ('00000000-0000-0000-0000-0000000000b2', '2026-10-15T12:00:00Z', 'claude-max', 'claude-opus-4-6', 'agent-reply', 'ok', 'partial', 'subscription', 7, null);
+  select * into v from public.execution_events_with_shadow_cost where id = '00000000-0000-0000-0000-0000000000b1';
+  assert v.shadow_cost_usd = 30.0 and v.total_tokens is null;
+  assert (select shadow_cost_usd from public.execution_events_with_shadow_cost where id = '00000000-0000-0000-0000-0000000000b2') is null, 'incomplete usage must not be priced';
+  delete from public.execution_events;
+end $$;

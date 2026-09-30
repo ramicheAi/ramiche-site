@@ -89,6 +89,14 @@ create table if not exists public.execution_events (
           and (input_tokens is null or input_tokens > 0)
           and (output_tokens is null or output_tokens > 0))
     ),
+  -- Independent of the rule above: a Claude Max row is never "provider_reported", and an all-zero (or empty) Claude Max
+  -- count shape can only be labelled unknown, so no zero can be read, or priced, as a measurement.
+  constraint execution_events_claude_max_zero_is_unknown
+    check (
+      provider <> 'claude-max'
+      or usage_quality in ('ambiguous_proxy_zero', 'not_reported')
+      or (usage_quality = 'partial' and coalesce(input_tokens, 0) + coalesce(output_tokens, 0) > 0)
+    ),
   -- A proxy zero is only ever an "ambiguous_proxy_zero" and only from the Claude Max proxy.
   constraint execution_events_proxy_zero_is_claude_max_only
     check (usage_quality <> 'ambiguous_proxy_zero' or provider = 'claude-max'),

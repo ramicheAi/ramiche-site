@@ -22,7 +22,7 @@ carries the cheap constraints that stop bad rows, and the rest lives in tested c
 | Unknown is `null`. Never zero, never estimated. | [code] `normalizeUsage`; [DB] `usage_quality_matches_tokens` |
 | A total is never derived from input + output. | [code] `normalizeUsage`; tests and mutation checks. Not a DB rule (no column can prove a total was not computed). |
 | Claude Max `total_tokens` is always null. | [code] `normalizeUsage`; [DB] `claude_max_untrusted_counts` |
-| Claude Max zero input/output is not a measurement: stored null. | [code] `normalizeUsage`; [DB] `claude_max_untrusted_counts` |
+| Claude Max zero input/output is not a measurement: stored null. | [code] `normalizeUsage`; [DB] `claude_max_untrusted_counts`, and independently `claude_max_zero_is_unknown` (a Claude Max row is never `provider_reported`; `partial` needs a positive count) |
 | Claude Max usage with no trustworthy number is UNKNOWN (`ambiguous_proxy_zero` if a zero was seen, else `not_reported`). | [code] `normalizeUsage`; [DB] `proxy_zero_is_claude_max_only`, `usage_quality_matches_tokens` |
 | Token counts are integers in `0..2147483647`; anything else becomes null. | [code] `validCount` (an invalid value never reaches the insert); [DB] the column type is `integer` and rejects the rest |
 | `model_requested` (exact) and `model_reported` (verbatim) are separate; the family label never replaces the exact model. | [code] `buildExecutionEvent`; tests and a mutation check |
@@ -123,10 +123,10 @@ if it drifts from the SQL CHECK list.
 ## Verification evidence
 
 - SQL, on real PostgreSQL 18.3 (PGlite, run outside the repo, no repository dependency added): forward apply, idempotent
-  re-apply, 15/15 SQL tests, rollback, idempotent re-rollback, re-apply. sha256:
-  migration `fbb9d37f2815a365662e5a54c8307f33eecf06b6d995e3d69f9ca69ae2d24aaa`,
+  re-apply, 16/16 SQL tests, rollback, idempotent re-rollback, re-apply. sha256:
+  migration `87917d7542b507feef9d269e82bbf83c9a9f327e6c14da26d2d53fb6dec64981`,
   rollback `705aa79b1fcbf719aa002b41e866b6f250ef6022cbb24e6fccc0fa83b487fa47` (unchanged),
-  tests `a56391145c28c762289776cad91e7cdaa4763af142449096010e45b53ac1c7ce`.
+  tests `2c1b149bc957e1ade67823dca54de4b09bdfef88de74002994880fd31287b739`.
 - No SQL has been run against any remote project.
 
 ## Rollout (requires separate approval)
