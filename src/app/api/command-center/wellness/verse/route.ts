@@ -17,10 +17,11 @@
  */
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { CLAUDE_MAX_DEFAULT_URL, executeCompletion } from "@/lib/provider-adapter";
 
 export const dynamic = "force-dynamic";
 
-const PROXY_URL = process.env.CLAUDE_MAX_PROXY_URL || "http://127.0.0.1:3456/v1/chat/completions";
+const PROXY_URL = process.env.CLAUDE_MAX_PROXY_URL || CLAUDE_MAX_DEFAULT_URL;
 const PROXY_TOKEN = process.env.CLAUDE_MAX_PROXY_TOKEN || "not-needed";
 const MODEL = process.env.CC_VERSE_MODEL || "claude-sonnet-4-6";
 
@@ -90,22 +91,23 @@ async function generateWithClaude(context: string, exclude: string[]): Promise<V
     'Reply ONLY as compact JSON: {"reference":"Book C:V","verse_text":"...","reflection":"1-2 warm sentences, spoken to him, on why this fits today"}';
   const user = `Context for today:\n${context}\n\nEXCLUDE (already given to him): ${exclude.slice(0, 100).join(", ") || "(none yet)"}`;
   try {
-    const res = await fetch(PROXY_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${PROXY_TOKEN}` },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-        temperature: 0.85,
-        max_tokens: 500,
-      }),
+    const r = await executeCompletion({
+      provider: "claude-max",
+      model: MODEL,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      temperature: 0.85,
+      maxTokens: 500,
+      // No timeout, deliberately: this caller never had one. URL, token and model were read at module load.
+      proxy: { url: PROXY_URL, token: PROXY_TOKEN },
+      // A literal JSON `null` body was tolerated here (it fell through to the JSON.parse failure below).
+      nullBodyIsEmpty: true,
+      context: { purpose: "daily-verse" },
     });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const content: string = data?.choices?.[0]?.message?.content ?? "";
+    if (!r.ok) return null;
+    const content: string = (r.rawContent as string | undefined) ?? "";
     const slice = content.slice(content.indexOf("{"), content.lastIndexOf("}") + 1);
     const parsed = JSON.parse(slice);
     if (parsed?.reference && parsed?.verse_text) {
