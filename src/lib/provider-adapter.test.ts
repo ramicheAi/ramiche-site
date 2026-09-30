@@ -38,6 +38,7 @@ import * as chatRoute from "@/app/api/command-center/chat/route";
 import * as streamRoute from "@/app/api/command-center/chat/stream/route";
 import { chatAgentIds } from "./agent-registry-core";
 
+const CTX = { purpose: "agent-reply" as const };
 const CLAUDE_URL = "http://127.0.0.1:3456/v1/chat/completions";
 const LM_URL = "http://127.0.0.1:1234/v1/chat/completions";
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
@@ -158,7 +159,7 @@ describe("executeCompletion", () => {
 
   it("claude-max: default URL, bearer 'not-needed', body key order, timeout", async () => {
     mockFetch(() => ok("hi"));
-    const r = await executeCompletion({ provider: "claude-max", model: "claude-opus-4-6", messages: msgs, maxTokens: 300, temperature: 0.7, timeoutMs: 45_000 });
+    const r = await executeCompletion({ context: CTX, provider: "claude-max", model: "claude-opus-4-6", messages: msgs, maxTokens: 300, temperature: 0.7, timeoutMs: 45_000 });
     expect(recs).toHaveLength(1);
     expect(recs[0].url).toBe(CLAUDE_URL);
     expect(recs[0].method).toBe("POST");
@@ -171,18 +172,18 @@ describe("executeCompletion", () => {
   it("claude-max: custom URL and token are cleaned and used", async () => {
     resetEnv({ CLAUDE_MAX_PROXY_URL: "https://claude.test/v1/chat/completions\n", CLAUDE_MAX_PROXY_TOKEN: "tok-123 " });
     mockFetch(() => ok("hi"));
-    await executeCompletion({ provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+    await executeCompletion({ context: CTX, provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
     expect(recs[0].url).toBe("https://claude.test/v1/chat/completions");
     expect(recs[0].headers.Authorization).toBe("Bearer tok-123");
   });
 
   it("lm-studio: no auth header, model appended LAST and only when pinned", async () => {
     mockFetch(() => ok("hi"));
-    await executeCompletion({ provider: "lm-studio", messages: msgs, maxTokens: 300, temperature: 0.7, timeoutMs: 60_000 });
+    await executeCompletion({ context: CTX, provider: "lm-studio", messages: msgs, maxTokens: 300, temperature: 0.7, timeoutMs: 60_000 });
     expect(recs[0].url).toBe(LM_URL);
     expect(recs[0].headers).toEqual({ "Content-Type": "application/json" });
     expect(recs[0].bodyText).toBe(JSON.stringify({ messages: msgs, max_tokens: 300, temperature: 0.7 }));
-    await executeCompletion({ provider: "lm-studio", model: "qwen-local", messages: msgs, maxTokens: 300, temperature: 0.7, timeoutMs: 60_000 });
+    await executeCompletion({ context: CTX, provider: "lm-studio", model: "qwen-local", messages: msgs, maxTokens: 300, temperature: 0.7, timeoutMs: 60_000 });
     expect(recs[1].bodyText).toBe(JSON.stringify({ messages: msgs, max_tokens: 300, temperature: 0.7, model: "qwen-local" }));
     expect(recs[1].timeoutMs).toBe(60_000);
   });
@@ -190,23 +191,23 @@ describe("executeCompletion", () => {
   it("passes content-part arrays (images) through untouched", async () => {
     mockFetch(() => ok("hi"));
     const content = [{ type: "text", text: "look" }, { type: "image_url", image_url: { url: "https://x/y.png" } }];
-    await executeCompletion({ provider: "claude-max", model: "m", messages: [{ role: "user", content }], maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+    await executeCompletion({ context: CTX, provider: "claude-max", model: "m", messages: [{ role: "user", content }], maxTokens: 1, temperature: 0, timeoutMs: 1000 });
     expect(recs[0].body.messages[0].content).toEqual(content);
   });
 
   it("captures usage when the provider supplies it, and never fabricates it", async () => {
     mockFetch(() => ok("hi", { usage: { prompt_tokens: 11, completion_tokens: 5, total_tokens: 16 } }));
-    const withUsage = await executeCompletion({ provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+    const withUsage = await executeCompletion({ context: CTX, provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
     expect(withUsage.ok && withUsage.usage).toEqual({ promptTokens: 11, completionTokens: 5, totalTokens: 16 });
 
     // Partial counts are kept as-is: the total is NOT computed from the parts.
     mockFetch(() => ok("hi", { usage: { prompt_tokens: 11 } }));
-    const partial = await executeCompletion({ provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+    const partial = await executeCompletion({ context: CTX, provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
     expect(partial.ok && partial.usage).toEqual({ promptTokens: 11, completionTokens: undefined, totalTokens: undefined });
 
     for (const usage of [undefined, {}, { prompt_tokens: "11" }, { total_tokens: null }, "lots", 5]) {
       mockFetch(() => ok("hi", usage === undefined ? {} : { usage }));
-      const r = await executeCompletion({ provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+      const r = await executeCompletion({ context: CTX, provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
       expect(r.ok && "usage" in r ? r.usage : undefined, JSON.stringify(usage)).toBeUndefined();
     }
     expect(usageFromOpenAi(null)).toBeUndefined();
@@ -217,51 +218,51 @@ describe("executeCompletion", () => {
   it("empty or missing content is text: null (callers decide), not an error", async () => {
     for (const payload of [{ choices: [] }, { choices: [{ message: { content: "" } }] }, {}]) {
       mockFetch(() => json(payload));
-      const r = await executeCompletion({ provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+      const r = await executeCompletion({ context: CTX, provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
       expect(r).toMatchObject({ ok: true, text: null });
     }
   });
 
   it("a literal JSON `null` body is an exception (TypeError), exactly as before the adapter", async () => {
     mockFetch(() => new Response("null", { status: 200 }));
-    const r = await executeCompletion({ provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+    const r = await executeCompletion({ context: CTX, provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
     expect(r).toMatchObject({ ok: false, kind: "exception" });
     const err = r.ok === false ? r.error : undefined;
     expect(err).toBeInstanceOf(TypeError);
     expect((err as TypeError).message).toContain("Cannot read properties of null");
     mockFetch(() => new Response("null", { status: 200 }));
-    const lm = await executeCompletion({ provider: "lm-studio", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+    const lm = await executeCompletion({ context: CTX, provider: "lm-studio", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
     expect(lm).toMatchObject({ ok: false, kind: "exception" });
   });
 
   it("other JSON shapes keep their old meaning: {} [] 0 \"str\" true are empty replies, not errors", async () => {
     for (const body of ["{}", "[]", "0", '"str"', "true", '{"choices":null}', '{"choices":"x"}']) {
       mockFetch(() => new Response(body, { status: 200 }));
-      const r = await executeCompletion({ provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+      const r = await executeCompletion({ context: CTX, provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
       expect(r, body).toMatchObject({ ok: true, text: null });
     }
     mockFetch(() => ok("real reply", { usage: { total_tokens: 4 } }));
-    const good = await executeCompletion({ provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+    const good = await executeCompletion({ context: CTX, provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
     expect(good).toMatchObject({ ok: true, text: "real reply", finishReason: "stop", usage: { totalTokens: 4 } });
   });
 
   it("non-2xx: http failure with status; body only read when asked, truncated to 200 chars", async () => {
     mockFetch(() => new Response("x".repeat(500), { status: 502 }));
-    const plain = await executeCompletion({ provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+    const plain = await executeCompletion({ context: CTX, provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
     expect(plain).toMatchObject({ ok: false, kind: "http", httpStatus: 502 });
     expect("bodySnippet" in plain).toBe(false);
-    const withBody = await executeCompletion({ provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000, captureErrorBody: true });
+    const withBody = await executeCompletion({ context: CTX, provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000, captureErrorBody: true });
     expect(withBody.ok === false && withBody.bodySnippet).toBe("x".repeat(200));
   });
 
   it("thrown errors and unparseable bodies are exceptions carrying the original error", async () => {
     const boom = new Error("socket hang up");
     mockFetch(() => boom);
-    const thrown = await executeCompletion({ provider: "lm-studio", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+    const thrown = await executeCompletion({ context: CTX, provider: "lm-studio", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
     expect(thrown).toMatchObject({ ok: false, kind: "exception" });
     expect(thrown.ok === false && thrown.error).toBe(boom);
     mockFetch(() => new Response("<html>", { status: 200 }));
-    const badJson = await executeCompletion({ provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+    const badJson = await executeCompletion({ context: CTX, provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
     expect(badJson).toMatchObject({ ok: false, kind: "exception" });
   });
 });
@@ -273,22 +274,22 @@ describe("executeCompletion: optional features for peripheral callers", () => {
 
   it("proxy override replaces URL and token; token null sends no Authorization header at all", async () => {
     mockFetch(() => ok("x"));
-    await executeCompletion({ ...base, proxy: { url: "http://p.test/v1", token: "tok" }, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+    await executeCompletion({ context: CTX, ...base, proxy: { url: "http://p.test/v1", token: "tok" }, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
     expect(recs[0].url).toBe("http://p.test/v1");
     expect(recs[0].headers).toEqual({ "Content-Type": "application/json", Authorization: "Bearer tok" });
-    await executeCompletion({ ...base, proxy: { url: "http://p.test/v1", token: null }, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+    await executeCompletion({ context: CTX, ...base, proxy: { url: "http://p.test/v1", token: null }, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
     expect(recs[1].headers).toEqual({ "Content-Type": "application/json" });
     expect(recs[1].headers).not.toHaveProperty("Authorization");
   });
 
   it("maxTokens / temperature are omitted when undefined; stream:false only when asked", async () => {
     mockFetch(() => ok("x"));
-    await executeCompletion({ ...base, timeoutMs: 1000 });
+    await executeCompletion({ context: CTX, ...base, timeoutMs: 1000 });
     expect(Object.keys(recs[0].body).sort()).toEqual(["messages", "model"]);
-    await executeCompletion({ ...base, timeoutMs: 1000, sendStreamFalse: true });
+    await executeCompletion({ context: CTX, ...base, timeoutMs: 1000, sendStreamFalse: true });
     expect(recs[1].body.stream).toBe(false);
     expect(Object.keys(recs[1].body).sort()).toEqual(["messages", "model", "stream"]);
-    await executeCompletion({ ...base, timeoutMs: 1000, temperature: 0, maxTokens: 0 }); // zero is a value, not "unset"
+    await executeCompletion({ context: CTX, ...base, timeoutMs: 1000, temperature: 0, maxTokens: 0 }); // zero is a value, not "unset"
     expect(recs[2].body).toMatchObject({ temperature: 0, max_tokens: 0 });
   });
 
@@ -300,7 +301,7 @@ describe("executeCompletion: optional features for peripheral callers", () => {
       sawSignal = init?.signal;
       return ok("x");
     });
-    await executeCompletion({ ...base });
+    await executeCompletion({ context: CTX, ...base });
     expect(sawSignal).toBeUndefined();
     expect(st.mock.calls.filter((c) => (c[1] as number) >= 1000)).toHaveLength(0);
   });
@@ -308,7 +309,7 @@ describe("executeCompletion: optional features for peripheral callers", () => {
   it("abort-controller style aborts with an AbortError at the deadline; signal-timeout style uses AbortSignal.timeout", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     vi.stubGlobal("fetch", (_u: string, init?: RequestInit) => new Promise((_res, rej) => init!.signal!.addEventListener("abort", () => rej(init!.signal!.reason))));
-    const pending = executeCompletion({ ...base, timeoutMs: 5_000, timeoutStyle: "abort-controller" });
+    const pending = executeCompletion({ context: CTX, ...base, timeoutMs: 5_000, timeoutStyle: "abort-controller" });
     await vi.advanceTimersByTimeAsync(4_999);
     let settled = false;
     void pending.then(() => (settled = true));
@@ -320,34 +321,34 @@ describe("executeCompletion: optional features for peripheral callers", () => {
     expect(r.ok === false && (r.error as Error).name).toBe("AbortError");
     vi.useRealTimers();
     mockFetch(() => ok("x"));
-    await executeCompletion({ ...base, timeoutMs: 7_000 });
+    await executeCompletion({ context: CTX, ...base, timeoutMs: 7_000 });
     expect(recs[0].timeoutMs).toBe(7_000); // default style still goes through AbortSignal.timeout
   });
 
   it("the abort-controller timer is cleared once the response has been read", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     mockFetch(() => ok("x"));
-    await executeCompletion({ ...base, timeoutMs: 5_000, timeoutStyle: "abort-controller" });
+    await executeCompletion({ context: CTX, ...base, timeoutMs: 5_000, timeoutStyle: "abort-controller" });
     expect(vi.getTimerCount()).toBe(0);
     vi.useRealTimers();
   });
 
   it("captureErrorBody accepts a length", async () => {
     mockFetch(() => new Response("y".repeat(500), { status: 500 }));
-    const r = await executeCompletion({ ...base, timeoutMs: 1000, captureErrorBody: 300 });
+    const r = await executeCompletion({ context: CTX, ...base, timeoutMs: 1000, captureErrorBody: 300 });
     expect(r.ok === false && r.bodySnippet).toBe("y".repeat(300));
-    const empty = await (async () => { mockFetch(() => new Response("", { status: 502 })); return executeCompletion({ ...base, timeoutMs: 1000, captureErrorBody: 300 }); })();
+    const empty = await (async () => { mockFetch(() => new Response("", { status: 502 })); return executeCompletion({ context: CTX, ...base, timeoutMs: 1000, captureErrorBody: 300 }); })();
     expect(empty.ok === false && empty.bodySnippet).toBe("");
   });
 
   it("nullBodyIsEmpty turns a literal null body into an empty reply instead of an exception; rawContent passes through", async () => {
     mockFetch(() => new Response("null", { status: 200 }));
-    expect(await executeCompletion({ ...base, timeoutMs: 1000 })).toMatchObject({ ok: false, kind: "exception" });
+    expect(await executeCompletion({ context: CTX, ...base, timeoutMs: 1000 })).toMatchObject({ ok: false, kind: "exception" });
     mockFetch(() => new Response("null", { status: 200 }));
-    expect(await executeCompletion({ ...base, timeoutMs: 1000, nullBodyIsEmpty: true })).toMatchObject({ ok: true, text: null, rawContent: undefined });
+    expect(await executeCompletion({ context: CTX, ...base, timeoutMs: 1000, nullBodyIsEmpty: true })).toMatchObject({ ok: true, text: null, rawContent: undefined });
     const parts = [{ type: "text", text: "a" }];
     mockFetch(() => ok(parts as unknown as string));
-    const r = await executeCompletion({ ...base, timeoutMs: 1000 });
+    const r = await executeCompletion({ context: CTX, ...base, timeoutMs: 1000 });
     expect(r.ok && r.rawContent).toEqual(parts);
   });
 });
@@ -365,7 +366,7 @@ function gatedSse() {
 }
 
 describe("streamCompletion", () => {
-  const req = (provider: "gemini" | "deepseek" | "openrouter") => ({ provider, apiKey: "KEY", systemPrompt: "SYS", userMessage: "hi" });
+  const req = (provider: "gemini" | "deepseek" | "openrouter") => ({ provider, apiKey: "KEY", systemPrompt: "SYS", userMessage: "hi", context: { purpose: "chat-stream" as const } });
 
   it("gemini request shape (URL with key, body, headers, 45s timeout)", async () => {
     mockFetch(() => new Response(gem("a"), { status: 200 }));
@@ -461,14 +462,14 @@ describe("streamCompletion", () => {
 describe("executeOpenClaw", () => {
   it("forwards session, message and timeout unchanged; model is always 'unknown'", async () => {
     gw.result = { ok: true, reply: "from claw" };
-    const r = await executeOpenClaw({ sessionKey: "agent:main:main", message: "M", timeoutSeconds: 25 });
+    const r = await executeOpenClaw({ context: CTX, sessionKey: "agent:main:main", message: "M", timeoutSeconds: 25 });
     expect(gw.calls).toEqual([["agent:main:main", "M", 25]]);
     expect(r).toMatchObject({ ok: true, provider: "openclaw", model: "unknown", text: "from claw" });
   });
 
   it("reports gateway failures with the gateway's own message", async () => {
     gw.result = { ok: false, error: "ws timeout" };
-    const r = await executeOpenClaw({ sessionKey: "k", message: "M", timeoutSeconds: 90 });
+    const r = await executeOpenClaw({ context: CTX, sessionKey: "k", message: "M", timeoutSeconds: 90 });
     expect(r).toMatchObject({ ok: false, provider: "openclaw", model: "unknown", error: "ws timeout" });
   });
 });
