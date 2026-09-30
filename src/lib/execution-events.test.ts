@@ -12,7 +12,7 @@ import { clientFiles, clientFilesReaching } from "./client-boundary.test-helper"
 /* ── fakes ────────────────────────────────────────────────────────────── */
 type Row = Record<string, unknown> & { id: string };
 type DbMode = "ok" | "error" | "hang" | "throw" | "none";
-const db: { mode: DbMode; rows: Map<string, Row>; calls: { table: string; row: Row; opts: Record<string, unknown>; aborted?: () => boolean }[] } = {
+const db: { mode: DbMode; rows: Map<string, Row>; calls: { table: string; row: Row; opts: Record<string, unknown>; aborted?: () => boolean }[]; onWrite?: () => void } = {
   mode: "ok",
   rows: new Map(),
   calls: [],
@@ -36,6 +36,7 @@ vi.mock("@/lib/supabase-admin", () => ({
               if (db.mode === "error") {
                 return Promise.resolve({ error: { code: "42P01", message: 'relation "execution_events" does not exist' } }).then(resolve, reject);
               }
+              db.onWrite?.();
               // Honour the idempotency contract the real database enforces: ON CONFLICT (id) DO NOTHING.
               if (opts.onConflict === "id" && opts.ignoreDuplicates === true) {
                 if (!db.rows.has(row.id)) db.rows.set(row.id, row);
@@ -109,6 +110,7 @@ const msgs = [
 ];
 const call = (over: Record<string, unknown> = {}) =>
   executeCompletion({ provider: "claude-max", model: "claude-opus-4-6", messages: msgs, maxTokens: 10, temperature: 0, timeoutMs: 5000, context: { purpose: "agent-reply", agentId: "atlas" }, ...over } as never);
+const JOB_ID = "5d6f3c0e-1c1e-4b1e-9d3a-0a1b2c3d4e5f";
 const facts = (over: Partial<ExecutionFacts> = {}): ExecutionFacts => ({
   executionId: "11111111-1111-4111-8111-111111111111",
   startedAtMs: Date.UTC(2026, 8, 30, 12, 0, 0),
@@ -124,6 +126,7 @@ beforeEach(() => {
   db.mode = "ok";
   db.rows = new Map();
   db.calls = [];
+  db.onWrite = undefined;
   gw.calls = [];
   gw.throws = false;
   gw.result = { ok: false, error: "gateway down" };
@@ -153,8 +156,47 @@ describe("usage normalization", () => {
     expect(normalizeUsage("lm-studio", { promptTokens: 0, completionTokens: 0, totalTokens: 0 })).toEqual({ input: 0, output: 0, total: 0, quality: "provider_reported" });
   });
 
-  it("real Claude Max usage is preserved exactly as supplied", () => {
-    expect(normalizeUsage("claude-max", { promptTokens: 1200, completionTokens: 340, totalTokens: 1540 })).toEqual({ input: 1200, output: 340, total: 1540, quality: "provider_reported" });
+  it("real Claude Max input/output are preserved, but the proxy's synthesized total is never stored", () => {
+    expect(normalizeUsage("claude-max", { promptTokens: 1200, completionTokens: 340, totalTokens: 1540 })).toEqual({ input: 1200, output: 340, total: null, quality: "partial" });
+  });
+
+  it("Claude Max zero fields are untrusted: dropped to null while real fields survive", () => {
+    expect(normalizeUsage("claude-max", { promptTokens: 0, completionTokens: 50, totalTokens: 50 })).toEqual({ input: null, output: 50, total: null, quality: "partial" });
+    expect(normalizeUsage("claude-max", { promptTokens: 50, completionTokens: 0, totalTokens: 50 })).toEqual({ input: 50, output: null, total: null, quality: "partial" });
+    expect(normalizeUsage("claude-max", { promptTokens: 0, completionTokens: 0 })).toEqual({ input: null, output: null, total: null, quality: "ambiguous_proxy_zero" });
+    // a total alone (however large) is the proxy's own sum: it is not evidence of anything
+    expect(normalizeUsage("claude-max", { totalTokens: 900 })).toEqual({ input: null, output: null, total: null, quality: "not_reported" });
+    expect(normalizeUsage("claude-max", { promptTokens: 0, totalTokens: 900 })).toEqual({ input: null, output: null, total: null, quality: "ambiguous_proxy_zero" });
+  });
+
+  it("invalid token values become null instead of reaching the database", () => {
+    for (const bad of [12.5, 5e10, 2147483648, -1, NaN, Infinity, "12" as unknown as number]) {
+      expect(normalizeUsage("lm-studio", { promptTokens: bad, completionTokens: 4 }), String(bad)).toEqual({ input: null, output: 4, total: null, quality: "partial" });
+    }
+    expect(normalizeUsage("lm-studio", { promptTokens: 2147483647, completionTokens: 0 })).toMatchObject({ input: 2147483647, output: 0 }); // int4 max is valid
+  });
+
+  it("every normalized result satisfies the database invariants (fuzz matrix)", () => {
+    const vals = [undefined, 0, 1, 50, 12.5, -3, 2147483647, 2147483648, NaN, "7" as unknown as number];
+    let n = 0;
+    for (const provider of EXECUTION_PROVIDERS)
+      for (const a of vals) for (const b of vals) for (const c of vals) {
+        const u = normalizeUsage(provider, { promptTokens: a, completionTokens: b, totalTokens: c });
+        n++;
+        for (const v of [u.input, u.output, u.total]) expect(v === null || (Number.isInteger(v) && v >= 0 && v <= 2147483647)).toBe(true);
+        const any = u.input !== null || u.output !== null || u.total !== null;
+        const all = u.input !== null && u.output !== null && u.total !== null;
+        if (u.quality === "not_reported" || u.quality === "ambiguous_proxy_zero") expect(any).toBe(false);
+        if (u.quality === "partial") expect(any && !all).toBe(true);
+        if (u.quality === "provider_reported") expect(all).toBe(true);
+        if (u.quality === "ambiguous_proxy_zero") expect(provider).toBe("claude-max");
+        if (provider === "claude-max") {
+          expect(u.total).toBeNull();
+          expect(u.input === null || u.input > 0).toBe(true);
+          expect(u.output === null || u.output > 0).toBe(true);
+        }
+      }
+    expect(n).toBe(EXECUTION_PROVIDERS.length * 1000);
   });
 
   it("partial usage stays partial and a missing total is NEVER derived", () => {
@@ -169,8 +211,8 @@ describe("usage normalization", () => {
     }
   });
 
-  it("a zero mixed with real counts is kept as reported (only an ALL-zero object is ambiguous)", () => {
-    expect(normalizeUsage("claude-max", { promptTokens: 0, completionTokens: 7, totalTokens: 7 })).toMatchObject({ input: 0, output: 7, quality: "provider_reported" });
+  it("a zero mixed with real counts is kept as reported for providers whose zeros are real", () => {
+    expect(normalizeUsage("lm-studio", { promptTokens: 0, completionTokens: 7, totalTokens: 7 })).toMatchObject({ input: 0, output: 7, quality: "provider_reported" });
   });
 });
 
@@ -211,11 +253,32 @@ describe("buildExecutionEvent", () => {
   });
 
   it("typed correlation is a pair, and absent correlation is a pair of nulls", () => {
-    const withC = buildExecutionEvent(facts({ context: { purpose: "job", correlation: { type: "job", id: "job-1" } } }));
-    expect([withC.correlation_type, withC.correlation_id]).toEqual(["job", "job-1"]);
+    const withC = buildExecutionEvent(facts({ context: { purpose: "job", correlation: { type: "job", id: JOB_ID } } }));
+    expect([withC.correlation_type, withC.correlation_id]).toEqual(["job", JOB_ID]);
     const without = buildExecutionEvent(facts());
     expect([without.correlation_type, without.correlation_id]).toEqual([null, null]);
     expect(without.mission_id).toBeNull();
+  });
+
+  it("correlation is accepted only as a valid UUID: anything else nulls BOTH columns, nothing is truncated", () => {
+    const pair = (id: unknown, type: string = "chat_message") => {
+      const r = buildExecutionEvent(facts({ context: { purpose: "agent-reply", correlation: { type, id } as never } }));
+      return [r.correlation_type, r.correlation_id];
+    };
+    expect(pair(JOB_ID)).toEqual(["chat_message", JOB_ID]);
+    expect(pair(JOB_ID.toUpperCase())).toEqual(["chat_message", JOB_ID.toUpperCase()]); // hex is case-insensitive
+    for (const bad of ["msg-42", "12345", "", " ", "x".repeat(129), JOB_ID + "0", JOB_ID.slice(1), `${JOB_ID}\n`, "not-a-uuid", 42, null, undefined, {}, ["a"]]) {
+      expect(pair(bad), JSON.stringify(bad)).toEqual([null, null]);
+    }
+    expect(pair(JOB_ID, "bogus-type")).toEqual([null, null]);
+    // an over-long id is dropped whole, never a 128-char prefix of it
+    expect(pair("a".repeat(200))[1]).toBeNull();
+    // never a type without an id, never an id without a type
+    for (const c of [{ type: "job" }, { id: JOB_ID }, {}, null, undefined]) {
+      const r = buildExecutionEvent(facts({ context: { purpose: "job", correlation: c as never } }));
+      expect((r.correlation_type === null) === (r.correlation_id === null)).toBe(true);
+      expect(r.correlation_type).toBeNull();
+    }
   });
 
   it("carries only facts: no message, body or error text can exist on the row", () => {
@@ -245,7 +308,7 @@ describe("recordExecution", () => {
     expect(db.calls).toHaveLength(1);
     expect(db.calls[0].table).toBe("execution_events");
     expect(db.calls[0].opts).toEqual({ onConflict: "id", ignoreDuplicates: true });
-    expect(only()).toMatchObject({ id: "11111111-1111-4111-8111-111111111111", provider: "claude-max", input_tokens: 5, output_tokens: 2, total_tokens: 7, usage_quality: "provider_reported" });
+    expect(only()).toMatchObject({ id: "11111111-1111-4111-8111-111111111111", provider: "claude-max", input_tokens: 5, output_tokens: 2, total_tokens: null, usage_quality: "partial" });
     expect(getExecutionTelemetryHealth()).toMatchObject({ attempted: 1, persisted: 1, failed: 0 });
   });
 
@@ -323,6 +386,51 @@ describe("recordExecution", () => {
 });
 
 /* ═══ through the Provider Adapter ════════════════════════════════════════ */
+/* ═══ health: dropped values and write durations ═════════════════════════ */
+describe("telemetry health", () => {
+  it("counts dropped correlations and invalid token values, and still persists the row", async () => {
+    await recordExecution(facts({ executionId: "22222222-2222-4222-8222-222222222222", provider: "gemini", context: { purpose: "agent-reply", correlation: { type: "chat_message", id: "msg-42" } }, usage: { promptTokens: 12.5, completionTokens: 5e10, totalTokens: 3 } }));
+    expect(only()).toMatchObject({ correlation_type: null, correlation_id: null, input_tokens: null, output_tokens: null, total_tokens: 3, usage_quality: "partial" });
+    expect(getExecutionTelemetryHealth()).toMatchObject({ persisted: 1, failed: 0, correlationDropped: 1, tokensDropped: 2 });
+  });
+
+  it("tracks persistence-write duration: count, latest, p95, max, and a bounded sample", async () => {
+    let clock = 1000;
+    vi.spyOn(performance, "now").mockImplementation(() => clock);
+    const before = getExecutionTelemetryHealth().writeDuration;
+    expect(before).toEqual({ count: 0, latestMs: null, p95Ms: null, maxMs: null, sampleSize: 0 });
+    const ms = [10, 20, 30, 40, 50, 60, 70, 80, 90, 500];
+    let i = 0;
+    db.onWrite = () => {
+      clock += ms[i++];
+    };
+    for (let n = 0; n < ms.length; n++) await recordExecution(facts({ executionId: `00000000-0000-4000-8000-0000000000${String(n).padStart(2, "0")}` }));
+    expect(getExecutionTelemetryHealth().writeDuration).toEqual({ count: 10, latestMs: 500, p95Ms: 500, maxMs: 500, sampleSize: 10 });
+  });
+
+  it("a timed-out write is recorded at the timeout bound", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    db.mode = "hang";
+    const p = recordExecution(facts());
+    await vi.advanceTimersByTimeAsync(EXECUTION_EVENT_WRITE_TIMEOUT_MS + 1);
+    await p;
+    expect(getExecutionTelemetryHealth().writeDuration).toMatchObject({ count: 1, latestMs: EXECUTION_EVENT_WRITE_TIMEOUT_MS, maxMs: EXECUTION_EVENT_WRITE_TIMEOUT_MS });
+  });
+
+  it("the duration sample is bounded (50) while the count keeps growing", async () => {
+    for (let n = 0; n < 120; n++) await recordExecution(facts({ executionId: `00000000-0000-4000-8000-${String(n).padStart(12, "0")}` }));
+    const w = getExecutionTelemetryHealth().writeDuration;
+    expect(w.count).toBe(120);
+    expect(w.sampleSize).toBe(50);
+  });
+
+  it("skipped writes (disabled, duplicate, circuit open) record no duration", async () => {
+    delete process.env.CC_EXECUTION_EVENTS;
+    await recordExecution(facts());
+    expect(getExecutionTelemetryHealth().writeDuration.count).toBe(0);
+  });
+});
+
 describe("adapter emits truthful events", () => {
   it("Claude Max: proxy all-zero usage on a non-empty reply is stored as unknown with provenance", async () => {
     mockFetch(() => ok("a real answer", { model: "claude-sonnet-4", usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 } }));
@@ -337,7 +445,7 @@ describe("adapter emits truthful events", () => {
   it("Claude Max: real usage is persisted accurately", async () => {
     mockFetch(() => ok("hi", { model: "claude-opus-4", usage: { prompt_tokens: 812, completion_tokens: 96, total_tokens: 908 } }));
     await call();
-    expect(only()).toMatchObject({ input_tokens: 812, output_tokens: 96, total_tokens: 908, usage_quality: "provider_reported", latency_ms: expect.any(Number) });
+    expect(only()).toMatchObject({ input_tokens: 812, output_tokens: 96, total_tokens: null, usage_quality: "partial", latency_ms: expect.any(Number) });
   });
 
   it("partial usage stays partial and a missing total stays null", async () => {
@@ -401,8 +509,8 @@ describe("adapter emits truthful events", () => {
 
   it("agent, purpose and typed correlation reach the row", async () => {
     mockFetch(() => ok("hi"));
-    await call({ context: { purpose: "synthesis", agentId: "atlas", correlation: { type: "chat_message", id: "msg-42" } } });
-    expect(only()).toMatchObject({ purpose: "synthesis", agent_id: "atlas", correlation_type: "chat_message", correlation_id: "msg-42", mission_id: null });
+    await call({ context: { purpose: "synthesis", agentId: "atlas", correlation: { type: "chat_message", id: JOB_ID } } });
+    expect(only()).toMatchObject({ purpose: "synthesis", agent_id: "atlas", correlation_type: "chat_message", correlation_id: JOB_ID, mission_id: null });
   });
 
   it("NO prompt, response, credential or upstream error text is ever persisted", async () => {

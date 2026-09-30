@@ -188,7 +188,7 @@ begin
   assert bad = 8, format('expected 8 rejections, got %s', bad);
   -- valid shapes are accepted
   insert into public.execution_events (id, started_at, provider, purpose, outcome, usage_quality, billing_mode, error_class, http_status, correlation_type, correlation_id)
-    values (gen_random_uuid(), now(), 'claude-max', 'job', 'error', 'not_reported', 'subscription', 'http', 502, 'job', 'abc');
+    values (gen_random_uuid(), now(), 'claude-max', 'job', 'error', 'not_reported', 'subscription', 'http', 502, 'job', '5d6f3c0e-1c1e-4b1e-9d3a-0a1b2c3d4e5f');
   delete from public.execution_events;
 end $$;
 
@@ -216,23 +216,21 @@ end $$;
 do $$
 declare v record;
 begin
-  insert into public.execution_events (id, started_at, provider, model_requested, model_reported, purpose, outcome, usage_quality, billing_mode, input_tokens, output_tokens, total_tokens) values
-    ('00000000-0000-0000-0000-000000000d01', now(), 'claude-max', 'claude-opus-4-6',   'claude-opus-4',   'agent-reply', 'ok', 'provider_reported', 'subscription', 1000, 500, 1500),
-    ('00000000-0000-0000-0000-000000000d02', now(), 'claude-max', 'claude-sonnet-4-6', 'claude-sonnet-4', 'agent-reply', 'ok', 'provider_reported', 'subscription', 10000, 2000, 12000),
-    ('00000000-0000-0000-0000-000000000d03', now(), 'claude-max', 'claude-haiku-4-5',  'claude-haiku-4',  'agent-reply', 'ok', 'provider_reported', 'subscription', 2000, 1000, 3000);
-  -- partial usage with input and output but no total is still priceable (the total is not needed and not derived)
-  insert into public.execution_events (id, started_at, provider, model_requested, purpose, outcome, usage_quality, billing_mode, input_tokens, output_tokens) values
-    ('00000000-0000-0000-0000-000000000d04', now(), 'claude-max', 'claude-sonnet-4-6', 'job', 'ok', 'partial', 'subscription', 1000000, 1000000);
+  -- Claude Max rows as the app now writes them: input/output present, total ALWAYS null, quality "partial".
+  insert into public.execution_events (id, started_at, provider, model_requested, model_reported, purpose, outcome, usage_quality, billing_mode, input_tokens, output_tokens) values
+    ('00000000-0000-0000-0000-000000000d01', '2026-10-15T12:00:00Z', 'claude-max', 'claude-opus-4-6',   'claude-opus-4',   'agent-reply', 'ok', 'partial', 'subscription', 1000, 500),
+    ('00000000-0000-0000-0000-000000000d02', '2026-10-15T12:00:00Z', 'claude-max', 'claude-sonnet-4-6', 'claude-sonnet-4', 'agent-reply', 'ok', 'partial', 'subscription', 10000, 2000),
+    ('00000000-0000-0000-0000-000000000d03', '2026-10-15T12:00:00Z', 'claude-max', 'claude-haiku-4-5',  'claude-haiku-4',  'agent-reply', 'ok', 'partial', 'subscription', 2000, 1000),
+    ('00000000-0000-0000-0000-000000000d04', '2026-10-15T12:00:00Z', 'claude-max', 'claude-sonnet-4-6', null,              'job',         'ok', 'partial', 'subscription', 1000000, 1000000);
   select * into v from public.execution_events_with_shadow_cost where id = '00000000-0000-0000-0000-000000000d01';
   assert v.shadow_cost_usd = 0.0175, format('opus shadow %s', v.shadow_cost_usd);
   assert v.shadow_cost_basis = 'list_price_equivalent_lower_bound_excludes_cache_tokens';
   assert v.shadow_pricing_source_url like 'https://platform.claude.com/%' and v.shadow_pricing_retrieved_on = date '2026-09-30';
   assert v.direct_cost_usd is null, 'direct cost must stay null';
-  assert v.total_tokens = 1500, 'total must be exactly as recorded';
+  assert v.total_tokens is null, 'the view must never synthesize a total';
   assert (select shadow_cost_usd from public.execution_events_with_shadow_cost where id = '00000000-0000-0000-0000-000000000d02') = 0.06;
   assert (select shadow_cost_usd from public.execution_events_with_shadow_cost where id = '00000000-0000-0000-0000-000000000d03') = 0.007;
-  assert (select shadow_cost_usd from public.execution_events_with_shadow_cost where id = '00000000-0000-0000-0000-000000000d04') = 18.0, 'partial input+output priced from the two numbers only';
-  assert (select total_tokens is null from public.execution_events_with_shadow_cost where id = '00000000-0000-0000-0000-000000000d04'), 'view must not synthesize a total';
+  assert (select shadow_cost_usd from public.execution_events_with_shadow_cost where id = '00000000-0000-0000-0000-000000000d04') = 18.0;
   -- the reported family label does not change pricing: the exact requested model does
   assert (select model_reported from public.execution_events_with_shadow_cost where id = '00000000-0000-0000-0000-000000000d01') = 'claude-opus-4';
   delete from public.execution_events;
@@ -244,26 +242,148 @@ declare n int;
 begin
   insert into public.execution_events (id, started_at, provider, model_requested, purpose, outcome, usage_quality, billing_mode, input_tokens, output_tokens, total_tokens, error_class) values
     -- ambiguous proxy zero: tokens are null
-    ('00000000-0000-0000-0000-000000000e01', now(), 'claude-max', 'claude-opus-4-6', 'agent-reply', 'ok', 'ambiguous_proxy_zero', 'subscription', null, null, null, null),
+    ('00000000-0000-0000-0000-000000000e01', '2026-10-15T12:00:00Z', 'claude-max', 'claude-opus-4-6', 'agent-reply', 'ok', 'ambiguous_proxy_zero', 'subscription', null, null, null, null),
     -- model with no pricing record
-    ('00000000-0000-0000-0000-000000000e02', now(), 'claude-max', 'claude-opus-9-9', 'agent-reply', 'ok', 'provider_reported', 'subscription', 10, 10, 20, null),
+    ('00000000-0000-0000-0000-000000000e02', '2026-10-15T12:00:00Z', 'claude-max', 'claude-opus-9-9', 'agent-reply', 'ok', 'partial', 'subscription', 10, 10, null, null),
     -- no requested model at all
-    ('00000000-0000-0000-0000-000000000e03', now(), 'claude-max', null, 'agent-reply', 'ok', 'provider_reported', 'subscription', 10, 10, 20, null),
-    -- output tokens missing
-    ('00000000-0000-0000-0000-000000000e04', now(), 'claude-max', 'claude-opus-4-6', 'agent-reply', 'ok', 'partial', 'subscription', 10, null, null, null),
+    ('00000000-0000-0000-0000-000000000e03', '2026-10-15T12:00:00Z', 'claude-max', null, 'agent-reply', 'ok', 'partial', 'subscription', 10, 10, null, null),
+    -- output tokens missing (a zero output was dropped as untrusted)
+    ('00000000-0000-0000-0000-000000000e04', '2026-10-15T12:00:00Z', 'claude-max', 'claude-opus-4-6', 'agent-reply', 'ok', 'partial', 'subscription', 10, null, null, null),
+    -- input tokens missing (a zero input was dropped as untrusted)
+    ('00000000-0000-0000-0000-000000000e0a', '2026-10-15T12:00:00Z', 'claude-max', 'claude-opus-4-6', 'agent-reply', 'ok', 'partial', 'subscription', null, 25, null, null),
     -- usage not reported
-    ('00000000-0000-0000-0000-000000000e05', now(), 'claude-max', 'claude-opus-4-6', 'agent-reply', 'ok', 'not_reported', 'subscription', null, null, null, null),
+    ('00000000-0000-0000-0000-000000000e05', '2026-10-15T12:00:00Z', 'claude-max', 'claude-opus-4-6', 'agent-reply', 'ok', 'not_reported', 'subscription', null, null, null, null),
     -- failed call
-    ('00000000-0000-0000-0000-000000000e06', now(), 'claude-max', 'claude-opus-4-6', 'agent-reply', 'error', 'provider_reported', 'subscription', 10, 10, 20, 'http'),
+    ('00000000-0000-0000-0000-000000000e06', '2026-10-15T12:00:00Z', 'claude-max', 'claude-opus-4-6', 'agent-reply', 'error', 'partial', 'subscription', 10, 10, null, 'http'),
     -- empty completion
-    ('00000000-0000-0000-0000-000000000e07', now(), 'claude-max', 'claude-opus-4-6', 'agent-reply', 'empty', 'provider_reported', 'subscription', 10, 10, 20, null),
+    ('00000000-0000-0000-0000-000000000e07', '2026-10-15T12:00:00Z', 'claude-max', 'claude-opus-4-6', 'agent-reply', 'empty', 'partial', 'subscription', 10, 10, null, null),
     -- not the subscription provider
-    ('00000000-0000-0000-0000-000000000e08', now(), 'lm-studio', 'claude-opus-4-6', 'agent-reply', 'ok', 'provider_reported', 'local', 10, 10, 20, null),
-    ('00000000-0000-0000-0000-000000000e09', now(), 'gemini', 'claude-opus-4-6', 'chat-stream', 'ok', 'provider_reported', 'unknown', 10, 10, 20, null);
+    ('00000000-0000-0000-0000-000000000e08', '2026-10-15T12:00:00Z', 'lm-studio', 'claude-opus-4-6', 'agent-reply', 'ok', 'provider_reported', 'local', 10, 10, 20, null),
+    ('00000000-0000-0000-0000-000000000e09', '2026-10-15T12:00:00Z', 'gemini', 'claude-opus-4-6', 'chat-stream', 'ok', 'provider_reported', 'unknown', 10, 10, 20, null);
   select count(*) into n from public.execution_events_with_shadow_cost where shadow_cost_usd is not null or shadow_cost_basis is not null;
   assert n = 0, format('%s rows produced a shadow cost that should be unknown', n);
-  assert (select count(*) from public.execution_events_with_shadow_cost) = 9;
+  assert (select count(*) from public.execution_events_with_shadow_cost) = 10;
   delete from public.execution_events;
+end $$;
+
+-- @test Claude Max rows never hold a total or a zero input/output; other providers keep theirs
+do $$
+declare bad int := 0;
+begin
+  begin  -- a total (the proxy synthesizes it)
+    insert into public.execution_events (id, started_at, provider, purpose, outcome, usage_quality, billing_mode, input_tokens, output_tokens, total_tokens)
+      values (gen_random_uuid(), now(), 'claude-max', 'agent-reply', 'ok', 'provider_reported', 'subscription', 5, 2, 7);
+    raise exception 'claude-max total accepted';
+  exception when check_violation then bad := bad + 1; end;
+  begin  -- zero input (a fabricated zero)
+    insert into public.execution_events (id, started_at, provider, purpose, outcome, usage_quality, billing_mode, input_tokens, output_tokens)
+      values (gen_random_uuid(), now(), 'claude-max', 'agent-reply', 'ok', 'partial', 'subscription', 0, 50);
+    raise exception 'claude-max zero input accepted';
+  exception when check_violation then bad := bad + 1; end;
+  begin  -- zero output
+    insert into public.execution_events (id, started_at, provider, purpose, outcome, usage_quality, billing_mode, input_tokens, output_tokens)
+      values (gen_random_uuid(), now(), 'claude-max', 'agent-reply', 'ok', 'partial', 'subscription', 50, 0);
+    raise exception 'claude-max zero output accepted';
+  exception when check_violation then bad := bad + 1; end;
+  begin  -- the old all-zero row stored as measured
+    insert into public.execution_events (id, started_at, provider, purpose, outcome, usage_quality, billing_mode, input_tokens, output_tokens, total_tokens)
+      values (gen_random_uuid(), now(), 'claude-max', 'agent-reply', 'ok', 'provider_reported', 'subscription', 0, 0, 0);
+    raise exception 'claude-max 0/0/0 accepted';
+  exception when check_violation then bad := bad + 1; end;
+  assert bad = 4, format('expected 4 rejections, got %s', bad);
+  -- accepted: real input/output with a null total; a lone input; an ambiguous zero with no numbers
+  insert into public.execution_events (id, started_at, provider, purpose, outcome, usage_quality, billing_mode, input_tokens, output_tokens) values
+    (gen_random_uuid(), now(), 'claude-max', 'agent-reply', 'ok', 'partial', 'subscription', 812, 96),
+    (gen_random_uuid(), now(), 'claude-max', 'agent-reply', 'ok', 'partial', 'subscription', 812, null);
+  insert into public.execution_events (id, started_at, provider, purpose, outcome, usage_quality, billing_mode)
+    values (gen_random_uuid(), now(), 'claude-max', 'agent-reply', 'ok', 'ambiguous_proxy_zero', 'subscription');
+  -- other providers are unaffected: an lm-studio zero is a value it reported
+  insert into public.execution_events (id, started_at, provider, purpose, outcome, usage_quality, billing_mode, input_tokens, output_tokens, total_tokens)
+    values (gen_random_uuid(), now(), 'lm-studio', 'agent-reply', 'ok', 'provider_reported', 'local', 0, 0, 0);
+  delete from public.execution_events;
+end $$;
+
+-- @test correlation ids must be UUIDs and typed; nothing is stored as an opaque string
+do $$
+declare bad int := 0;
+begin
+  begin
+    insert into public.execution_events (id, started_at, provider, purpose, outcome, usage_quality, billing_mode, correlation_type, correlation_id)
+      values (gen_random_uuid(), now(), 'gemini', 'chat-stream', 'ok', 'not_reported', 'unknown', 'chat_message', 'not-a-uuid');
+    raise exception 'non-uuid correlation accepted';
+  exception when check_violation then bad := bad + 1; end;
+  begin
+    insert into public.execution_events (id, started_at, provider, purpose, outcome, usage_quality, billing_mode, correlation_type, correlation_id)
+      values (gen_random_uuid(), now(), 'gemini', 'chat-stream', 'ok', 'not_reported', 'unknown', 'job', '');
+    raise exception 'empty correlation id accepted';
+  exception when check_violation then bad := bad + 1; end;
+  begin
+    insert into public.execution_events (id, started_at, provider, purpose, outcome, usage_quality, billing_mode, correlation_id)
+      values (gen_random_uuid(), now(), 'gemini', 'chat-stream', 'ok', 'not_reported', 'unknown', '5d6f3c0e-1c1e-4b1e-9d3a-0a1b2c3d4e5f');
+    raise exception 'id without a type accepted';
+  exception when check_violation then bad := bad + 1; end;
+  assert bad = 3, format('expected 3 rejections, got %s', bad);
+  insert into public.execution_events (id, started_at, provider, purpose, outcome, usage_quality, billing_mode, correlation_type, correlation_id) values
+    (gen_random_uuid(), now(), 'gemini', 'chat-stream', 'ok', 'not_reported', 'unknown', 'lead', '5D6F3C0E-1C1E-4B1E-9D3A-0A1B2C3D4E5F'),
+    (gen_random_uuid(), now(), 'gemini', 'chat-stream', 'ok', 'not_reported', 'unknown', null, null);
+  delete from public.execution_events;
+end $$;
+
+-- @test shadow cost is priced as of the event: adding a later price never restates history
+do $$
+declare cost numeric;
+begin
+  insert into public.execution_events (id, started_at, provider, model_requested, purpose, outcome, usage_quality, billing_mode, input_tokens, output_tokens) values
+    ('00000000-0000-0000-0000-000000000f01', '2026-10-15T12:00:00Z',      'claude-max', 'claude-opus-4-6', 'agent-reply', 'ok', 'partial', 'subscription', 1000000, 1000000),
+    ('00000000-0000-0000-0000-000000000f02', '2026-11-30T23:59:59Z',      'claude-max', 'claude-opus-4-6', 'agent-reply', 'ok', 'partial', 'subscription', 1000000, 1000000),
+    ('00000000-0000-0000-0000-000000000f03', '2026-12-01T00:00:00Z',      'claude-max', 'claude-opus-4-6', 'agent-reply', 'ok', 'partial', 'subscription', 1000000, 1000000),
+    ('00000000-0000-0000-0000-000000000f04', '2026-09-29T23:00:00Z',      'claude-max', 'claude-opus-4-6', 'agent-reply', 'ok', 'partial', 'subscription', 1000000, 1000000),
+    ('00000000-0000-0000-0000-000000000f05', '2026-12-01T01:00:00+05:00', 'claude-max', 'claude-opus-4-6', 'agent-reply', 'ok', 'partial', 'subscription', 1000000, 1000000);
+  -- before any newer price exists, the only row (verified 2026-09-30) applies from that date
+  assert (select shadow_cost_usd from public.execution_events_with_shadow_cost where id = '00000000-0000-0000-0000-000000000f01') = 30.0;
+  -- an event that predates every verified price is UNKNOWN, not priced at the earliest row and not zero
+  assert (select shadow_cost_usd from public.execution_events_with_shadow_cost where id = '00000000-0000-0000-0000-000000000f04') is null, 'pre-price event must be unknown';
+  -- a later price arrives
+  insert into public.model_pricing (provider, model, input_usd_per_mtok, output_usd_per_mtok, source_url, retrieved_on)
+    values ('anthropic', 'claude-opus-4-6', 10, 50, 'https://example.com/newer', date '2026-12-01');
+  assert (select shadow_cost_usd from public.execution_events_with_shadow_cost where id = '00000000-0000-0000-0000-000000000f01') = 30.0, 'history was restated';
+  assert (select shadow_cost_usd from public.execution_events_with_shadow_cost where id = '00000000-0000-0000-0000-000000000f02') = 30.0, 'last second before the new price was restated';
+  assert (select shadow_cost_usd from public.execution_events_with_shadow_cost where id = '00000000-0000-0000-0000-000000000f03') = 60.0, 'new price not applied from its date';
+  -- the event date is the UTC date: 01:00+05:00 on 12-01 is 20:00Z on 11-30, so it still uses the old price
+  assert (select shadow_cost_usd from public.execution_events_with_shadow_cost where id = '00000000-0000-0000-0000-000000000f05') = 30.0, 'UTC date not used';
+  assert (select shadow_pricing_retrieved_on from public.execution_events_with_shadow_cost where id = '00000000-0000-0000-0000-000000000f03') = date '2026-12-01';
+  delete from public.execution_events;
+  delete from public.model_pricing where source_url = 'https://example.com/newer';
+end $$;
+
+-- @test price selection: effective_from beats retrieved_on, and ties are broken deterministically
+do $$
+declare bad int := 0;
+begin
+  -- a price known to have taken effect BEFORE we verified it applies from its effective date
+  insert into public.model_pricing (provider, model, input_usd_per_mtok, output_usd_per_mtok, source_url, retrieved_on, effective_from)
+    values ('anthropic', 'claude-opus-4-6', 20, 100, 'https://example.com/eff', date '2027-01-10', date '2027-01-01');
+  insert into public.execution_events (id, started_at, provider, model_requested, purpose, outcome, usage_quality, billing_mode, input_tokens, output_tokens) values
+    ('00000000-0000-0000-0000-000000000a01', '2027-01-05T00:00:00Z', 'claude-max', 'claude-opus-4-6', 'agent-reply', 'ok', 'partial', 'subscription', 1000000, 1000000);
+  assert (select shadow_cost_usd from public.execution_events_with_shadow_cost where id = '00000000-0000-0000-0000-000000000a01') = 120.0, 'effective_from not honoured';
+  -- two rows, same effective date, different retrieval dates: the later verification wins
+  insert into public.model_pricing (provider, model, input_usd_per_mtok, output_usd_per_mtok, source_url, retrieved_on, effective_from) values
+    ('anthropic', 'claude-opus-4-6', 1, 1, 'https://example.com/t1', date '2027-02-02', date '2027-02-01'),
+    ('anthropic', 'claude-opus-4-6', 2, 2, 'https://example.com/t2', date '2027-02-05', date '2027-02-01');
+  insert into public.execution_events (id, started_at, provider, model_requested, purpose, outcome, usage_quality, billing_mode, input_tokens, output_tokens)
+    values ('00000000-0000-0000-0000-000000000a02', '2027-03-01T00:00:00Z', 'claude-max', 'claude-opus-4-6', 'agent-reply', 'ok', 'partial', 'subscription', 1000000, 1000000);
+  assert (select shadow_cost_usd from public.execution_events_with_shadow_cost where id = '00000000-0000-0000-0000-000000000a02') = 4.0, 'tie-break must pick the later retrieved_on';
+  assert (select shadow_pricing_source_url from public.execution_events_with_shadow_cost where id = '00000000-0000-0000-0000-000000000a02') = 'https://example.com/t2';
+  -- a second row for the same model and retrieval date is refused, so the ordering is total
+  begin
+    insert into public.model_pricing (provider, model, input_usd_per_mtok, output_usd_per_mtok, source_url, retrieved_on, effective_from)
+      values ('anthropic', 'claude-opus-4-6', 3, 3, 'https://example.com/dup', date '2027-02-05', date '2027-02-01');
+    raise exception 'duplicate (provider, model, retrieved_on) accepted';
+  exception when unique_violation then bad := bad + 1; end;
+  assert bad = 1;
+  delete from public.execution_events;
+  delete from public.model_pricing where source_url like 'https://example.com/%';
+  assert (select count(*) from public.model_pricing) = 3, 'seed prices disturbed';
 end $$;
 
 -- @test the pricing lookup requires provenance

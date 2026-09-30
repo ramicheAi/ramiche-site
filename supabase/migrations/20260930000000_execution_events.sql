@@ -6,6 +6,12 @@
 -- manual path (explicit approval, hash-checked SQL, rollback ready). Exact rollback:
 -- supabase/rollbacks/20260930000000_execution_events.rollback.sql
 --
+-- Enforcement: the constraints below are the database's last line of defense for the truth rules that CAN be
+-- expressed as row checks (usage provenance vs numbers, no total or zero counts for claude-max, no direct cost for
+-- subscription or local usage, OpenClaw model unknown, typed UUID correlation, billing mode vs provider). Rules
+-- that cannot be (requested model never replaced by the reported one, no derived totals for other providers,
+-- no secrets in rows) are enforced by the writer and its tests, not here.
+--
 -- Access: RLS enabled and NO policies; anon/authenticated are revoked. Only the service role (which
 -- bypasses RLS) can read or write. Rows hold metadata only: never prompts, responses, credentials,
 -- authorization headers or upstream error bodies.
@@ -59,6 +65,10 @@ create table if not exists public.execution_events (
   -- A correlation is a typed pair: never an untyped opaque id, never a type without an id.
   constraint execution_events_correlation_is_a_pair
     check ((correlation_type is null) = (correlation_id is null)),
+  -- Chat message, job and lead ids are all UUIDs; anything else is rejected rather than stored as an opaque string.
+  constraint execution_events_correlation_id_is_uuid
+    check (correlation_id is null
+           or correlation_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'),
   -- Usage provenance must agree with the numbers.
   constraint execution_events_usage_quality_matches_tokens
     check (
@@ -69,6 +79,15 @@ create table if not exists public.execution_events (
          and (input_tokens is null or output_tokens is null or total_tokens is null))
       or (usage_quality in ('ambiguous_proxy_zero', 'not_reported')
          and input_tokens is null and output_tokens is null and total_tokens is null)
+    ),
+  -- The Claude Max proxy fabricates 0 for a missing count and synthesizes the total, so this table refuses to hold
+  -- either as a measurement: no total, and no zero input/output, ever, for claude-max.
+  constraint execution_events_claude_max_untrusted_counts
+    check (
+      provider <> 'claude-max'
+      or (total_tokens is null
+          and (input_tokens is null or input_tokens > 0)
+          and (output_tokens is null or output_tokens > 0))
     ),
   -- A proxy zero is only ever an "ambiguous_proxy_zero" and only from the Claude Max proxy.
   constraint execution_events_proxy_zero_is_claude_max_only
@@ -116,6 +135,11 @@ create table if not exists public.model_pricing (
 alter table public.model_pricing enable row level security;
 revoke all on table public.model_pricing from anon, authenticated;
 
+-- Point-in-time semantics: a row applies to an event from coalesce(effective_from, retrieved_on) onward (UTC date of
+-- the event's started_at). effective_from is the date a price took effect when known; when it is not known, the
+-- earliest date we can vouch for is retrieved_on. An event that predates every row for its model has NO price, so
+-- its shadow cost is unknown (not the latest price, not zero). Adding a later row never changes earlier events.
+--
 -- The three Anthropic models verified on 2026-09-30 against Anthropic's official price list. Rates are
 -- USD per million tokens (standard, global, non-batch). Cache read is 0.1x input; 5m write 1.25x; 1h write 2x.
 -- The mapping from the page's display names ("Claude Opus 4.6") to the app's model ids ("claude-opus-4-6")
@@ -136,6 +160,10 @@ values
 on conflict (provider, model, retrieved_on) do nothing;
 
 -- ─── shadow cost (list-price EQUIVALENT, computed at read time, never stored) ─
+-- Pricing is looked up as of the event: the row with the greatest coalesce(effective_from, retrieved_on) that is on
+-- or before the event's UTC start date. Ties are broken by the later retrieved_on; unique (provider, model,
+-- retrieved_on) makes retrieved_on distinct per model, so the order is total and the choice deterministic.
+--
 -- This is NOT actual spend. Claude Max is a subscription; direct_cost_usd stays NULL. The figure answers
 -- "what would these tokens cost at API list price", and it is a LOWER BOUND: the Claude Max proxy drops
 -- cache-token counts, so cache reads and writes are not included. It is only produced when ALL hold:
@@ -154,8 +182,6 @@ select
      and e.input_tokens is not null
      and e.output_tokens is not null
      and p.id is not null
-     and p.source_url is not null
-     and p.retrieved_on is not null
     then round(
            (e.input_tokens::numeric * p.input_usd_per_mtok
             + e.output_tokens::numeric * p.output_usd_per_mtok) / 1000000,
@@ -178,7 +204,8 @@ left join lateral (
   from public.model_pricing mp
   where mp.provider = 'anthropic'
     and mp.model = e.model_requested
-  order by mp.retrieved_on desc
+    and coalesce(mp.effective_from, mp.retrieved_on) <= (e.started_at at time zone 'UTC')::date
+  order by coalesce(mp.effective_from, mp.retrieved_on) desc, mp.retrieved_on desc
   limit 1
 ) p on true;
 
