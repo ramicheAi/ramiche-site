@@ -38,6 +38,18 @@ import * as chatRoute from "@/app/api/command-center/chat/route";
 import * as streamRoute from "@/app/api/command-center/chat/stream/route";
 import { chatAgentIds } from "./agent-registry-core";
 
+// Cockpit lineage: these routes sit behind the owner/CSRF/origin guards (P03). This file tests the Provider Adapter
+// behavior, not the guards (src/lib/server/*.test.ts covers those), so the guards are stubbed to "owner present".
+vi.mock("@/lib/server/protected-mutation", () => ({
+  guardProtectedMutation: async () => ({ ok: true, uid: "test-owner", sessionCookie: "test-session" }),
+  guardPrivateRead: async () => ({ ok: true, uid: "test-owner", sessionCookie: "test-session" }),
+}));
+vi.mock("@/lib/server/service-caller", async () => ({
+  ...(await vi.importActual<typeof import("@/lib/server/service-caller")>("@/lib/server/service-caller")),
+  guardServiceCaller: async () => ({ ok: true, principal: "service:bridge", kind: "service" }),
+}));
+
+
 const CTX = { purpose: "agent-reply" as const };
 const CLAUDE_URL = "http://127.0.0.1:3456/v1/chat/completions";
 const LM_URL = "http://127.0.0.1:1234/v1/chat/completions";

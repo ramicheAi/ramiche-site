@@ -8,6 +8,18 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
 
+// Cockpit lineage: these routes sit behind the owner/CSRF/origin guards (P03). This file tests the Provider Adapter
+// behavior, not the guards (src/lib/server/*.test.ts covers those), so the guards are stubbed to "owner present".
+vi.mock("@/lib/server/protected-mutation", () => ({
+  guardProtectedMutation: async () => ({ ok: true, uid: "test-owner", sessionCookie: "test-session" }),
+  guardPrivateRead: async () => ({ ok: true, uid: "test-owner", sessionCookie: "test-session" }),
+}));
+vi.mock("@/lib/server/service-caller", async () => ({
+  ...(await vi.importActual<typeof import("@/lib/server/service-caller")>("@/lib/server/service-caller")),
+  guardServiceCaller: async () => ({ ok: true, principal: "service:bridge", kind: "service" }),
+}));
+
+
 const sb: { admin: unknown; log: unknown[] } = { admin: null, log: [] };
 vi.mock("@/lib/supabase-admin", () => ({ getSupabaseAdmin: () => sb.admin }));
 
@@ -198,7 +210,7 @@ describe("jobs runJob contract", () => {
     sb.admin = fakeJobAdmin(j);
     sb.log = [];
     install(handler, fake);
-    return runJob;
+    return (id: string) => runJob(id, new Request("http://localhost/api/command-center/jobs", { method: "POST" }));
   };
   type Row = [string, string, { status?: string; result?: string; error?: string; progress?: string }];
   const statusOf = () => (sb.log as Row[]).find((l) => l[0] === "jobs" && l[2].status && l[2].status !== "running")?.[2];
@@ -349,7 +361,7 @@ describe("wellness/verse contract", () => {
     if (after) setEnv(after);
     let n = 0;
     install((url) => bibleApi(url) ?? claude(n++));
-    const r = await mod.GET();
+    const r = await mod.GET(new Request("http://localhost/api/command-center/wellness/verse"));
     return { status: r.status, json: await r.json() };
   };
   const claudeCalls = () => calls.filter((c) => !c.url.includes("bible-api.com"));

@@ -20,6 +20,18 @@ import { AGENT_DM_UUID, AGENT_UUID_TO_SHORT_ID } from "./cc-agent-dm-uuids";
 import { resolveChatSessionKey } from "./openclaw-gateway";
 import { AGENT_ORBIT_IDS } from "@/app/command-center/dashboard-agents";
 
+// Cockpit lineage: these routes sit behind the owner/CSRF/origin guards (P03). This file tests the Provider Adapter
+// behavior, not the guards (src/lib/server/*.test.ts covers those), so the guards are stubbed to "owner present".
+vi.mock("@/lib/server/protected-mutation", () => ({
+  guardProtectedMutation: async () => ({ ok: true, uid: "test-owner", sessionCookie: "test-session" }),
+  guardPrivateRead: async () => ({ ok: true, uid: "test-owner", sessionCookie: "test-session" }),
+}));
+vi.mock("@/lib/server/service-caller", async () => ({
+  ...(await vi.importActual<typeof import("@/lib/server/service-caller")>("@/lib/server/service-caller")),
+  guardServiceCaller: async () => ({ ok: true, principal: "service:bridge", kind: "service" }),
+}));
+
+
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
 
 describe("registry integrity", () => {
@@ -99,7 +111,7 @@ describe("lookups resolve from the registry", () => {
     vi.stubEnv("OPENCLAW_WORKSPACE", join(process.cwd(), ".no-such-openclaw-workspace"));
     vi.resetModules();
     const { GET } = await import("@/app/api/command-center/agents/route");
-    const body = (await (await GET()).json()) as { source: string; agents: { id: string; model: string; role: string }[] };
+    const body = (await (await GET(new Request("http://localhost/api/command-center/agents"))).json()) as { source: string; agents: { id: string; model: string; role: string }[] };
     expect(body.source).toBe("static");
     const dir = directoryAgents();
     expect(body.agents.map((a) => a.id)).toEqual(Object.keys(dir));
