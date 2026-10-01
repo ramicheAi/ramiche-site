@@ -1,19 +1,9 @@
-# Parallax Publish, QUEUE ONLY token for this repo's brand: ramiche
+# Parallax Publish queue token: NOT COMMITTED.
 #
-# COMMITTED ON PURPOSE, and only safe because of what this token cannot do.
-# It cannot publish. It submits to an approval queue and Ramon decides at
-# parallax-publish.vercel.app/queue. It is scoped to the ramiche brand and
-# physically cannot reach another. The worst case if it leaks is junk in an
-# approval list, which is why it can live in a private repo while SERVICE_TOKEN
-# never can.
+# This file used to hold a live queue-only token. The repository is public, so no live credential belongs here.
+# The previous token must be treated as exposed and revoked (in parallax-publish:
+#   npx tsx scripts/agent-token.ts revoke cloud-ramiche ).
 #
-# It exists because cloud containers have no .env. Sessions kept reporting "no
-# credential" and asking for SERVICE_TOKEN, which is refused correctly, and the
-# safe path was unreachable from a container. This makes it reachable.
-#
-# It is a SEPARATE token from the one in .env, so revoking it costs nothing else:
-#   npx tsx scripts/agent-token.ts revoke cloud-ramiche     (in parallax-publish)
-#
-# Read it with:  export PARALLAX_PUBLISH_TOKEN=$(grep -v '^#' .parallax-publish-token | tr -d '\n')
-
-pxp_que_uuAMXAEMdPHHBaGgX6SHbenLv8fxxUII
+# scripts/publish-creds.mjs reads this file only if PARALLAX_PUBLISH_TOKEN is not set in the environment. With no
+# token line below it reports "no token" and tells the session how to get one. To use a queue token, set
+# PARALLAX_PUBLISH_TOKEN in the environment; never commit a token value to this file.
