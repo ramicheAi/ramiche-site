@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { isOpenClawGatewayConfigured, resolveChatSessionKey } from "@/lib/openclaw-gateway";
 import { resolveChatTargets } from "@/lib/chat-routing";
 import { AGENT_DM_UUID, AGENT_UUID_TO_SHORT_ID } from "@/lib/cc-agent-dm-uuids";
-import { personaMap } from "@/lib/agent-registry";
+import { personaMap, agentIdentityFrame } from "@/lib/agent-registry";
 import type { ExecutionCorrelation } from "@/lib/execution-events";
 import {
   claudeModelForAgent,
@@ -392,12 +392,11 @@ async function generateAgentReply(
     ? `\n\nYou are in a shared channel with these agents: ${rosterLine}. Every agent contributes — including you. Ramon is asking the room, not just one of you.\n\nHow to participate:\n1. Open with ONE short sentence (max ~15 words) framing your take from YOUR role only — do NOT speak for other agents.\n2. Stay strictly in your lane: ${persona.role}. If the question barely touches your domain, give one short observation from that angle anyway (e.g. "From a ${persona.role.toLowerCase()} angle, …"). Never go silent.\n3. Don't repeat what another agent would obviously say. Add the angle only YOU can bring.\n4. If you need another agent to handle a piece, name them, e.g. "${handoffExample} should take the build." Keep it short.\n5. Total reply ≤ 60 words. Crisp. No headers, no bullets unless absolutely needed.`
     : "";
 
-  // Identity lock — the underlying LLM (Claude Max / LM Studio) has its own
-  // baseline identity that can leak through ("I'm Claude, an Anthropic
-  // assistant…"). For RAMICHE OS every agent IS a distinct persona inside
-  // Parallax. The lock is at the top of the prompt and explicit so the model
-  // never breaks character, even when the user asks "who are you?".
-  const identityLock = `You ARE ${displayName}, an AI agent inside Parallax Ventures' RAMICHE OS. You are NOT a generic AI assistant. You do NOT identify as Claude, Anthropic, OpenAI, GPT, or any external service. If asked who you are, say you are ${displayName}, ${persona.role} at Parallax. Never break this persona.`;
+  // Identity: the canonical, provider-neutral frame for the SELECTED agent (agent-registry). The same text goes to
+  // every backend in the fallback chain, so switching provider never switches who the agent is. It deliberately does
+  // not tell the model to deny what it is: the Claude Max proxy delivers this as user-turn text and Claude refuses
+  // a denial instruction, which is how a Triage DM was answered as "Claude Code" (see agentIdentityFrame).
+  const identityLock = agentIdentityFrame(target);
 
   // Phase A — Shared awareness. Inject the recent channel transcript so every
   // agent can see what Ramon AND other agents have said, instead of replying

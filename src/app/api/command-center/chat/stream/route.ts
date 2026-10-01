@@ -6,7 +6,7 @@ import { executeOpenClaw, streamCompletion } from "@/lib/provider-adapter";
 import type { ExecutionCorrelation } from "@/lib/execution-events";
 import { resolveChatTargets } from "@/lib/chat-routing";
 import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
-import { personaMap } from "@/lib/agent-registry";
+import { personaMap, agentIdentityFrame } from "@/lib/agent-registry";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -49,8 +49,7 @@ const AGENT_PERSONAS: Record<string, { role: string; style: string }> = personaM
 
 function buildSystemPrompt(target: string, channelName: string | undefined) {
   const persona = AGENT_PERSONAS[target] || { role: "AI Agent", style: "Helpful and direct." };
-  const displayName = target.charAt(0).toUpperCase() + target.slice(1);
-  return `You are ${displayName}. Role: ${persona.role}. Style: ${persona.style}${channelName ? `\nChannel: ${channelName}` : ""}\n\nRules:\n- Reply in plain text only.\n- Keep responses under 100 words.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.`;
+  return `${agentIdentityFrame(target)}\n\nRole: ${persona.role}. Style: ${persona.style}${channelName ? `\nChannel: ${channelName}` : ""}\n\nRules:\n- Reply in plain text only.\n- Keep responses under 100 words.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.`;
 }
 
 function sseEvent(name: string, data: unknown) {

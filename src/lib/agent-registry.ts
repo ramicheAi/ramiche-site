@@ -430,6 +430,33 @@ export function personaMap(): Record<string, { role: string; style: string }> {
   return out;
 }
 
+/**
+ * The canonical, PROVIDER-NEUTRAL identity frame for the agent Ramon selected. Every route that builds an agent's
+ * system prompt starts from this, whatever backend answers (OpenClaw, Claude Max, LM Studio, a streaming provider)
+ * and whatever the fallback order. Conversational identity is the selected Parallax agent; the model behind it is
+ * execution infrastructure and is never named here, never asserted to be someone else, and never denied.
+ *
+ * WHY NO DENIAL: this frame used to instruct the model to deny being Claude or Anthropic. The Claude Max
+ * proxy runs the real Claude Code CLI and delivers our system message as `<system>` text inside the USER turn, while
+ * the CLI keeps its own system prompt. Claude refuses to deny what it is, so it rejected the whole block and answered
+ * as Claude Code instead of the agent (production Triage test, 2026-10-01). A truthful frame asks only for a role.
+ *
+ * Unknown ids keep the old chat fallback (capitalised id, role "AI Agent") so a custom agent name still works.
+ */
+export function agentIdentityFrame(idOrAlias: string): string {
+  const a = getAgent(idOrAlias);
+  const raw = String(idOrAlias ?? "").trim();
+  const name = a?.name ?? (raw.charAt(0).toUpperCase() + raw.slice(1) || "Agent");
+  const role = a && a.channels.includes("cc-chat") && a.personaStyle ? a.description : "AI Agent";
+  return (
+    `You are operating as ${name}, an agent inside Parallax Ventures' RAMICHE OS (Parallax OS). Your role there is ${role}. ` +
+    `Stay in that role and follow the Role and Style below for this whole conversation. ` +
+    `The language model that powers you is execution infrastructure; it does not change which Parallax agent you are. ` +
+    `If Ramon asks who you are, you are ${name} at Parallax. ` +
+    `If Ramon explicitly asks which model or provider is powering you, answer truthfully.`
+  );
+}
+
 export interface DirectoryAgentShape {
   model: string;
   provider: string;
