@@ -115,6 +115,15 @@ const nextConfig: NextConfig = {
       ],
     },
     {
+      // Character art (agent avatars and the Gallery wall) is static, 2-3.5 MB per file, and used on most pages.
+      // public/ files otherwise get "max-age=0" plus an mtime-based ETag, so a new release directory (new file mtimes)
+      // makes every browser re-download all of them. A day of freshness plus stale-while-revalidate avoids that.
+      source: "/assets/characters/:path*",
+      headers: [
+        { key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" },
+      ],
+    },
+    {
       source: "/api/:path*",
       headers: [
         { key: "Access-Control-Allow-Origin", value: "https://ramiche-site.vercel.app" },

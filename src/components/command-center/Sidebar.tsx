@@ -160,6 +160,9 @@ export default function Sidebar() {
           fontSize: 16,
           cursor: 'pointer',
           boxShadow: '0 0 12px rgba(124,58,237,0.15)',
+          // The fixed HUD header is z-70 and spans the full width on phones; without this it
+          // sits on top of the toggle and swallows the tap. Keep this above the drawer too.
+          zIndex: 80,
         }}
         aria-label={mobileOpen ? 'Close navigation' : 'Open navigation'}
       >
@@ -170,7 +173,7 @@ export default function Sidebar() {
         className={`po-side fixed left-0 top-0 z-40 transition-transform duration-200 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
-        style={{ position: 'fixed', height: '100vh' }}
+        style={{ position: 'fixed', height: '100vh', zIndex: mobileOpen ? 75 : undefined }}
       >
         <div className="po-side-head">
           <Logo size={30} />
@@ -240,7 +243,7 @@ export default function Sidebar() {
         <div
           onClick={() => setMobileOpen(false)}
           className="fixed inset-0 z-30 md:hidden"
-          style={{ background: 'rgba(0,0,0,0.8)' }}
+          style={{ background: 'rgba(0,0,0,0.8)', zIndex: 74 }}
         />
       )}
     </>
