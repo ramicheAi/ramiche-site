@@ -9,7 +9,8 @@ Fix: system text is sent on the CLI's real system-prompt channel, `--append-syst
 tool-mapping prompt + blank line + caller system text. User/assistant turns stay on stdin.
 
 - Kill switch: `PROXY_SYSTEM_TRANSPORT=legacy` restores the old in-prompt behaviour.
-- Size guard: over `PROXY_SYSTEM_ARG_MAX_BYTES` (default 100000) falls back to legacy, logged to stderr.
+- Size guard: over `PROXY_SYSTEM_ARG_MAX_BYTES` (default 100000) the request FAILS CLOSED with `system_prompt_too_large` (HTTP 500 from the proxy's catch, message explicit). Nothing is sent to Claude and there is no legacy downgrade.
+- Host isolation: every invocation adds `--safe-mode` (Claude Code 2.1.252: disables CLAUDE.md, hooks, MCP, user skills/commands, auto-memory; auth, built-in tools and the default system prompt unaffected). Emergency off-switch `PROXY_CLI_ISOLATION=off`. `--bare` is NOT used (needs an API key, breaks Max auth).
 - No `--session-id`, no session reuse added.
 
 Apply (offline copy first, then the live dist during an approved deploy window):

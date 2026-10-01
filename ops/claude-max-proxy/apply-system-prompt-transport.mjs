@@ -41,14 +41,15 @@ const NEW_OPENAI_TO_CLI = `export function openaiToCli(request) {
 
 const HELPERS = `// ${MARKER}
 // Max bytes of system text passed as a single argv entry. Linux caps one arg at
-// 128 KiB; macOS ARG_MAX is 1 MiB total (argv + env). Over the cap we fall back
-// to the legacy in-prompt <system> block and say so loudly on stderr.
+// 128 KiB; macOS ARG_MAX is 1 MiB total (argv + env). Over the cap the request
+// FAILS CLOSED (explicit error, nothing is sent to Claude): embedding system text
+// in the user prompt would silently reintroduce the identity defect.
 const SYSTEM_ARG_MAX_BYTES = Number(process.env.PROXY_SYSTEM_ARG_MAX_BYTES) || 100000;
 /**
  * Split system messages out of the conversation. Returns the remaining
  * messages (user/assistant only) and the joined, tooling-stripped system text.
- * PROXY_SYSTEM_TRANSPORT=legacy (kill switch) or an oversize system prompt keeps
- * the old behaviour: everything stays in the prompt, systemPrompt is empty.
+ * Only the explicit emergency switch PROXY_SYSTEM_TRANSPORT=legacy keeps the old
+ * in-prompt behaviour. An oversize system prompt throws (never downgrades).
  */
 export function splitSystemTransport(messages) {
     if (process.env.PROXY_SYSTEM_TRANSPORT === "legacy") {
@@ -67,9 +68,10 @@ export function splitSystemTransport(messages) {
     }
     const systemPrompt = systemTexts.join("\\n\\n");
     if (Buffer.byteLength(systemPrompt, "utf8") > SYSTEM_ARG_MAX_BYTES) {
-        console.error("[system-transport] system prompt exceeds " + SYSTEM_ARG_MAX_BYTES +
-            " bytes; falling back to legacy in-prompt <system> block for this request");
-        return { systemPrompt: "", messages };
+        const err = new Error("system_prompt_too_large: system context is " + Buffer.byteLength(systemPrompt, "utf8") +
+            " bytes, limit " + SYSTEM_ARG_MAX_BYTES + "; request refused (no legacy fallback)");
+        err.code = "system_prompt_too_large";
+        throw err;
     }
     return { systemPrompt, messages: rest };
 }
@@ -100,6 +102,12 @@ export function patchFiles(files) {
     `            "--append-system-prompt",\n            OPENCLAW_TOOL_MAPPING_PROMPT,\n`,
     `            "--append-system-prompt", // ${MARKER} single flag: tool mapping + caller system text\n            options.systemPrompt\n                ? OPENCLAW_TOOL_MAPPING_PROMPT + "\\n\\n" + options.systemPrompt\n                : OPENCLAW_TOOL_MAPPING_PROMPT,\n`,
     "manager append-system-prompt",
+  );
+  out["subprocess/manager.js"] = replaceOnce(
+    out["subprocess/manager.js"],
+    `        if (options.streamJson) {\n`,
+    `        // ${MARKER} isolate this invocation from host personalization (CLAUDE.md, hooks,\n        // MCP, user skills/commands). Auth and built-in system prompt are unaffected.\n        // Emergency off-switch: PROXY_CLI_ISOLATION=off.\n        if (process.env.PROXY_CLI_ISOLATION !== "off") {\n            args.push("--safe-mode");\n        }\n        if (options.streamJson) {\n`,
+    "manager streamJson block",
   );
   // 3. routes.js (two call sites)
   let r = files["server/routes.js"];

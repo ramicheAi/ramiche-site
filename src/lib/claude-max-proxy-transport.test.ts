@@ -222,13 +222,47 @@ describe("claude-max proxy system-prompt transport", () => {
     expect(r.appended).not.toContain("operating as Triage");
   });
 
-  it("oversize system prompt falls back to legacy loudly instead of overflowing argv", async () => {
+  it("oversize system prompt fails closed: explicit error, never reaches Claude as user content", async () => {
     process.env.PROXY_SYSTEM_ARG_MAX_BYTES = "50";
-    // limit is read at module load; re-load a fresh copy under the env.
+    // limit is read at module load; load a fresh copy under the env.
     const fresh = await import(/* @vite-ignore */ pathToFileURL(path.join(patchedDir, "adapter/openai-to-cli.js")).href + "?big=1");
-    const cli = fresh.openaiToCli(req("triage"));
-    expect(cli.systemPrompt).toBeUndefined();
-    expect(cli.prompt).toContain("<system>");
+    let thrown: unknown;
+    try { fresh.openaiToCli(req("triage")); } catch (e) { thrown = e; }
+    expect((thrown as Error).message).toMatch(/system_prompt_too_large/);
+    expect((thrown as { code?: string }).code).toBe("system_prompt_too_large");
+    // And no CLI is spawned, so nothing can be recorded.
+    expect(fs.existsSync(outFile)).toBe(false);
+    // The thrown message must not echo the system text itself.
+    expect((thrown as Error).message).not.toContain("operating as");
+  });
+
+  it("isolation: every invocation carries --safe-mode, never --bare or --system-prompt", async () => {
+    const r = await run(patchedMods, req("triage"));
+    expect(r.argv).toContain("--safe-mode");
+    expect(r.argv).not.toContain("--bare");
+    expect(r.argv).not.toContain("--system-prompt");
+    expect(r.argv).toContain("--print");
+    expect(r.argv).toContain("--model");
+  });
+
+  it("isolation: PROXY_CLI_ISOLATION=off removes only --safe-mode", async () => {
+    process.env.PROXY_CLI_ISOLATION = "off";
+    try {
+      const r = await run(patchedMods, req("triage"));
+      expect(r.argv).not.toContain("--safe-mode");
+      expect(r.appended).toContain("operating as Triage");
+    } finally {
+      delete process.env.PROXY_CLI_ISOLATION;
+    }
+  });
+
+  it("isolation: image requests also get --safe-mode alongside stream-json input", async () => {
+    const r = await run(patchedMods, {
+      model: "haiku",
+      messages: [{ role: "user", content: [{ type: "text", text: "t" }, { type: "image_url", image_url: { url: "data:image/png;base64,AAAA" } }] }],
+    });
+    expect(r.argv).toContain("--safe-mode");
+    expect(r.argv).toContain("--input-format");
   });
 
   it("patcher refuses on anchor drift and on double-apply", async () => {
