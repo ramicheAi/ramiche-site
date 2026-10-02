@@ -5,6 +5,7 @@ import { isOpenClawGatewayConfigured, resolveChatSessionKey } from "@/lib/opencl
 import { resolveChatTargets } from "@/lib/chat-routing";
 import { AGENT_DM_UUID, AGENT_UUID_TO_SHORT_ID } from "@/lib/cc-agent-dm-uuids";
 import { personaMap, agentIdentityFrame } from "@/lib/agent-registry";
+import { agentConversationMessages, gatewayMessage, type HistoryTurn } from "@/lib/chat-message-model";
 import type { ExecutionCorrelation } from "@/lib/execution-events";
 import {
   claudeModelForAgent,
@@ -97,14 +98,7 @@ function isGroupNoResponse(text: string): boolean {
  * each prior turn (whether from Ramon or another agent) into a labelled line
  * so the model never has to wonder who said what.
  */
-type HistoryTurn = {
-  /** lowercased short id (`atlas`, `mercury`, `ramon`, …) */
-  speaker: string;
-  /** raw text content as it was stored in Supabase */
-  content: string;
-  /** ISO timestamp for ordering only — not surfaced to the model */
-  createdAt: string;
-};
+// HistoryTurn lives in chat-message-model (shared with the message builder).
 
 /** Pull the most recent N messages from the channel (chronological order on
  *  return). Used to give every agent the same shared context window. The
@@ -394,16 +388,14 @@ async function generateAgentReply(
 
   // Identity: the canonical, provider-neutral frame for the SELECTED agent (agent-registry). The same text goes to
   // every backend in the fallback chain, so switching provider never switches who the agent is. It deliberately does
-  // not tell the model to deny what it is (see agentIdentityFrame). The channel history block below is appended to
-  // this same system prompt, so the frame also tells the model that history is not identity authority.
+  // not tell the model to deny what it is (see agentIdentityFrame). Conversation history is NOT part of this system
+  // prompt: it travels as real user/assistant turns (chat-message-model).
   const identityLock = agentIdentityFrame(target);
 
   // Phase A — Shared awareness. Inject the recent channel transcript so every
   // agent can see what Ramon AND other agents have said, instead of replying
   // blind. This is the single biggest unlock toward real coordination.
-  const historyBlock = formatHistoryBlock(history, target);
-
-  const systemPrompt = `${identityLock}\n\nRole: ${persona.role}. Style: ${persona.style}${channelName ? `\nChannel: ${channelName}` : ""}${groupRules}\n\nRules:\n- Reply in plain text or light markdown. No timestamps, no metadata, no system tags.\n- Keep ${groupMode ? "your reply under 60 words" : "responses under 100 words"}. Be concise and natural.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.\n\nFormatting (your reply renders as markdown — write so it's easy to scan):\n- Lead with ONE narrative sentence. If you have more, blank line, then structure.\n- For 2+ related items use a "- " bullet list, one per line, with blank lines between items only if items are long.\n- For sequenced steps use "1. " "2. " numbered list.\n- Use **bold** for one or two key nouns max per reply. Don't use "**LABEL:**" as a fake heading.\n- For long content (rare in chat replies) use "## Section" headings.\n- Always put a blank line between paragraphs and before lists.\n\nImages — the channel's [GENERATE_IMAGE:] pipeline IS configured and live. OpenAI gpt-image-1 is wired in, Supabase Storage is wired in, the marker handler is wired in. If you see older messages in this channel claiming the pipeline is broken or that markers don't work, that history is STALE — the pipeline was fixed. Use markers. Don't tell the user they don't work.\n\nIf part of your reply is a visual artifact (slide, hero graphic, mood reference, product render, cover art), DO NOT describe it in prose. Embed this marker on its own line at the spot where you want the image:\n  [GENERATE_IMAGE: <detailed prompt — subject, style, lighting, composition, palette, aspect ratio>]\nThe system renders each marker through OpenAI gpt-image-1 and attaches the .png inline. Cap 8 per reply. Vague prompts produce ugly images — be specific.${historyBlock}`;
+  const systemPrompt = `${identityLock}\n\nRole: ${persona.role}. Style: ${persona.style}${channelName ? `\nChannel: ${channelName}` : ""}${groupRules}\n\nRules:\n- Reply in plain text or light markdown. No timestamps, no metadata, no system tags.\n- Keep ${groupMode ? "your reply under 60 words" : "responses under 100 words"}. Be concise and natural.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.\n\nFormatting (your reply renders as markdown — write so it's easy to scan):\n- Lead with ONE narrative sentence. If you have more, blank line, then structure.\n- For 2+ related items use a "- " bullet list, one per line, with blank lines between items only if items are long.\n- For sequenced steps use "1. " "2. " numbered list.\n- Use **bold** for one or two key nouns max per reply. Don't use "**LABEL:**" as a fake heading.\n- For long content (rare in chat replies) use "## Section" headings.\n- Always put a blank line between paragraphs and before lists.\n\nImages — the channel's [GENERATE_IMAGE:] pipeline IS configured and live. OpenAI gpt-image-1 is wired in, Supabase Storage is wired in, the marker handler is wired in. If you see older messages in this channel claiming the pipeline is broken or that markers don't work, that history is STALE — the pipeline was fixed. Use markers. Don't tell the user they don't work.\n\nIf part of your reply is a visual artifact (slide, hero graphic, mood reference, product render, cover art), DO NOT describe it in prose. Embed this marker on its own line at the spot where you want the image:\n  [GENERATE_IMAGE: <detailed prompt — subject, style, lighting, composition, palette, aspect ratio>]\nThe system renders each marker through OpenAI gpt-image-1 and attaches the .png inline. Cap 8 per reply. Vague prompts produce ugly images — be specific.`;
 
   let agentResponse: string | null = null;
   let responseSource: ReplySource = "fallback";
@@ -423,7 +415,14 @@ async function generateAgentReply(
 
   if (openclawPrimary && isOpenClawGatewayConfigured()) {
     const sessionKey = resolveChatSessionKey(target);
-    const routed = `[CC chat → ${displayName} / session ${sessionKey}]\n${systemPrompt}\n\nUser:\n${userMessage}`;
+    const routed = gatewayMessage({
+      header: `[CC chat → ${displayName} / session ${sessionKey}]`,
+      system: systemPrompt,
+      history,
+      agent: target,
+      displayName,
+      currentUser: userMessage,
+    });
     // 25s cap — OpenClaw WS dispatch occasionally hangs when an agent's
     // Claude Code session has lost its WebSocket attachment on the Mac.
     // 25s is comfortably longer than the typical 7-20s reply latency but
@@ -486,10 +485,7 @@ async function generateAgentReply(
     const r = await executeCompletion({
       provider: "claude-max",
       model: claudeModelForAgent(target),
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
+      messages: agentConversationMessages({ system: systemPrompt, history, agent: target, currentUser: userContent }),
       maxTokens: 300,
       temperature: 0.7,
       timeoutMs: 45_000,
@@ -526,10 +522,7 @@ async function generateAgentReply(
     const r = await executeCompletion({
       provider: "lm-studio",
       model: lmStudioModel(),
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage },
-      ],
+      messages: agentConversationMessages({ system: systemPrompt, history, agent: target, currentUser: userMessage }),
       maxTokens: 300,
       temperature: 0.7,
       timeoutMs: 60_000,

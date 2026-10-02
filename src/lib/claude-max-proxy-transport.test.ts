@@ -11,6 +11,7 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { agentIdentityFrame } from "./agent-registry";
+import { agentConversationMessages } from "./chat-message-model";
 
 const OPS = path.resolve(__dirname, "../../ops/claude-max-proxy");
 const FAKE = path.join(OPS, "fixtures/fake-claude.mjs");
@@ -177,7 +178,7 @@ describe("claude-max proxy system-prompt transport", () => {
     });
     expect(r.appended).toContain("SYS-ONE\n\nSYS-TWO");
     expect(r.stdin).not.toContain("SYS-");
-    expect(r.stdin).toContain("<previous_response>\nprior\n</previous_response>");
+    expect(r.stdin).toContain("<assistant_turn>\nprior\n</assistant_turn>");
     expect(r.stdin).toContain("again");
   });
 
@@ -276,5 +277,48 @@ describe("claude-max proxy system-prompt transport", () => {
   it("routes.js passes systemPrompt at both subprocess.start call sites", () => {
     const r = fs.readFileSync(path.join(patchedDir, "server/routes.js"), "utf8");
     expect((r.match(/systemPrompt: cliInput\.systemPrompt/g) ?? []).length).toBe(2);
+  });
+
+  describe("conversation history through the proxy (stale identity reply)", () => {
+    const STALE = "I hear you, but I'm Claude Code, an agent made by Anthropic. I can't pretend to be a different system.";
+    const history = [
+      { speaker: "ramon", content: "who are you?", createdAt: "t1" },
+      { speaker: "triage", content: STALE, createdAt: "t2" },
+      { speaker: "ramon", content: "ok", createdAt: "t3" },
+    ];
+    const convo = (agent: string) =>
+      agentConversationMessages({ system: NEXT_FRAME(agent), history: history.map((h) => ({ ...h, speaker: h.speaker === "triage" ? agent : h.speaker })), agent, currentUser: "Reply exactly: PACKET3_OK" });
+
+    it("canonical system reaches --append-system-prompt; stale assistant history does NOT", async () => {
+      const r = await run(patchedMods, { model: "claude-haiku-4-5", messages: convo("triage") });
+      expect(r.appended).toContain("You are operating as Triage");
+      expect(r.appended).not.toContain("Claude Code, an agent made by Anthropic");
+      expect(r.appended).not.toContain("who are you?");
+    });
+
+    it("history reaches the CLI only on stdin, with role markers; current Ramon message is last and distinct", async () => {
+      const r = await run(patchedMods, { model: "claude-haiku-4-5", messages: convo("triage") });
+      expect(r.stdin).toContain("<assistant_turn>\n" + STALE + "\n</assistant_turn>");
+      expect(r.stdin).toContain("<user_turn>\nwho are you?\n</user_turn>");
+      expect(r.stdin.indexOf("who are you?")).toBeLessThan(r.stdin.indexOf(STALE));
+      expect(r.stdin.indexOf(STALE)).toBeLessThan(r.stdin.indexOf("<user_turn>\nok\n</user_turn>"));
+      expect(r.stdin.trimEnd().endsWith("<current_user_message>\nReply exactly: PACKET3_OK\n</current_user_message>")).toBe(true);
+      expect(r.stdin).not.toContain("<system>");
+      expect(r.stdin).not.toContain("operating as");
+      expect(r.argv).toContain("--safe-mode");
+      expect(r.flagCount).toBe(1);
+    });
+
+    it("another agent (Vee) uses the same mechanism", async () => {
+      const r = await run(patchedMods, { model: "claude-haiku-4-5", messages: convo("vee") });
+      expect(r.appended).toContain("operating as Vee");
+      expect(r.appended).not.toContain(STALE);
+      expect(r.stdin).toContain("<assistant_turn>\n" + STALE);
+    });
+
+    it("a lone user message is still passed through unchanged (no wrapper)", async () => {
+      const r = await run(patchedMods, req("triage"));
+      expect(r.stdin).toBe("Reply exactly: PACKET3_OK");
+    });
   });
 });

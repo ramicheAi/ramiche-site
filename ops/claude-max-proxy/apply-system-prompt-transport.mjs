@@ -15,7 +15,7 @@ const NEW_OPENAI_TO_CLI = `export function openaiToCli(request) {
     const images = extractImages(request.messages);
     const model = extractModel(request.model);
     const split = splitSystemTransport(request.messages);
-    const textPrompt = messagesToPrompt(split.messages);
+    const textPrompt = dialogueToPrompt(split.messages);
     const systemPrompt = split.systemPrompt;
     if (images.length > 0) {
         const streamMsg = {
@@ -45,6 +45,21 @@ const HELPERS = `// ${MARKER}
 // FAILS CLOSED (explicit error, nothing is sent to Claude): embedding system text
 // in the user prompt would silently reintroduce the identity defect.
 const SYSTEM_ARG_MAX_BYTES = Number(process.env.PROXY_SYSTEM_ARG_MAX_BYTES) || 100000;
+/**
+ * Serialise user/assistant turns for the CLI's single stdin prompt with explicit role markers, the current
+ * (last) user message kept distinct. The CLI \`--print\` mode has no native multi-turn input, so this is a
+ * serialisation, not a message API. A lone user message is passed through unchanged. Anything containing a
+ * system message (legacy kill-switch path) keeps the old flattening.
+ */
+export function dialogueToPrompt(messages) {
+    const last = messages[messages.length - 1];
+    const turns = messages.filter((m) => m.role === "user" || m.role === "assistant");
+    if (messages.some((m) => m.role === "system") || messages.length <= 1 || turns.length !== messages.length || last.role !== "user") {
+        return messagesToPrompt(messages);
+    }
+    const history = messages.slice(0, -1).map((m) => "<" + m.role + "_turn>\\n" + extractText(m.content) + "\\n</" + m.role + "_turn>");
+    return "<conversation_history>\\n" + history.join("\\n") + "\\n</conversation_history>\\n\\n<current_user_message>\\n" + extractText(last.content) + "\\n</current_user_message>";
+}
 /**
  * Split system messages out of the conversation. Returns the remaining
  * messages (user/assistant only) and the joined, tooling-stripped system text.
