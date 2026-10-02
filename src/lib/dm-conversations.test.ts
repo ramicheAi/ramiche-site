@@ -203,6 +203,10 @@ describe("source guards", () => {
     expect(ui).not.toMatch(/\}, \[activeChannel, activeAgent, viewMode\]\);/);
     // the transcript filter and the send path use the same id
     expect(ui).toContain("if (msg.channelId !== (activeDmId ?? getDmChannelId(activeAgent.id))) return false;");
+    // thread reply-count badges are scoped to the OPEN conversation, not the agent's legacy channel
+    expect(ui).toContain("if (m.channelId !== (activeDmId ?? getDmChannelId(activeAgent.id))) continue;");
+    // no DM code path may key off the legacy channel id without honouring the selection
+    expect(ui).not.toMatch(/!== getDmChannelId\(activeAgent[.!]/);
     expect(ui).toContain("const targetChannelId = isDM ? (activeDmId ?? getDmChannelId(activeAgent!.id))");
     // and the conversation id reaches the chat API so the gateway session is scoped
     expect(ui).toContain("conversationId: isDM ? targetChannelId : undefined,");

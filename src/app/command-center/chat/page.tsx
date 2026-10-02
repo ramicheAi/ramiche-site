@@ -3546,7 +3546,7 @@ export default function CommandCenterChatPage() {
       // now (threadMessage panel works against the live `messages` list, not
       // a filtered view, so this guards against cross-channel leakage).
       if (viewMode === "dm" && activeAgent) {
-        if (m.channelId !== getDmChannelId(activeAgent.id)) continue;
+        if (m.channelId !== (activeDmId ?? getDmChannelId(activeAgent.id))) continue;
       } else if (m.channelId !== activeChannel?.id) {
         continue;
       }
