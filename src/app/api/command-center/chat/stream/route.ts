@@ -63,6 +63,8 @@ export async function POST(req: NextRequest) {
   let body: {
     message?: string;
     channelId?: string;
+    /** The DM conversation (channel) this turn belongs to; scopes the OpenClaw session. */
+    conversationId?: string;
     agentName?: string;
     channelName?: string;
     channelMembers?: string[];
@@ -89,6 +91,11 @@ export async function POST(req: NextRequest) {
   // Streaming endpoint is single-target by design.
   const target = targets[0] ?? "atlas";
   const channelId = body.channelId;
+  const conversationId =
+    typeof body.conversationId === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.conversationId)
+      ? body.conversationId
+      : undefined;
   const channelName = body.channelName;
   const userMessageId = body.userMessageId;
   // The user's message id, when the client sent one.
@@ -161,7 +168,7 @@ export async function POST(req: NextRequest) {
         //    still better than the non-stream endpoint because we don't
         //    block on the unrelated provider fallbacks.
         if (isOpenClawGatewayConfigured()) {
-          const sessionKey = resolveChatSessionKey(target);
+          const sessionKey = resolveChatSessionKey(target, conversationId);
           const routed = `[CC chat → ${displayName} / session ${sessionKey}]\n${systemPrompt}\n\nUser:\n${message}`;
           const gw = await executeOpenClaw({
             sessionKey,
