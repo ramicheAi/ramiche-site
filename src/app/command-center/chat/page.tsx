@@ -8,7 +8,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cockpitChatData, cockpitRealtime } from "@/lib/cockpit-chat-client";
 import { parseMentions } from "@/lib/chat-routing";
-import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
+import { AGENT_DM_UUID, AGENT_UUID_TO_SHORT_ID } from "@/lib/cc-agent-dm-uuids";
+import { listAgentConversations, conversationLabel, agentUuidForChannel } from "@/lib/dm-conversations";
 import {
   aggregateReactions,
   CC_REACTION_USER_ID,
@@ -117,39 +118,94 @@ const DEFAULT_CHANNELS = [
   { id: "11111111-1111-1111-1111-111111111111", name: "#engineering-team", unread: 0, description: "Engineering Team", type: "team" as const, members: ["atlas", "shuri", "proximon", "triage", "nova"] },
 ];
 
-/* ── DM Channel UUID Map (Supabase channel_id is UUID, not string) ── */
-const DM_CHANNEL_MAP: Record<string, string> = {
-  atlas: "aa000001-0000-0000-0000-000000000000",
-  triage: "aa000002-0000-0000-0000-000000000000",
-  shuri: "aa000003-0000-0000-0000-000000000000",
-  proximon: "aa000004-0000-0000-0000-000000000000",
-  aetherion: "aa000005-0000-0000-0000-000000000000",
-  simons: "aa000006-0000-0000-0000-000000000000",
-  mercury: "aa000007-0000-0000-0000-000000000000",
-  vee: "aa000008-0000-0000-0000-000000000000",
-  ink: "aa000009-0000-0000-0000-000000000000",
-  echo: "aa000010-0000-0000-0000-000000000000",
-  haven: "aa000011-0000-0000-0000-000000000000",
-  widow: "aa000012-0000-0000-0000-000000000000",
-  drstrange: "aa000013-0000-0000-0000-000000000000",
-  kiyosaki: "aa000014-0000-0000-0000-000000000000",
-  michael: "aa000015-0000-0000-0000-000000000000",
-  selah: "aa000016-0000-0000-0000-000000000000",
-  prophets: "aa000017-0000-0000-0000-000000000000",
-  themaestro: "aa000018-0000-0000-0000-000000000000",
-  nova: "aa000019-0000-0000-0000-000000000000",
-  themis: "aa000020-0000-0000-0000-000000000000",
-};
+/* ── Agent identity vs conversation identity ───────────────────────────────
+ * AGENT_DM_UUID is the canonical registry map (short id -> the agent's uuid, the same value stored in
+ * messages.sender_agent_id). It used to be hand-copied into this file as a literal map and doubled as the
+ * DM channel id, which is why an agent could only have one conversation. Now:
+ *   agent identity        = AGENT_DM_UUID[shortId]
+ *   conversation identity = channels.id, linked back by channels.agent_id
+ * getDmChannelId stays only as the LEGACY fallback: the 20 seeded rows where the two happen to be equal.
+ * ───────────────────────────────────────────────────────────────────────── */
 function getDmChannelId(agentId: string): string {
-  return DM_CHANNEL_MAP[agentId] || agentId;
+  return AGENT_DM_UUID[agentId] || agentId;
 }
 
-/* ── Reverse map: UUID → short agent ID (for resolving sender_agent_id from Supabase) ── */
-const AGENT_UUID_TO_ID: Record<string, string> = Object.fromEntries(
-  Object.entries(DM_CHANNEL_MAP).map(([id, uuid]) => [uuid, id])
-);
+/** sender_agent_id (an AGENT uuid) -> short agent id. Not a channel lookup. */
 function resolveAgentId(uuidOrId: string): string {
-  return AGENT_UUID_TO_ID[uuidOrId] || uuidOrId;
+  return AGENT_UUID_TO_SHORT_ID[uuidOrId] || uuidOrId;
+}
+
+/**
+ * The conversations Ramon has with ONE agent, plus "+ New conversation".
+ *
+ * Shown only under the selected agent so twenty agents do not each unfurl a list. The agent row above still
+ * selects the agent; these rows switch which conversation with that agent is open. An agent with a single
+ * conversation shows just the one row, so the common case stays quiet.
+ */
+function ConversationList({
+  agentName,
+  agentColor,
+  conversations,
+  openConversationId,
+  creating,
+  onSelect,
+  onCreate,
+}: {
+  agentName: string;
+  agentColor: string;
+  conversations: Array<{ id: string; title?: string | null }>;
+  openConversationId: string | null;
+  creating: boolean;
+  onSelect: (conversationId: string) => void;
+  onCreate: () => void;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 1, margin: "2px 0 6px 26px" }}>
+      {conversations.map((c, i) => {
+        const open = c.id === openConversationId;
+        return (
+          <button
+            key={c.id}
+            onClick={() => onSelect(c.id)}
+            title={conversationLabel(c, agentName, i)}
+            style={{
+              textAlign: "left" as const,
+              padding: "3px 8px",
+              borderRadius: 4,
+              border: "none",
+              cursor: "pointer",
+              fontSize: 11,
+              color: open ? agentColor : COLORS.text.tertiary,
+              background: open ? `${agentColor}14` : "transparent",
+              borderLeft: `2px solid ${open ? agentColor : "transparent"}`,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap" as const,
+            }}
+          >
+            {conversationLabel(c, agentName, i)}
+          </button>
+        );
+      })}
+      <button
+        onClick={onCreate}
+        disabled={creating}
+        style={{
+          textAlign: "left" as const,
+          padding: "3px 8px",
+          borderRadius: 4,
+          border: "none",
+          cursor: creating ? "default" : "pointer",
+          fontSize: 11,
+          color: COLORS.text.tertiary,
+          background: "transparent",
+          opacity: creating ? 0.5 : 0.8,
+        }}
+      >
+        {creating ? "Starting…" : "+ New conversation"}
+      </button>
+    </div>
+  );
 }
 
 const DEFAULT_AGENTS = [
@@ -278,7 +334,13 @@ const DEFAULT_MESSAGES = [
 ];
 
 /* ── TYPES ──────────────────────────────────────────────────────────────────── */
-type Channel = (typeof DEFAULT_CHANNELS)[0];
+type Channel = (typeof DEFAULT_CHANNELS)[0] & {
+  /** For a DM conversation: the owning agent's uuid (channels.agent_id). Absent on group/project channels. */
+  agentId?: string | null;
+  /** Optional conversation label (channels.title). */
+  title?: string | null;
+  createdAt?: string | null;
+};
 type Agent = (typeof DEFAULT_AGENTS)[0];
 
 type ChatAttachment = {
@@ -1693,6 +1755,10 @@ export default function CommandCenterChatPage() {
   /* ── state ── */
   const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
   const [activeAgent, setActiveAgent] = useState<Agent | null>(null);
+  /** The open DM conversation (a channels.id). Null means "the agent's default conversation". Agent identity
+   *  lives in activeAgent; this is purely which conversation with that agent is on screen. */
+  const [activeDmChannelId, setActiveDmChannelId] = useState<string | null>(null);
+  const [creatingConversationFor, setCreatingConversationFor] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("channel");
   const [messageInput, setMessageInput] = useState("");
   const [mentionPick, setMentionPick] = useState<{ start: number; filter: string } | null>(null);
@@ -2206,6 +2272,9 @@ export default function CommandCenterChatPage() {
     return () => clearTimeout(tm);
   }, [pendingScrollToMessageId]);
 
+  /** The channel id currently on screen for a DM. One expression, used by load, realtime, polling and send. */
+  const activeDmId = viewMode === "dm" && activeAgent ? (activeDmChannelId ?? getDmChannelId(activeAgent.id)) : null;
+
   /* ── load data from Supabase on mount ── */
   useEffect(() => {
     const loadData = async () => {
@@ -2228,6 +2297,11 @@ export default function CommandCenterChatPage() {
             description: (ch.description as string) || "",
             active: false,
             type: ((ch.type as string) || "project") as "project" | "team",
+            // Conversation identity: carried through so the sidebar can group DM channels by agent without
+            // ever reverse-mapping a channel id into an agent.
+            agentId: (ch.agent_id as string | null) ?? null,
+            title: (ch.title as string | null) ?? null,
+            createdAt: (ch.created_at as string | null) ?? null,
             ...((ch.type === "team" && ch.members) ? { members: ch.members as string[] } : {}),
           }));
           // Merge: use Supabase channels + fill in missing types from defaults
@@ -2297,7 +2371,7 @@ export default function CommandCenterChatPage() {
         Resolve names/colors via agentsRef so we don't need agents in deps. */
   useEffect(() => {
     if (!activeChannel && viewMode !== "dm") return;
-    const channelId = viewMode === "dm" && activeAgent ? getDmChannelId(activeAgent.id) : activeChannel?.id;
+    const channelId = activeDmId ?? activeChannel?.id;
     if (!channelId) return;
     const loadMessages = async () => {
       const { data } = await cockpitChatData.messages(channelId, { limit: 100, order: "asc" });
@@ -2387,7 +2461,7 @@ export default function CommandCenterChatPage() {
     loadMessages();
 
     // No polling — realtime subscription + REST polling fallback handle live updates.
-  }, [activeChannel, activeAgent, viewMode]);
+  }, [activeChannel, activeAgent, viewMode, activeDmId]);
 
   /* ── real-time subscription for new messages ── */
   useEffect(() => {
@@ -2395,7 +2469,7 @@ export default function CommandCenterChatPage() {
     const sb = cockpitRealtime; // owner-guarded SSE relay (P05-B2); no anon key
 
     // Get the correct channel UUID for filtering
-    const channelId = viewMode === "dm" && activeAgent ? getDmChannelId(activeAgent.id) : activeChannel?.id;
+    const channelId = activeDmId ?? activeChannel?.id;
     if (!channelId) return;
     setRealtimeStatus("connecting");
 
@@ -2589,7 +2663,7 @@ export default function CommandCenterChatPage() {
         });
       }
     };
-  }, [activeChannel, activeAgent, viewMode]);
+  }, [activeChannel, activeAgent, viewMode, activeDmId]);
 
   /* ── Polling fallback for new messages when Realtime is unhealthy ──
      The Supabase Realtime WebSocket is occasionally wedged in the browser
@@ -2609,7 +2683,7 @@ export default function CommandCenterChatPage() {
   useEffect(() => {
     if (!activeChannel && viewMode !== "dm") return;
     const channelId =
-      viewMode === "dm" && activeAgent ? getDmChannelId(activeAgent.id) : activeChannel?.id;
+      activeDmId ?? activeChannel?.id;
     if (!channelId) return;
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(channelId)) {
       return;
@@ -2675,7 +2749,7 @@ export default function CommandCenterChatPage() {
       clearTimeout(warmup);
       clearInterval(id);
     };
-  }, [activeChannel, activeAgent, viewMode]);
+  }, [activeChannel, activeAgent, viewMode, activeDmId]);
 
   /* ── scroll to bottom when messages change ── */
   useEffect(() => {
@@ -2728,7 +2802,7 @@ export default function CommandCenterChatPage() {
   /* ── pending read receipt applies to current channel only ── */
   useEffect(() => {
     lastPendingUserMessageIdRef.current = null;
-  }, [activeChannel, activeAgent, viewMode]);
+  }, [activeChannel, activeAgent, viewMode, activeDmId]);
 
   /* ── handlers ── */
   const handleChannelSelect = (channel: Channel) => {
@@ -2746,8 +2820,75 @@ export default function CommandCenterChatPage() {
     }
   };
 
-  const handleAgentSelect = (agent: Agent) => {
+  /** Every conversation with one agent, oldest first (legacy row first). Driven by channels.agent_id. */
+  const conversationsForAgent = useCallback(
+    (agentShortId: string): Array<{ id: string; title?: string | null }> => {
+      const uuid = AGENT_DM_UUID[agentShortId];
+      if (!uuid) return [];
+      const found = listAgentConversations(channels, uuid);
+      // Before the agent_id backfill lands (and if a legacy row somehow lacks it), the original DM still
+      // exists as a channel whose id IS the agent uuid. Surface it as the first conversation so the sidebar
+      // is correct either side of the migration.
+      return found.length > 0 ? found : [{ id: getDmChannelId(agentShortId), title: null }];
+    },
+    [channels]
+  );
+
+  /** Which conversation to open when an agent is picked: its first one, else the legacy channel id. */
+  const defaultConversationId = useCallback(
+    (agentShortId: string) => conversationsForAgent(agentShortId)[0]?.id ?? getDmChannelId(agentShortId),
+    [conversationsForAgent]
+  );
+
+  /** Create a fresh conversation with an agent and open it immediately (it has zero messages by design). */
+  const handleNewConversation = async (agent: Agent) => {
+    if (creatingConversationFor) return;
+    setCreatingConversationFor(agent.id);
+    try {
+      const res = await cockpitFetch("/api/command-center/chat/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentId: agent.id }),
+      });
+      const parsed = (await res.json().catch(() => null)) as
+        | { channel?: { id: string; agent_id?: string | null; title?: string | null; name?: string; slug?: string; type?: string; created_at?: string | null } | null }
+        | null;
+      const ch = parsed?.channel;
+      if (!res.ok || !ch?.id) {
+        setRelayError({ id: "new-conversation", message: "Could not start a new conversation." });
+        return;
+      }
+      // Add it to the local channel list so the sidebar and every channel lookup see it without a reload.
+      setChannels((prev) =>
+        prev.some((c) => c.id === ch.id)
+          ? prev
+          : ([
+              ...prev,
+              {
+                id: ch.id,
+                name: `#${ch.slug || ch.name || "dm"}`,
+                unread: 0,
+                description: "",
+                active: false,
+                type: (ch.type || "dm") as "project" | "team",
+                agentId: ch.agent_id ?? null,
+                title: ch.title ?? null,
+                createdAt: ch.created_at ?? null,
+              },
+            ] as Channel[])
+      );
+      setMessages((prev) => prev.filter((m) => m.channelId !== ch.id));
+      handleAgentSelect(agent, ch.id);
+    } catch {
+      setRelayError({ id: "new-conversation", message: "Could not start a new conversation." });
+    } finally {
+      setCreatingConversationFor(null);
+    }
+  };
+
+  const handleAgentSelect = (agent: Agent, conversationId?: string) => {
     setActiveAgent(agent);
+    setActiveDmChannelId(conversationId ?? defaultConversationId(agent.id));
     setActiveChannel(null);
     setViewMode("dm");
     setThreadMessage(null);
@@ -2804,7 +2945,7 @@ export default function CommandCenterChatPage() {
     setMentionPick(null);
 
     const isDM = viewMode === "dm" && activeAgent;
-    const targetChannelId = isDM ? getDmChannelId(activeAgent!.id) : (activeChannel?.id || "22222222-2222-2222-2222-222222222222");
+    const targetChannelId = isDM ? (activeDmId ?? getDmChannelId(activeAgent!.id)) : (activeChannel?.id || "22222222-2222-2222-2222-222222222222");
     const tempId = `pending-${Date.now()}`;
     const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const threadPid = opts?.threadParentId ?? null;
@@ -2851,6 +2992,8 @@ export default function CommandCenterChatPage() {
           mentionedAgents: mentionedAgents.length > 0 ? mentionedAgents : undefined,
           userMessageId,
           threadParentId: threadPid ?? undefined,
+          // DM only: scopes the OpenClaw session to this conversation.
+          conversationId: isDM ? targetChannelId : undefined,
         }),
       })
         .then(async (r) => {
@@ -3262,10 +3405,14 @@ export default function CommandCenterChatPage() {
 
   const resolveChannelLabel = useCallback(
     (cid: string) => {
-      const dm = Object.entries(DM_CHANNEL_MAP).find(([, u]) => u === cid);
-      if (dm) {
-        const ag = agents.find((a) => a.id === dm[0]) ?? DEFAULT_AGENTS.find((a) => a.id === dm[0]);
-        return ag ? `DM · ${ag.name}` : "Direct message";
+      // Conversation -> agent via channels.agent_id (never by assuming the channel id IS the agent id).
+      const agentUuid = agentUuidForChannel(channels, cid) ?? (AGENT_UUID_TO_SHORT_ID[cid] ? cid : null);
+      if (agentUuid) {
+        const shortId = AGENT_UUID_TO_SHORT_ID[agentUuid];
+        const ag = agents.find((a) => a.id === shortId) ?? DEFAULT_AGENTS.find((a) => a.id === shortId);
+        const ch = channels.find((c) => c.id === cid);
+        const label = ch?.title ? ` · ${ch.title}` : "";
+        return ag ? `DM · ${ag.name}${label}` : "Direct message";
       }
       const ch = channels.find((c) => c.id === cid) ?? DEFAULT_CHANNELS.find((c) => c.id === cid);
       return ch?.name ?? cid.slice(0, 8);
@@ -3275,11 +3422,13 @@ export default function CommandCenterChatPage() {
 
   const navigateToGlobalHit = (hit: { id: string; channelId: string }) => {
     const cid = hit.channelId;
-    const dm = Object.entries(DM_CHANNEL_MAP).find(([, u]) => u === cid);
-    if (dm) {
-      const ag = agents.find((a) => a.id === dm[0]) ?? DEFAULT_AGENTS.find((a) => a.id === dm[0]);
+    const agentUuidHit = agentUuidForChannel(channels, cid) ?? (AGENT_UUID_TO_SHORT_ID[cid] ? cid : null);
+    if (agentUuidHit) {
+      const shortIdHit = AGENT_UUID_TO_SHORT_ID[agentUuidHit];
+      const ag = agents.find((a) => a.id === shortIdHit) ?? DEFAULT_AGENTS.find((a) => a.id === shortIdHit);
       if (ag) {
-        handleAgentSelect(ag);
+        // Open the exact conversation the hit lives in, not just the agent's default one.
+        handleAgentSelect(ag, cid);
         setChatSearchQuery("");
         setGlobalSearchHits([]);
         setSearchFieldFocused(false);
@@ -3314,10 +3463,16 @@ export default function CommandCenterChatPage() {
     for (const c of DEFAULT_CHANNELS) {
       if (!m.has(c.id)) m.set(c.id, { id: c.id, name: c.name });
     }
-    for (const [aid, uid] of Object.entries(DM_CHANNEL_MAP)) {
+    for (const [aid, uid] of Object.entries(AGENT_DM_UUID)) {
       const ag = DEFAULT_AGENTS.find((a) => a.id === aid);
-      const label = ag ? `DM · ${ag.name}` : `DM · ${aid}`;
-      m.set(uid, { id: uid, name: label });
+      const agentName = ag?.name ?? aid;
+      const convos = listAgentConversations(channels, uid);
+      if (convos.length === 0) {
+        // Legacy row not loaded yet: the agent's own uuid is still its first conversation id.
+        m.set(uid, { id: uid, name: `DM · ${agentName}` });
+        continue;
+      }
+      convos.forEach((c, i) => m.set(c.id, { id: c.id, name: `DM · ${conversationLabel(c, agentName, i)}` }));
     }
     return [...m.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [channels]);
@@ -3334,7 +3489,7 @@ export default function CommandCenterChatPage() {
   /* ── filter messages (hide thread children from main timeline) + search ── */
   const channelMessages = messages.filter((msg) => {
     if (viewMode === "dm" && activeAgent) {
-      if (msg.channelId !== getDmChannelId(activeAgent.id)) return false;
+      if (msg.channelId !== (activeDmId ?? getDmChannelId(activeAgent.id))) return false;
     } else if (msg.channelId !== activeChannel?.id) {
       return false;
     }
@@ -3391,7 +3546,7 @@ export default function CommandCenterChatPage() {
       // now (threadMessage panel works against the live `messages` list, not
       // a filtered view, so this guards against cross-channel leakage).
       if (viewMode === "dm" && activeAgent) {
-        if (m.channelId !== getDmChannelId(activeAgent.id)) continue;
+        if (m.channelId !== (activeDmId ?? getDmChannelId(activeAgent.id))) continue;
       } else if (m.channelId !== activeChannel?.id) {
         continue;
       }
@@ -3953,9 +4108,11 @@ export default function CommandCenterChatPage() {
           {!collapsedSections.personal && <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {agents.map((agent) => {
               const isActive = activeAgent?.id === agent.id && viewMode === "dm";
+              const agentConversations = isActive ? conversationsForAgent(agent.id) : [];
+              const openConversationId = isActive ? (activeDmId ?? getDmChannelId(agent.id)) : null;
               return (
+                <div key={`dm-${agent.id}`} style={{ display: "flex", flexDirection: "column" }}>
                 <button
-                  key={agent.id}
                   onClick={() => handleAgentSelect(agent)}
                   style={{
                     width: "100%",
@@ -4063,8 +4220,8 @@ export default function CommandCenterChatPage() {
                       {agent.role}
                     </div>
                     {(() => {
-                      const dmChannelId = getDmChannelId(agent.id);
-                      const lastMsg = [...messages].reverse().find((m) => m.channelId === dmChannelId);
+                      const convoIds = new Set<string>([getDmChannelId(agent.id), ...conversationsForAgent(agent.id).map((c) => c.id)]);
+                      const lastMsg = [...messages].reverse().find((m) => convoIds.has(m.channelId));
                       if (!lastMsg) return null;
                       const preview = lastMsg.content.length > 30 ? lastMsg.content.slice(0, 30) + "..." : lastMsg.content;
                       return (
@@ -4106,6 +4263,18 @@ export default function CommandCenterChatPage() {
                     </span>
                   )}
                 </button>
+                {isActive && (
+                  <ConversationList
+                    agentName={agent.name}
+                    agentColor={agent.color}
+                    conversations={agentConversations}
+                    openConversationId={openConversationId}
+                    creating={creatingConversationFor === agent.id}
+                    onSelect={(cid: string) => handleAgentSelect(agent, cid)}
+                    onCreate={() => void handleNewConversation(agent)}
+                  />
+                )}
+                </div>
               );
             })}
           </div>}

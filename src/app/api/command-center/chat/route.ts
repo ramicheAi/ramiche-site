@@ -360,6 +360,10 @@ async function generateAgentReply(
   groupRoster: string[],
   history: HistoryTurn[],
   imageUrls: string[],
+  /** The DM conversation this turn belongs to (the channel id). Scopes the OpenClaw session so a new
+   *  conversation with the same agent does not inherit the old conversation's gateway context. Undefined
+   *  for group channels, which keep the agent's shared session. */
+  conversationId: string | undefined,
   correlation?: ExecutionCorrelation
 ): Promise<{
   text: string;
@@ -414,7 +418,7 @@ async function generateAgentReply(
     (process.env.OPENCLAW_CHAT_STRICT === "1" || process.env.OPENCLAW_CHAT_STRICT === "true");
 
   if (openclawPrimary && isOpenClawGatewayConfigured()) {
-    const sessionKey = resolveChatSessionKey(target);
+    const sessionKey = resolveChatSessionKey(target, conversationId);
     const routed = gatewayMessage({
       header: `[CC chat → ${displayName} / session ${sessionKey}]`,
       system: systemPrompt,
@@ -1073,6 +1077,7 @@ export async function POST(req: NextRequest) {
       mentionedAgents,
       userMessageId,
       threadParentId,
+      conversationId: rawConversationId,
     } = body as {
       message?: string;
       channelId?: string;
@@ -1084,11 +1089,21 @@ export async function POST(req: NextRequest) {
       userMessageId?: string;
       /** When set, agent replies are stored as thread children of this message */
       threadParentId?: string;
+      /** The DM conversation (channel) this turn belongs to; omitted for group channels. */
+      conversationId?: string;
     };
 
     if (!message) {
       return NextResponse.json({ error: "message required" }, { status: 400 });
     }
+
+    // A DM conversation id, used only to scope the OpenClaw session. Anything malformed is dropped rather
+    // than passed through, so a bad value can never reshape a session key.
+    const conversationId =
+      typeof rawConversationId === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawConversationId)
+        ? rawConversationId
+        : undefined;
 
     const threadUuid =
       threadParentId &&
@@ -1164,6 +1179,7 @@ export async function POST(req: NextRequest) {
           targets,
           history,
           imageUrls,
+          conversationId,
           correlation
         )
       )

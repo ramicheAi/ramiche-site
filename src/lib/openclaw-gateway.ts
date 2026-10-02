@@ -14,6 +14,8 @@
  */
 
 import { openclawSessionKeyMap } from "@/lib/agent-registry";
+import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
+import { isLegacyDmChannel } from "@/lib/dm-conversations";
 
 const DEFAULT_BASE = "http://127.0.0.1:24511";
 
@@ -104,7 +106,18 @@ const DEFAULT_AGENT_SESSION_KEYS: Record<string, string> = openclawSessionKeyMap
  *       openclaw.json on Ramon's Mac)
  *    3. env OPENCLAW_CHAT_SESSION_KEY (global default)
  *    4. literal "main" (Atlas session) — last-resort safe default. */
-export function resolveChatSessionKey(agentId: string): string {
+export function resolveChatSessionKey(agentId: string, conversationId?: string): string {
+  const base = resolveAgentSessionKey(agentId);
+  if (!conversationId) return base;
+  const agentUuid = AGENT_DM_UUID[agentId.toLowerCase()] ?? null;
+  // A legacy DM (conversation id === the agent's own uuid) keeps the historical key, so the sessions that
+  // already exist on the gateway stay attached and nothing about the old DMs changes.
+  if (agentUuid && isLegacyDmChannel(conversationId, agentUuid)) return base;
+  return conversationScopedSessionKey(base, conversationId);
+}
+
+/** The per-agent key, exactly as it resolved before conversations existed. */
+function resolveAgentSessionKey(agentId: string): string {
   const id = agentId.toLowerCase();
   const raw = process.env.OPENCLAW_AGENT_SESSION_KEYS?.trim();
   if (raw) {
@@ -118,6 +131,24 @@ export function resolveChatSessionKey(agentId: string): string {
   }
   if (DEFAULT_AGENT_SESSION_KEYS[id]) return DEFAULT_AGENT_SESSION_KEYS[id];
   return process.env.OPENCLAW_CHAT_SESSION_KEY?.trim() || "agent:main:main";
+}
+
+/**
+ * Give one conversation its own gateway session while keeping the AGENT segment of the key intact, so the
+ * Parallax agent identity is still legible in `sessions_list` and only the session slot differs.
+ *
+ *   agent:triage:main  +  3fa1b2c3-… ->  agent:triage:c-3fa1b2c3d4e5
+ *
+ * Keys of the canonical `a:b:c` shape have their LAST segment replaced (the session slot). Any other shape
+ * (an operator override such as "triage-main") gets the segment appended, so a custom key is never mangled.
+ * The suffix is a deterministic 12 hex characters of the conversation uuid: same conversation, same key,
+ * every request, and no two conversations collide.
+ */
+export function conversationScopedSessionKey(baseKey: string, conversationId: string): string {
+  const suffix = `c-${conversationId.replace(/-/g, "").slice(0, 12).toLowerCase()}`;
+  const parts = baseKey.split(":");
+  if (parts.length >= 3) return [...parts.slice(0, -1), suffix].join(":");
+  return `${baseKey}:${suffix}`;
 }
 
 /**
