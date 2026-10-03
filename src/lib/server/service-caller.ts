@@ -15,7 +15,7 @@ import type { NextResponse } from "next/server";
 import { denialResponse } from "./owner-identity";
 import { guardPrivateRead, guardProtectedMutation } from "./protected-mutation";
 
-export type ServiceName = "bridge" | "openclaw-webhook" | "vapi" | "cron" | "push";
+export type ServiceName = "bridge" | "openclaw-webhook" | "vapi" | "cron" | "push" | "missions";
 
 type CredentialSpec = { header: string; bearer: boolean; envVars: readonly string[] };
 
@@ -30,6 +30,9 @@ const SERVICE_SPECS: Record<ServiceName, CredentialSpec> = {
   cron: { header: "authorization", bearer: true, envVars: ["PARALLAX_CRON_TOKEN"] },
   // Existing secret for agent pushes into chat (/api/command-center/push).
   push: { header: "x-cc-push-secret", bearer: false, envVars: ["CC_PUSH_SECRET"] },
+  // New (P06 M2): fleet agents acting on Missions. Its own credential, so mission access can be issued or revoked
+  // without touching chat or push. Not configured yet, so it fails closed.
+  missions: { header: "x-parallax-missions-token", bearer: false, envVars: ["PARALLAX_MISSIONS_AGENT_TOKEN"] },
 };
 
 export const MIN_SERVICE_SECRET_LENGTH = 16;
