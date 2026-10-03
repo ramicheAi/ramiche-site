@@ -113,8 +113,9 @@ export function pathDelimiterFree(path: string): boolean {
     if (hasDelimiter(cur)) return false;
     // Non-standard escapes some decoders still honour: IIS %uXXXX, and overlong UTF-8 forms of ASCII.
     if (/%u[0-9a-f]{4}/i.test(cur) || OVERLONG_UTF8.test(cur)) return false;
-    // Where the path decodes cleanly as UTF-8, check what a UTF-8 decoding server (then a normalizer) would see.
-    try { if (hasDelimiter(decodeURIComponent(cur))) return false; } catch { /* not valid UTF-8: byte pass below */ }
+    // What a lenient UTF-8 decoding server (then a normalizer) would see. Lenient, like Python unquote: valid UTF-8
+    // sequences decode even when other bytes in the path are invalid, so one bad byte cannot hide a fullwidth ";".
+    if (hasDelimiter(lenientUtf8Decode(cur))) return false;
     const next = cur.replace(/%([0-9a-f]{2})/gi, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16)));
     if (next === cur) return true;
     if (pass >= MAX_DECODE_PASSES) return false;
@@ -127,8 +128,22 @@ function hasDelimiter(s: string): boolean {
   return /[;?#]/.test(s) || /[;?#]/.test(s.normalize("NFKC"));
 }
 
-/** Overlong UTF-8 lead sequences (C0/C1, E0 80-9F, F0 80-8F): never valid, decoded to ASCII by lax decoders. */
-const OVERLONG_UTF8 = /%c[01]|%e0%[89][0-9a-f]|%f0%8[0-9a-f]/i;
+/**
+ * Overlong UTF-8 sequences (a lead byte C0/C1, E0 80-9F, F0 80-8F, or the obsolete 5/6-byte leads F8-FD, followed by a
+ * continuation byte): never valid, decoded to ASCII by lax decoders. A lone %C0 or %C1 (Latin-1 "A" with an accent)
+ * is not followed by a continuation byte and stays allowed.
+ */
+const OVERLONG_UTF8 = /%c[01]%[89ab][0-9a-f]|%e0%[89][0-9a-f]|%f0%8[0-9a-f]|%f[89a-d]%[89ab][0-9a-f]/i;
+
+const UTF8 = new TextDecoder("utf-8", { fatal: false });
+/** Decode every run of %XX escapes as UTF-8, replacing invalid bytes with U+FFFD and leaving other text untouched. */
+function lenientUtf8Decode(s: string): string {
+  return s.replace(/(?:%[0-9a-f]{2})+/gi, (run) => {
+    const bytes = new Uint8Array(run.length / 3);
+    for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(run.slice(i * 3 + 1, i * 3 + 3), 16);
+    return UTF8.decode(bytes);
+  });
+}
 
 /**
  * External URL hygiene. A mission link is durable, listed and shown, so it must not carry secrets or point inside
