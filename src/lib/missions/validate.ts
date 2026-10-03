@@ -122,6 +122,9 @@ export function cleanUrl(raw: unknown): Valid<string> {
 
 /** git check-ref-format, the subset that matters for a stored pointer. Rules apply to EVERY slash-separated component. */
 export function gitBranch(v: string): boolean {
+  // `git check-ref-format --branch` also refuses the bare names HEAD and "-"-led names, and "@" never passes the
+  // charset below. The validator may be stricter than git, never looser (see the differential test).
+  if (v === "HEAD") return false;
   return v.length >= 1 && v.length <= 255 && /^[A-Za-z0-9._/-]+$/.test(v) && !v.startsWith("/") && !v.endsWith("/")
     && !v.endsWith(".") && !v.endsWith(".lock") && !v.includes("..") && !v.includes("//") && !v.startsWith("-")
     && !v.split("/").some((part) => part.length === 0 || part.startsWith(".") || part.endsWith(".lock"));

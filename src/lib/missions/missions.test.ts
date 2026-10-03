@@ -3,6 +3,7 @@
  * URL hygiene, target id formats, and the founder-only verification invariant. The database-backed suite is
  * missions-db.test.ts (supabase/tests/run-m2-local.sh).
  */
+import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import { AGENT_CORE } from "@/lib/agent-registry";
 import { canTransition, FOUNDER, FOUNDER_ACTOR, isFounder, registeredAgentId, type Principal } from "./principal";
@@ -84,9 +85,19 @@ describe("validation", () => {
       expect(cleanUrl(bad).ok, bad).toBe(false);
     }
   });
+  it("git branch names are never looser than git itself (differential against git check-ref-format --branch)", () => {
+    const corpus = ["main", "HEAD", "head", "HEAD/x", "x/HEAD", "@", "a@b", "@{1}", "x@{u}", "-x", "x-", "a.b", ".a", "a.", "a..b",
+      "a/b", "/a", "a/", "a//b", "a/.b", "a/b.", "x.lock", "x.lock/y", "y/x.lock", "a.lock.b", "lock", "a b", "a~b", "a^b", "a:b",
+      "a?b", "a*b", "a[b", "a\\b", "feature/A_b-1.2", "p06/mission-m2", "1", "-", "--", "x/-y", "FETCH_HEAD", "ORIG_HEAD", "refs/heads/x"];
+    const git = (name: string) => spawnSync("git", ["check-ref-format", "--branch", name], { encoding: "utf8" });
+    if (git("main").error) return; // git unavailable in this environment: the explicit cases below still run
+    for (const name of corpus) {
+      if (gitBranch(name)) expect(git(name).status, `validator accepts "${name}" but git refuses it`).toBe(0);
+    }
+  });
   it("git branch names", () => {
     for (const ok of ["main", "p06/mission-m2", "feature/a.b_c"]) expect(gitBranch(ok), ok).toBe(true);
-    for (const bad of ["", "/x", "x/", "a..b", "a//b", ".hidden", "x/.y", "x.lock", "foo.lock/bar", "a/b.lock/c", "-x", "x y", "x~1", "x@{1}"]) expect(gitBranch(bad), bad).toBe(false);
+    for (const bad of ["", "/x", "x/", "a..b", "a//b", ".hidden", "x/.y", "x.lock", "foo.lock/bar", "a/b.lock/c", "-x", "x y", "x~1", "x@{1}", "HEAD"]) expect(gitBranch(bad), bad).toBe(false);
   });
 });
 
