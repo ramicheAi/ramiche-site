@@ -110,13 +110,25 @@ const MAX_DECODE_PASSES = 4;
 export function pathDelimiterFree(path: string): boolean {
   let cur = path;
   for (let pass = 0; ; pass++) {
-    if (/[;?#]/.test(cur)) return false;
+    if (hasDelimiter(cur)) return false;
+    // Non-standard escapes some decoders still honour: IIS %uXXXX, and overlong UTF-8 forms of ASCII.
+    if (/%u[0-9a-f]{4}/i.test(cur) || OVERLONG_UTF8.test(cur)) return false;
+    // Where the path decodes cleanly as UTF-8, check what a UTF-8 decoding server (then a normalizer) would see.
+    try { if (hasDelimiter(decodeURIComponent(cur))) return false; } catch { /* not valid UTF-8: byte pass below */ }
     const next = cur.replace(/%([0-9a-f]{2})/gi, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16)));
     if (next === cur) return true;
     if (pass >= MAX_DECODE_PASSES) return false;
     cur = next;
   }
 }
+
+/** ; ? # directly, or after Unicode normalization (NFKC maps fullwidth and small forms, and U+037E, to ASCII). */
+function hasDelimiter(s: string): boolean {
+  return /[;?#]/.test(s) || /[;?#]/.test(s.normalize("NFKC"));
+}
+
+/** Overlong UTF-8 lead sequences (C0/C1, E0 80-9F, F0 80-8F): never valid, decoded to ASCII by lax decoders. */
+const OVERLONG_UTF8 = /%c[01]|%e0%[89][0-9a-f]|%f0%8[0-9a-f]/i;
 
 /**
  * External URL hygiene. A mission link is durable, listed and shown, so it must not carry secrets or point inside
