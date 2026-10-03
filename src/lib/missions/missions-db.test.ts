@@ -210,8 +210,8 @@ describe.skipIf(!conn)("M2 Mission layer on real M1", () => {
 
   it("stores the canonical form: url query/fragment stripped, uuid lower-cased, sha lower-cased", async () => {
     const m = await mk();
-    const u = await svc.addLink(ctx(FOUNDER), m.id, { targetType: "url", targetId: "https://Docs.Example.com/report?token=abc&sig=1#frag", relation: "source" });
-    expect(u.ok && u.data.link.target_id).toBe("https://docs.example.com/report");
+    const u = await svc.addLink(ctx(FOUNDER), m.id, { targetType: "url", targetId: "https://Docs.Acme-Corp.com/report?token=abc&sig=1#frag", relation: "source" });
+    expect(u.ok && [u.data.link.target_id, u.data.resolution]).toEqual(["https://docs.acme-corp.com/report", "format_only"]);
     const j = await svc.addLink(ctx(FOUNDER), m.id, { targetType: "job", targetId: JOB.toUpperCase(), relation: "task" });
     expect(j.ok && j.data.link.target_id).toBe(JOB);
     const g = await svc.addLink(ctx(FOUNDER), m.id, { targetType: "git_commit", targetId: "ABCDEF0123456789ABCDEF0123456789ABCDEF01", relation: "source" });
@@ -235,6 +235,14 @@ describe.skipIf(!conn)("M2 Mission layer on real M1", () => {
     expect(!wrongCrit.ok && wrongCrit.code).toBe("MI024");
     const fmtOnly = await svc.addLink(ctx(FOUNDER), m.id, { targetType: "git_commit", targetId: "a".repeat(40), relation: "evidence", criterionId: "c1" });
     expect(!fmtOnly.ok && fmtOnly.code).toBe("unverifiable_evidence");
+    // Unfetched URLs and static project slugs are not evidence either, however they are spelled.
+    for (const [targetType, targetId] of [["url", "https://github.com/ramicheAi/ramiche-site/pull/37"], ["project", "mettle"],
+      ["pull_request", "ramicheAi/ramiche-site#37"], ["git_branch", "main"], ["yolo_build", "2026-10-03-nova-thing"], ["firestore_task", "abc"]]) {
+      const r = await svc.addLink(ctx(FOUNDER), m.id, { targetType, targetId, relation: "evidence", criterionId: "c1" });
+      expect(!r.ok && [r.status, r.code], targetType).toEqual([422, "unverifiable_evidence"]);
+      const asContext = await svc.addLink(ctx(FOUNDER), m.id, { targetType, targetId, relation: "context" });
+      expect(asContext.ok, `${targetType} as context`).toBe(true);
+    }
   });
 
   it("duplicate live link is a 409; after tombstone it may be re-added", async () => {

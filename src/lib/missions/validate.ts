@@ -78,7 +78,8 @@ export function team(v: unknown): Valid<string[]> {
 }
 
 // Matched against the hostname with any trailing dots removed ("localhost." is localhost).
-const PRIVATE_HOST = /^(localhost|.*\.localhost|.*\.local|.*\.internal|.*\.ts\.net|.*\.lan|.*\.home\.arpa|.*\.intranet|.*\.corp|.*\.private)$/i;
+// Reserved, special-use and private names (RFC 2606, 6761, 6762, 7686, 8375) plus Tailscale MagicDNS suffixes.
+const PRIVATE_HOST = /^(localhost|localhost\.localdomain|.*\.localhost|.*\.localdomain|.*\.local|.*\.internal|.*\.ts\.net|.*\.tailscale\.net|.*\.lan|.*\.home\.arpa|.*\.arpa|.*\.intranet|.*\.corp|.*\.private|.*\.test|.*\.example|.*\.invalid|.*\.onion|.*\.alt)$/i;
 function isPrivateIp(host: string): boolean {
   const h = host.replace(/^\[|\]$/g, "");
   if (/^\d+\.\d+\.\d+\.\d+$/.test(h)) {
@@ -87,7 +88,7 @@ function isPrivateIp(host: string): boolean {
       || (a === 100 && b >= 64 && b <= 127)                                    // CGNAT, which includes the tailnet
       || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)
       || (a === 192 && b === 0 && (c === 0 || c === 2)) || (a === 198 && (b === 18 || b === 19))
-      || (a === 198 && b === 51 && c === 100) || (a === 203 && b === 0 && c === 113);
+      || (a === 198 && b === 51 && c === 100) || (a === 203 && b === 0 && c === 113) || (a === 192 && b === 88 && c === 99);
   }
   return h.includes(":"); // any IPv6 literal: not a shareable evidence location
 }
@@ -110,6 +111,8 @@ export function cleanUrl(raw: unknown): Valid<string> {
   // Tailscale MagicDNS: never a public location.
   if (!host || !host.includes(".") || PRIVATE_HOST.test(host) || isPrivateIp(host)) return bad("url host must be public");
   u.hostname = host;
+  // Path parameters (";token=...") are a classic place for session ids and signed tokens.
+  if (u.pathname.includes(";")) return bad("url path must not carry ;parameters");
   u.search = "";
   u.hash = "";
   const out = u.toString();

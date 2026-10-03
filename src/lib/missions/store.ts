@@ -65,6 +65,9 @@ export interface MissionStore {
   lookupTarget(tenantId: string, type: DbTargetType, id: string): Promise<StoreResult<TargetRecord | null>>;
 }
 
+/** Page size for edge reads; must not exceed the PostgREST max-rows setting (1000 by default). */
+export const EDGE_PAGE = 500;
+
 const MISSION_COLS = "id, ref, tenant_id, objective, owner, owner_kind, agent_ids, success_criteria, deliverables, state, created_by, created_by_kind, created_at, updated_at";
 const LINK_COLS = "id, mission_id, target_type, target_id, target_index, relation, criterion_id, created_by, created_by_kind, created_at, removed_at, removed_by, removed_by_kind";
 const EVENT_COLS = "id, mission_id, seq, kind, from_state, to_state, actor, actor_kind, detail, created_at";
@@ -132,9 +135,18 @@ export function supabaseMissionStore(svc: SupabaseClient): MissionStore {
     },
     async dependencyEdges(fromMissionIds) {
       if (fromMissionIds.length === 0) return { ok: true, data: [] };
-      const { data, error } = await svc.from("mission_links").select("mission_id, target_id")
-        .in("mission_id", fromMissionIds).eq("relation", "dependency").eq("target_type", "mission").is("removed_at", null);
-      return wrap(data ?? [], error);
+      // Paged to completion: PostgREST caps a response (1000 rows by default), and a silently truncated edge set
+      // would let the cycle walk miss a path. Ordered by id so pages are stable.
+      const out: { mission_id: string; target_id: string }[] = [];
+      for (let from = 0; ; from += EDGE_PAGE) {
+        const { data, error } = await svc.from("mission_links").select("mission_id, target_id")
+          .in("mission_id", fromMissionIds).eq("relation", "dependency").eq("target_type", "mission").is("removed_at", null)
+          .order("id", { ascending: true }).range(from, from + EDGE_PAGE - 1);
+        if (error) return wrap(null, error);
+        const rows = (data ?? []) as { mission_id: string; target_id: string }[];
+        out.push(...rows);
+        if (rows.length < EDGE_PAGE) return { ok: true, data: out };
+      }
     },
     async lookupTarget(tenantId, type, id) {
       switch (type) {

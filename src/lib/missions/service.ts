@@ -161,7 +161,7 @@ export async function listMissions(
 
 // ─── state ──────────────────────────────────────────────────────────────────────────────────────────────
 
-/** Every transition except completed -> verified. Founder: any legal one. Agent participant: the execution loop. */
+/** Every legal transition except completed -> verified, which only verifyMission performs. Founder only. */
 export async function transitionMission(ctx: Ctx, id: unknown, body: Record<string, unknown>): Promise<MissionResult<MissionRow>> {
   const denied = founderOnly(ctx);
   if (denied) return denied;

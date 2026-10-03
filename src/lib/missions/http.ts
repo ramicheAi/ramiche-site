@@ -29,8 +29,10 @@ export function missionContext(owner: { ok: true; uid: string }): { ok: true; ct
 
 export async function jsonObject(req: Request): Promise<Record<string, unknown> | NextResponse> {
   try {
+    const declared = Number(req.headers.get("content-length") ?? "0");
+    if (declared > 64 * 1024) throw new Error("too large");
     const text = await req.text();
-    if (text.length > 64 * 1024) throw new Error("too large");
+    if (Buffer.byteLength(text, "utf8") > 64 * 1024) throw new Error("too large");
     const parsed = text ? JSON.parse(text) : {};
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("not an object");
     return parsed as Record<string, unknown>;

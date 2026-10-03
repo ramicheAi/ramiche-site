@@ -2,7 +2,7 @@
  * P06 M2: link target resolution. A mission link must point at something real, not an arbitrary string.
  *
  *   resolved     the record was found in this tenant (database targets) or in the server's own registry (projects).
- *   format_only  the target lives outside anything this server can read synchronously (the iMac YOLO build folders,
+ *   format_only  the target lives outside anything this server reads (external URLs, the iMac YOLO build folders,
  *                Firestore tasks, GitHub). Its id is held to a strict canonical format here and recorded as
  *                unverified; live resolution is M3 work. These are never accepted as evidence (see EVIDENCE_TYPES).
  *
@@ -25,11 +25,13 @@ const DB_TYPES: Record<string, DbTargetType> = {
 };
 
 /**
- * Evidence must be something the server resolved or a public URL the founder can open. A format-only pointer
- * (an unverified branch name, commit sha, PR number, build folder or task id) cannot prove a success criterion.
+ * Evidence must be a record the server itself found in this tenant's database. Anything the server has not looked at
+ * cannot prove a success criterion: a URL (never fetched), a project slug (a static registry name, not an outcome) and
+ * every format-only pointer (branch, commit, PR, build folder, task id). Those may still be linked as context, source
+ * or deliverable; live verification of them is M3 work.
  */
 export const EVIDENCE_TYPES: ReadonlySet<TargetType> = new Set<TargetType>([
-  "job", "synthesis", "synthesis_action", "pipeline_gate", "pipeline_lead", "chat_channel", "chat_message", "mission", "url", "project",
+  "job", "synthesis", "synthesis_action", "pipeline_gate", "pipeline_lead", "chat_channel", "chat_message", "mission",
 ]);
 
 const invalid = (message: string): ResolveResult => ({ ok: false, status: 422, code: "invalid_target", message });
@@ -76,7 +78,8 @@ export async function resolveTarget(
     case "url": {
       const u = cleanUrl(id);
       if (!u.ok) return invalid(u.message);
-      return { ok: true, target: { targetType: type, targetId: u.value, targetIndex: null, resolution: "resolved" } };
+      // Cleaned and checked, but never fetched: the server has not seen what is there.
+      return { ok: true, target: { targetType: type, targetId: u.value, targetIndex: null, resolution: "format_only" } };
     }
     case "yolo_build":
       // Build folders are named <date>-<agent>-<slug> on the iMac workspace.

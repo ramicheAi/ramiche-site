@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { supabaseMissionStore } from "./store";
+import { EDGE_PAGE, supabaseMissionStore } from "./store";
 
 type Call = { table?: string; rpc?: string; ops: [string, unknown[]][] };
 function recorder() {
@@ -62,5 +62,29 @@ describe("supabaseMissionStore", () => {
     expect(Object.keys(upd?.[1][0] as object).sort()).toEqual(["removed_at", "removed_by", "removed_by_kind"]);
     expect(hasEq(c, "id", "l") && hasEq(c, "mission_id", "m")).toBe(true);
     expect(c.ops.some(([op, a]) => op === "is" && a[0] === "removed_at" && a[1] === null)).toBe(true);
+  });
+
+  it("reads dependency edges to completion across pages (a truncated edge set could hide a cycle)", async () => {
+    const ranges: [number, number][] = [];
+    const page = (n: number, off: number) => Array.from({ length: n }, (_, i) => ({ mission_id: "a", target_id: `t${off + i}` }));
+    const client = {
+      from: () => {
+        const api: Record<string, unknown> = new Proxy({}, {
+          get(_t, prop: string) {
+            if (prop === "range") return (from: number, to: number) => {
+              ranges.push([from, to]);
+              const n = ranges.length === 1 ? EDGE_PAGE : ranges.length === 2 ? EDGE_PAGE : 3;
+              return Promise.resolve({ data: page(n, from), error: null });
+            };
+            return () => api;
+          },
+        });
+        return api;
+      },
+    } as unknown as SupabaseClient;
+    const r = await supabaseMissionStore(client).dependencyEdges(["a"]);
+    expect(r.ok && r.data.length).toBe(EDGE_PAGE * 2 + 3);
+    expect(ranges).toEqual([[0, EDGE_PAGE - 1], [EDGE_PAGE, 2 * EDGE_PAGE - 1], [2 * EDGE_PAGE, 3 * EDGE_PAGE - 1]]);
+    expect(EDGE_PAGE).toBeLessThanOrEqual(1000);
   });
 });
