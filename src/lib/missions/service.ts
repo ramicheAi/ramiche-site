@@ -83,7 +83,8 @@ export const NOTE_MAX_BYTES = 1000;
 /** Optional free-text note on a transition: plain text, bounded, stored under the key "note" only. */
 function noteDetail(raw: unknown): { ok: true; detail: Record<string, unknown> } | Fail {
   if (raw === undefined) return { ok: true, detail: {} };
-  const t = v.text(raw, "note", 500);
+  // M1's only bound on a note is its 1000-byte string limit; the character cap matches it rather than undercutting it.
+  const t = v.text(raw, "note", NOTE_MAX_BYTES);
   if (!t.ok) return fail(422, "invalid_note", t.message);
   // M1's mission_detail_ok bounds every stored string at 1000 UTF-8 BYTES; 500 characters of CJK or emoji exceed it.
   if (Buffer.byteLength(t.value, "utf8") > NOTE_MAX_BYTES) return fail(422, "invalid_note", `note must be at most ${NOTE_MAX_BYTES} bytes`);

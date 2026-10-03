@@ -101,18 +101,17 @@ function isPrivateIp(host: string): boolean {
 const MAX_DECODE_PASSES = 4;
 
 /**
- * True when the path contains no ";", "?" or "#" at any decoding depth. The path is actually decoded, pass by pass
- * (never pattern-matched, so splitting an escape across levels such as %25%33%42 cannot hide a ";"), and checked
- * after every pass. A path with a malformed escape, or one still changing after MAX_DECODE_PASSES, is refused.
+ * True when the path contains no ";", "?" or "#" at any decoding depth. The path is decoded the way the most lenient
+ * server would: every well-formed %XX byte escape is replaced, pass by pass, and malformed ones are left in place
+ * (as Python unquote and PHP urldecode do) instead of stopping the check. The delimiters are ASCII, so decoding at the
+ * byte level finds every hidden one, including escapes split across levels such as %25%33%42, without refusing honest
+ * paths such as /sale-50%25-off or legacy /caf%E9. A path still changing after MAX_DECODE_PASSES is refused.
  */
 export function pathDelimiterFree(path: string): boolean {
   let cur = path;
   for (let pass = 0; ; pass++) {
     if (/[;?#]/.test(cur)) return false;
-    let next: string;
-    // A malformed escape is refused, not waved through: lenient decoders (Python unquote, PHP urldecode) still decode
-    // every other escape in the path, so one bad %ZZ must not switch the whole check off.
-    try { next = decodeURIComponent(cur); } catch { return false; }
+    const next = cur.replace(/%([0-9a-f]{2})/gi, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16)));
     if (next === cur) return true;
     if (pass >= MAX_DECODE_PASSES) return false;
     cur = next;

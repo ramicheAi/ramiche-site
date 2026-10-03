@@ -110,9 +110,10 @@ describe("validation", () => {
   it("path delimiter check decodes rather than pattern-matches", () => {
     expect(pathDelimiterFree("/report%2520final")).toBe(true);
     expect(pathDelimiterFree("/a%2Fb/c")).toBe(true);
-    for (const malformed of ["/bad%E0%A4%A", "/a%3Bjsessionid=SECRET%ZZ", "/a%3Ftoken=SECRET/%C0", "/x%"]) {
-      expect(pathDelimiterFree(malformed), malformed).toBe(false); // lenient decoders still decode the rest
-    }
+    // a malformed escape does not switch the check off: the well-formed escapes around it are still decoded
+    for (const hidden of ["/a%3Bjsessionid=SECRET%ZZ", "/a%3Ftoken=SECRET/%C0", "/%ZZ%25%33%42x"]) expect(pathDelimiterFree(hidden), hidden).toBe(false);
+    // and honest paths with stray or legacy escapes are not refused
+    for (const honest of ["/sale-50%25-off", "/caf%E9", "/a%zz", "/bad%E0%A4%A", "/x%", "/100%"]) expect(pathDelimiterFree(honest), honest).toBe(true);
     for (const bad of ["/x;y", "/x%3By", "/x%253By", "/x%25%33%42y", "/x%2525%33%42y", "/x%25%32%33", "/x%25%33%46"]) {
       expect(pathDelimiterFree(bad), bad).toBe(false);
     }
@@ -167,6 +168,14 @@ describe("input bounds that M1 would otherwise reject late", () => {
   it("reassign without agentIds is refused, never read as an empty team", async () => {
     const r = await svc.reassignMission(ctx, M, { owner: "ramon", ownerKind: "human" });
     expect(!r.ok && [r.status, r.code]).toEqual([422, "invalid_team"]);
+  });
+  it("an ASCII note up to M1's 1000-byte bound is accepted, 1001 is not", async () => {
+    const store = { getMission: async () => ({ ok: false, error: { message: "stop here" } }) } as unknown as MissionStore;
+    const c = { store, tenantId: "t", principal: FOUNDER };
+    const ok = await svc.transitionMission(c, M, { to: "plan", note: "a".repeat(1000) });
+    expect(!ok.ok && ok.code).toBe("storage_error"); // passed validation, reached storage
+    const big = await svc.transitionMission(c, M, { to: "plan", note: "a".repeat(1001) });
+    expect(!big.ok && big.code).toBe("invalid_note");
   });
   it("a note over 1000 UTF-8 bytes is refused before storage even when under 500 characters", async () => {
     for (const note of ["界".repeat(400), "😀".repeat(251)]) {
