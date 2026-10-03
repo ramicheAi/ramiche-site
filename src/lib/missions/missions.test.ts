@@ -137,6 +137,23 @@ describe("every operation refuses a non-founder before storage", () => {
   });
 });
 
+describe("input bounds that M1 would otherwise reject late", () => {
+  const ctx = { store: untouchable, tenantId: "t", principal: FOUNDER };
+  const M = "00000000-0000-4000-8000-000000000001";
+  it("reassign without agentIds is refused, never read as an empty team", async () => {
+    const r = await svc.reassignMission(ctx, M, { owner: "ramon", ownerKind: "human" });
+    expect(!r.ok && [r.status, r.code]).toEqual([422, "invalid_team"]);
+  });
+  it("a note over 1000 UTF-8 bytes is refused before storage even when under 500 characters", async () => {
+    for (const note of ["界".repeat(400), "😀".repeat(251)]) {
+      const r = await svc.transitionMission(ctx, M, { to: "plan", note });
+      expect(!r.ok && [r.status, r.code], `${note.length} chars`).toEqual([422, "invalid_note"]);
+      const v = await svc.verifyMission(ctx, M, { note });
+      expect(!v.ok && v.code).toBe("invalid_note");
+    }
+  });
+});
+
 describe("dependency withdrawal failure fails loud", () => {
   it("a cycle found after insert whose withdrawal keeps failing returns a distinct 502, after one retry", async () => {
     const M = "00000000-0000-4000-8000-000000000001", T = "00000000-0000-4000-8000-000000000002";

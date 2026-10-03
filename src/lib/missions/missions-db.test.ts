@@ -332,6 +332,18 @@ describe.skipIf(!conn)("M2 Mission layer on real M1", () => {
     }
   }, 60_000);
 
+  it("multibyte notes up to the byte bound are stored; reassign keeps the team unless told otherwise", async () => {
+    const m = await mk({ agentIds: ["nova"] });
+    const ok = await svc.transitionMission(ctx(FOUNDER), m.id, { to: "plan", note: "界".repeat(333) });
+    expect(ok.ok).toBe(true);
+    const tooBig = await svc.transitionMission(ctx(FOUNDER), m.id, { to: "approved", note: "界".repeat(334) });
+    expect(!tooBig.ok && [tooBig.status, tooBig.code]).toEqual([422, "invalid_note"]);
+    const noTeam = await svc.reassignMission(ctx(FOUNDER), m.id, { owner: "atlas", ownerKind: "agent" });
+    expect(!noTeam.ok && noTeam.code).toBe("invalid_team");
+    const after = await store.getMission(TENANT, m.id);
+    expect(after.ok && [after.data?.owner, after.data?.agent_ids]).toEqual(["ramon", ["nova"]]);
+  });
+
   // ── list ──
   it("list filters by state and owner and pages by ref", async () => {
     const mine = await mk({ owner: "nova", ownerKind: "agent" });

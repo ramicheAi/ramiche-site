@@ -77,11 +77,17 @@ function founderOnly(ctx: Ctx): Fail | null {
   return isFounder(ctx.principal) ? null : fail(403, "founder_only", "Mission operations require the authenticated founder");
 }
 
+/** Matches M1's per-string bound in mission_detail_ok. */
+export const NOTE_MAX_BYTES = 1000;
+
 /** Optional free-text note on a transition: plain text, bounded, stored under the key "note" only. */
 function noteDetail(raw: unknown): { ok: true; detail: Record<string, unknown> } | Fail {
   if (raw === undefined) return { ok: true, detail: {} };
   const t = v.text(raw, "note", 500);
-  return t.ok ? { ok: true, detail: { note: t.value } } : fail(422, "invalid_note", t.message);
+  if (!t.ok) return fail(422, "invalid_note", t.message);
+  // M1's mission_detail_ok bounds every stored string at 1000 UTF-8 BYTES; 500 characters of CJK or emoji exceed it.
+  if (Buffer.byteLength(t.value, "utf8") > NOTE_MAX_BYTES) return fail(422, "invalid_note", `note must be at most ${NOTE_MAX_BYTES} bytes`);
+  return { ok: true, detail: { note: t.value } };
 }
 
 // ─── create / read ──────────────────────────────────────────────────────────────────────────────────────
@@ -215,6 +221,8 @@ export async function reassignMission(ctx: Ctx, id: unknown, body: Record<string
   if (extra) return extra;
   const own = v.owner(body.owner, body.ownerKind);
   if (!own.ok) return fail(422, "invalid_owner", own.message);
+  // Reassignment states the whole new team. An omitted agentIds must never be read as "remove everyone".
+  if (!Array.isArray(body.agentIds)) return fail(422, "invalid_team", "agentIds is required (send [] to clear the team)");
   const team = v.team(body.agentIds);
   if (!team.ok) return fail(422, "invalid_team", team.message);
   const m = await load(ctx, id);
