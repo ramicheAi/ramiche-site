@@ -63,6 +63,8 @@ export interface MissionStore {
   tombstoneLink(a: { missionId: string; linkId: string; by: string; byKind: ActorKind }): Promise<StoreResult<LinkRow | null>>;
   /** Live mission->mission dependency edges leaving any of these missions. */
   dependencyEdges(fromMissionIds: string[]): Promise<StoreResult<{ mission_id: string; target_id: string }[]>>;
+  /** Which of these missions (in this tenant) are not terminal. Edges out of a terminal mission can never gate anything. */
+  liveMissionIds(tenantId: string, ids: string[]): Promise<StoreResult<string[]>>;
   /** Existence (and typed facts) of a database-backed target inside the tenant. null = does not exist. */
   lookupTarget(tenantId: string, type: DbTargetType, id: string): Promise<StoreResult<TargetRecord | null>>;
 }
@@ -71,6 +73,23 @@ export interface MissionStore {
 export const EDGE_PAGE = 500;
 /** Upper bound on edge pages per read (far beyond MAX_DEPENDENCY_WALK); exceeding it is an error, never a partial read. */
 export const EDGE_MAX_PAGES = 100;
+
+/** Ids per IN (...) filter: keeps request URLs short and every response far below the PostgREST row cap. */
+export const ID_CHUNK = 200;
+function chunks<T>(xs: T[]): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < xs.length; i += ID_CHUNK) out.push(xs.slice(i, i + ID_CHUNK));
+  return out;
+}
+
+/** An M1 function returns exactly one row; accept the object or a one-element array, refuse anything else. */
+function oneRow(data: unknown): StoreResult<MissionRow> {
+  const row = Array.isArray(data) ? (data.length === 1 ? data[0] : null) : data;
+  if (!row || typeof row !== "object" || typeof (row as MissionRow).id !== "string") {
+    return { ok: false, error: { message: "mission function returned an unexpected shape" } };
+  }
+  return { ok: true, data: row as MissionRow };
+}
 
 const MISSION_COLS = "id, ref, tenant_id, objective, owner, owner_kind, agent_ids, success_criteria, deliverables, state, created_by, created_by_kind, created_at, updated_at";
 const LINK_COLS = "id, mission_id, target_type, target_id, target_index, relation, criterion_id, created_by, created_by_kind, created_at, removed_at, removed_by, removed_by_kind";
@@ -83,6 +102,30 @@ function wrap<T>(data: unknown, error: PgErr): StoreResult<T> {
 }
 
 export function supabaseMissionStore(svc: SupabaseClient): MissionStore {
+  /**
+   * Live dependency edges leaving one bounded chunk of missions, paged to completion. PostgREST caps a response
+   * (max-rows, 1000 by default), and a silently truncated edge set would let the cycle walk miss a path. Keyset
+   * pagination on the immutable id (id > last seen id), never an offset: a concurrent tombstone removes rows from the
+   * live set, which would shift an offset and skip an edge. The loop stops only on an EMPTY page, so a server cap
+   * smaller than EDGE_PAGE cannot end the read early. A page budget bounds it; running out fails closed.
+   */
+  async function edgesFor(ids: string[]): Promise<StoreResult<{ mission_id: string; target_id: string }[]>> {
+    const out: { mission_id: string; target_id: string }[] = [];
+    let after: string | null = null;
+    for (let pageNo = 0; pageNo < EDGE_MAX_PAGES; pageNo++) {
+      let q = svc.from("mission_links").select("id, mission_id, target_id")
+        .in("mission_id", ids).eq("relation", "dependency").eq("target_type", "mission").is("removed_at", null);
+      if (after !== null) q = q.gt("id", after);
+      const { data, error } = await q.order("id", { ascending: true }).limit(EDGE_PAGE);
+      if (error) return wrap(null, error);
+      const rows = (data ?? []) as { id: string; mission_id: string; target_id: string }[];
+      if (rows.length === 0) return { ok: true, data: out };
+      for (const r of rows) out.push({ mission_id: r.mission_id, target_id: r.target_id });
+      after = rows[rows.length - 1].id;
+    }
+    return { ok: false, error: { message: "dependency edge read exceeded its page budget" } };
+  }
+
   return {
     async insertMission(row) {
       const { data, error } = await svc.from("missions").insert(row).select(MISSION_COLS).single();
@@ -126,19 +169,21 @@ export function supabaseMissionStore(svc: SupabaseClient): MissionStore {
         .order("seq", { ascending: false }).limit(limit);
       return wrap((data ?? []).slice().reverse(), error);
     },
+    // Both M1 functions return one public.missions row. .single() asks PostgREST for an object rather than a
+    // one-element array, and oneRow() still normalizes either shape so callers always get the row itself.
     async transition(a) {
       const { data, error } = await svc.rpc("mission_transition", {
         p_mission_id: a.id, p_to_state: a.to, p_actor: a.actor, p_actor_kind: a.actorKind,
         p_detail: a.detail, p_expected_from: a.expectedFrom,
-      });
-      return wrap(data, error);
+      }).single();
+      return error ? wrap(null, error) : oneRow(data);
     },
     async reassign(a) {
       const { data, error } = await svc.rpc("mission_reassign", {
         p_mission_id: a.id, p_owner: a.owner, p_owner_kind: a.ownerKind, p_agent_ids: a.agentIds,
         p_actor: a.actor, p_actor_kind: a.actorKind,
-      });
-      return wrap(data, error);
+      }).single();
+      return error ? wrap(null, error) : oneRow(data);
     },
     async insertLink(row) {
       const { data, error } = await svc.from("mission_links").insert(row).select(LINK_COLS).single();
@@ -153,27 +198,25 @@ export function supabaseMissionStore(svc: SupabaseClient): MissionStore {
       return wrap(data ?? null, error);
     },
     async dependencyEdges(fromMissionIds) {
-      if (fromMissionIds.length === 0) return { ok: true, data: [] };
-      // Paged to completion: PostgREST caps a response (max-rows, 1000 by default), and a silently truncated edge set
-      // would let the cycle walk miss a path. Keyset pagination on the immutable id (id > last seen id), never an
-      // offset: a concurrent tombstone removes rows from the live set, which would shift an offset and skip an edge.
-      // The loop stops only on an EMPTY page, so a server cap smaller than EDGE_PAGE cannot end the read early. A page
-      // budget bounds it; running out fails closed rather than returning a partial set.
       const out: { mission_id: string; target_id: string }[] = [];
-      let after: string | null = null;
-      for (let pageNo = 0; pageNo < EDGE_MAX_PAGES; pageNo++) {
-        let q = svc.from("mission_links").select("id, mission_id, target_id")
-          .in("mission_id", fromMissionIds).eq("relation", "dependency").eq("target_type", "mission").is("removed_at", null);
-        if (after !== null) q = q.gt("id", after);
-        const { data, error } = await q.order("id", { ascending: true }).limit(EDGE_PAGE);
-        if (error) return wrap(null, error);
-        const rows = (data ?? []) as { id: string; mission_id: string; target_id: string }[];
-        if (rows.length === 0) return { ok: true, data: out };
-        for (const r of rows) out.push({ mission_id: r.mission_id, target_id: r.target_id });
-        after = rows[rows.length - 1].id;
+      for (const chunk of chunks(fromMissionIds)) {
+        const r = await edgesFor(chunk);
+        if (!r.ok) return r;
+        out.push(...r.data);
       }
-      return { ok: false, error: { message: "dependency edge read exceeded its page budget" } };
+      return { ok: true, data: out };
     },
+    async liveMissionIds(tenantId, ids) {
+      const out: string[] = [];
+      for (const chunk of chunks(ids)) {
+        const { data, error } = await svc.from("missions").select("id").eq("tenant_id", tenantId).in("id", chunk)
+          .not("state", "in", "(verified,cancelled)").limit(ID_CHUNK);
+        if (error) return wrap(null, error);
+        out.push(...((data ?? []) as { id: string }[]).map((r) => r.id));
+      }
+      return { ok: true, data: out };
+    },
+
     async lookupTarget(tenantId, type, id) {
       switch (type) {
         case "job": {

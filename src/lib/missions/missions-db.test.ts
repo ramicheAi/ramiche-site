@@ -344,6 +344,53 @@ describe.skipIf(!conn)("M2 Mission layer on real M1", () => {
     expect(after.ok && [after.data?.owner, after.data?.agent_ids]).toEqual(["ramon", ["nova"]]);
   });
 
+  it("edges leaving a terminal mission are inert: they neither create nor block cycles", async () => {
+    const A = await mk(), B = await mk();
+    const dep = (from: MissionRow, target: string) => svc.addLink(ctx(FOUNDER), from.id, { targetType: "mission", targetId: target, relation: "dependency" });
+    expect((await dep(A, B.id)).ok).toBe(true);
+    expect(!((await dep(B, A.id)).ok)).toBe(true);           // live A -> B: B -> A would be a live cycle
+    await to(A, "cancelled");
+    expect((await dep(B, A.id)).ok).toBe(true);              // A is terminal, its A -> B edge gates nothing
+  });
+
+  it("a terminal mission in the middle of a path breaks it, even next to a live branch", async () => {
+    const A = await mk(), B = await mk(), C = await mk(), D = await mk();
+    const dep = (from: MissionRow, target: string) => svc.addLink(ctx(FOUNDER), from.id, { targetType: "mission", targetId: target, relation: "dependency" });
+    for (const [f, t] of [[A, B], [A, D], [B, C]] as const) expect((await dep(f, t.id)).ok).toBe(true);
+    const before = await dep(C, A.id);
+    expect(!before.ok && before.code).toBe("dependency_cycle");   // A -> B -> C is live
+    await to(B, "cancelled");
+    expect((await dep(C, A.id)).ok).toBe(true);                    // B is terminal: A -> B -> C no longer gates
+    const viaD = await dep(D, A.id);
+    expect(!viaD.ok && viaD.code).toBe("dependency_cycle");        // A -> D is still live
+  });
+
+  it("real race: the mission turns terminal between the dependency insert and its withdrawal (M1 raises MI022)", async () => {
+    const A = await mk(), B = await mk();
+    expect((await svc.addLink(ctx(FOUNDER), B.id, { targetType: "mission", targetId: A.id, relation: "dependency" })).ok).toBe(true);
+    // Pre-check must miss B -> A (as if it were added concurrently), and the founder cancels A just before withdrawal.
+    let edgeReads = 0, cancelledOnce = false;
+    const racing: MissionStore = {
+      ...store,
+      dependencyEdges: async (ids) => (edgeReads++ === 0 ? { ok: true, data: [] } : store.dependencyEdges(ids)),
+      async tombstoneLink(a) {
+        if (!cancelledOnce) {
+          cancelledOnce = true;
+          const cancelled = await store.transition({ id: A.id, to: "cancelled", actor: "ramon", actorKind: "human", detail: {}, expectedFrom: null });
+          expect(cancelled.ok).toBe(true);
+        }
+        return store.tombstoneLink(a);
+      },
+    };
+    const r = await svc.addLink({ store: racing, tenantId: TENANT, principal: FOUNDER }, A.id, { targetType: "mission", targetId: B.id, relation: "dependency" });
+    expect(!r.ok && [r.status, r.code]).toEqual([409, "dependency_cycle"]);
+    // The frozen A -> B edge exists, but A is terminal, so no LIVE cycle exists: B can still take new live dependencies.
+    const frozen = await count(`select count(*) from public.mission_links where mission_id = '${A.id}' and relation = 'dependency' and removed_at is null`);
+    expect(frozen).toBe("1");
+    const live = await count(`select string_agg(state, ',' order by ref) from public.missions where id in ('${A.id}','${B.id}')`);
+    expect(live).toBe("cancelled,intent");
+  });
+
   // ── list ──
   it("list filters by state and owner and pages by ref", async () => {
     const mine = await mk({ owner: "nova", ownerKind: "agent" });

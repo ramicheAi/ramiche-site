@@ -5,9 +5,10 @@
  */
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { EDGE_PAGE, supabaseMissionStore } from "./store";
+import { EDGE_PAGE, ID_CHUNK, supabaseMissionStore } from "./store";
 
 type Call = { table?: string; rpc?: string; ops: [string, unknown[]][] };
+let rpcData: unknown = { id: "m" };
 function recorder() {
   const calls: Call[] = [];
   const chain = (call: Call) => {
@@ -25,7 +26,11 @@ function recorder() {
   };
   const client = {
     from: (table: string) => { const c: Call = { table, ops: [] }; calls.push(c); return chain(c); },
-    rpc: (name: string, args: unknown) => { calls.push({ rpc: name, ops: [["args", [args]]] }); return Promise.resolve({ data: {}, error: null }); },
+    rpc: (name: string, args: unknown) => {
+      const call: Call = { rpc: name, ops: [["args", [args]]] };
+      calls.push(call);
+      return { single: () => { call.ops.push(["single", []]); return Promise.resolve({ data: rpcData, error: null }); } };
+    },
   } as unknown as SupabaseClient;
   return { client, calls };
 }
@@ -48,6 +53,7 @@ describe("supabaseMissionStore", () => {
     await s.transition({ id: "m", to: "plan", actor: "ramon", actorKind: "human", detail: {}, expectedFrom: "intent" });
     await s.reassign({ id: "m", owner: "ramon", ownerKind: "human", agentIds: [], actor: "ramon", actorKind: "human" });
     expect(calls.map((c) => c.rpc)).toEqual(["mission_transition", "mission_reassign"]);
+    expect(calls.every((c) => c.ops.some(([op]) => op === "single"))).toBe(true);
     expect(calls[0].ops[0][1][0]).toMatchObject({ p_mission_id: "m", p_to_state: "plan", p_actor: "ramon", p_actor_kind: "human", p_expected_from: "intent" });
   });
 
@@ -143,5 +149,30 @@ describe("supabaseMissionStore", () => {
     expect(r.ok && r.data.length).toBe(all.length);
     expect(r.ok && r.data.every((x, i, arr) => i === 0 || arr[i - 1].created_at <= x.created_at)).toBe(true);
     expect(seen[0]).toBeNull();
+  });
+
+  it("M1 function results are returned as the row itself whether PostgREST sends an object or a one-row array", async () => {
+    const args = { id: "m", to: "plan" as const, actor: "ramon", actorKind: "human" as const, detail: {}, expectedFrom: null };
+    for (const [shape, expected] of [[{ id: "m" }, true], [[{ id: "m" }], true], [[], false], [[{ id: "a" }, { id: "b" }], false], [null, false], ["x", false]] as const) {
+      rpcData = shape;
+      const r = await supabaseMissionStore(recorder().client).transition(args);
+      expect(r.ok, JSON.stringify(shape)).toBe(expected);
+      if (r.ok) expect(r.data).toEqual({ id: "m" });
+    }
+    rpcData = { id: "m" };
+  });
+
+  it("liveMissionIds is tenant-scoped, excludes terminal states and chunks its ids", async () => {
+    const { client, calls } = recorder();
+    const ids = Array.from({ length: ID_CHUNK + 5 }, (_, i) => `m${i}`);
+    await supabaseMissionStore(client).liveMissionIds("T", ids);
+    expect(calls.length).toBe(2);
+    for (const c of calls) {
+      expect(c.table).toBe("missions");
+      expect(hasEq(c, "tenant_id", "T")).toBe(true);
+      expect(c.ops.some(([op, a]) => op === "not" && a[0] === "state" && a[1] === "in" && a[2] === "(verified,cancelled)")).toBe(true);
+      const inIds = c.ops.find(([op]) => op === "in")?.[1][1] as string[];
+      expect(inIds.length).toBeLessThanOrEqual(ID_CHUNK);
+    }
   });
 });

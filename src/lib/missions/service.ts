@@ -239,13 +239,23 @@ export async function reassignMission(ctx: Ctx, id: unknown, body: Record<string
 /** Bound on the dependency walk. A graph this large is a bug, so the check fails closed rather than guessing. */
 export const MAX_DEPENDENCY_WALK = 2000;
 
-/** Would mission `from` depending on mission `to` close a cycle? true / false, or a Fail when the walk cannot finish. */
+/**
+ * Does a live dependency path lead from `start` back to `goal`? true / false, or a Fail when the walk cannot finish.
+ *
+ * Only LIVE missions gate anything: a verified or cancelled mission's outgoing dependencies can never block work again
+ * (its links are frozen by M1). So edges leaving a terminal mission are not part of the graph, and the invariant held
+ * here is "no dependency cycle among live missions". That is also what makes a link stranded by a concurrent terminal
+ * transition harmless: once its source is terminal, the edge is inert.
+ */
 async function reaches(ctx: Ctx, start: string, goal: string): Promise<boolean | Fail> {
   const seen = new Set<string>([start]);
   let frontier = [start];
   while (frontier.length) {
     if (seen.has(goal)) return true;
-    const r = await ctx.store.dependencyEdges(frontier);
+    const live = await ctx.store.liveMissionIds(ctx.tenantId, frontier);
+    if (!live.ok) return fromStore(live.error);
+    if (live.data.length === 0) return false;
+    const r = await ctx.store.dependencyEdges(live.data);
     if (!r.ok) return fromStore(r.error);
     const next: string[] = [];
     for (const e of r.data) {
@@ -318,7 +328,18 @@ export async function addLink(ctx: Ctx, id: unknown, body: Record<string, unknow
       const withdraw = () => ctx.store.tombstoneLink({ missionId: m.id, linkId: r.data.id, by: "mission-guard", byKind: "system" });
       let undo = await withdraw();
       if (!undo.ok) undo = await withdraw();
-      if (!undo.ok) return fail(502, "dependency_cycle_unwithdrawn", `cycle detected after insert and link ${r.data.id} could not be withdrawn; investigate`);
+      if (!undo.ok) {
+        // MI022: this mission turned terminal between the insert and the withdrawal, so M1 froze the link. No live
+        // cycle existed before this insert (the invariant), and the only new edge leaves this mission; if it is now
+        // terminal that edge is inert, so no live cycle exists. Confirm it really is terminal before saying so.
+        if (undo.error.code === "MI022") {
+          const live = await ctx.store.liveMissionIds(ctx.tenantId, [m.id]);
+          if (live.ok && live.data.length === 0) {
+            return fail(409, "dependency_cycle", "this dependency would have created a cycle; the mission is now terminal and the link is inert");
+          }
+        }
+        return fail(502, "dependency_cycle_unwithdrawn", `cycle detected after insert and link ${r.data.id} could not be withdrawn; investigate`);
+      }
       return isFail(cyc) ? cyc : fail(409, "dependency_cycle", "this dependency would create a cycle");
     }
   }

@@ -166,21 +166,41 @@ describe("input bounds that M1 would otherwise reject late", () => {
   });
 });
 
-describe("dependency withdrawal failure fails loud", () => {
-  it("a cycle found after insert whose withdrawal keeps failing returns a distinct 502, after one retry", async () => {
-    const M = "00000000-0000-4000-8000-000000000001", T = "00000000-0000-4000-8000-000000000002";
-    let rechecks = 0, tombstones = 0;
+describe("dependency withdrawal failure", () => {
+  const M = "00000000-0000-4000-8000-000000000001", T = "00000000-0000-4000-8000-000000000002";
+  /** Pre-check sees no edges; every later walk sees T -> M. `liveAfterInsert` decides whether M is still live. */
+  function racingStore(tombstoneCode: string, liveAfterInsert: boolean) {
+    let edgeReads = 0, inserted = false;
+    const calls = { tombstones: 0 };
     const store = {
       getMission: async () => ({ ok: true, data: row({ id: M }) }),
       lookupTarget: async () => ({ ok: true, data: { type: "mission", id: T } }),
-      // first walk (pre-check) finds nothing; the post-insert walk finds T -> M
-      dependencyEdges: async () => ({ ok: true, data: rechecks++ === 0 ? [] : [{ mission_id: T, target_id: M }] }),
-      insertLink: async () => ({ ok: true, data: { id: "00000000-0000-4000-8000-0000000000aa" } }),
-      tombstoneLink: async () => { tombstones++; return { ok: false, error: { code: "MI022", message: "frozen" } }; },
+      liveMissionIds: async (_t: string, ids: string[]) => ({ ok: true, data: ids.filter((id) => id !== M || !inserted || liveAfterInsert) }),
+      dependencyEdges: async (ids: string[]) => ({ ok: true, data: edgeReads++ === 0 || !ids.includes(T) ? [] : [{ mission_id: T, target_id: M }] }),
+      insertLink: async () => { inserted = true; return { ok: true, data: { id: "00000000-0000-4000-8000-0000000000aa" } }; },
+      tombstoneLink: async () => { calls.tombstones++; return { ok: false, error: { code: tombstoneCode, message: "nope" } }; },
     } as unknown as MissionStore;
-    const r = await svc.addLink({ store, tenantId: "t", principal: FOUNDER }, M, { targetType: "mission", targetId: T, relation: "dependency" });
+    return { store, calls };
+  }
+  const add = (store: MissionStore) => svc.addLink({ store, tenantId: "t", principal: FOUNDER }, M, { targetType: "mission", targetId: T, relation: "dependency" });
+
+  it("a withdrawal that keeps failing for an unknown reason returns a distinct 502, after one retry", async () => {
+    const { store, calls } = racingStore("XX000", true);
+    const r = await add(store);
     expect(!r.ok && [r.status, r.code]).toEqual([502, "dependency_cycle_unwithdrawn"]);
-    expect(tombstones).toBe(2);
+    expect(calls.tombstones).toBe(2);
+  });
+
+  it("if the mission turned terminal (MI022) the frozen edge is inert: no live cycle remains, request refused with 409", async () => {
+    const { store } = racingStore("MI022", false);
+    const r = await add(store);
+    expect(!r.ok && [r.status, r.code]).toEqual([409, "dependency_cycle"]);
+  });
+
+  it("MI022 while a live cycle somehow remains still fails loud", async () => {
+    const { store } = racingStore("MI022", true);
+    const r = await add(store);
+    expect(!r.ok && [r.status, r.code]).toEqual([502, "dependency_cycle_unwithdrawn"]);
   });
 });
 

@@ -65,6 +65,8 @@ export function pgMissionStore(c: PgConn): MissionStore {
       where id = ${lit(a.linkId)} and mission_id = ${lit(a.missionId)} and removed_at is null returning *) select to_jsonb(r) from r;`),
     dependencyEdges: (ids) => ids.length === 0 ? Promise.resolve({ ok: true, data: [] }) : one(c, `select coalesce(jsonb_agg(jsonb_build_object('mission_id', mission_id, 'target_id', target_id)), '[]')
       from public.mission_links where mission_id = any(${arrLit(ids)}::uuid[]) and relation = 'dependency' and target_type = 'mission' and removed_at is null;`),
+    liveMissionIds: (tenantId, ids) => ids.length === 0 ? Promise.resolve({ ok: true, data: [] }) : one(c, `select coalesce(jsonb_agg(id), '[]') from public.missions
+      where tenant_id = ${lit(tenantId)} and id = any(${arrLit(ids)}::uuid[]) and state not in ('verified','cancelled');`),
     // The production adapter reads these tables as service_role (which bypasses RLS); the harness grants the same reads.
     lookupTarget: async (tenantId, type, id) => {
       const q: Record<string, string> = {
