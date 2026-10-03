@@ -290,8 +290,12 @@ export async function addLink(ctx: Ctx, id: unknown, body: Record<string, unknow
     // (tombstoned, so the attempt stays in the audit trail). Both may withdraw; neither can leave a cycle behind.
     const cyc = await reaches(ctx, target.targetId, m.id);
     if (cyc === true || isFail(cyc)) {
-      const undo = await ctx.store.tombstoneLink({ missionId: m.id, linkId: r.data.id, by: "mission-guard", byKind: "system" });
-      if (!undo.ok) return fail(502, "storage_error", "cycle detected after insert and the withdrawal failed; investigate");
+      // One retry covers a transient storage error. If the withdrawal still fails (for example the mission became
+      // terminal in between, which freezes its links), fail loud with a distinct code: the edge needs a human.
+      const withdraw = () => ctx.store.tombstoneLink({ missionId: m.id, linkId: r.data.id, by: "mission-guard", byKind: "system" });
+      let undo = await withdraw();
+      if (!undo.ok) undo = await withdraw();
+      if (!undo.ok) return fail(502, "dependency_cycle_unwithdrawn", `cycle detected after insert and link ${r.data.id} could not be withdrawn; investigate`);
       return isFail(cyc) ? cyc : fail(409, "dependency_cycle", "this dependency would create a cycle");
     }
   }

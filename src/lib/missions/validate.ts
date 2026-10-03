@@ -77,13 +77,17 @@ export function team(v: unknown): Valid<string[]> {
   return { ok: true, value: out };
 }
 
-const PRIVATE_HOST = /^(localhost|.*\.localhost|.*\.local|.*\.internal|.*\.ts\.net)$/i;
+// Matched against the hostname with any trailing dots removed ("localhost." is localhost).
+const PRIVATE_HOST = /^(localhost|.*\.localhost|.*\.local|.*\.internal|.*\.ts\.net|.*\.lan|.*\.home\.arpa|.*\.intranet|.*\.corp|.*\.private)$/i;
 function isPrivateIp(host: string): boolean {
   const h = host.replace(/^\[|\]$/g, "");
   if (/^\d+\.\d+\.\d+\.\d+$/.test(h)) {
-    const [a, b] = h.split(".").map(Number);
-    return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31)
-      || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127);
+    const [a, b, c] = h.split(".").map(Number);
+    return a === 0 || a === 10 || a === 127 || a >= 224                       // this-network, private, loopback, multicast/reserved
+      || (a === 100 && b >= 64 && b <= 127)                                    // CGNAT, which includes the tailnet
+      || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)
+      || (a === 192 && b === 0 && (c === 0 || c === 2)) || (a === 198 && (b === 18 || b === 19))
+      || (a === 198 && b === 51 && c === 100) || (a === 203 && b === 0 && c === 113);
   }
   return h.includes(":"); // any IPv6 literal: not a shareable evidence location
 }
@@ -101,7 +105,11 @@ export function cleanUrl(raw: unknown): Valid<string> {
   if (u.protocol !== "https:" && u.protocol !== "http:") return bad("url must be http or https");
   if (u.username || u.password) return bad("url must not contain credentials");
   if (u.port) return bad("url must use the default port");
-  if (!u.hostname || PRIVATE_HOST.test(u.hostname) || isPrivateIp(u.hostname)) return bad("url host must be public");
+  const host = u.hostname.replace(/\.+$/, "");
+  // A single-label name ("imac", "c02yw21cjwf2") resolves through local search domains, which on this fleet means
+  // Tailscale MagicDNS: never a public location.
+  if (!host || !host.includes(".") || PRIVATE_HOST.test(host) || isPrivateIp(host)) return bad("url host must be public");
+  u.hostname = host;
   u.search = "";
   u.hash = "";
   const out = u.toString();

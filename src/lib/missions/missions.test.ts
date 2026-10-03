@@ -106,8 +106,11 @@ describe("validation", () => {
   });
   it("url hygiene", () => {
     expect(cleanUrl("https://example.com/a/b?x=1#y")).toEqual({ ok: true, value: "https://example.com/a/b" });
+    expect(cleanUrl("https://example.com./a")).toEqual({ ok: true, value: "https://example.com/a" });
     for (const bad of ["https://u:p@example.com", "http://127.0.0.1/", "http://192.168.1.4/", "http://172.20.0.1/", "http://169.254.169.254/latest",
-      "http://100.96.20.21/", "https://box.local/", "https://x.internal/", "https://imac.tail59e3bd.ts.net/", "file:///etc/passwd", "https://example.com:444/", "notaurl"]) {
+      "http://100.96.20.21/", "https://box.local/", "http://localhost./x", "http://imac/x", "http://c02yw21cjwf2/",
+      "http://ramons-macbook-pro.tail59e3bd.ts.net./", "http://foo.ts.net./a", "http://router.lan/", "http://nas.home.arpa/",
+      "http://198.18.0.1/", "http://224.0.0.1/", "http://203.0.113.5/", "http://0x7f.1/", "http://2130706433/", "http://127.0.0.1./", "https://x.internal/", "https://imac.tail59e3bd.ts.net/", "file:///etc/passwd", "https://example.com:444/", "notaurl"]) {
       expect(cleanUrl(bad).ok, bad).toBe(false);
     }
   });
@@ -137,6 +140,24 @@ describe("refusals happen before storage", () => {
     expect(!r.ok && r.code).toBe("unknown_fields");
     const g = await svc.getMission(ctx(FOUNDER), "not-a-uuid");
     expect(!g.ok && g.status).toBe(404);
+  });
+});
+
+describe("dependency withdrawal failure fails loud", () => {
+  it("a cycle found after insert whose withdrawal keeps failing returns a distinct 502, after one retry", async () => {
+    const M = "00000000-0000-4000-8000-000000000001", T = "00000000-0000-4000-8000-000000000002";
+    let rechecks = 0, tombstones = 0;
+    const store = {
+      getMission: async () => ({ ok: true, data: row({ id: M }) }),
+      lookupTarget: async () => ({ ok: true, data: { type: "mission", id: T } }),
+      // first walk (pre-check) finds nothing; the post-insert walk finds T -> M
+      dependencyEdges: async () => ({ ok: true, data: rechecks++ === 0 ? [] : [{ mission_id: T, target_id: M }] }),
+      insertLink: async () => ({ ok: true, data: { id: "00000000-0000-4000-8000-0000000000aa" } }),
+      tombstoneLink: async () => { tombstones++; return { ok: false, error: { code: "MI022", message: "frozen" } }; },
+    } as unknown as MissionStore;
+    const r = await svc.addLink({ store, tenantId: "t", principal: FOUNDER }, M, { targetType: "mission", targetId: T, relation: "dependency" });
+    expect(!r.ok && [r.status, r.code]).toEqual([502, "dependency_cycle_unwithdrawn"]);
+    expect(tombstones).toBe(2);
   });
 });
 
