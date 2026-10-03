@@ -305,8 +305,11 @@ export async function addLink(ctx: Ctx, id: unknown, body: Record<string, unknow
   if (!t.ok) return fail(t.status, t.code, t.message);
   const target = t.target;
 
+  // A mission never links to itself under any relation: self-evidence would prove nothing (M1 also refuses, MI025).
+  if (target.targetType === "mission" && target.targetId === m.id) {
+    return fail(422, relation === "dependency" ? "self_dependency" : "self_link", "a mission cannot link to itself");
+  }
   if (relation === "dependency") {
-    if (target.targetId === m.id) return fail(422, "self_dependency", "a mission cannot depend on itself");
     const cyc = await reaches(ctx, target.targetId, m.id);
     if (isFail(cyc)) return cyc;
     if (cyc) return fail(409, "dependency_cycle", "this dependency would create a cycle");

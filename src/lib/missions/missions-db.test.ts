@@ -351,6 +351,20 @@ describe.skipIf(!conn)("M2 Mission layer on real M1", () => {
     expect(after.ok && [after.data?.owner, after.data?.agent_ids]).toEqual(["ramon", ["nova"]]);
   });
 
+  it("a mission can never link to itself, under any relation (app check, and M1 MI025 underneath)", async () => {
+    const m = await mk(); await toCompleted(m);
+    for (const relation of ["evidence", "context", "task", "deliverable", "source", "dependency", "approval", "branch"]) {
+      const body: Record<string, unknown> = { targetType: "mission", targetId: m.id, relation, ...(relation === "evidence" ? { criterionId: "c1" } : {}) };
+      const r = await svc.addLink(ctx(FOUNDER), m.id, body);
+      expect(!r.ok && [r.status, r.code], relation).toEqual([422, relation === "dependency" ? "self_dependency" : "self_link"]);
+    }
+    // and underneath the app check, M1 itself refuses a self-link written directly as service_role
+    const raw = await store.insertLink({ mission_id: m.id, target_type: "mission", target_id: m.id, target_index: null, relation: "evidence", criterion_id: "c1", created_by: "ramon", created_by_kind: "human" });
+    expect(!raw.ok && raw.error.code).toBe("MI025");
+    const v = await svc.verifyMission(ctx(FOUNDER), m.id, {});
+    expect(!v.ok && v.code).toBe("MI009");
+  });
+
   it("edges leaving a terminal mission are inert: they neither create nor block cycles", async () => {
     const A = await mk(), B = await mk();
     const dep = (from: MissionRow, target: string) => svc.addLink(ctx(FOUNDER), from.id, { targetType: "mission", targetId: target, relation: "dependency" });
