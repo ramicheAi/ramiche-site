@@ -11,7 +11,7 @@ import * as svc from "./service";
 import type { MissionStore } from "./store";
 import { resolveTarget } from "./targets";
 import { MISSION_STATES, type MissionRow } from "./types";
-import { cleanUrl, gitBranch, items, owner, team } from "./validate";
+import { cleanUrl, gitBranch, items, owner, pathDelimiterFree, team } from "./validate";
 
 const row = (over: Partial<MissionRow> = {}): MissionRow => ({
   id: "00000000-0000-4000-8000-000000000001", ref: 1, tenant_id: "t", objective: "o", owner: "ramon", owner_kind: "human",
@@ -82,7 +82,8 @@ describe("validation", () => {
       "http://ramons-macbook-pro.tail59e3bd.ts.net./", "http://foo.ts.net./a", "http://router.lan/", "http://nas.home.arpa/",
       "http://198.18.0.1/", "http://localhost.localdomain/", "http://foo.test/", "http://x.example/", "http://x.invalid/",
       "http://abc.onion/", "http://foo.beta.tailscale.net/", "http://192.88.99.1/", "https://example.com/x;token=abc", "https://example.com/x%3Bjsessionid=secret", "https://example.com/x%3bjsessionid=secret",
-      "https://example.com/x%3Ftoken=1", "https://example.com/x%23frag", "https://example.com/x%253Bjsessionid=s", "https://example.com/x%25253bs", "http://224.0.0.1/", "http://203.0.113.5/", "http://0x7f.1/", "http://2130706433/", "http://127.0.0.1./", "https://x.internal/", "https://imac.tail59e3bd.ts.net/", "file:///etc/passwd", "https://example.com:444/", "notaurl"]) {
+      "https://example.com/x%3Ftoken=1", "https://example.com/x%23frag", "https://example.com/x%253Bjsessionid=s", "https://example.com/x%25253bs", "https://example.com/x%25%33%42jsessionid=secret",
+      "https://example.com/x%25%33%46t=1", "https://example.com/x%25%32%33f", "https://example.com/x%2525%33%42s", "http://224.0.0.1/", "http://203.0.113.5/", "http://0x7f.1/", "http://2130706433/", "http://127.0.0.1./", "https://x.internal/", "https://imac.tail59e3bd.ts.net/", "file:///etc/passwd", "https://example.com:444/", "notaurl"]) {
       expect(cleanUrl(bad).ok, bad).toBe(false);
     }
   });
@@ -95,6 +96,17 @@ describe("validation", () => {
     for (const name of corpus) {
       if (gitBranch(name)) expect(git(name).status, `validator accepts "${name}" but git refuses it`).toBe(0);
     }
+  });
+  it("path delimiter check decodes rather than pattern-matches", () => {
+    expect(pathDelimiterFree("/report%2520final")).toBe(true);
+    expect(pathDelimiterFree("/a%2Fb/c")).toBe(true);
+    expect(pathDelimiterFree("/bad%E0%A4%A")).toBe(true); // malformed escape: nothing can decode it further
+    for (const bad of ["/x;y", "/x%3By", "/x%253By", "/x%25%33%42y", "/x%2525%33%42y", "/x%25%32%33", "/x%25%33%46"]) {
+      expect(pathDelimiterFree(bad), bad).toBe(false);
+    }
+    // a path that keeps decoding past the pass budget is refused
+    expect(pathDelimiterFree("/x%" + "25".repeat(8) + "41")).toBe(false);
+    expect(pathDelimiterFree("/x%" + "25".repeat(2) + "41")).toBe(true);
   });
   it("git branch names", () => {
     for (const ok of ["main", "p06/mission-m2", "feature/a.b_c"]) expect(gitBranch(ok), ok).toBe(true);

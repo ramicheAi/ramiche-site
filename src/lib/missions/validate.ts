@@ -93,6 +93,27 @@ function isPrivateIp(host: string): boolean {
   return h.includes(":"); // any IPv6 literal: not a shareable evidence location
 }
 
+/** Maximum decoding passes; a path that still decodes further after this is refused as pathological. */
+const MAX_DECODE_PASSES = 4;
+
+/**
+ * True when the path contains no ";", "?" or "#" at any decoding depth. The path is actually decoded, pass by pass
+ * (never pattern-matched, so splitting an escape across levels such as %25%33%42 cannot hide a ";"), and checked
+ * after every pass. A malformed escape stops decoding there, since no decoder can go further either. Anything still
+ * changing after MAX_DECODE_PASSES is refused.
+ */
+export function pathDelimiterFree(path: string): boolean {
+  let cur = path;
+  for (let pass = 0; ; pass++) {
+    if (/[;?#]/.test(cur)) return false;
+    let next: string;
+    try { next = decodeURIComponent(cur); } catch { return true; }
+    if (next === cur) return true;
+    if (pass >= MAX_DECODE_PASSES) return false;
+    cur = next;
+  }
+}
+
 /**
  * External URL hygiene. A mission link is durable, listed and shown, so it must not carry secrets or point inside
  * the tailnet: http(s) only, no userinfo, query string and fragment stripped (signed URLs, tokens and tracking all
@@ -111,9 +132,9 @@ export function cleanUrl(raw: unknown): Valid<string> {
   // Tailscale MagicDNS: never a public location.
   if (!host || !host.includes(".") || PRIVATE_HOST.test(host) || isPrivateIp(host)) return bad("url host must be public");
   u.hostname = host;
-  // Path parameters (";jsessionid=...") are a classic place for session ids and signed tokens. Encoded forms count:
-  // a server that decodes the path (once or repeatedly) sees %3B / %253B as ";", and %3F / %23 as a query or fragment that stripping missed.
-  if (u.pathname.includes(";") || /%(25)*(3b|3f|23)/i.test(u.pathname)) return bad("url path must not carry ;parameters or an encoded ; ? #");
+  // Path parameters (";jsessionid=...") are a classic place for session ids and signed tokens, and a server that
+  // decodes the path (once or repeatedly) can turn encoded forms back into ";", "?" or "#".
+  if (!pathDelimiterFree(u.pathname)) return bad("url path must not carry ; ? # in any encoding");
   u.search = "";
   u.hash = "";
   const out = u.toString();
