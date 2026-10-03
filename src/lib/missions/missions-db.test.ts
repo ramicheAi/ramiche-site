@@ -332,6 +332,13 @@ describe.skipIf(!conn)("M2 Mission layer on real M1", () => {
     }
   }, 60_000);
 
+  it("astral characters count as one character, as M1's length() does", async () => {
+    const m = await mk({ objective: "😀".repeat(1500), successCriteria: [{ id: "c1", text: "😀".repeat(500) }] });
+    expect([...m.objective].length).toBe(1500);
+    const tooLong = await svc.createMission(ctx(FOUNDER), { objective: "x", owner: "ramon", ownerKind: "human", successCriteria: [{ id: "c1", text: "😀".repeat(501) }] });
+    expect(!tooLong.ok && tooLong.code).toBe("invalid_criteria");
+  });
+
   it("multibyte notes up to the byte bound are stored; reassign keeps the team unless told otherwise", async () => {
     const m = await mk({ agentIds: ["nova"] });
     const ok = await svc.transitionMission(ctx(FOUNDER), m.id, { to: "plan", note: "界".repeat(333) });

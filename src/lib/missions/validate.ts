@@ -20,11 +20,13 @@ export const isState = (v: unknown): v is MissionState => typeof v === "string" 
 export const isTargetType = (v: unknown): v is TargetType => typeof v === "string" && (TARGET_TYPES as readonly string[]).includes(v);
 export const isRelation = (v: unknown): v is Relation => typeof v === "string" && (RELATIONS as readonly string[]).includes(v);
 
-/** Free text the founder or an agent writes: trimmed, 1..max characters, no control characters except newline/tab. */
+/** Free text the founder writes: trimmed, 1..max characters (code points), no control characters except newline/tab. */
 export function text(v: unknown, field: string, max: number): Valid<string> {
   if (typeof v !== "string") return bad(`${field} must be a string`);
   const t = v.trim();
-  if (t.length < 1 || t.length > max) return bad(`${field} must be 1..${max} characters`);
+  // Characters are Unicode code points, as Postgres length() counts them (M1's CHECK bounds), not UTF-16 units.
+  const chars = [...t].length;
+  if (chars < 1 || chars > max) return bad(`${field} must be 1..${max} characters`);
   if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(t)) return bad(`${field} contains control characters`);
   // A lone UTF-16 surrogate is not valid Unicode and Postgres refuses it in jsonb/text: reject it here as a 4xx.
   if (/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/.test(t)) return bad(`${field} contains invalid Unicode`);

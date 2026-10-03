@@ -57,6 +57,12 @@ describe("agent registry validation (for owner/team the founder assigns)", () =>
 });
 
 describe("validation", () => {
+  it("character limits count code points, like Postgres length()", () => {
+    expect(text("😀".repeat(500), "x", 500).ok).toBe(true);
+    expect(text("😀".repeat(501), "x", 500).ok).toBe(false);
+    expect(items([{ id: "c1", text: "😀".repeat(300) }], "successCriteria").ok).toBe(true);
+    expect(text("界".repeat(2000), "objective", 2000).ok).toBe(true);
+  });
   it("free text refuses lone surrogates but keeps real emoji", () => {
     expect(text("ok \ud83d\ude00", "note", 500).ok).toBe(true);
     for (const bad of ["\ud800", "x\udc00", "\ud83d", "a\ud83db"]) expect(text(bad, "note", 500).ok, JSON.stringify(bad)).toBe(false);
