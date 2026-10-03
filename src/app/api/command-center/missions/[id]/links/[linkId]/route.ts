@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string; linkId: string }> }) {
   const guard = await guardProtectedMutation(req);
   if (!guard.ok) return guard.response;
-  const c = missionContext({ ok: true, kind: "owner", uid: guard.uid }, req);
+  const c = missionContext(guard);
   if (!c.ok) return c.response;
   const { id, linkId } = await params;
   return respond(await removeLink(c.ctx, id, linkId));

@@ -26,16 +26,6 @@ export const B2_ROUTE_POLICY: Record<string, Partial<Record<"GET" | "POST" | "PA
   },
   "command-center/prospector/daily/route.ts": { POST: { guard: "guardOwnerOrService", service: "cron", human: "mutation" } },
   "command-center/stripe-revenue/route.ts": { GET: { guard: "guardOwnerOrService", service: "cron", human: "read" } },
-  // P06 M2 Missions: the founder, or a fleet agent holding the missions credential. Founder-only actions (verify,
-  // reassign, link removal) are separate routes that stay on the P03 human guard and are deliberately absent here.
-  "command-center/missions/route.ts": {
-    GET: { guard: "guardOwnerOrService", service: "missions", human: "read" },
-    POST: { guard: "guardOwnerOrService", service: "missions", human: "mutation" },
-  },
-  "command-center/missions/[id]/route.ts": { GET: { guard: "guardOwnerOrService", service: "missions", human: "read" } },
-  "command-center/missions/[id]/transition/route.ts": { POST: { guard: "guardOwnerOrService", service: "missions", human: "mutation" } },
-  "command-center/missions/[id]/links/route.ts": { POST: { guard: "guardOwnerOrService", service: "missions", human: "mutation" } },
-  "command-center/missions/resolve/route.ts": { GET: { guard: "guardOwnerOrService", service: "missions", human: "read" } },
 };
 
 /** Routes where at least one method follows B2_ROUTE_POLICY instead of the P03 human default. */

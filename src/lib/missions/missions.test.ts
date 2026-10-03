@@ -1,72 +1,50 @@
 /**
- * P06 M2 pure checks that run in every `npm test` (no database): the authorization matrix, registry validation,
+ * P06 M2 pure checks that run in every `npm test` (no database): founder-only authority, registry validation,
  * URL hygiene, target id formats, and the founder-only verification invariant. The database-backed suite is
  * missions-db.test.ts (supabase/tests/run-m2-local.sh).
  */
 import { describe, expect, it } from "vitest";
 import { AGENT_CORE } from "@/lib/agent-registry";
-import {
-  agentPrincipalFrom, canAddLink, canCreate, canReassign, canRemoveLink, canTransition, FOUNDER, FOUNDER_ACTOR,
-  registeredAgentId, type Principal,
-} from "./principal";
+import { canTransition, FOUNDER, FOUNDER_ACTOR, isFounder, registeredAgentId, type Principal } from "./principal";
 import * as svc from "./service";
 import type { MissionStore } from "./store";
 import { resolveTarget } from "./targets";
-import { MISSION_STATES, type MissionRow, type MissionState } from "./types";
+import { MISSION_STATES, type MissionRow } from "./types";
 import { cleanUrl, gitBranch, items, owner, team } from "./validate";
 
-const agent = (id: string): Principal => ({ kind: "agent", actor: id, actorKind: "agent" });
 const row = (over: Partial<MissionRow> = {}): MissionRow => ({
   id: "00000000-0000-4000-8000-000000000001", ref: 1, tenant_id: "t", objective: "o", owner: "ramon", owner_kind: "human",
   agent_ids: ["nova"], success_criteria: [{ id: "c1", text: "t" }], deliverables: [], state: "intent",
   created_by: "ramon", created_by_kind: "human", created_at: "", updated_at: "", ...over,
 });
 
-describe("authorization matrix", () => {
-  const LEGAL: [MissionState, MissionState][] = [
-    ["intent", "plan"], ["plan", "approved"], ["approved", "executing"], ["executing", "reviewing"], ["reviewing", "completed"],
-    ["completed", "verified"], ["reviewing", "executing"], ["intent", "cancelled"], ["plan", "cancelled"], ["approved", "cancelled"],
-    ["executing", "cancelled"], ["reviewing", "cancelled"], ["completed", "cancelled"],
-  ];
-  const AGENT_OK = new Set(["intent>plan", "approved>executing", "executing>reviewing", "reviewing>executing", "reviewing>completed"]);
+/** Shapes a buggy or hostile caller might build. None is the founder; every operation must refuse all of them. */
+const NOT_FOUNDER = [
+  { kind: "agent", actor: "triage", actorKind: "agent" },
+  { kind: "agent", actor: "ramon", actorKind: "human" },
+  { kind: "founder", actor: "triage", actorKind: "human" },
+  { kind: "founder", actor: "ramon", actorKind: "agent" },
+  { kind: "service", actor: "service:missions", actorKind: "system" },
+  null,
+] as unknown as Principal[];
 
-  it("no principal, founder included, can request verified through the generic transition", () => {
+describe("authority: founder only", () => {
+  it("isFounder accepts exactly the founder principal", () => {
+    expect(isFounder(FOUNDER)).toBe(true);
+    for (const p of NOT_FOUNDER) expect(isFounder(p), JSON.stringify(p)).toBe(false);
+  });
+
+  it("the generic transition can never reach verified, for anyone, from any state", () => {
     for (const from of MISSION_STATES) {
-      for (const p of [FOUNDER, agent("nova")]) {
-        const d = canTransition(p, row({ state: from }), "verified");
-        expect(!d.ok && d.code).toBe("verify_route_only");
-      }
+      void from;
+      const d = canTransition("verified");
+      expect(!d.ok && d.code).toBe("verify_route_only");
     }
-  });
-
-  it("agent participants get exactly the execution loop; everything else is founder-only", () => {
-    for (const [from, to] of LEGAL) {
-      if (to === "verified") continue;
-      expect(canTransition(FOUNDER, row({ state: from }), to).ok).toBe(true);
-      expect(canTransition(agent("nova"), row({ state: from }), to).ok, `${from}>${to}`).toBe(AGENT_OK.has(`${from}>${to}`));
-      expect(canTransition(agent("atlas"), row({ state: from }), to).ok, `non-participant ${from}>${to}`).toBe(false);
-    }
-  });
-
-  it("an agent owner counts as a participant; a human-owned mission's owner name does not make an agent one", () => {
-    expect(canTransition(agent("atlas"), row({ owner: "atlas", owner_kind: "agent", agent_ids: [] }), "plan").ok).toBe(true);
-    expect(canTransition(agent("atlas"), row({ owner: "atlas", owner_kind: "human", agent_ids: [] }), "plan").ok).toBe(false);
-  });
-
-  it("create / link / remove / reassign", () => {
-    expect(canCreate(agent("nova"), "nova", "agent").ok).toBe(true);
-    expect(canCreate(agent("nova"), FOUNDER_ACTOR, "human").ok).toBe(true);
-    expect(canCreate(agent("nova"), "atlas", "agent").ok).toBe(false);
-    expect(canAddLink(agent("nova"), row(), "evidence").ok).toBe(true);
-    expect(canAddLink(agent("nova"), row(), "approval").ok).toBe(false);
-    expect(canAddLink(agent("atlas"), row(), "context").ok).toBe(false);
-    expect(canRemoveLink(agent("nova")).ok).toBe(false);
-    expect(canReassign(agent("nova")).ok).toBe(false);
-    for (const d of [canCreate(FOUNDER, "atlas", "agent"), canAddLink(FOUNDER, row(), "approval"), canRemoveLink(FOUNDER), canReassign(FOUNDER)]) expect(d.ok).toBe(true);
+    for (const to of MISSION_STATES) if (to !== "verified") expect(canTransition(to).ok, to).toBe(true);
   });
 });
 
-describe("agent identity", () => {
+describe("agent registry validation (for owner/team the founder assigns)", () => {
   it("only canonical active registry ids; never the founder, an alias, a case variant or junk", () => {
     expect(registeredAgentId("nova")).toBe("nova");
     for (const bad of ["ramon", "Nova", "dr-strange", "ghost", "", " nova", "nova,atlas", 42, null]) expect(registeredAgentId(bad)).toBeNull();
@@ -77,12 +55,6 @@ describe("agent identity", () => {
       expect(a.id).not.toBe(FOUNDER_ACTOR);
       expect(a.aliases).not.toContain(FOUNDER_ACTOR);
     }
-  });
-  it("the agent principal is always kind agent and comes only from the header", () => {
-    const p = agentPrincipalFrom(new Headers({ "x-parallax-agent": "nova" }));
-    expect(p).toEqual({ kind: "agent", actor: "nova", actorKind: "agent" });
-    expect(agentPrincipalFrom(new Headers({}))).toBeNull();
-    expect(agentPrincipalFrom(new Headers({ "x-parallax-agent": "ramon" }))).toBeNull();
   });
 });
 
@@ -123,22 +95,34 @@ describe("validation", () => {
 /** A store that fails loudly if anything is called: proves a refusal happened before any storage access. */
 const untouchable: MissionStore = new Proxy({} as MissionStore, { get: (_t, k) => () => { throw new Error(`store.${String(k)} must not be called`); } });
 
-describe("refusals happen before storage", () => {
-  const ctx = (principal: Principal) => ({ store: untouchable, tenantId: "t", principal });
-  it("agent verify is refused without touching storage", async () => {
-    const r = await svc.verifyMission(ctx(agent("nova")), "00000000-0000-4000-8000-000000000001", {});
-    expect(!r.ok && r.code).toBe("founder_only");
-  });
-  it("agent reassign / remove link are refused without touching storage", async () => {
-    const a = await svc.reassignMission(ctx(agent("nova")), "00000000-0000-4000-8000-000000000001", { owner: "nova", ownerKind: "agent", agentIds: [] });
-    expect(!a.ok && a.code).toBe("founder_only");
-    const b = await svc.removeLink(ctx(agent("nova")), "00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002");
-    expect(!b.ok && b.code).toBe("founder_only");
-  });
-  it("unknown body fields and malformed ids are refused without touching storage", async () => {
-    const r = await svc.createMission(ctx(FOUNDER), { objective: "x", owner: "ramon", ownerKind: "human", created_by: "nova" });
+describe("every operation refuses a non-founder before storage", () => {
+  const M = "00000000-0000-4000-8000-000000000001", L = "00000000-0000-4000-8000-000000000002";
+  const ops: [string, (ctx: svc.Ctx) => Promise<{ ok: boolean; code?: string; status?: number }>][] = [
+    ["list", (c) => svc.listMissions(c, {})],
+    ["get", (c) => svc.getMission(c, M)],
+    ["resolve", (c) => svc.previewTarget(c, { targetType: "job", targetId: M })],
+    ["create", (c) => svc.createMission(c, { objective: "x", owner: "ramon", ownerKind: "human" })],
+    ["transition", (c) => svc.transitionMission(c, M, { to: "plan" })],
+    ["approve", (c) => svc.transitionMission(c, M, { to: "approved" })],
+    ["cancel", (c) => svc.transitionMission(c, M, { to: "cancelled" })],
+    ["verify", (c) => svc.verifyMission(c, M, {})],
+    ["reassign", (c) => svc.reassignMission(c, M, { owner: "ramon", ownerKind: "human", agentIds: [] })],
+    ["add link", (c) => svc.addLink(c, M, { targetType: "job", targetId: L, relation: "context" })],
+    ["remove link", (c) => svc.removeLink(c, M, L)],
+  ];
+  for (const [name, op] of ops) {
+    it(`${name}`, async () => {
+      for (const p of NOT_FOUNDER) {
+        const r = await op({ store: untouchable, tenantId: "t", principal: p });
+        expect([r.ok, r.status, r.code], `${name} ${JSON.stringify(p)}`).toEqual([false, 403, "founder_only"]);
+      }
+    });
+  }
+  it("unknown body fields and malformed ids are refused without touching storage, even for the founder", async () => {
+    const ctx = { store: untouchable, tenantId: "t", principal: FOUNDER };
+    const r = await svc.createMission(ctx, { objective: "x", owner: "ramon", ownerKind: "human", created_by: "nova" });
     expect(!r.ok && r.code).toBe("unknown_fields");
-    const g = await svc.getMission(ctx(FOUNDER), "not-a-uuid");
+    const g = await svc.getMission(ctx, "not-a-uuid");
     expect(!g.ok && g.status).toBe(404);
   });
 });
@@ -176,5 +160,23 @@ describe("target formats (no database needed)", () => {
   it("database targets need a uuid before any lookup, and index only on synthesis_action", async () => {
     expect((await t("job", "1; drop table jobs")).ok).toBe(false);
     expect((await t("job", "00000000-0000-4000-8000-000000000001", 1)).ok).toBe(false);
+  });
+});
+
+describe("missionContext", () => {
+  it("only an owner-guard success with a uid becomes the founder; anything else is denied", async () => {
+    const { missionContext, __setMissionStoreForTests } = await import("./http");
+    __setMissionStoreForTests(untouchable);
+    try {
+      for (const bad of [null, undefined, {}, { ok: false, uid: "u" }, { ok: true }, { ok: true, uid: "" }, { ok: true, uid: 7 }]) {
+        const r = missionContext(bad as never);
+        expect(r.ok, JSON.stringify(bad)).toBe(false);
+        if (!r.ok) expect(r.response.status).toBe(403);
+      }
+      const good = missionContext({ ok: true, uid: "owner" });
+      expect(good.ok && good.ctx.principal).toEqual(FOUNDER);
+    } finally {
+      __setMissionStoreForTests(null);
+    }
   });
 });

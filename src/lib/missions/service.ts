@@ -1,14 +1,16 @@
 /**
  * P06 M2: the canonical Mission layer. Every route calls exactly one function here; no route implements policy.
  *
+ * Authority: the founder only. Every exported operation starts with `founderOnly`, so a context that does not carry
+ * the founder principal is refused before any input is parsed or any storage is touched. Machine callers never reach
+ * here (the routes are owner-guarded), and this check makes that true even if a route were wired wrongly.
+ *
  * Order inside every mutation: validate input -> load the mission inside the tenant -> authorize against the current
  * row -> one storage call (an M1 function or a single insert/tombstone) -> map the result. M1 re-checks every
  * structural rule in the same transaction as the write, so a stale read here can only make a request fail, never
  * let a forbidden write through.
  */
-import {
-  canAddLink, canCreate, canReassign, canRemoveLink, canTransition, FOUNDER_ACTOR, type Principal,
-} from "./principal";
+import { canTransition, FOUNDER_ACTOR, isFounder, type Principal } from "./principal";
 import type { MissionStore } from "./store";
 import { EVIDENCE_TYPES, resolveTarget, type ResolvedTarget } from "./targets";
 import type { EventRow, LinkRow, MissionResult, MissionRow, MissionState, StoreError, TargetType } from "./types";
@@ -71,6 +73,10 @@ async function load(ctx: Ctx, id: unknown): Promise<MissionRow | Fail> {
 }
 const isFail = (x: unknown): x is Fail => !!x && typeof x === "object" && (x as Fail).ok === false;
 
+function founderOnly(ctx: Ctx): Fail | null {
+  return isFounder(ctx.principal) ? null : fail(403, "founder_only", "Mission operations require the authenticated founder");
+}
+
 /** Optional free-text note on a transition: plain text, bounded, stored under the key "note" only. */
 function noteDetail(raw: unknown): { ok: true; detail: Record<string, unknown> } | Fail {
   if (raw === undefined) return { ok: true, detail: {} };
@@ -81,6 +87,8 @@ function noteDetail(raw: unknown): { ok: true; detail: Record<string, unknown> }
 // ─── create / read ──────────────────────────────────────────────────────────────────────────────────────
 
 export async function createMission(ctx: Ctx, body: Record<string, unknown>): Promise<MissionResult<MissionRow>> {
+  const denied = founderOnly(ctx);
+  if (denied) return denied;
   const extra = only(body, ["objective", "owner", "ownerKind", "agentIds", "successCriteria", "deliverables"]);
   if (extra) return extra;
   const objective = v.text(body.objective, "objective", 2000);
@@ -94,8 +102,6 @@ export async function createMission(ctx: Ctx, body: Record<string, unknown>): Pr
   const deliverables = v.items(body.deliverables, "deliverables");
   if (!deliverables.ok) return fail(422, "invalid_deliverables", deliverables.message);
 
-  const allowed = canCreate(ctx.principal, own.value.owner, own.value.ownerKind);
-  if (!allowed.ok) return fail(403, allowed.code, allowed.message);
 
   const r = await ctx.store.insertMission({
     tenant_id: ctx.tenantId,
@@ -114,6 +120,8 @@ export async function createMission(ctx: Ctx, body: Record<string, unknown>): Pr
 export type MissionDetail = { mission: MissionRow; links: LinkRow[]; events: EventRow[] };
 
 export async function getMission(ctx: Ctx, id: unknown, opts: { includeRemoved?: boolean } = {}): Promise<MissionResult<MissionDetail>> {
+  const denied = founderOnly(ctx);
+  if (denied) return denied;
   const m = await load(ctx, id);
   if (isFail(m)) return m;
   const [links, events] = await Promise.all([
@@ -129,6 +137,8 @@ export async function listMissions(
   ctx: Ctx,
   q: { state?: string | null; owner?: string | null; before?: string | null; limit?: string | null },
 ): Promise<MissionResult<{ missions: MissionRow[]; nextBefore: number | null }>> {
+  const denied = founderOnly(ctx);
+  if (denied) return denied;
   if (q.state && !v.isState(q.state)) return fail(422, "invalid_state", "unknown state filter");
   if (q.owner && !/^[a-z0-9][a-z0-9._-]{0,63}$/.test(q.owner)) return fail(422, "invalid_owner", "invalid owner filter");
   let beforeRef: number | undefined;
@@ -153,6 +163,8 @@ export async function listMissions(
 
 /** Every transition except completed -> verified. Founder: any legal one. Agent participant: the execution loop. */
 export async function transitionMission(ctx: Ctx, id: unknown, body: Record<string, unknown>): Promise<MissionResult<MissionRow>> {
+  const denied = founderOnly(ctx);
+  if (denied) return denied;
   const extra = only(body, ["to", "expectedFrom", "note"]);
   if (extra) return extra;
   if (!v.isState(body.to)) return fail(422, "invalid_state", "to must be a mission state");
@@ -161,7 +173,7 @@ export async function transitionMission(ctx: Ctx, id: unknown, body: Record<stri
   if (isFail(note)) return note;
   const m = await load(ctx, id);
   if (isFail(m)) return m;
-  const allowed = canTransition(ctx.principal, m, body.to);
+  const allowed = canTransition(body.to);
   if (!allowed.ok) return fail(403, allowed.code, allowed.message);
   const r = await ctx.store.transition({
     id: m.id, to: body.to, actor: ctx.principal.actor, actorKind: ctx.principal.actorKind,
@@ -176,9 +188,9 @@ export async function transitionMission(ctx: Ctx, id: unknown, body: Record<stri
  * the execution team (M1). expectedFrom is fixed to completed, so a stale view cannot verify the wrong thing.
  */
 export async function verifyMission(ctx: Ctx, id: unknown, body: Record<string, unknown>): Promise<MissionResult<MissionRow>> {
-  if (ctx.principal.kind !== "founder" || ctx.principal.actor !== FOUNDER_ACTOR || ctx.principal.actorKind !== "human") {
-    return fail(403, "founder_only", "only the authenticated founder can verify a mission");
-  }
+  // Same founder check as every operation, kept explicit here because this is the founder-authority boundary that
+  // M1 deliberately cannot enforce (it cannot see the session).
+  if (!isFounder(ctx.principal)) return fail(403, "founder_only", "only the authenticated founder can verify a mission");
   const extra = only(body, ["note"]);
   if (extra) return extra;
   const note = noteDetail(body.note);
@@ -194,10 +206,10 @@ export async function verifyMission(ctx: Ctx, id: unknown, body: Record<string, 
 }
 
 export async function reassignMission(ctx: Ctx, id: unknown, body: Record<string, unknown>): Promise<MissionResult<MissionRow>> {
+  const denied = founderOnly(ctx);
+  if (denied) return denied;
   const extra = only(body, ["owner", "ownerKind", "agentIds"]);
   if (extra) return extra;
-  const allowed = canReassign(ctx.principal);
-  if (!allowed.ok) return fail(403, allowed.code, allowed.message);
   const own = v.owner(body.owner, body.ownerKind);
   if (!own.ok) return fail(422, "invalid_owner", own.message);
   const team = v.team(body.agentIds);
@@ -239,6 +251,8 @@ async function reaches(ctx: Ctx, start: string, goal: string): Promise<boolean |
 export type LinkResult = { link: LinkRow; resolution: ResolvedTarget["resolution"] };
 
 export async function addLink(ctx: Ctx, id: unknown, body: Record<string, unknown>): Promise<MissionResult<LinkResult>> {
+  const denied = founderOnly(ctx);
+  if (denied) return denied;
   const extra = only(body, ["targetType", "targetId", "targetIndex", "relation", "criterionId"]);
   if (extra) return extra;
   if (!v.isTargetType(body.targetType)) return fail(422, "invalid_target_type", "unknown targetType");
@@ -261,8 +275,6 @@ export async function addLink(ctx: Ctx, id: unknown, body: Record<string, unknow
 
   const m = await load(ctx, id);
   if (isFail(m)) return m;
-  const allowed = canAddLink(ctx.principal, m, relation);
-  if (!allowed.ok) return fail(403, allowed.code, allowed.message);
   if (criterionId && !m.success_criteria.some((c) => c.id === criterionId)) {
     return fail(422, "MI024", "criterion is not a success criterion of this mission");
   }
@@ -303,8 +315,8 @@ export async function addLink(ctx: Ctx, id: unknown, body: Record<string, unknow
 }
 
 export async function removeLink(ctx: Ctx, id: unknown, linkId: unknown): Promise<MissionResult<LinkRow>> {
-  const allowed = canRemoveLink(ctx.principal);
-  if (!allowed.ok) return fail(403, allowed.code, allowed.message);
+  const denied = founderOnly(ctx);
+  if (denied) return denied;
   if (!v.isUuid(linkId)) return fail(404, "link_not_found", "link not found");
   const m = await load(ctx, id);
   if (isFail(m)) return m;
@@ -318,6 +330,8 @@ export async function removeLink(ctx: Ctx, id: unknown, linkId: unknown): Promis
 
 /** Read-only preview of what a link would point at, without writing anything. */
 export async function previewTarget(ctx: Ctx, q: { targetType?: string | null; targetId?: string | null; targetIndex?: string | null }): Promise<MissionResult<ResolvedTarget>> {
+  const denied = founderOnly(ctx);
+  if (denied) return denied;
   if (!v.isTargetType(q.targetType)) return fail(422, "invalid_target_type", "unknown targetType");
   let index: number | undefined;
   if (q.targetIndex !== null && q.targetIndex !== undefined) {

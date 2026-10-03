@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await guardProtectedMutation(req);
   if (!guard.ok) return guard.response;
-  const c = missionContext({ ok: true, kind: "owner", uid: guard.uid }, req);
+  const c = missionContext(guard);
   if (!c.ok) return c.response;
   const body = await jsonObject(req);
   if (body instanceof Response) return body;

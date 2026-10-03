@@ -1,11 +1,11 @@
 /**
- * P06 M2: the only glue between a route handler and the Mission layer. Routes call their guard first (the coverage
- * tests require it), then hand the guard result here. Nothing in this file decides policy.
+ * P06 M2: the only glue between a route handler and the Mission layer. Routes call their owner guard first (the P03
+ * coverage test requires it), then hand the guard result here. Nothing in this file decides policy.
  */
 import type { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { CC_TENANT_ID, noStoreJson } from "@/lib/server/cockpit-chat-data";
-import { agentPrincipalFrom, FOUNDER, type Principal } from "./principal";
+import { FOUNDER } from "./principal";
 import type { Ctx } from "./service";
 import { supabaseMissionStore, type MissionStore } from "./store";
 import type { MissionResult } from "./types";
@@ -14,22 +14,17 @@ import type { MissionResult } from "./types";
 let storeOverride: MissionStore | null = null;
 export function __setMissionStoreForTests(s: MissionStore | null): void { storeOverride = s; }
 
-type Auth = { ok: true; kind: "owner"; uid: string } | { ok: true; kind: "service"; principal: string };
-
 /**
- * Owner session -> founder. Missions machine credential -> the registered agent named in x-parallax-agent, or a
- * 403 when it names none. No other mapping exists.
+ * Only an owner-guard success (guardPrivateRead / guardProtectedMutation) can be turned into a Mission context, and it
+ * always becomes the founder. There is no machine or agent mapping: nothing in the request headers or body is read.
  */
-export function missionContext(auth: Auth, req: Request): { ok: true; ctx: Ctx } | { ok: false; response: NextResponse } {
-  let principal: Principal | null;
-  if (auth.kind === "owner") principal = FOUNDER;
-  else principal = auth.principal === "service:missions" ? agentPrincipalFrom(req.headers) : null;
-  if (!principal) {
-    return { ok: false, response: noStoreJson({ data: null, error: { code: "unknown_agent", message: "x-parallax-agent must name a registered active agent" } }, 403) };
+export function missionContext(owner: { ok: true; uid: string }): { ok: true; ctx: Ctx } | { ok: false; response: NextResponse } {
+  if (!owner || owner.ok !== true || typeof owner.uid !== "string" || !owner.uid) {
+    return { ok: false, response: noStoreJson({ error: "denied" }, 403) };
   }
   const store = storeOverride ?? (() => { const svc = getSupabaseAdmin(); return svc ? supabaseMissionStore(svc) : null; })();
   if (!store) return { ok: false, response: noStoreJson({ data: null, error: { code: "not_configured", message: "Supabase not configured" } }, 503) };
-  return { ok: true, ctx: { store, tenantId: CC_TENANT_ID, principal } };
+  return { ok: true, ctx: { store, tenantId: CC_TENANT_ID, principal: FOUNDER } };
 }
 
 export async function jsonObject(req: Request): Promise<Record<string, unknown> | NextResponse> {

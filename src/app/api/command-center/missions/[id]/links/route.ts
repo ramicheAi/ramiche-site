@@ -1,4 +1,4 @@
-import { guardOwnerOrService } from "@/lib/server/service-caller";
+import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { jsonObject, missionContext, respond } from "@/lib/missions/http";
 import { addLink } from "@/lib/missions/service";
 
@@ -10,9 +10,9 @@ export const runtime = "nodejs";
  * The target is resolved server-side and stored in canonical form (src/lib/missions/targets.ts).
  */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await guardOwnerOrService(req, "missions", "mutation");
-  if (!auth.ok) return auth.response;
-  const c = missionContext(auth, req);
+  const guard = await guardProtectedMutation(req);
+  if (!guard.ok) return guard.response;
+  const c = missionContext(guard);
   if (!c.ok) return c.response;
   const body = await jsonObject(req);
   if (body instanceof Response) return body;

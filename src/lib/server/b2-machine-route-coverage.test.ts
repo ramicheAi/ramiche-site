@@ -14,14 +14,13 @@ const OWNER = 'owner_fixture_only';
 const COOKIE = 'fixture-session-'.repeat(5);
 const SECRET = 'fixture-not-a-real-secret-'.repeat(3);
 const ORIGIN = 'https://cockpit.example';
-const SVC = { bridge: 'fixture-bridge-secret-0123456789', 'openclaw-webhook': 'fixture-openclaw-bearer-0123456789', vapi: 'fixture-vapi-secret-0123456789', cron: 'fixture-cron-bearer-0123456789', push: 'fixture-push-svc-xxxxxxxxxxxxxxxx', missions: 'fixture-missions-token-0123456789' } as const;
+const SVC = { bridge: 'fixture-bridge-secret-0123456789', 'openclaw-webhook': 'fixture-openclaw-bearer-0123456789', vapi: 'fixture-vapi-secret-0123456789', cron: 'fixture-cron-bearer-0123456789', push: 'fixture-push-svc-xxxxxxxxxxxxxxxx' } as const;
 const SVC_HEADER: Record<string, (v: string) => [string, string]> = {
   bridge: (v) => ['x-bridge-secret', v],
   'openclaw-webhook': (v) => ['authorization', `Bearer ${v}`],
   vapi: (v) => ['x-vapi-secret', v],
   cron: (v) => ['authorization', `Bearer ${v}`],
   push: (v) => ['x-cc-push-secret', v],
-  missions: (v) => ['x-parallax-missions-token', v],
 };
 
 function setEnv(configured: boolean) {
@@ -34,7 +33,6 @@ function setEnv(configured: boolean) {
   vi.stubEnv('PARALLAX_VAPI_WEBHOOK_SECRET', configured ? SVC.vapi : '');
   vi.stubEnv('PARALLAX_CRON_TOKEN', configured ? SVC.cron : '');
   vi.stubEnv('CC_PUSH_SECRET', configured ? SVC.push : '');
-  vi.stubEnv('PARALLAX_MISSIONS_AGENT_TOKEN', configured ? SVC.missions : '');
   // Twilio fixture config (fake values) so the signature path is exercised.
   for (const [k, v] of Object.entries({ TWILIO_ACCOUNT_SID: 'ACfixture', TWILIO_AUTH_TOKEN: configured ? 'fixture-twilio-auth' : '', TWILIO_API_KEY_SID: 'SKfixture', TWILIO_API_KEY_SECRET: 'fixture', TWILIO_TWIML_APP_SID: 'APfixture', TWILIO_PHONE_NUMBER: '+15555550100' })) vi.stubEnv(k, v);
 }

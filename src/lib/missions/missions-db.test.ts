@@ -30,7 +30,13 @@ const GATE = "d0000000-0000-4000-8000-000000000001";
 const LEAD = "e0000000-0000-4000-8000-000000000001";
 const OTHER_TENANT_MISSION = "f0000000-0000-4000-8000-000000000001";
 
-const agent = (id: string): Principal => ({ kind: "agent", actor: id, actorKind: "agent" });
+/** Principals a mis-wired caller could construct. None is the founder; the layer must refuse every one of them. */
+const NOT_FOUNDER = [
+  { kind: "agent", actor: "triage", actorKind: "agent" },
+  { kind: "agent", actor: "archivist", actorKind: "agent" },
+  { kind: "founder", actor: "nova", actorKind: "human" },
+  { kind: "agent", actor: "ramon", actorKind: "human" },
+] as unknown as Principal[];
 const CRIT = [{ id: "c1", text: "the report exists" }];
 
 describe.skipIf(!conn)("M2 Mission layer on real M1", () => {
@@ -39,20 +45,21 @@ describe.skipIf(!conn)("M2 Mission layer on real M1", () => {
   const ctx = (principal: Principal) => ({ store, tenantId: TENANT, principal });
   beforeAll(() => { store = pgMissionStore(c); });
 
-  async function mk(principal: Principal = FOUNDER, over: Record<string, unknown> = {}): Promise<MissionRow> {
-    const r = await svc.createMission(ctx(principal), { objective: "ship the thing", owner: "ramon", ownerKind: "human", successCriteria: CRIT, ...over });
+  async function mk(over: Record<string, unknown> = {}): Promise<MissionRow> {
+    const r = await svc.createMission(ctx(FOUNDER), { objective: "ship the thing", owner: "ramon", ownerKind: "human", successCriteria: CRIT, ...over });
     if (!r.ok) throw new Error(`create failed: ${r.code} ${r.message}`);
     return r.data;
   }
-  async function to(m: MissionRow, state: string, p: Principal = FOUNDER) {
-    const r = await svc.transitionMission(ctx(p), m.id, { to: state });
+  async function to(m: MissionRow, state: string) {
+    const r = await svc.transitionMission(ctx(FOUNDER), m.id, { to: state });
     if (!r.ok) throw new Error(`${m.state}->${state}: ${r.code} ${r.message}`);
     return r.data;
   }
-  async function toCompleted(m: MissionRow, exec: Principal = FOUNDER) {
-    await to(m, "plan"); await to(m, "approved"); await to(m, "executing", exec); await to(m, "reviewing", exec);
-    return to(m, "completed", exec);
+  async function toCompleted(m: MissionRow) {
+    await to(m, "plan"); await to(m, "approved"); await to(m, "executing"); await to(m, "reviewing");
+    return to(m, "completed");
   }
+  const count = async (sql: string) => { const r = await runSql(c, sql, "postgres"); return r.ok ? r.data : `ERR ${r.error.message}`; };
 
   // ── founder lifecycle and verification ──
   it("founder: create -> ... -> completed, evidence, verify via the verify path; events attribute ramon/human", async () => {
@@ -82,13 +89,23 @@ describe.skipIf(!conn)("M2 Mission layer on real M1", () => {
     expect(after.ok && after.data?.state).toBe("completed");
   });
 
-  it("an agent principal cannot verify through verifyMission (defense in depth behind the owner-only route)", async () => {
-    const m = await mk(FOUNDER, { agentIds: ["nova"] }); await toCompleted(m);
+  it("no non-founder principal can do anything, verify included, and nothing is written (defense in depth)", async () => {
+    const m = await mk({ agentIds: ["nova", "triage"] }); await toCompleted(m);
     await svc.addLink(ctx(FOUNDER), m.id, { targetType: "job", targetId: JOB, relation: "evidence", criterionId: "c1" });
-    for (const p of [agent("nova"), agent("atlas")]) {
-      const r = await svc.verifyMission(ctx(p), m.id, {});
-      expect(!r.ok && [r.status, r.code]).toEqual([403, "founder_only"]);
+    const before = await count(`select (select count(*) from public.missions)||'/'||(select count(*) from public.mission_links)||'/'||(select count(*) from public.mission_events)`);
+    for (const p of NOT_FOUNDER) {
+      const results = [
+        await svc.verifyMission(ctx(p), m.id, {}),
+        await svc.getMission(ctx(p), m.id),
+        await svc.listMissions(ctx(p), {}),
+        await svc.createMission(ctx(p), { objective: "x", owner: "ramon", ownerKind: "human" }),
+        await svc.transitionMission(ctx(p), m.id, { to: "cancelled" }),
+        await svc.addLink(ctx(p), m.id, { targetType: "job", targetId: JOB, relation: "context" }),
+        await svc.reassignMission(ctx(p), m.id, { owner: "ramon", ownerKind: "human", agentIds: [] }),
+      ];
+      for (const r of results) expect(!r.ok && [r.status, r.code], JSON.stringify(p)).toEqual([403, "founder_only"]);
     }
+    expect(await count(`select (select count(*) from public.missions)||'/'||(select count(*) from public.mission_links)||'/'||(select count(*) from public.mission_events)`)).toBe(before);
     const after = await store.getMission(TENANT, m.id);
     expect(after.ok && after.data?.state).toBe("completed");
   });
@@ -105,63 +122,24 @@ describe.skipIf(!conn)("M2 Mission layer on real M1", () => {
     expect(!r.ok && [r.status, r.code]).toEqual([409, "MI006"]);
   });
 
-  // ── agent policy ──
-  it("agent: may create a mission it owns or the founder owns, never one led by another agent", async () => {
-    expect((await svc.createMission(ctx(agent("nova")), { objective: "x", owner: "nova", ownerKind: "agent" })).ok).toBe(true);
-    expect((await svc.createMission(ctx(agent("nova")), { objective: "x", owner: "ramon", ownerKind: "human" })).ok).toBe(true);
-    const r = await svc.createMission(ctx(agent("nova")), { objective: "x", owner: "atlas", ownerKind: "agent" });
-    expect(!r.ok && [r.status, r.code]).toEqual([403, "founder_only"]);
-    const created = await svc.createMission(ctx(agent("nova")), { objective: "x", owner: "nova", ownerKind: "agent" });
-    expect(created.ok && [created.data.created_by, created.data.created_by_kind]).toEqual(["nova", "agent"]);
+  // ── founder capabilities ──
+  it("founder assigns canonical active agents at creation; aliases, unknown and duplicate ids are refused", async () => {
+    const m = await mk({ owner: "atlas", ownerKind: "agent", agentIds: ["triage", "nova"] });
+    expect([m.owner, m.owner_kind, m.agent_ids, m.created_by, m.created_by_kind]).toEqual(["atlas", "agent", ["triage", "nova"], "ramon", "human"]);
+    for (const agentIds of [["dr-strange"], ["Nova"], ["ghost"], ["nova", "nova"], ["ramon"]]) {
+      const r = await svc.createMission(ctx(FOUNDER), { objective: "x", owner: "ramon", ownerKind: "human", agentIds });
+      expect(!r.ok && r.code, JSON.stringify(agentIds)).toBe("invalid_team");
+    }
   });
 
-  it("agent participant runs the execution loop; approval, cancel and verify stay founder-only", async () => {
-    const nova = agent("nova");
-    const m = await mk(FOUNDER, { agentIds: ["nova"] });
-    await to(m, "plan", nova);
-    const approve = await svc.transitionMission(ctx(nova), m.id, { to: "approved" });
-    expect(!approve.ok && [approve.status, approve.code]).toEqual([403, "founder_only"]);
-    await to(m, "approved");
-    await to(m, "executing", nova); await to(m, "reviewing", nova); await to(m, "executing", nova); await to(m, "reviewing", nova);
-    const cancel = await svc.transitionMission(ctx(nova), m.id, { to: "cancelled" });
-    expect(!cancel.ok && cancel.code).toBe("founder_only");
-    await to(m, "completed", nova);
-    const ev = await svc.addLink(ctx(nova), m.id, { targetType: "job", targetId: JOB, relation: "evidence", criterionId: "c1" });
-    expect(ev.ok).toBe(true);
-    const d = await svc.getMission(ctx(nova), m.id);
-    expect(d.ok && d.data.events.filter((e) => e.actor === "nova" && e.kind === "state_changed").length).toBe(6);
-  });
-
-  it("a non-participant agent can read but cannot transition or link", async () => {
-    const m = await mk(FOUNDER, { agentIds: ["nova"] });
-    const atlas = agent("atlas");
-    expect((await svc.getMission(ctx(atlas), m.id)).ok).toBe(true);
-    const t = await svc.transitionMission(ctx(atlas), m.id, { to: "plan" });
-    expect(!t.ok && t.code).toBe("not_participant");
-    const l = await svc.addLink(ctx(atlas), m.id, { targetType: "job", targetId: JOB, relation: "context" });
-    expect(!l.ok && l.code).toBe("not_participant");
-  });
-
-  it("agents cannot reassign, remove links, or add approval links", async () => {
-    const nova = agent("nova");
-    const m = await mk(FOUNDER, { agentIds: ["nova"] });
-    const ra = await svc.reassignMission(ctx(nova), m.id, { owner: "nova", ownerKind: "agent", agentIds: ["nova"] });
-    expect(!ra.ok && ra.code).toBe("founder_only");
-    const ap = await svc.addLink(ctx(nova), m.id, { targetType: "pipeline_gate", targetId: GATE, relation: "approval" });
-    expect(!ap.ok && ap.code).toBe("founder_only");
-    const l = await svc.addLink(ctx(nova), m.id, { targetType: "job", targetId: JOB, relation: "context" });
-    expect(l.ok).toBe(true);
-    const rm = await svc.removeLink(ctx(nova), m.id, l.ok ? l.data.link.id : "");
-    expect(!rm.ok && rm.code).toBe("founder_only");
-  });
-
-  it("an agent removed from the team loses participant rights at once", async () => {
-    const nova = agent("nova");
-    const m = await mk(FOUNDER, { agentIds: ["nova"] });
-    const ra = await svc.reassignMission(ctx(FOUNDER), m.id, { owner: "ramon", ownerKind: "human", agentIds: ["atlas"] });
-    expect(ra.ok && ra.data.agent_ids).toEqual(["atlas"]);
-    const t = await svc.transitionMission(ctx(nova), m.id, { to: "plan" });
-    expect(!t.ok && t.code).toBe("not_participant");
+  it("founder approves, cancels, and drives every legal transition; events attribute ramon/human", async () => {
+    const m = await mk();
+    await to(m, "plan"); await to(m, "approved"); await to(m, "executing"); await to(m, "reviewing"); await to(m, "executing");
+    await to(m, "reviewing"); await to(m, "cancelled");
+    const d = await svc.getMission(ctx(FOUNDER), m.id);
+    const steps = d.ok ? d.data.events.filter((e) => e.kind === "state_changed") : [];
+    expect(steps.map((e) => e.to_state)).toEqual(["plan", "approved", "executing", "reviewing", "executing", "reviewing", "cancelled"]);
+    expect(steps.every((e) => e.actor === "ramon" && e.actor_kind === "human")).toBe(true);
   });
 
   it("reassign validates the registry and is audited (team_changed by ramon)", async () => {
@@ -176,12 +154,22 @@ describe.skipIf(!conn)("M2 Mission layer on real M1", () => {
   });
 
   // ── identity fields in bodies are never read ──
-  it("body identity fields are rejected, never honored", async () => {
-    const r1 = await svc.createMission(ctx(agent("nova")), { objective: "x", owner: "nova", ownerKind: "agent", createdBy: "ramon", createdByKind: "human" });
-    expect(!r1.ok && r1.code).toBe("unknown_fields");
-    const m = await mk();
-    const r2 = await svc.transitionMission(ctx(agent("nova")), m.id, { to: "plan", actor: "ramon", actor_kind: "human" });
-    expect(!r2.ok && r2.code).toBe("unknown_fields");
+  it("forged authority fields in bodies are rejected, never honored", async () => {
+    const forged = { actor: "ramon", actor_kind: "human", actorKind: "human", created_by: "ramon", createdBy: "ramon", verified_by: "ramon", verifiedBy: "ramon", uid: "x", role: "owner", tenant_id: "x" };
+    for (const [k, v] of Object.entries(forged)) {
+      const r1 = await svc.createMission(ctx(FOUNDER), { objective: "x", owner: "ramon", ownerKind: "human", [k]: v });
+      expect(!r1.ok && r1.code, `create ${k}`).toBe("unknown_fields");
+    }
+    const m = await mk(); await toCompleted(m);
+    await svc.addLink(ctx(FOUNDER), m.id, { targetType: "job", targetId: JOB, relation: "evidence", criterionId: "c1" });
+    for (const k of [...Object.keys(forged), "owner", "ownerKind", "agentIds", "to"]) {
+      const t = await svc.transitionMission(ctx(FOUNDER), m.id, { to: "cancelled", [k === "to" ? "expected_from" : k]: "ramon" });
+      expect(!t.ok && t.code, `transition ${k}`).toBe("unknown_fields");
+      const v = await svc.verifyMission(ctx(FOUNDER), m.id, { [k]: "ramon" });
+      expect(!v.ok && v.code, `verify ${k}`).toBe("unknown_fields");
+    }
+    const after = await store.getMission(TENANT, m.id);
+    expect(after.ok && after.data?.state).toBe("completed");
   });
 
   // ── tenant scope ──
@@ -321,7 +309,7 @@ describe.skipIf(!conn)("M2 Mission layer on real M1", () => {
 
   // ── list ──
   it("list filters by state and owner and pages by ref", async () => {
-    const mine = await mk(agent("nova"), { owner: "nova", ownerKind: "agent" });
+    const mine = await mk({ owner: "nova", ownerKind: "agent" });
     const byOwner = await svc.listMissions(ctx(FOUNDER), { owner: "nova", limit: "100" });
     expect(byOwner.ok && byOwner.data.missions.every((x) => x.owner === "nova") && byOwner.data.missions.some((x) => x.id === mine.id)).toBe(true);
     const p1 = await svc.listMissions(ctx(FOUNDER), { limit: "2" });
@@ -338,98 +326,179 @@ describe.skipIf(!conn)("M2 routes on real M1 with real guards", () => {
   const OWNER = "owner_fixture_only";
   const COOKIE = "fixture-session-".repeat(5);
   const ORIGIN = "https://cockpit.example";
-  const TOKEN = "fixture-missions-token-0123456789";
+  // Every fleet credential that exists, configured with a VALID value, plus a would-be missions token. M2 must give
+  // none of them any Mission authority.
+  const FLEET: Record<string, [string, string, string]> = {
+    "openclaw-webhook": ["OPENCLAW_CC_WEBHOOK_TOKEN", "authorization", "Bearer fixture-openclaw-bearer-0123456789"],
+    push: ["CC_PUSH_SECRET", "x-cc-push-secret", "fixture-push-svc-xxxxxxxxxxxxxxxx"],
+    bridge: ["BRIDGE_API_SECRET", "x-bridge-secret", "fixture-bridge-secret-0123456789"],
+    cron: ["PARALLAX_CRON_TOKEN", "authorization", "Bearer fixture-cron-bearer-0123456789"],
+    vapi: ["PARALLAX_VAPI_WEBHOOK_SECRET", "x-vapi-secret", "fixture-vapi-secret-0123456789"],
+    "missions-token": ["PARALLAX_MISSIONS_AGENT_TOKEN", "x-parallax-missions-token", "fixture-missions-token-0123456789"],
+  };
+  // Several VALID canonical active registry agents, plus no header at all.
+  const AGENT_NAMES = ["triage", "archivist", "nova", "atlas", "themis", null] as const;
+
   beforeAll(() => __setMissionStoreForTests(pgMissionStore(conn as PgConn)));
   afterAll(() => __setMissionStoreForTests(null));
   beforeEach(() => {
     vi.stubEnv("PARALLAX_OWNER_UID", OWNER);
     vi.stubEnv("PARALLAX_TRUSTED_ORIGINS", ORIGIN);
     vi.stubEnv("PARALLAX_CSRF_SECRET", "fixture-not-a-real-secret-".repeat(3));
-    vi.stubEnv("PARALLAX_MISSIONS_AGENT_TOKEN", TOKEN);
+    for (const [env, , value] of Object.values(FLEET)) vi.stubEnv(env, value.replace(/^Bearer /, ""));
     sessionVerifier.mockResolvedValue({ uid: OWNER, signInProvider: "password" });
   });
   afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); });
 
-  const founderHeaders = () => {
+  const founderHeaders = (): Record<string, string> => {
     const t = issueCsrfToken(COOKIE);
     return { origin: ORIGIN, "content-type": "application/json", cookie: `__session=${COOKIE}`, ...(t.ok ? { "x-parallax-csrf": t.token } : {}) };
   };
-  const agentHeaders = (id: string) => ({ "content-type": "application/json", "x-parallax-missions-token": TOKEN, "x-parallax-agent": id });
+  const machineHeaders = (cred: string, agentName: string | null): Record<string, string> => {
+    const [, header, value] = FLEET[cred];
+    return { "content-type": "application/json", [header]: value, ...(agentName ? { "x-parallax-agent": agentName } : {}) };
+  };
   async function call(mod: string, method: string, path: string, headers: Record<string, string>, body?: unknown, params: Record<string, string> = {}) {
     const m = await import(`@/app/api/command-center/missions${mod}/route`);
     const req = new NextRequest(`${ORIGIN}/api/command-center/missions${path}`, { method, headers, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
     const res: Response = await m[method](req, { params: Promise.resolve(params) });
-    return { status: res.status, json: await res.json() };
+    return { status: res.status, json: await res.json(), cache: res.headers.get("cache-control") };
   }
+  const create = async (body: Record<string, unknown>) => {
+    const r = await call("", "POST", "", founderHeaders(), body);
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    return r.json.data as MissionRow;
+  };
+  const step = (id: string, to: string, h = founderHeaders()) => call("/[id]/transition", "POST", `/${id}/transition`, h, { to }, { id });
+  const snapshot = () => runSql(conn as PgConn, `select md5(coalesce((select string_agg(m::text, '|' order by id) from public.missions m), '')
+    || coalesce((select string_agg(l::text, '|' order by id) from public.mission_links l), '')
+    || coalesce((select string_agg(e::text, '|' order by seq) from public.mission_events e), ''))`, "postgres");
 
-  it("end to end: agent drives execution, founder verifies through the owner-only route", async () => {
-    const created = await call("", "POST", "", agentHeaders("nova"), { objective: "route e2e", owner: "nova", ownerKind: "agent", successCriteria: CRIT });
-    expect(created.status).toBe(201);
-    const id = created.json.data.id as string;
-    expect([created.json.data.created_by, created.json.data.created_by_kind]).toEqual(["nova", "agent"]);
-    const step = (to: string, h: Record<string, string>) => call("/[id]/transition", "POST", `/${id}/transition`, h, { to }, { id });
-    expect((await step("plan", agentHeaders("nova"))).status).toBe(200);
-    expect((await step("approved", agentHeaders("nova"))).status).toBe(403);
-    expect((await step("approved", founderHeaders())).status).toBe(200);
-    for (const s of ["executing", "reviewing", "completed"]) expect((await step(s, agentHeaders("nova"))).status).toBe(200);
-    const ev = await call("/[id]/links", "POST", `/${id}/links`, agentHeaders("nova"), { targetType: "job", targetId: JOB, relation: "evidence", criterionId: "c1" }, { id });
-    expect(ev.status).toBe(201);
-
-    // the agent cannot reach verified by any route
-    const viaTransition = await step("verified", agentHeaders("nova"));
-    expect([viaTransition.status, viaTransition.json.error.code]).toEqual([403, "verify_route_only"]);
-    const viaVerifyWithToken = await call("/[id]/verify", "POST", `/${id}/verify`, agentHeaders("nova"), {}, { id });
-    expect([401, 403]).toContain(viaVerifyWithToken.status);
-    expect(viaVerifyWithToken.json.error).toBe("denied");
-    // a forged body claiming to be Ramon changes nothing
-    const forged = await call("/[id]/verify", "POST", `/${id}/verify`, { ...agentHeaders("nova"), "x-ramon-uid": OWNER }, { actor: "ramon", actor_kind: "human", uid: OWNER }, { id });
-    expect([401, 403]).toContain(forged.status);
-    // an authenticated human who is not the owner is refused
-    sessionVerifier.mockResolvedValue({ uid: "someone_else", signInProvider: "password" });
-    expect((await call("/[id]/verify", "POST", `/${id}/verify`, founderHeaders(), {}, { id })).status).toBe(403);
-    sessionVerifier.mockResolvedValue({ uid: OWNER, signInProvider: "password" });
-    // owner session without CSRF, and with a foreign Origin, are refused
-    const noCsrf = founderHeaders(); delete (noCsrf as Record<string, string>)["x-parallax-csrf"];
-    expect((await call("/[id]/verify", "POST", `/${id}/verify`, noCsrf, {}, { id })).status).toBe(403);
-    expect((await call("/[id]/verify", "POST", `/${id}/verify`, { ...founderHeaders(), origin: "https://evil.example" }, {}, { id })).status).toBe(403);
-    // a shared-PIN custom-token session is not founder authority
-    sessionVerifier.mockResolvedValue({ uid: OWNER, signInProvider: "custom" });
-    expect((await call("/[id]/verify", "POST", `/${id}/verify`, founderHeaders(), {}, { id })).status).toBe(401);
-    sessionVerifier.mockResolvedValue({ uid: OWNER, signInProvider: "password" });
-
-    const ok = await call("/[id]/verify", "POST", `/${id}/verify`, founderHeaders(), { note: "looked at it" }, { id });
-    expect([ok.status, ok.json.data.state]).toEqual([200, "verified"]);
-    const d = await call("/[id]", "GET", `/${id}`, agentHeaders("atlas"), undefined, { id });
-    const last = d.json.data.events[d.json.data.events.length - 1];
-    expect([last.to_state, last.actor, last.actor_kind]).toEqual(["verified", "ramon", "human"]);
-  });
-
-  it("the machine credential needs a registered active canonical agent name", async () => {
-    for (const name of ["", "ramon", "Nova", "ghost", "dr-strange", "atlas,nova"]) {
-      const r = await call("", "GET", "", { ...agentHeaders(name) });
-      expect(r.status, JSON.stringify(name)).toBe(403);
-    }
-    expect((await call("", "GET", "", agentHeaders("nova"))).status).toBe(200);
-  });
-
-  it("founder-only routes have no machine path at all", async () => {
-    const created = await call("", "POST", "", founderHeaders(), { objective: "x", owner: "ramon", ownerKind: "human" });
-    const id = created.json.data.id as string;
-    const link = await call("/[id]/links", "POST", `/${id}/links`, founderHeaders(), { targetType: "job", targetId: JOB, relation: "context" }, { id });
-    const linkId = link.json.data.link.id as string;
-    expect((await call("/[id]/reassign", "POST", `/${id}/reassign`, agentHeaders("nova"), { owner: "nova", ownerKind: "agent", agentIds: [] }, { id })).json.error).toBe("denied");
-    expect((await call("/[id]/links/[linkId]", "DELETE", `/${id}/links/${linkId}`, agentHeaders("nova"), undefined, { id, linkId })).json.error).toBe("denied");
-    const rm = await call("/[id]/links/[linkId]", "DELETE", `/${id}/links/${linkId}`, founderHeaders(), undefined, { id, linkId });
+  it("founder holds every approved capability through the real routes", async () => {
+    const list = await call("", "GET", "?limit=5", founderHeaders());
+    expect(list.status).toBe(200);
+    const m = await create({ objective: "route founder", owner: "atlas", ownerKind: "agent", agentIds: ["triage", "nova"], successCriteria: CRIT });
+    expect([m.created_by, m.created_by_kind, m.agent_ids]).toEqual(["ramon", "human", ["triage", "nova"]]);
+    expect((await call("/[id]", "GET", `/${m.id}`, founderHeaders(), undefined, { id: m.id })).status).toBe(200);
+    expect((await call("/resolve", "GET", `/resolve?targetType=synthesis_action&targetId=${SYNTH}&targetIndex=1`, founderHeaders())).json.data.resolution).toBe("resolved");
+    for (const s of ["plan", "approved", "executing", "reviewing", "completed"]) expect((await step(m.id, s)).status, s).toBe(200);
+    const ctxLink = await call("/[id]/links", "POST", `/${m.id}/links`, founderHeaders(), { targetType: "chat_channel", targetId: CHANNEL, relation: "context" }, { id: m.id });
+    expect(ctxLink.status).toBe(201);
+    const linkId = ctxLink.json.data.link.id as string;
+    const rm = await call("/[id]/links/[linkId]", "DELETE", `/${m.id}/links/${linkId}`, founderHeaders(), undefined, { id: m.id, linkId });
     expect([rm.status, rm.json.data.removed_by]).toEqual([200, "ramon"]);
+    expect((await call("/[id]/links", "POST", `/${m.id}/links`, founderHeaders(), { targetType: "job", targetId: JOB, relation: "evidence", criterionId: "c1" }, { id: m.id })).status).toBe(201);
+    const generic = await step(m.id, "verified");
+    expect([generic.status, generic.json.error.code]).toEqual([403, "verify_route_only"]);
+    const v = await call("/[id]/verify", "POST", `/${m.id}/verify`, founderHeaders(), { note: "looked at it" }, { id: m.id });
+    expect([v.status, v.json.data.state]).toEqual([200, "verified"]);
+    const d = await call("/[id]", "GET", `/${m.id}`, founderHeaders(), undefined, { id: m.id });
+    const last = d.json.data.events[d.json.data.events.length - 1];
+    expect([last.to_state, last.actor, last.actor_kind, last.detail.authority]).toEqual(["verified", "ramon", "human", "founder_session"]);
+
+    const r = await create({ objective: "reassign + cancel", owner: "ramon", ownerKind: "human" });
+    const ra = await call("/[id]/reassign", "POST", `/${r.id}/reassign`, founderHeaders(), { owner: "nova", ownerKind: "agent", agentIds: ["nova", "archivist"] }, { id: r.id });
+    expect([ra.status, ra.json.data.owner, ra.json.data.agent_ids]).toEqual([200, "nova", ["nova", "archivist"]]);
+    expect((await step(r.id, "cancelled")).json.data.state).toBe("cancelled");
+  });
+
+  it("a valid fleet credential with any claimed agent identity gets NO Mission authority, and the name never changes the result", async () => {
+    const plan = await create({ objective: "machine target", owner: "ramon", ownerKind: "human", agentIds: ["triage", "archivist", "nova", "atlas", "themis"], successCriteria: CRIT });
+    await step(plan.id, "plan");
+    const done = await create({ objective: "machine verify target", owner: "triage", ownerKind: "agent", agentIds: ["triage", "archivist", "nova", "atlas", "themis"], successCriteria: CRIT });
+    for (const s of ["plan", "approved", "executing", "reviewing", "completed"]) await step(done.id, s);
+    const ev = await call("/[id]/links", "POST", `/${done.id}/links`, founderHeaders(), { targetType: "job", targetId: JOB, relation: "context" }, { id: done.id });
+    await call("/[id]/links", "POST", `/${done.id}/links`, founderHeaders(), { targetType: "job", targetId: JOB, relation: "evidence", criterionId: "c1" }, { id: done.id });
+    const linkId = ev.json.data.link.id as string;
+
+    const ENDPOINTS: [string, string, string, string, unknown, Record<string, string>][] = [
+      ["global list", "", "GET", "", undefined, {}],
+      ["read by claimed identity", "/[id]", "GET", `/${plan.id}`, undefined, { id: plan.id }],
+      ["resolve", "/resolve", "GET", `/resolve?targetType=job&targetId=${JOB}`, undefined, {}],
+      ["create", "", "POST", "", { objective: "x", owner: "triage", ownerKind: "agent", agentIds: ["triage"] }, {}],
+      ["transition", "/[id]/transition", "POST", `/${done.id}/transition`, { to: "cancelled" }, { id: done.id }],
+      ["approve", "/[id]/transition", "POST", `/${plan.id}/transition`, { to: "approved" }, { id: plan.id }],
+      ["cancel", "/[id]/transition", "POST", `/${plan.id}/transition`, { to: "cancelled" }, { id: plan.id }],
+      ["add link", "/[id]/links", "POST", `/${plan.id}/links`, { targetType: "job", targetId: JOB, relation: "context" }, { id: plan.id }],
+      ["remove link", "/[id]/links/[linkId]", "DELETE", `/${done.id}/links/${linkId}`, undefined, { id: done.id, linkId }],
+      ["reassign", "/[id]/reassign", "POST", `/${plan.id}/reassign`, { owner: "triage", ownerKind: "agent", agentIds: ["triage"] }, { id: plan.id }],
+      ["verify", "/[id]/verify", "POST", `/${done.id}/verify`, {}, { id: done.id }],
+      ["verify with forged founder body", "/[id]/verify", "POST", `/${done.id}/verify`, { actor: "ramon", actor_kind: "human", verified_by: "ramon", uid: OWNER, role: "owner" }, { id: done.id }],
+    ];
+
+    const before = await snapshot();
+    let calls = 0;
+    for (const [name, mod, method, path, body, params] of ENDPOINTS) {
+      for (const cred of Object.keys(FLEET)) {
+        const outcomes = new Set<string>();
+        for (const agentName of AGENT_NAMES) {
+          const h = { ...machineHeaders(cred, agentName), "x-ramon-uid": OWNER, "x-forwarded-host": "command.parallaxvinc.com" };
+          const r = await call(mod, method, path, h, body, params);
+          calls++;
+          expect([401, 403], `${name} via ${cred} as ${agentName}`).toContain(r.status);
+          expect(r.json, `${name} via ${cred} as ${agentName}`).toMatchObject({ error: "denied" });
+          expect(r.cache).toBe("no-store");
+          outcomes.add(`${r.status} ${JSON.stringify(r.json)}`);
+        }
+        // Changing the claimed agent (or dropping the header) never changes the authorization result.
+        expect(outcomes.size, `${name} via ${cred}: ${[...outcomes].join(" | ")}`).toBe(1);
+      }
+    }
+    expect(calls).toBe(ENDPOINTS.length * Object.keys(FLEET).length * AGENT_NAMES.length);
+    // Nothing anywhere changed: no mission, link or event was created, altered or removed.
+    expect(await snapshot()).toEqual(before);
+    const states = await runSql(conn as PgConn, `select string_agg(state, ',' order by ref) from public.missions where id in ('${plan.id}','${done.id}')`, "postgres");
+    expect(states.ok && states.data).toBe("plan,completed");
+  });
+
+  it("the owner boundary holds on every mutation route and on reads", async () => {
+    const m = await create({ objective: "owner negatives", owner: "ramon", ownerKind: "human", successCriteria: CRIT });
+    for (const s of ["plan", "approved", "executing", "reviewing", "completed"]) await step(m.id, s);
+    await call("/[id]/links", "POST", `/${m.id}/links`, founderHeaders(), { targetType: "job", targetId: JOB, relation: "evidence", criterionId: "c1" }, { id: m.id });
+    const before = await snapshot();
+    const verify = (h: Record<string, string>, body: unknown = {}) => call("/[id]/verify", "POST", `/${m.id}/verify`, h, body, { id: m.id });
+    const cases: [string, () => Record<string, string>, number[], () => void][] = [
+      ["missing auth", () => { const h = founderHeaders(); delete h.cookie; return h; }, [401], () => {}],
+      ["wrong uid / non-owner human", founderHeaders, [403], () => sessionVerifier.mockResolvedValue({ uid: "someone_else", signInProvider: "password" })],
+      ["revoked or expired session", founderHeaders, [401], () => sessionVerifier.mockResolvedValue(null)],
+      ["shared-PIN custom token session", founderHeaders, [401], () => sessionVerifier.mockResolvedValue({ uid: OWNER, signInProvider: "custom" })],
+      ["anonymous session", founderHeaders, [401], () => sessionVerifier.mockResolvedValue({ uid: OWNER, signInProvider: "anonymous" })],
+      ["missing CSRF", () => { const h = founderHeaders(); delete h["x-parallax-csrf"]; return h; }, [403], () => {}],
+      ["invalid CSRF", () => ({ ...founderHeaders(), "x-parallax-csrf": "forged.token.value" }), [403], () => {}],
+      ["CSRF from another session", () => { const t = issueCsrfToken("another-session-".repeat(4)); return { ...founderHeaders(), "x-parallax-csrf": t.ok ? t.token : "x" }; }, [403], () => {}],
+      ["foreign Origin", () => ({ ...founderHeaders(), origin: "https://cockpit.example.evil" }), [403], () => {}],
+      ["missing Origin", () => { const h = founderHeaders(); delete h.origin; return h; }, [403], () => {}],
+    ];
+    for (const [name, headers, statuses, arrange] of cases) {
+      sessionVerifier.mockResolvedValue({ uid: OWNER, signInProvider: "password" });
+      arrange();
+      const r = await verify(headers(), { actor: "ramon", actor_kind: "human", verified_by: "ramon" });
+      expect(statuses, `verify: ${name}`).toContain(r.status);
+      expect(r.json, name).toMatchObject({ error: "denied" });
+      // the same boundary on another founder-only mutation and on a read
+      const t = await step(m.id, "cancelled", headers());
+      expect([401, 403], `transition: ${name}`).toContain(t.status);
+      if (!["missing CSRF", "invalid CSRF", "CSRF from another session", "foreign Origin", "missing Origin"].includes(name)) {
+        const g = await call("/[id]", "GET", `/${m.id}`, headers(), undefined, { id: m.id });
+        expect([401, 403], `read: ${name}`).toContain(g.status);
+      }
+    }
+    sessionVerifier.mockResolvedValue({ uid: OWNER, signInProvider: "password" });
+    expect(await snapshot()).toEqual(before);
+    // Fully authenticated founder + forged identity body: refused as unknown fields, still nothing written.
+    const forged = await verify(founderHeaders(), { actor: "triage", actor_kind: "agent", verified_by: "triage", owner: "triage" });
+    expect([forged.status, forged.json.error.code]).toEqual([400, "unknown_fields"]);
+    expect(await snapshot()).toEqual(before);
+    const ok = await verify(founderHeaders(), {});
+    expect([ok.status, ok.json.data.state]).toEqual([200, "verified"]);
   });
 
   it("resolve previews a target without writing", async () => {
-    const before = await runSql(conn as PgConn, "select count(*) from public.mission_links", "postgres");
-    const r = await call("/resolve", "GET", `/resolve?targetType=synthesis_action&targetId=${SYNTH}&targetIndex=1`, agentHeaders("nova"));
+    const before = await snapshot();
+    const r = await call("/resolve", "GET", `/resolve?targetType=synthesis_action&targetId=${SYNTH}&targetIndex=1`, founderHeaders());
     expect([r.status, r.json.data.resolution]).toEqual([200, "resolved"]);
     const miss = await call("/resolve", "GET", `/resolve?targetType=job&targetId=${OTHER_TENANT_JOB}`, founderHeaders());
     expect(miss.status).toBe(404);
-    const after = await runSql(conn as PgConn, "select count(*) from public.mission_links", "postgres");
-    expect(after.ok && before.ok && after.data).toBe(before.ok ? before.data : "x");
+    expect(await snapshot()).toEqual(before);
   });
 });
