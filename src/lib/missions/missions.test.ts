@@ -81,7 +81,8 @@ describe("validation", () => {
       "http://100.96.20.21/", "https://box.local/", "http://localhost./x", "http://imac/x", "http://c02yw21cjwf2/",
       "http://ramons-macbook-pro.tail59e3bd.ts.net./", "http://foo.ts.net./a", "http://router.lan/", "http://nas.home.arpa/",
       "http://198.18.0.1/", "http://localhost.localdomain/", "http://foo.test/", "http://x.example/", "http://x.invalid/",
-      "http://abc.onion/", "http://foo.beta.tailscale.net/", "http://192.88.99.1/", "https://example.com/x;token=abc", "http://224.0.0.1/", "http://203.0.113.5/", "http://0x7f.1/", "http://2130706433/", "http://127.0.0.1./", "https://x.internal/", "https://imac.tail59e3bd.ts.net/", "file:///etc/passwd", "https://example.com:444/", "notaurl"]) {
+      "http://abc.onion/", "http://foo.beta.tailscale.net/", "http://192.88.99.1/", "https://example.com/x;token=abc", "https://example.com/x%3Bjsessionid=secret", "https://example.com/x%3bjsessionid=secret",
+      "https://example.com/x%3Ftoken=1", "https://example.com/x%23frag", "https://example.com/x%253Bjsessionid=s", "https://example.com/x%25253bs", "http://224.0.0.1/", "http://203.0.113.5/", "http://0x7f.1/", "http://2130706433/", "http://127.0.0.1./", "https://x.internal/", "https://imac.tail59e3bd.ts.net/", "file:///etc/passwd", "https://example.com:444/", "notaurl"]) {
       expect(cleanUrl(bad).ok, bad).toBe(false);
     }
   });

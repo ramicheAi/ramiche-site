@@ -111,8 +111,9 @@ export function cleanUrl(raw: unknown): Valid<string> {
   // Tailscale MagicDNS: never a public location.
   if (!host || !host.includes(".") || PRIVATE_HOST.test(host) || isPrivateIp(host)) return bad("url host must be public");
   u.hostname = host;
-  // Path parameters (";token=...") are a classic place for session ids and signed tokens.
-  if (u.pathname.includes(";")) return bad("url path must not carry ;parameters");
+  // Path parameters (";jsessionid=...") are a classic place for session ids and signed tokens. Encoded forms count:
+  // a server that decodes the path (once or repeatedly) sees %3B / %253B as ";", and %3F / %23 as a query or fragment that stripping missed.
+  if (u.pathname.includes(";") || /%(25)*(3b|3f|23)/i.test(u.pathname)) return bad("url path must not carry ;parameters or an encoded ; ? #");
   u.search = "";
   u.hash = "";
   const out = u.toString();
