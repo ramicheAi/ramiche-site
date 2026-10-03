@@ -11,7 +11,7 @@ import * as svc from "./service";
 import type { MissionStore } from "./store";
 import { resolveTarget } from "./targets";
 import { MISSION_STATES, type MissionRow } from "./types";
-import { cleanUrl, gitBranch, items, owner, pathDelimiterFree, team } from "./validate";
+import { cleanUrl, gitBranch, items, owner, pathDelimiterFree, team, text } from "./validate";
 
 const row = (over: Partial<MissionRow> = {}): MissionRow => ({
   id: "00000000-0000-4000-8000-000000000001", ref: 1, tenant_id: "t", objective: "o", owner: "ramon", owner_kind: "human",
@@ -57,6 +57,10 @@ describe("agent registry validation (for owner/team the founder assigns)", () =>
 });
 
 describe("validation", () => {
+  it("free text refuses lone surrogates but keeps real emoji", () => {
+    expect(text("ok \ud83d\ude00", "note", 500).ok).toBe(true);
+    for (const bad of ["\ud800", "x\udc00", "\ud83d", "a\ud83db"]) expect(text(bad, "note", 500).ok, JSON.stringify(bad)).toBe(false);
+  });
   it("owner and team", () => {
     expect(owner("ramon", "human").ok).toBe(true);
     expect(owner("someone", "human").ok).toBe(false);
@@ -100,7 +104,9 @@ describe("validation", () => {
   it("path delimiter check decodes rather than pattern-matches", () => {
     expect(pathDelimiterFree("/report%2520final")).toBe(true);
     expect(pathDelimiterFree("/a%2Fb/c")).toBe(true);
-    expect(pathDelimiterFree("/bad%E0%A4%A")).toBe(true); // malformed escape: nothing can decode it further
+    for (const malformed of ["/bad%E0%A4%A", "/a%3Bjsessionid=SECRET%ZZ", "/a%3Ftoken=SECRET/%C0", "/x%"]) {
+      expect(pathDelimiterFree(malformed), malformed).toBe(false); // lenient decoders still decode the rest
+    }
     for (const bad of ["/x;y", "/x%3By", "/x%253By", "/x%25%33%42y", "/x%2525%33%42y", "/x%25%32%33", "/x%25%33%46"]) {
       expect(pathDelimiterFree(bad), bad).toBe(false);
     }
@@ -219,6 +225,10 @@ describe("target formats (no database needed)", () => {
     expect((await t("yolo_build", "2026-10-03-nova-thing")).ok).toBe(true);
     expect((await t("yolo_build", "../etc")).ok).toBe(false);
     expect((await t("firestore_task", "a/b")).ok).toBe(false);
+    for (const reserved of ["__task__", "____", "__x__"]) expect((await t("firestore_task", reserved)).ok, reserved).toBe(false);
+    for (const okId of ["abc", "_x_", "__x", "x__", "a__b__c"]) expect((await t("firestore_task", okId)).ok, okId).toBe(true);
+    const a = await t("pull_request", "RamicheAi/Ramiche-Site#37"), b = await t("pull_request", "ramicheai/ramiche-site#37");
+    expect(a.ok && b.ok && a.target.targetId === b.target.targetId && a.target.targetId === "ramicheai/ramiche-site#37").toBe(true);
     expect((await t("project", "mettle")).ok).toBe(true);
     expect((await t("project", "nope")).ok).toBe(false);
   });

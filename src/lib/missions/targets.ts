@@ -86,7 +86,8 @@ export async function resolveTarget(
       if (!/^\d{4}-\d{2}-\d{2}-[a-z0-9][a-z0-9-]{0,120}$/.test(id)) return invalid("yolo_build must be a build folder name like 2026-10-03-nova-thing");
       return { ok: true, target: { targetType: type, targetId: id, targetIndex: null, resolution: "format_only" } };
     case "firestore_task":
-      if (!/^[A-Za-z0-9_-]{1,128}$/.test(id)) return invalid("firestore_task must be a Firestore document id");
+      // Firestore reserves ids matching __.*__ (and "." / "..", already outside this charset).
+      if (!/^[A-Za-z0-9_-]{1,128}$/.test(id) || /^__.*__$/.test(id)) return invalid("firestore_task must be a valid Firestore document id");
       return { ok: true, target: { targetType: type, targetId: id, targetIndex: null, resolution: "format_only" } };
     case "git_branch":
       if (!gitBranch(id)) return invalid("git_branch is not a valid branch name");
@@ -100,7 +101,9 @@ export async function resolveTarget(
       // Repository: 1..100 of [A-Za-z0-9._-], never "." or "..".
       const m = /^([A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38})\/([A-Za-z0-9._-]{1,100})#([1-9][0-9]{0,8})$/.exec(id);
       if (!m || m[2] === "." || m[2] === "..") return invalid("pull_request must be owner/repo#number with a valid GitHub owner and repository");
-      return { ok: true, target: { targetType: type, targetId: `${m[1]}/${m[2]}#${m[3]}`, targetIndex: null, resolution: "format_only" } };
+      // GitHub owner and repository names are case-insensitive: store one canonical (lower-case) spelling so the
+      // live-link uniqueness constraint sees one PR as one target.
+      return { ok: true, target: { targetType: type, targetId: `${m[1].toLowerCase()}/${m[2].toLowerCase()}#${m[3]}`, targetIndex: null, resolution: "format_only" } };
     }
   }
   return invalid(`unsupported target type ${type}`);

@@ -26,6 +26,8 @@ export function text(v: unknown, field: string, max: number): Valid<string> {
   const t = v.trim();
   if (t.length < 1 || t.length > max) return bad(`${field} must be 1..${max} characters`);
   if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(t)) return bad(`${field} contains control characters`);
+  // A lone UTF-16 surrogate is not valid Unicode and Postgres refuses it in jsonb/text: reject it here as a 4xx.
+  if (/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/.test(t)) return bad(`${field} contains invalid Unicode`);
   return { ok: true, value: t };
 }
 
@@ -99,15 +101,16 @@ const MAX_DECODE_PASSES = 4;
 /**
  * True when the path contains no ";", "?" or "#" at any decoding depth. The path is actually decoded, pass by pass
  * (never pattern-matched, so splitting an escape across levels such as %25%33%42 cannot hide a ";"), and checked
- * after every pass. A malformed escape stops decoding there, since no decoder can go further either. Anything still
- * changing after MAX_DECODE_PASSES is refused.
+ * after every pass. A path with a malformed escape, or one still changing after MAX_DECODE_PASSES, is refused.
  */
 export function pathDelimiterFree(path: string): boolean {
   let cur = path;
   for (let pass = 0; ; pass++) {
     if (/[;?#]/.test(cur)) return false;
     let next: string;
-    try { next = decodeURIComponent(cur); } catch { return true; }
+    // A malformed escape is refused, not waved through: lenient decoders (Python unquote, PHP urldecode) still decode
+    // every other escape in the path, so one bad %ZZ must not switch the whole check off.
+    try { next = decodeURIComponent(cur); } catch { return false; }
     if (next === cur) return true;
     if (pass >= MAX_DECODE_PASSES) return false;
     cur = next;
