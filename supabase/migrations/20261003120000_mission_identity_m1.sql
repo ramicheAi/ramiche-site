@@ -72,7 +72,8 @@ begin
   return true;
 end $$;
 
--- Event payload discipline: a small object of structured metadata. Bounded total size, bounded strings, bounded
+-- Event payload discipline: a small object of structured metadata. Bounded total size (4096 BYTES), bounded strings
+-- (1000 BYTES each), bounded
 -- depth, and no key (at any depth) that names prompts, model output, credentials, headers or raw logs.
 -- Keys are normalized first: lower-cased with every non-alphanumeric character removed, so case and separators
 -- (-, _, spaces) cannot hide a name: x-api-key, API_KEY and authorizationHeader all normalize to a sensitive form.
@@ -90,7 +91,8 @@ declare
     'response','responses','completion','completions','output','stdout','stderr','header','headers','auth'];
 begin
   if v is null or jsonb_typeof(v) <> 'object' then return false; end if;
-  if length(v::text) > 4096 then return false; end if;
+  -- Bytes, not characters: length() counts characters, so a multibyte (emoji) payload could store ~4x the bound.
+  if octet_length(v::text) > 4096 then return false; end if;
   return not exists (
     with recursive walk(val, depth) as (
       select v, 1
@@ -106,7 +108,7 @@ begin
     )
     select 1 from walk w
     where w.depth > 4
-       or (jsonb_typeof(w.val) = 'string' and length(w.val #>> '{}') > 1000)
+       or (jsonb_typeof(w.val) = 'string' and octet_length(w.val #>> '{}') > 1000)
        or (jsonb_typeof(w.val) = 'object' and exists (
              select 1 from jsonb_object_keys(w.val) k
              cross join lateral (select regexp_replace(lower(k), '[^a-z0-9]', '', 'g') as nk) n
@@ -242,6 +244,16 @@ begin
           or new.success_criteria is distinct from old.success_criteria
           or new.deliverables is distinct from old.deliverables) then
     raise exception 'mission definition is frozen once approved (state %)', old.state using errcode = 'MI015';
+  end if;
+  -- Criteria are editable in intent/plan, but never underneath live evidence: otherwise evidence linked to c1 could
+  -- be orphaned (c1 removed) or repurposed (c1 rewritten to mean something else) and still count at verification.
+  -- Tombstone the evidence first. The mission row lock taken by this UPDATE serializes against the link guard's
+  -- FOR SHARE, so a concurrent evidence insert cannot slip in underneath the check.
+  if new.success_criteria is distinct from old.success_criteria and exists (
+       select 1 from public.mission_links l
+        where l.mission_id = old.id and l.relation = 'evidence' and l.removed_at is null) then
+    raise exception 'success criteria cannot change while live evidence exists; tombstone that evidence first'
+      using errcode = 'MI029';
   end if;
   new.updated_at := now();
   return new;
@@ -575,6 +587,10 @@ alter table public.mission_links  enable row level security;
 alter table public.mission_events enable row level security;
 
 revoke all on table public.missions, public.mission_links, public.mission_events from public, anon, authenticated, service_role;
+-- The identity sequences behind missions.ref and mission_events.seq inherit Supabase's default sequence grants (ALL to
+-- anon and authenticated). Revoke them from every role. Identity values are assigned by the table itself on INSERT,
+-- which needs no sequence privilege, so service_role gets nothing here either.
+revoke all on sequence public.missions_ref_seq, public.mission_events_seq_seq from public, anon, authenticated, service_role;
 grant select, insert on table public.missions to service_role;
 grant update (objective, success_criteria, deliverables) on table public.missions to service_role;
 grant select, insert on table public.mission_links to service_role;

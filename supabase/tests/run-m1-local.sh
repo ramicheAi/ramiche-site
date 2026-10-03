@@ -20,7 +20,8 @@ fail(){ echo "FAIL  $1"; fails=$((fails+1)); }
 cleanup(){ "$PG/pg_ctl" -D "$DATA" stop -m fast >/dev/null 2>&1; rm -rf "$WORK"; }
 trap cleanup EXIT
 
-"$PG/initdb" -D "$DATA" -U postgres --auth=trust >/dev/null 2>&1 || { echo "initdb failed"; exit 2; }
+# UTF8, like the hosted Supabase database: multibyte payload bounds are only meaningful in UTF8.
+"$PG/initdb" -D "$DATA" -U postgres --auth=trust -E UTF8 --locale=C >/dev/null 2>&1 || { echo "initdb failed"; exit 2; }
 "$PG/pg_ctl" -D "$DATA" -o "-p $PORT -k $SOCK -c listen_addresses=''" -l "$WORK/pg.log" start >/dev/null 2>&1
 for i in $(seq 1 20); do "$PG/pg_isready" >/dev/null 2>&1 && break; sleep 1; done
 "$PG/createdb" m1 || { echo "createdb failed"; exit 2; }
@@ -124,6 +125,15 @@ M=$(mk); walk plan
 EV=$(q "select count(*) from public.mission_events where mission_id='$M'")
 q "begin; select public.mission_transition('$M','approved','ramon','human','{\"secret\":\"x\"}'::jsonb); commit;" >/dev/null 2>&1
 [ "$(q "select state from public.missions where id='$M'")" = "plan" ] && [ "$(q "select count(*) from public.mission_events where mission_id='$M'")" = "$EV" ] && pass "C5 rejected transition wrote nothing" || fail "C5 partial write"
+
+# C6: an evidence insert is in flight (holding its FOR SHARE on the mission); a criteria rewrite must wait for it and
+# then refuse, instead of slipping in before the evidence lands.
+M=$(mk); q "select public.mission_transition('$M','plan','ramon','human')" >/dev/null
+( "$PG/psql" -q -d m1 -c "begin; insert into public.mission_links (mission_id,target_type,target_id,relation,criterion_id,created_by,created_by_kind) values ('$M','url','https://e.test/race','evidence','c1','triage','agent'); select pg_sleep(3); commit;" >/dev/null 2>&1 ) &
+sleep 1
+B=$("$PG/psql" -q -d m1 -c "\\set VERBOSITY verbose" -c "update public.missions set success_criteria='[{\"id\":\"c9\",\"text\":\"rewritten\"}]' where id='$M'" 2>&1); wait
+[ "$(code_of "$B")" = "MI029" ] && pass "C6 criteria rewrite waits for in-flight evidence, then refuses (MI029)" || fail "C6 got [$(code_of "$B")]"
+[ "$(q "select success_criteria->0->>'id' from public.missions where id='$M'")" = "c1" ] && pass "C6 criteria unchanged, evidence intact" || fail "C6 end state"
 
 echo "=== 6a. rollback in the realistic state (M1 applied, no telemetry references a mission), then clean re-apply"
 qr(){ "$PG/psql" -tAq -d rb_clean -c "$1" 2>&1; }

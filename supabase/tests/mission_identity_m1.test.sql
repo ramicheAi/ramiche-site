@@ -665,4 +665,98 @@ begin
   assert pg_temp.try(format($q$select public.mission_transition(%L,'verified','triage','human')$q$, m)) = 'MI008', '...but a note is never read as team history';
 end $$;
 
+-- @test codex 1 (orphaning): criteria cannot drop a criterion that live evidence points at
+do $$
+declare m uuid := pg_temp.mk(p_criteria => '[{"id":"c1","text":"it works"}]');
+begin
+  perform pg_temp.go(m, 'plan');
+  perform pg_temp.ev(m, 'c1');
+  assert pg_temp.try(format($q$update public.missions set success_criteria='[{"id":"c2","text":"something else"}]' where id=%L$q$, m)) = 'MI029', 'orphaning edit (owner)';
+  assert pg_temp.try(format($q$update public.missions set success_criteria='[{"id":"c2","text":"something else"}]' where id=%L$q$, m), 'service_role') = 'MI029', 'orphaning edit (service_role)';
+  assert (select success_criteria from public.missions where id = m) = '[{"id":"c1","text":"it works"}]'::jsonb, 'criteria unchanged';
+  assert not exists (select 1 from public.mission_links l where l.mission_id = m and l.relation = 'evidence' and l.removed_at is null
+                       and not exists (select 1 from jsonb_array_elements((select success_criteria from public.missions where id = m)) c where c->>'id' = l.criterion_id)),
+         'no live evidence points at a missing criterion';
+end $$;
+
+-- @test codex 1 (repurposing): a criterion cannot be rewritten under its evidence, so the attack can never reach verified
+do $$
+declare m uuid := pg_temp.mk(p_criteria => '[{"id":"c1","text":"unit tests pass"}]');
+begin
+  perform pg_temp.go(m, 'plan');
+  perform pg_temp.ev(m, 'c1', 'https://e.test/unit-tests-green');
+  assert pg_temp.try(format($q$update public.missions set success_criteria='[{"id":"c1","text":"security audit signed off"}]' where id=%L$q$, m)) = 'MI029', 'same id, new meaning';
+  -- the mission can only proceed with the ORIGINAL meaning of c1
+  perform pg_temp.go(m, 'approved'); perform pg_temp.go(m, 'executing'); perform pg_temp.go(m, 'reviewing'); perform pg_temp.go(m, 'completed');
+  assert (select success_criteria->0->>'text' from public.missions where id = m) = 'unit tests pass', 'the meaning the evidence proves';
+  assert pg_temp.go(m, 'verified', 'sid', 'human') = 'verified', 'verified only against what the evidence actually proves';
+end $$;
+
+-- @test codex 1: the sanctioned path still works, tombstone the evidence then edit; other edits are unaffected
+do $$
+declare m uuid := pg_temp.mk(p_criteria => '[{"id":"c1","text":"it works"}]'); l uuid;
+begin
+  perform pg_temp.go(m, 'plan');
+  l := pg_temp.ev(m, 'c1');
+  -- a context link and objective/deliverable edits never trip the criteria guard
+  perform 1 from public.mission_links where false;
+  insert into public.mission_links (mission_id,target_type,target_id,relation,created_by,created_by_kind) values (m,'url','https://ctx.test','context','atlas','agent');
+  assert pg_temp.try(format($q$update public.missions set objective='sharper objective', deliverables='[{"id":"d1","text":"report"}]' where id=%L$q$, m)) = 'OK', 'objective and deliverables still editable';
+  assert pg_temp.try(format($q$update public.missions set success_criteria='[{"id":"c2","text":"new criterion"}]' where id=%L$q$, m)) = 'MI029', 'still blocked while evidence is live';
+  update public.mission_links set removed_at = now(), removed_by = 'ramon', removed_by_kind = 'human' where id = l;
+  assert pg_temp.try(format($q$update public.missions set success_criteria='[{"id":"c2","text":"new criterion"}]' where id=%L$q$, m)) = 'OK', 'editable once the evidence is tombstoned';
+  assert (select count(*) from public.mission_events where mission_id = m and kind = 'link_removed') = 1, 'and the tombstone is on the record';
+end $$;
+
+-- @test codex 2: identity sequences carry no client privileges, and service_role needs none to insert
+do $$
+declare q text; r text; seqs text[] := array['public.missions_ref_seq','public.mission_events_seq_seq']; bad text := '';
+begin
+  assert pg_get_serial_sequence('public.missions', 'ref') = 'public.missions_ref_seq', 'missions.ref sequence name';
+  assert pg_get_serial_sequence('public.mission_events', 'seq') = 'public.mission_events_seq_seq', 'mission_events.seq sequence name';
+  foreach q in array seqs loop
+    foreach r in array array['anon','authenticated','service_role'] loop
+      if has_sequence_privilege(r, q, 'usage') or has_sequence_privilege(r, q, 'select') or has_sequence_privilege(r, q, 'update') then
+        bad := bad || r || ' on ' || q || ' ';
+      end if;
+    end loop;
+    if exists (select 1 from pg_class c, aclexplode(coalesce(c.relacl, acldefault('s', c.relowner))) x
+                where c.oid = q::regclass and x.grantee = 0) then
+      bad := bad || 'PUBLIC on ' || q || ' ';
+    end if;
+  end loop;
+  assert bad = '', 'sequence privileges remain: ' || bad;
+  assert pg_temp.try($q$select nextval('public.missions_ref_seq')$q$, 'anon') = '42501', 'anon cannot consume ref values';
+  assert pg_temp.try($q$select last_value from public.mission_events_seq_seq$q$, 'authenticated') = '42501', 'authenticated cannot read seq';
+  assert pg_temp.try($q$select setval('public.missions_ref_seq', 1)$q$, 'service_role') = '42501', 'service_role cannot reset ref';
+  -- identity values are assigned by the table, so the app path still works with zero sequence grants
+  assert pg_temp.try($q$insert into public.missions (objective, owner, owner_kind, created_by, created_by_kind) values ('seq check','ramon','human','atlas','agent')$q$, 'service_role') = 'OK', 'svc insert assigns ref';
+  assert pg_temp.try(format($q$insert into public.mission_events (mission_id, kind, actor, actor_kind, detail) values (%L,'note','atlas','agent','{"summary":"ok"}')$q$, pg_temp.mk()), 'service_role') = 'OK', 'svc note assigns seq';
+end $$;
+
+-- @test codex 3: the 4 KB bound is bytes under UTF8, including emoji
+do $$
+declare v jsonb; e text := U&'\+01F600';  -- one emoji, 4 bytes in UTF8
+begin
+  assert current_setting('server_encoding') = 'UTF8', 'these tests need a UTF8 database (like Supabase)';
+  assert octet_length(e) = 4 and length(e) = 1, 'emoji is 4 bytes, 1 character';
+  -- exactly 4096 bytes accepted, 4097 rejected (ASCII, so bytes = characters)
+  v := jsonb_build_object('k1', repeat('x',1000), 'k2', repeat('x',1000), 'k3', repeat('x',1000), 'k4', repeat('x',1000), 'k5', repeat('x',46));
+  assert octet_length(v::text) = 4096, 'fixture is exactly 4096 bytes, got ' || octet_length(v::text);
+  assert public.mission_detail_ok(v), '4096 bytes accepted';
+  v := jsonb_build_object('k1', repeat('x',1000), 'k2', repeat('x',1000), 'k3', repeat('x',1000), 'k4', repeat('x',1000), 'k5', repeat('x',47));
+  assert octet_length(v::text) = 4097 and not public.mission_detail_ok(v), '4097 bytes rejected';
+  -- the old bypass: under 4096 CHARACTERS but far over 4096 BYTES
+  v := jsonb_build_object('a', repeat(e,250), 'b', repeat(e,250), 'c', repeat(e,250), 'd', repeat(e,250), 'f', repeat(e,250));
+  assert length(v::text) < 4096 and octet_length(v::text) > 4096, 'fixture: chars under, bytes over';
+  assert not public.mission_detail_ok(v), 'emoji payload over 4 KB of bytes rejected';
+  -- per-string bound is bytes too: 251 emoji = 1004 bytes, 251 characters
+  assert not public.mission_detail_ok(jsonb_build_object('s', repeat(e,251))), 'one string over 1000 bytes rejected';
+  assert public.mission_detail_ok(jsonb_build_object('s', repeat(e,250))), '250 emoji = 1000 bytes accepted';
+  -- realistic multibyte metadata is fine
+  assert public.mission_detail_ok(jsonb_build_object('summary', U&'d\00E9ploy\00E9 en production \+01F680', 'pr', 37)), 'accented text and an emoji';
+  -- and the bound holds on the real write path
+  assert pg_temp.try(format($q$insert into public.mission_events (mission_id, kind, actor, actor_kind, detail) values (%L,'note','atlas','agent',%L::jsonb)$q$, pg_temp.mk(), v::text), 'service_role') = '23514', 'oversize emoji note rejected on insert';
+end $$;
+
 select 'mission_identity_m1: all tests passed' as result;
