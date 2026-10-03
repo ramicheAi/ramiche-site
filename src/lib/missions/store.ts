@@ -138,20 +138,22 @@ export function supabaseMissionStore(svc: SupabaseClient): MissionStore {
     async dependencyEdges(fromMissionIds) {
       if (fromMissionIds.length === 0) return { ok: true, data: [] };
       // Paged to completion: PostgREST caps a response (max-rows, 1000 by default), and a silently truncated edge set
-      // would let the cycle walk miss a path. The next offset is what was actually returned and the loop stops only
-      // on an EMPTY page, so a server cap smaller than EDGE_PAGE cannot end the read early. Ordered by id for stable
-      // pages. A page budget bounds the loop; running out of it fails closed rather than returning a partial set.
+      // would let the cycle walk miss a path. Keyset pagination on the immutable id (id > last seen id), never an
+      // offset: a concurrent tombstone removes rows from the live set, which would shift an offset and skip an edge.
+      // The loop stops only on an EMPTY page, so a server cap smaller than EDGE_PAGE cannot end the read early. A page
+      // budget bounds it; running out fails closed rather than returning a partial set.
       const out: { mission_id: string; target_id: string }[] = [];
-      let from = 0;
+      let after: string | null = null;
       for (let pageNo = 0; pageNo < EDGE_MAX_PAGES; pageNo++) {
-        const { data, error } = await svc.from("mission_links").select("mission_id, target_id")
-          .in("mission_id", fromMissionIds).eq("relation", "dependency").eq("target_type", "mission").is("removed_at", null)
-          .order("id", { ascending: true }).range(from, from + EDGE_PAGE - 1);
+        let q = svc.from("mission_links").select("id, mission_id, target_id")
+          .in("mission_id", fromMissionIds).eq("relation", "dependency").eq("target_type", "mission").is("removed_at", null);
+        if (after !== null) q = q.gt("id", after);
+        const { data, error } = await q.order("id", { ascending: true }).limit(EDGE_PAGE);
         if (error) return wrap(null, error);
-        const rows = (data ?? []) as { mission_id: string; target_id: string }[];
+        const rows = (data ?? []) as { id: string; mission_id: string; target_id: string }[];
         if (rows.length === 0) return { ok: true, data: out };
-        out.push(...rows);
-        from += rows.length;
+        for (const r of rows) out.push({ mission_id: r.mission_id, target_id: r.target_id });
+        after = rows[rows.length - 1].id;
       }
       return { ok: false, error: { message: "dependency edge read exceeded its page budget" } };
     },

@@ -120,9 +120,9 @@ export function cleanUrl(raw: unknown): Valid<string> {
   return { ok: true, value: out };
 }
 
-/** git check-ref-format, the subset that matters for a stored pointer. */
+/** git check-ref-format, the subset that matters for a stored pointer. Rules apply to EVERY slash-separated component. */
 export function gitBranch(v: string): boolean {
   return v.length >= 1 && v.length <= 255 && /^[A-Za-z0-9._/-]+$/.test(v) && !v.startsWith("/") && !v.endsWith("/")
     && !v.endsWith(".") && !v.endsWith(".lock") && !v.includes("..") && !v.includes("//") && !v.startsWith("-")
-    && !v.split("/").some((part) => part.startsWith("."));
+    && !v.split("/").some((part) => part.length === 0 || part.startsWith(".") || part.endsWith(".lock"));
 }

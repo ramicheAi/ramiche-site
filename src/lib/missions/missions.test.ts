@@ -86,7 +86,7 @@ describe("validation", () => {
   });
   it("git branch names", () => {
     for (const ok of ["main", "p06/mission-m2", "feature/a.b_c"]) expect(gitBranch(ok), ok).toBe(true);
-    for (const bad of ["", "/x", "x/", "a..b", "a//b", ".hidden", "x/.y", "x.lock", "-x", "x y", "x~1"]) expect(gitBranch(bad), bad).toBe(false);
+    for (const bad of ["", "/x", "x/", "a..b", "a//b", ".hidden", "x/.y", "x.lock", "foo.lock/bar", "a/b.lock/c", "-x", "x y", "x~1", "x@{1}"]) expect(gitBranch(bad), bad).toBe(false);
   });
 });
 

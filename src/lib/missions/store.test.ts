@@ -64,15 +64,22 @@ describe("supabaseMissionStore", () => {
     expect(c.ops.some(([op, a]) => op === "is" && a[0] === "removed_at" && a[1] === null)).toBe(true);
   });
 
-  function pagedClient(serverCap: number, total: number, ranges: [number, number][]) {
+  /** A fake PostgREST over a sorted edge table: honours gt("id"), order, limit and a server row cap. */
+  function pagedClient(serverCap: number, ids: string[], log: (string | null)[], onPage?: (n: number, table: string[]) => void) {
+    const table = [...ids].sort();
     return {
       from: () => {
+        let gt: string | null = null;
+        let page = 0;
         const api: Record<string, unknown> = new Proxy({}, {
           get(_t, prop: string) {
-            if (prop === "range") return (from: number, to: number) => {
-              ranges.push([from, to]);
-              const n = Math.max(0, Math.min(to - from + 1, serverCap, total - from));
-              return Promise.resolve({ data: Array.from({ length: n }, (_, i) => ({ mission_id: "a", target_id: `t${from + i}` })), error: null });
+            if (prop === "gt") return (_c: string, v: string) => { gt = v; return api; };
+            if (prop === "range") return () => { throw new Error("offset paging must not be used"); };
+            if (prop === "limit") return (n: number) => {
+              log.push(gt);
+              onPage?.(page++, table);
+              const rows = table.filter((id) => gt === null || id > gt).slice(0, Math.min(n, serverCap));
+              return Promise.resolve({ data: rows.map((id) => ({ id, mission_id: "a", target_id: `t-${id}` })), error: null });
             };
             return () => api;
           },
@@ -81,23 +88,34 @@ describe("supabaseMissionStore", () => {
       },
     } as unknown as SupabaseClient;
   }
+  const ids = (n: number) => Array.from({ length: n }, (_, i) => `id${String(i).padStart(7, "0")}`);
 
-  it("reads dependency edges to completion across pages (a truncated edge set could hide a cycle)", async () => {
-    const ranges: [number, number][] = [];
-    const r = await supabaseMissionStore(pagedClient(1000, EDGE_PAGE * 2 + 3, ranges)).dependencyEdges(["a"]);
-    expect(r.ok && r.data.map((e) => e.target_id)).toEqual(Array.from({ length: EDGE_PAGE * 2 + 3 }, (_, i) => `t${i}`));
-    expect(ranges[0]).toEqual([0, EDGE_PAGE - 1]);
+  it("reads dependency edges to completion by id cursor (a truncated edge set could hide a cycle)", async () => {
+    const log: (string | null)[] = [];
+    const all = ids(EDGE_PAGE * 2 + 3);
+    const r = await supabaseMissionStore(pagedClient(1000, all, log)).dependencyEdges(["a"]);
+    expect(r.ok && r.data.map((e) => e.target_id)).toEqual(all.map((id) => `t-${id}`));
+    expect(log[0]).toBeNull();
+    expect(log[1]).toBe(all[EDGE_PAGE - 1]);
     expect(EDGE_PAGE).toBeLessThanOrEqual(1000);
   });
 
   it("a server row cap smaller than the page size cannot end the read early", async () => {
-    const ranges: [number, number][] = [];
-    const r = await supabaseMissionStore(pagedClient(7, 40, ranges)).dependencyEdges(["a"]);
-    expect(r.ok && r.data.map((e) => e.target_id)).toEqual(Array.from({ length: 40 }, (_, i) => `t${i}`));
+    const all = ids(40);
+    const r = await supabaseMissionStore(pagedClient(7, all, [])).dependencyEdges(["a"]);
+    expect(r.ok && r.data.length).toBe(40);
+  });
+
+  it("a row tombstoned between pages cannot make a later live edge disappear", async () => {
+    const all = ids(EDGE_PAGE + 10);
+    const target = all[EDGE_PAGE + 5];
+    // after the first page is read, an earlier row leaves the live set (a concurrent tombstone)
+    const r = await supabaseMissionStore(pagedClient(1000, all, [], (n, table) => { if (n === 1) table.splice(3, 1); })).dependencyEdges(["a"]);
+    expect(r.ok && r.data.some((e) => e.target_id === `t-${target}`)).toBe(true);
   });
 
   it("running out of the page budget fails closed instead of returning a partial set", async () => {
-    const r = await supabaseMissionStore(pagedClient(1, 1_000_000, [])).dependencyEdges(["a"]);
+    const r = await supabaseMissionStore(pagedClient(1, ids(1000), [])).dependencyEdges(["a"]);
     expect(r.ok).toBe(false);
   });
 });
