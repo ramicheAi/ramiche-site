@@ -258,7 +258,8 @@ begin
   assert pg_temp.try(format($q$update public.missions set objective='moved goalposts' where id=%L$q$, m)) = 'MI015', 'objective frozen';
   assert pg_temp.try(format($q$update public.missions set success_criteria='[]' where id=%L$q$, m)) = 'MI015', 'criteria frozen (no deleting criteria to dodge evidence)';
   assert pg_temp.try(format($q$update public.missions set deliverables='[{"id":"d1","text":"x"}]' where id=%L$q$, m)) = 'MI015', 'deliverables frozen';
-  assert pg_temp.try(format($q$update public.missions set agent_ids='{triage,vee}' where id=%L$q$, m)) = 'OK', 'team can change mid-flight';
+  assert pg_temp.try(format($q$update public.missions set agent_ids='{triage,vee}' where id=%L$q$, m)) = 'MI016', 'team never changes by direct update';
+  assert pg_temp.try(format($q$select public.mission_reassign(%L,'ramon','human','{triage,vee}','ramon','human')$q$, m)) = 'OK', 'team can change mid-flight (audited)';
   -- ref is GENERATED ALWAYS: Postgres itself refuses the write (428C9) before the trigger runs.
   assert pg_temp.try(format($q$update public.missions set ref=ref+1000 where id=%L$q$, m)) = '428C9', 'ref immutable';
   assert pg_temp.try(format($q$update public.missions set tenant_id=gen_random_uuid() where id=%L$q$, m)) = 'MI012', 'tenant immutable';
@@ -364,6 +365,135 @@ begin
   assert pg_temp.try($q$insert into public.execution_events (id, started_at, provider, purpose, outcome, usage_quality, billing_mode, correlation_type, correlation_id) values (gen_random_uuid(), now(), 'gemini', 'agent-reply', 'ok', 'not_reported', 'unknown', 'mission', gen_random_uuid()::text)$q$) = '23514', 'correlation_type mission stays rejected';
   assert pg_temp.try(format($q$update public.missions set objective='x' where id=%L$q$, m)) = 'OK', 'a mission referenced by telemetry is still editable in intent';
   assert pg_temp.try(format($q$delete from public.missions where id=%L$q$, m)) = 'MI010', 'and still never deletable';
+end $$;
+
+-- @test team audit: reassignment works before terminal, writes exactly one bounded team_changed event of only the diff
+do $$
+declare m uuid := pg_temp.mk(p_owner => 'ramon', p_owner_kind => 'human', p_agents => '{triage,vee}'); e record; n int;
+begin
+  -- in intent
+  perform public.mission_reassign(m, 'ramon', 'human', '{triage,shuri}', 'ramon', 'human');
+  select count(*) into n from public.mission_events where mission_id = m and kind = 'team_changed';
+  assert n = 1, format('expected 1 team_changed, got %s', n);
+  select * into e from public.mission_events where mission_id = m and kind = 'team_changed';
+  assert e.actor = 'ramon' and e.actor_kind = 'human', 'reassigner recorded';
+  assert e.detail = '{"agents_added":["shuri"],"agents_removed":["vee"]}'::jsonb, 'only the diff: ' || e.detail::text;
+  assert e.from_state is null and e.to_state is null, 'not a state transition';
+  -- after approval: definition frozen, team still reassignable, owner change recorded from->to
+  perform pg_temp.walk_to(m, 'executing');
+  perform public.mission_reassign(m, 'atlas', 'agent', '{triage,shuri}', 'ramon', 'human');
+  select * into e from public.mission_events where mission_id = m and kind = 'team_changed' order by seq desc limit 1;
+  assert e.detail = '{"owner":{"from":"ramon","to":"atlas"},"owner_kind":{"from":"human","to":"agent"}}'::jsonb, 'owner diff: ' || e.detail::text;
+  assert (select owner || '/' || owner_kind from public.missions where id = m) = 'atlas/agent';
+  assert (select count(*) from public.mission_events where mission_id = m and kind = 'team_changed') = 2, 'one event per reassignment';
+  -- the event never copies mission state
+  assert not exists (select 1 from public.mission_events where mission_id = m and kind = 'team_changed'
+                      and (detail ? 'objective' or detail ? 'success_criteria' or detail ? 'state' or detail ? 'deliverables')), 'no state copied';
+end $$;
+
+-- @test team audit: no silent change, no forgery, no change on terminal, no no-op events, inputs validated
+do $$
+declare m uuid := pg_temp.mk(p_agents => '{triage}'); c uuid := pg_temp.mk(); v uuid := pg_temp.mk(); n int;
+begin
+  assert pg_temp.try(format($q$update public.missions set owner='atlas', owner_kind='agent' where id=%L$q$, m)) = 'MI016', 'owner direct owner change';
+  assert pg_temp.try(format($q$update public.missions set agent_ids='{shuri}' where id=%L$q$, m), 'service_role') = '42501', 'svc direct team change';
+  assert pg_temp.try(format($q$update public.missions set owner_kind='agent' where id=%L$q$, m), 'service_role') = '42501', 'svc direct owner_kind change';
+  assert pg_temp.try(format($q$insert into public.mission_events (mission_id, kind, actor, actor_kind, detail) values (%L,'team_changed','atlas','agent','{"owner":{"from":"ramon","to":"atlas"}}')$q$, m), 'service_role') = 'MI031', 'forged team event (svc)';
+  assert pg_temp.try(format($q$insert into public.mission_events (mission_id, kind, actor, actor_kind) values (%L,'team_changed','atlas','agent')$q$, m)) = 'MI031', 'forged team event (owner)';
+  assert pg_temp.try(format($q$select public.mission_reassign(%L,'ramon','human','{triage}','ramon','human')$q$, m)) = 'MI017', 'no-op reassignment';
+  assert pg_temp.try(format($q$select public.mission_reassign(%L,'ramon','human','{triage}','ramon','human')$q$, m)) = 'MI017', 'order-only or no-op writes nothing';
+  assert pg_temp.try(format($q$select public.mission_reassign(%L,'ramon','human','{triage,triage}','ramon','human')$q$, m)) = 'MI018', 'duplicate agents';
+  assert pg_temp.try(format($q$select public.mission_reassign(%L,'Ramon W','human','{}','ramon','human')$q$, m)) = 'MI018', 'bad owner';
+  assert pg_temp.try(format($q$select public.mission_reassign(%L,'ramon','robot','{}','ramon','human')$q$, m)) = 'MI018', 'bad owner kind';
+  assert pg_temp.try(format($q$select public.mission_reassign(%L,'ramon','human','{}','ramon','robot')$q$, m)) = 'MI002', 'bad actor kind';
+  assert pg_temp.try($q$select public.mission_reassign('00000000-0000-0000-0000-00000000dead','ramon','human','{}','ramon','human')$q$) = 'MI004', 'missing mission';
+  perform pg_temp.go(c, 'cancelled');
+  assert pg_temp.try(format($q$select public.mission_reassign(%L,'atlas','agent','{}','ramon','human')$q$, c)) = 'MI013', 'cancelled is frozen';
+  perform pg_temp.walk_to(v, 'completed'); perform pg_temp.ev(v, 'c1'); perform pg_temp.ev(v, 'c2'); perform pg_temp.go(v, 'verified');
+  assert pg_temp.try(format($q$select public.mission_reassign(%L,'atlas','agent','{}','ramon','human')$q$, v)) = 'MI013', 'verified is frozen';
+  select count(*) into n from public.mission_events where mission_id = m and kind = 'team_changed';
+  assert n = 0, 'none of the rejected attempts wrote an event';
+  assert (select owner || ':' || array_to_string(agent_ids, ',') from public.missions where id = m) = 'ramon:triage', 'nothing changed';
+end $$;
+
+-- @test team audit: the worst-case full team swap still fits the payload bound; one more agent is rejected up front
+do $$
+declare
+  a text[] := array(select 'a' || lpad(g::text, 63, '0') from generate_series(1, 24) g);
+  b text[] := array(select 'b' || lpad(g::text, 63, '0') from generate_series(1, 24) g);
+  o1 text := 'o' || lpad('1', 63, '0'); o2 text := 'p' || lpad('2', 63, '0');
+  m uuid; e record;
+begin
+  m := pg_temp.mk(p_owner => o1, p_owner_kind => 'human', p_agents => a);
+  perform public.mission_reassign(m, o2, 'agent', b, 'ramon', 'human');
+  select * into e from public.mission_events where mission_id = m and kind = 'team_changed';
+  assert length(e.detail::text) <= 4096, format('payload %s bytes', length(e.detail::text));
+  assert jsonb_array_length(e.detail->'agents_added') = 24 and jsonb_array_length(e.detail->'agents_removed') = 24, 'full diff recorded';
+  assert public.mission_detail_ok(e.detail), 'worst case passes the payload contract';
+  assert pg_temp.try(format($q$select public.mission_reassign(%L,%L,'agent',%L,'ramon','human')$q$, m, o2,
+           array_append(b, 'c' || lpad('9', 63, '0')))) = 'MI018', '25 agents rejected before anything is written';
+end $$;
+
+-- @test function privilege audit: every M1 function pins a safe search_path; only the two entry points are definers
+do $$
+declare f record; bad text := '';
+begin
+  for f in select p.oid, p.proname, p.prosecdef, p.proconfig
+             from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'public' and p.proname in (
+              'mission_valid_ident','mission_valid_ident_array','mission_valid_items','mission_detail_ok',
+              'mission_internal_on','missions_guard','missions_after_insert','mission_links_guard',
+              'mission_links_after_write','mission_events_guard','mission_no_truncate',
+              'mission_transition_allowed','mission_transition','mission_reassign') loop
+    if f.proconfig is null or not ('search_path=pg_catalog, pg_temp' = any(f.proconfig)) then
+      bad := bad || f.proname || '(search_path) ';
+    end if;
+    if f.prosecdef <> (f.proname in ('mission_transition','mission_reassign')) then
+      bad := bad || f.proname || '(secdef) ';
+    end if;
+  end loop;
+  assert bad = '', 'audit failures: ' || bad;
+  assert (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'public' and (p.proname like 'mission%' or p.proname like 'missions%')) = 14, 'exactly 14 M1 functions';
+end $$;
+
+-- @test function privilege audit: no EXECUTE for PUBLIC, anon or authenticated on ANY M1 function; service_role only where needed
+do $$
+declare f record; bad text := '';
+  needs_svc text[] := array['mission_transition','mission_reassign','mission_valid_ident','mission_valid_ident_array',
+                            'mission_valid_items','mission_detail_ok','mission_internal_on'];
+begin
+  for f in select p.oid, p.proname, p.proacl
+             from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'public' and (p.proname like 'mission%' or p.proname like 'missions%') loop
+    if exists (select 1 from aclexplode(coalesce(f.proacl, acldefault('f', (select proowner from pg_proc where oid = f.oid)))) x
+                where x.grantee = 0 and x.privilege_type = 'EXECUTE') then
+      bad := bad || f.proname || '(PUBLIC) ';
+    end if;
+    if has_function_privilege('anon', f.oid, 'execute') then bad := bad || f.proname || '(anon) '; end if;
+    if has_function_privilege('authenticated', f.oid, 'execute') then bad := bad || f.proname || '(authenticated) '; end if;
+    if has_function_privilege('service_role', f.oid, 'execute') <> (f.proname = any(needs_svc)) then
+      bad := bad || f.proname || '(service_role=' || has_function_privilege('service_role', f.oid, 'execute') || ') ';
+    end if;
+  end loop;
+  assert bad = '', 'privilege audit failures: ' || bad;
+end $$;
+
+-- @test the client roles cannot reach any M1 function through RPC, and service_role still works end to end
+do $$
+declare m uuid := pg_temp.mk(); r text;
+begin
+  foreach r in array array['anon','authenticated'] loop
+    assert pg_temp.try($q$select public.mission_valid_ident('x')$q$, r) = '42501', r || ' validator';
+    assert pg_temp.try($q$select public.mission_detail_ok('{}'::jsonb)$q$, r) = '42501', r || ' detail check';
+    assert pg_temp.try($q$select public.mission_transition_allowed('intent','plan')$q$, r) = '42501', r || ' transition table';
+    assert pg_temp.try(format($q$select public.mission_reassign(%L,'ramon','human','{}','ramon','human')$q$, m), r) = '42501', r || ' reassign';
+  end loop;
+  assert pg_temp.try($q$select public.mission_transition_allowed('intent','plan')$q$, 'service_role') = '42501', 'service_role has no reason to call the transition table';
+  -- service_role writes still evaluate every CHECK and trigger it now holds EXECUTE for
+  assert pg_temp.try($q$insert into public.missions (objective, owner, owner_kind, agent_ids, success_criteria, created_by, created_by_kind) values ('svc path','ramon','human','{triage}','[{"id":"c1","text":"x"}]','atlas','agent')$q$, 'service_role') = 'OK', 'svc insert under revoked PUBLIC';
+  assert pg_temp.try(format($q$select public.mission_reassign(%L,'ramon','human','{shuri}','atlas','agent')$q$, m), 'service_role') = 'OK', 'svc reassign';
+  assert pg_temp.try(format($q$insert into public.mission_links (mission_id,target_type,target_id,relation,created_by,created_by_kind) values (%L,'url','https://x.test','context','atlas','agent')$q$, m), 'service_role') = 'OK', 'svc link under revoked PUBLIC';
 end $$;
 
 select 'mission_identity_m1: all tests passed' as result;

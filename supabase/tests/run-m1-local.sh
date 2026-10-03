@@ -138,16 +138,29 @@ E=$("$PG/psql" -v ON_ERROR_STOP=1 -q -d rb_clean -f "$ROOT/supabase/rollbacks/20
 E=$("$PG/psql" -v ON_ERROR_STOP=1 -q -d rb_clean -f "$ROOT/supabase/migrations/20261003120000_mission_identity_m1.sql" 2>&1 | grep ERROR | head -1)
 [ -z "$E" ] && pass "M1 re-applies cleanly after rollback" || fail "re-apply: $E"
 
-echo "=== 6b. rollback AFTER use (telemetry already references a mission): must not rewrite telemetry, re-apply must fail closed"
+echo "=== 6b. rollback AFTER use must REFUSE before any destructive change (client-independent)"
 "$PG/psql" -q -d postgres -c "create database rb_used template m1" >/dev/null 2>&1 || "$PG/createdb" -T m1 rb_used
 qu(){ "$PG/psql" -tAq -d rb_used -c "$1" 2>&1; }
-REF=$(qu "select count(*) from public.execution_events where mission_id is not null")
-[ "$REF" -ge 1 ] && pass "precondition: $REF telemetry row(s) reference a mission" || fail "no referencing row to test with"
-E=$("$PG/psql" -v ON_ERROR_STOP=1 -q -d rb_used -f "$ROOT/supabase/rollbacks/20261003120000_mission_identity_m1.rollback.sql" 2>&1 | grep ERROR | head -1)
-[ -z "$E" ] && pass "after-use rollback applies" || fail "after-use rollback: $E"
-[ "$(qu "select count(*) from public.execution_events where mission_id is not null")" = "$REF" ] && pass "after-use rollback left telemetry untouched (mission_ids kept, now dangling)" || fail "telemetry was rewritten"
-OUT=$("$PG/psql" -v ON_ERROR_STOP=1 -v VERBOSITY=verbose -q -d rb_used -c "\\set VERBOSITY verbose" -f "$ROOT/supabase/migrations/20261003120000_mission_identity_m1.sql" 2>&1 | grep -E "ERROR" | head -1)
-echo "$OUT" | grep -q "execution_events_mission_id_fkey" && pass "re-apply after use FAILS CLOSED at the FK (documented; needs an explicit data decision)" || fail "re-apply after use did not fail closed: $OUT"
+snap(){ qu "select (select count(*) from public.missions)||'/'||(select count(*) from public.mission_links)||'/'||(select count(*) from public.mission_events)||'/'||(select count(*) from public.execution_events where mission_id is not null)||'/'||(select md5(string_agg(e::text,'|' order by id)) from public.execution_events e)||'/'||(select count(*) from pg_constraint where conname='execution_events_mission_id_fkey')||'/'||(select count(*) from pg_proc where proname like 'mission%')"; }
+BEFORE=$(snap)
+[ "$(qu "select count(*) from public.missions")" -ge 1 ] && [ "$(qu "select count(*) from public.execution_events where mission_id is not null")" -ge 1 ] && pass "precondition: missions exist and telemetry references one ($BEFORE)" || fail "precondition"
+OUT=$("$PG/psql" -v ON_ERROR_STOP=1 -v VERBOSITY=verbose -q -d rb_used -c "\\set VERBOSITY verbose" -f "$ROOT/supabase/rollbacks/20261003120000_mission_identity_m1.rollback.sql" 2>&1)
+echo "$OUT" | grep -q "MI090" && pass "used rollback refused (MI090) with ON_ERROR_STOP" || fail "used rollback not refused: $(echo "$OUT" | grep ERROR | head -1)"
+[ "$(snap)" = "$BEFORE" ] && pass "refusal changed nothing: missions, links, events, telemetry digest, FK, functions all intact" || fail "state changed: $(snap)"
+OUT=$("$PG/psql" -v ON_ERROR_STOP=0 -q -d rb_used -f "$ROOT/supabase/rollbacks/20261003120000_mission_identity_m1.rollback.sql" 2>&1)
+echo "$OUT" | grep -q "rollback refused" && pass "used rollback refused WITHOUT ON_ERROR_STOP too (single atomic statement)" || fail "no refusal without ON_ERROR_STOP"
+[ "$(snap)" = "$BEFORE" ] && pass "still nothing changed after the no-ON_ERROR_STOP attempt" || fail "partial rollback happened: $(snap)"
+
+echo "=== 6c. the telemetry guard on its own: no mission rows left, but telemetry still references one"
+"$PG/psql" -q -d postgres -c "create database rb_tel template rb_used" >/dev/null 2>&1 || "$PG/createdb" -T rb_used rb_tel
+qt(){ "$PG/psql" -tAq -d rb_tel -c "$1" 2>&1; }
+# contrived on purpose (superuser, triggers bypassed, FK dropped) only to isolate the second check
+qt "alter table public.execution_events drop constraint execution_events_mission_id_fkey; set session_replication_role = replica; delete from public.mission_events; delete from public.mission_links; delete from public.missions;" >/dev/null
+[ "$(qt "select count(*) from public.missions")" = "0" ] && [ "$(qt "select count(*) from public.execution_events where mission_id is not null")" -ge 1 ] && pass "precondition: 0 missions, telemetry still references one" || fail "precondition 6c"
+TEL=$(qt "select md5(string_agg(e::text,'|' order by id)) from public.execution_events e")
+OUT=$("$PG/psql" -v ON_ERROR_STOP=1 -v VERBOSITY=verbose -q -d rb_tel -c "\\set VERBOSITY verbose" -f "$ROOT/supabase/rollbacks/20261003120000_mission_identity_m1.rollback.sql" 2>&1)
+echo "$OUT" | grep -q "MI091" && pass "rollback refused on telemetry reference alone (MI091)" || fail "telemetry guard did not fire: $(echo "$OUT" | grep ERROR | head -1)"
+[ "$(qt "select md5(string_agg(e::text,'|' order by id)) from public.execution_events e")" = "$TEL" ] && [ "$(qt "select count(*) from pg_class where relname in ('missions','mission_links','mission_events')")" = "3" ] && pass "telemetry not rewritten, tables not dropped" || fail "6c changed something"
 
 echo; [ $fails -eq 0 ] && echo "M1 REPLAY: ALL CHECKS PASSED" || echo "M1 REPLAY: $fails FAILURE(S)"
 exit $fails

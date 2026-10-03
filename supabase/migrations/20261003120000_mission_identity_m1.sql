@@ -29,25 +29,28 @@
 
 -- ─── helpers (pure, immutable) ──────────────────────────────────────────────────────────────────────────
 create or replace function public.mission_valid_ident(v text) returns boolean
-language sql immutable parallel safe as $$
+language sql immutable parallel safe set search_path = pg_catalog, pg_temp as $$
   select v is not null and v ~ '^[a-z0-9][a-z0-9._-]{0,63}$'
 $$;
 
--- A bounded set of identifiers (agent ids). CHECK constraints cannot hold subqueries, so the per-element test lives here.
+-- A bounded set of distinct identifiers (agent ids). CHECK constraints cannot hold subqueries, so the per-element
+-- test lives here. The cap of 24 (the registry has 20 chat agents) is what guarantees that even a worst-case full
+-- team swap fits a team_changed event inside the 4 KB payload limit: 48 ids x 64 chars plus keys is about 3.5 KB.
 create or replace function public.mission_valid_ident_array(v text[]) returns boolean
-language plpgsql immutable parallel safe as $$
-declare x text;
+language plpgsql immutable parallel safe set search_path = pg_catalog, pg_temp as $$
+declare x text; seen text[] := '{}';
 begin
-  if v is null or cardinality(v) > 32 then return false; end if;
+  if v is null or cardinality(v) > 24 then return false; end if;
   foreach x in array v loop
-    if not public.mission_valid_ident(x) then return false; end if;
+    if not public.mission_valid_ident(x) or x = any(seen) then return false; end if;
+    seen := seen || x;
   end loop;
   return true;
 end $$;
 
 -- [{"id": "<ident>", "text": "<1..500 chars>"}], at most 50 items, unique ids, no other keys.
 create or replace function public.mission_valid_items(v jsonb) returns boolean
-language plpgsql immutable parallel safe as $$
+language plpgsql immutable parallel safe set search_path = pg_catalog, pg_temp as $$
 declare it jsonb; ids text[] := '{}';
 begin
   if v is null or jsonb_typeof(v) <> 'array' or jsonb_array_length(v) > 50 then return false; end if;
@@ -66,7 +69,7 @@ end $$;
 -- Event payload discipline: a small object of structured metadata. Bounded total size, bounded strings, bounded
 -- depth, and no key (at any depth) that names prompts, model output, credentials, headers or raw logs.
 create or replace function public.mission_detail_ok(v jsonb) returns boolean
-language plpgsql immutable parallel safe as $$
+language plpgsql immutable parallel safe set search_path = pg_catalog, pg_temp as $$
 declare forbidden text[] := array[
   'prompt','prompts','systemprompt','userprompt','response','responses','completion','completions','output',
   'messages','content','body','rawbody','raw','log','logs','stdout','stderr','trace','stack','stacktrace',
@@ -164,7 +167,7 @@ create table if not exists public.mission_events (
   mission_id  uuid not null references public.missions(id) on delete restrict,
   seq         bigint generated always as identity,
   kind        text not null check (kind in (
-                'created','state_changed','link_added','link_removed','note','risk_raised','risk_resolved')),
+                'created','state_changed','team_changed','link_added','link_removed','note','risk_raised','risk_resolved')),
   from_state  text check (from_state is null or from_state in
                 ('intent','plan','approved','executing','reviewing','completed','verified','cancelled')),
   to_state    text check (to_state is null or to_state in
@@ -184,11 +187,11 @@ create index if not exists mission_events_mission_seq_idx on public.mission_even
 -- normal application path (PostgREST / supabase-js as service_role) can never present it. A raw SQL session as the
 -- table owner is outside that boundary by definition.
 create or replace function public.mission_internal_on() returns boolean
-language sql stable as $$ select coalesce(current_setting('mission.internal', true), '') = 'on' $$;
+language sql stable set search_path = pg_catalog, pg_temp as $$ select coalesce(current_setting('mission.internal', true), '') = 'on' $$;
 
 -- ─── guards: missions ──────────────────────────────────────────────────────────────────────────────────
 create or replace function public.missions_guard() returns trigger
-language plpgsql as $$
+language plpgsql set search_path = pg_catalog, pg_temp as $$
 begin
   if tg_op = 'DELETE' then
     raise exception 'missions are never hard-deleted (cancel the mission instead)' using errcode = 'MI010';
@@ -212,6 +215,10 @@ begin
   if new.state is distinct from old.state and not public.mission_internal_on() then
     raise exception 'mission state changes only through mission_transition()' using errcode = 'MI014';
   end if;
+  if (new.owner is distinct from old.owner or new.owner_kind is distinct from old.owner_kind
+      or new.agent_ids is distinct from old.agent_ids) and not public.mission_internal_on() then
+    raise exception 'owner and team change only through mission_reassign() (audited)' using errcode = 'MI016';
+  end if;
   if old.state not in ('intent', 'plan')
      and (new.objective is distinct from old.objective
           or new.success_criteria is distinct from old.success_criteria
@@ -223,7 +230,7 @@ begin
 end $$;
 
 create or replace function public.missions_after_insert() returns trigger
-language plpgsql as $$
+language plpgsql set search_path = pg_catalog, pg_temp as $$
 begin
   perform set_config('mission.internal', 'on', true);
   insert into public.mission_events (mission_id, kind, actor, actor_kind, detail)
@@ -234,7 +241,7 @@ end $$;
 
 -- ─── guards: mission_links ─────────────────────────────────────────────────────────────────────────────
 create or replace function public.mission_links_guard() returns trigger
-language plpgsql as $$
+language plpgsql set search_path = pg_catalog, pg_temp as $$
 declare m public.missions;
 begin
   if tg_op = 'DELETE' then
@@ -288,7 +295,7 @@ begin
 end $$;
 
 create or replace function public.mission_links_after_write() returns trigger
-language plpgsql as $$
+language plpgsql set search_path = pg_catalog, pg_temp as $$
 begin
   perform set_config('mission.internal', 'on', true);
   if tg_op = 'INSERT' then
@@ -308,13 +315,13 @@ end $$;
 
 -- ─── guards: mission_events (append-only) ──────────────────────────────────────────────────────────────
 create or replace function public.mission_events_guard() returns trigger
-language plpgsql as $$
+language plpgsql set search_path = pg_catalog, pg_temp as $$
 begin
   if tg_op in ('UPDATE', 'DELETE') then
     raise exception 'mission_events is append-only' using errcode = 'MI030';
   end if;
   -- lifecycle and link kinds are written only by the mission mechanism itself
-  if new.kind in ('created', 'state_changed', 'link_added', 'link_removed') and not public.mission_internal_on() then
+  if new.kind in ('created', 'state_changed', 'team_changed', 'link_added', 'link_removed') and not public.mission_internal_on() then
     raise exception 'event kind % is written only by the mission mechanism', new.kind using errcode = 'MI031';
   end if;
   new.created_at := now();
@@ -322,7 +329,7 @@ begin
 end $$;
 
 create or replace function public.mission_no_truncate() returns trigger
-language plpgsql as $$
+language plpgsql set search_path = pg_catalog, pg_temp as $$
 begin
   raise exception '% cannot be truncated', tg_table_name using errcode = 'MI032';
 end $$;
@@ -360,7 +367,7 @@ create trigger mission_events_no_truncate before truncate on public.mission_even
 -- {intent, plan, approved, executing, reviewing, completed} → cancelled
 -- verified and cancelled are terminal.
 create or replace function public.mission_transition_allowed(p_from text, p_to text) returns boolean
-language sql immutable parallel safe as $$
+language sql immutable parallel safe set search_path = pg_catalog, pg_temp as $$
   select (p_from, p_to) in (
     ('intent','plan'), ('plan','approved'), ('approved','executing'), ('executing','reviewing'),
     ('reviewing','completed'), ('completed','verified'), ('reviewing','executing'),
@@ -382,7 +389,7 @@ create or replace function public.mission_transition(
 ) returns public.missions
 language plpgsql
 security definer
-set search_path = pg_catalog, public, pg_temp
+set search_path = pg_catalog, pg_temp
 as $$
 declare
   m        public.missions;
@@ -447,6 +454,65 @@ begin
   return m;
 end $$;
 
+-- The ONLY way owner, owner_kind and agent_ids change. Same discipline as mission_transition: lock the row, read the
+-- real current values, validate, update, append exactly one team_changed event, all in one transaction. The event
+-- carries only what changed (owner/owner_kind from->to, agents added/removed), never other mission state.
+create or replace function public.mission_reassign(
+  p_mission_id  uuid,
+  p_owner       text,
+  p_owner_kind  text,
+  p_agent_ids   text[],
+  p_actor       text,
+  p_actor_kind  text
+) returns public.missions
+language plpgsql
+security definer
+set search_path = pg_catalog, pg_temp
+as $$
+declare
+  m        public.missions;
+  added    text[];
+  removed  text[];
+  d        jsonb := '{}'::jsonb;
+begin
+  if not public.mission_valid_ident(p_actor) or p_actor_kind is null or p_actor_kind not in ('human','agent','system') then
+    raise exception 'invalid actor' using errcode = 'MI002';
+  end if;
+  if not public.mission_valid_ident(p_owner) or p_owner_kind is null or p_owner_kind not in ('human','agent')
+     or not public.mission_valid_ident_array(p_agent_ids) then
+    raise exception 'invalid owner or team' using errcode = 'MI018';
+  end if;
+
+  select * into m from public.missions where id = p_mission_id for update;
+  if not found then
+    raise exception 'mission % not found', p_mission_id using errcode = 'MI004';
+  end if;
+  if m.state in ('verified', 'cancelled') then
+    raise exception 'mission % is terminal (%) and cannot change', m.id, m.state using errcode = 'MI013';
+  end if;
+
+  select coalesce(array_agg(a order by a), '{}') into added   from unnest(p_agent_ids) a where not a = any(m.agent_ids);
+  select coalesce(array_agg(a order by a), '{}') into removed from unnest(m.agent_ids) a where not a = any(p_agent_ids);
+  if p_owner = m.owner and p_owner_kind = m.owner_kind and cardinality(added) = 0 and cardinality(removed) = 0 then
+    raise exception 'reassignment changes nothing' using errcode = 'MI017';
+  end if;
+
+  if p_owner <> m.owner then d := d || jsonb_build_object('owner', jsonb_build_object('from', m.owner, 'to', p_owner)); end if;
+  if p_owner_kind <> m.owner_kind then
+    d := d || jsonb_build_object('owner_kind', jsonb_build_object('from', m.owner_kind, 'to', p_owner_kind));
+  end if;
+  if cardinality(added) > 0 then d := d || jsonb_build_object('agents_added', to_jsonb(added)); end if;
+  if cardinality(removed) > 0 then d := d || jsonb_build_object('agents_removed', to_jsonb(removed)); end if;
+
+  perform pg_catalog.set_config('mission.internal', 'on', true);
+  update public.missions set owner = p_owner, owner_kind = p_owner_kind, agent_ids = p_agent_ids
+   where id = m.id returning * into m;
+  insert into public.mission_events (mission_id, kind, actor, actor_kind, detail)
+  values (m.id, 'team_changed', p_actor, p_actor_kind, d);
+  perform pg_catalog.set_config('mission.internal', '', true);
+  return m;
+end $$;
+
 -- ─── access posture ────────────────────────────────────────────────────────────────────────────────────
 alter table public.missions       enable row level security;
 alter table public.mission_links  enable row level security;
@@ -454,15 +520,41 @@ alter table public.mission_events enable row level security;
 
 revoke all on table public.missions, public.mission_links, public.mission_events from public, anon, authenticated, service_role;
 grant select, insert on table public.missions to service_role;
-grant update (objective, owner, owner_kind, agent_ids, success_criteria, deliverables) on table public.missions to service_role;
+grant update (objective, success_criteria, deliverables) on table public.missions to service_role;
 grant select, insert on table public.mission_links to service_role;
 grant update (removed_at, removed_by, removed_by_kind) on table public.mission_links to service_role;
 grant select, insert on table public.mission_events to service_role;
 
-revoke all on function public.mission_transition(uuid, text, text, text, jsonb, text) from public, anon, authenticated;
+-- Function privileges. Supabase grants EXECUTE on new public functions to anon and authenticated by default (and
+-- PostgREST exposes them as /rpc), so every M1 function is revoked from PUBLIC, anon, authenticated and service_role
+-- first, then granted back to service_role only where the server path needs it:
+--   mission_transition, mission_reassign  the two mutation entry points (SECURITY DEFINER)
+--   validators + mission_internal_on       evaluated as the CALLER inside CHECK constraints and triggers on service_role
+--                                          writes, so service_role must hold EXECUTE; no client role ever does
+--   trigger functions                     never callable directly; Postgres does not check EXECUTE when firing a trigger
+--   mission_transition_allowed            only called inside the definer function, which runs as the owner
+revoke all on function public.mission_valid_ident(text)                                   from public, anon, authenticated, service_role;
+revoke all on function public.mission_valid_ident_array(text[])                           from public, anon, authenticated, service_role;
+revoke all on function public.mission_valid_items(jsonb)                                  from public, anon, authenticated, service_role;
+revoke all on function public.mission_detail_ok(jsonb)                                    from public, anon, authenticated, service_role;
+revoke all on function public.mission_internal_on()                                       from public, anon, authenticated, service_role;
+revoke all on function public.missions_guard()                                            from public, anon, authenticated, service_role;
+revoke all on function public.missions_after_insert()                                     from public, anon, authenticated, service_role;
+revoke all on function public.mission_links_guard()                                       from public, anon, authenticated, service_role;
+revoke all on function public.mission_links_after_write()                                 from public, anon, authenticated, service_role;
+revoke all on function public.mission_events_guard()                                      from public, anon, authenticated, service_role;
+revoke all on function public.mission_no_truncate()                                       from public, anon, authenticated, service_role;
+revoke all on function public.mission_transition_allowed(text, text)                      from public, anon, authenticated, service_role;
+revoke all on function public.mission_transition(uuid, text, text, text, jsonb, text)     from public, anon, authenticated, service_role;
+revoke all on function public.mission_reassign(uuid, text, text, text[], text, text)      from public, anon, authenticated, service_role;
+
 grant execute on function public.mission_transition(uuid, text, text, text, jsonb, text) to service_role;
-revoke all on function public.mission_internal_on() from public, anon, authenticated;
-grant execute on function public.mission_internal_on() to service_role;
+grant execute on function public.mission_reassign(uuid, text, text, text[], text, text)  to service_role;
+grant execute on function public.mission_valid_ident(text)                               to service_role;
+grant execute on function public.mission_valid_ident_array(text[])                       to service_role;
+grant execute on function public.mission_valid_items(jsonb)                              to service_role;
+grant execute on function public.mission_detail_ok(jsonb)                                to service_role;
+grant execute on function public.mission_internal_on()                                   to service_role;
 
 -- ─── telemetry linkage (Packet 3 column, unchanged semantics) ──────────────────────────────────────────
 -- execution_events.mission_id was reserved in Packet 3 and every existing row holds NULL. This only adds the
