@@ -96,8 +96,10 @@ export async function resolveTarget(
       if (!/^[0-9a-f]{40}$/i.test(id)) return invalid("git_commit must be a full 40-character sha");
       return { ok: true, target: { targetType: type, targetId: id.toLowerCase(), targetIndex: null, resolution: "format_only" } };
     case "pull_request": {
-      const m = /^([A-Za-z0-9-]{1,39})\/([A-Za-z0-9._-]{1,100})#([1-9][0-9]{0,8})$/.exec(id);
-      if (!m) return invalid("pull_request must be owner/repo#number");
+      // GitHub owner: 1..39 alphanumerics or single inner hyphens (no leading, trailing or doubled hyphen).
+      // Repository: 1..100 of [A-Za-z0-9._-], never "." or "..".
+      const m = /^([A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38})\/([A-Za-z0-9._-]{1,100})#([1-9][0-9]{0,8})$/.exec(id);
+      if (!m || m[2] === "." || m[2] === "..") return invalid("pull_request must be owner/repo#number with a valid GitHub owner and repository");
       return { ok: true, target: { targetType: type, targetId: `${m[1]}/${m[2]}#${m[3]}`, targetIndex: null, resolution: "format_only" } };
     }
   }

@@ -159,6 +159,12 @@ describe("target formats (no database needed)", () => {
   it("format-only targets are canonicalized or refused", async () => {
     expect(await t("pull_request", "ramicheAi/ramiche-site#37")).toMatchObject({ ok: true, target: { resolution: "format_only" } });
     expect((await t("pull_request", "#37")).ok).toBe(false);
+    for (const bad of ["-owner/repo#1", "owner-/repo#1", "owner--name/repo#1", "a".repeat(40) + "/r#1", "owner/./#1", "owner/..#1", "owner/r#0", "owner/r#01", "o/r"]) {
+      expect((await t("pull_request", bad)).ok, bad).toBe(false);
+    }
+    for (const good of ["a/r#1", "ramicheAi/ramiche-site#38", "a-b-c/x.y_z#123", "a".repeat(39) + "/r#1"]) {
+      expect((await t("pull_request", good)).ok, good).toBe(true);
+    }
     expect((await t("git_commit", "abc1234")).ok).toBe(false);
     expect((await t("yolo_build", "2026-10-03-nova-thing")).ok).toBe(true);
     expect((await t("yolo_build", "../etc")).ok).toBe(false);
