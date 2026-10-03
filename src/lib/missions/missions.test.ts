@@ -113,11 +113,12 @@ describe("validation", () => {
     // a malformed escape does not switch the check off: the well-formed escapes around it are still decoded
     for (const hidden of ["/a%3Bjsessionid=SECRET%ZZ", "/a%3Ftoken=SECRET/%C0", "/%ZZ%25%33%42x"]) expect(pathDelimiterFree(hidden), hidden).toBe(false);
     // and honest paths with stray or legacy escapes are not refused
-    for (const honest of ["/sale-50%25-off", "/caf%E9", "/caf%C3%A9", "/a%20b", "/a%2Fb", "/a%zz", "/bad%E0%A4%A", "/x%", "/100%", "/VOIL%C0", "/%C1rbol", "/%FCber"]) expect(pathDelimiterFree(honest), honest).toBe(true);
+    for (const honest of ["/sale-50%25-off", "/caf%E9", "/caf%C3%A9", "/a%20b", "/a%2Fb", "/a%zz", "/bad%E0%A4%A", "/x%", "/100%", "/VOIL%C0", "/%C1rbol", "/%FCber", "/%C0", "/caf%25C3%25A9", "/%E2%82%AC5"]) expect(pathDelimiterFree(honest), honest).toBe(true);
     // lookalikes that normalize to ASCII delimiters, IIS %u escapes, overlong UTF-8
     for (const exotic of [new URL("https://e.x/a\u037Ejsessionid=S").pathname, new URL("https://e.x/a\uFF1Bx").pathname, new URL("https://e.x/a\uFE54x").pathname,
       new URL("https://e.x/a\uFF1Fx").pathname, new URL("https://e.x/a\uFF03x").pathname, "/a%u003Bx", "/a%u%30%30%33%42x", "/a%C0%BBx", "/a%E0%80%BBx", "/a%25C0%25BBx",
-      "/a%EF%BC%9B%ZZ", "/caf%E9%EF%BC%9Bjsessionid=S", "/a%EF%BC%9Bx%E9", "/a%F8%80%80%80%BBx", "/a%FC%80%80%80%80%BBx"]) {
+      "/a%EF%BC%9B%ZZ", "/caf%E9%EF%BC%9Bjsessionid=S", "/a%EF%BC%9Bx%E9", "/a%F8%80%80%80%BBx", "/a%FC%80%80%80%80%BBx",
+      "/a%EF%BC%259B", "/a%EF%25BC%9B", "/a%25EF%BC%9B", "/a%EF%BC%25%39B", "/a%C0%25BB", "/a%25C0%BB", "/a%25EF%25BC%259B", "/a%F0%80%80%BBx"]) {
       expect(pathDelimiterFree(exotic), exotic).toBe(false);
     }
     for (const bad of ["/x;y", "/x%3By", "/x%253By", "/x%25%33%42y", "/x%2525%33%42y", "/x%25%32%33", "/x%25%33%46"]) {

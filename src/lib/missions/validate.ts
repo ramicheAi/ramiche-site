@@ -111,11 +111,13 @@ export function pathDelimiterFree(path: string): boolean {
   let cur = path;
   for (let pass = 0; ; pass++) {
     if (hasDelimiter(cur)) return false;
-    // Non-standard escapes some decoders still honour: IIS %uXXXX, and overlong UTF-8 forms of ASCII.
-    if (/%u[0-9a-f]{4}/i.test(cur) || OVERLONG_UTF8.test(cur)) return false;
-    // What a lenient UTF-8 decoding server (then a normalizer) would see. Lenient, like Python unquote: valid UTF-8
-    // sequences decode even when other bytes in the path are invalid, so one bad byte cannot hide a fullwidth ";".
-    if (hasDelimiter(lenientUtf8Decode(cur))) return false;
+    // IIS-style %uXXXX escapes, which some decoders still honour.
+    if (/%u[0-9a-f]{4}/i.test(cur)) return false;
+    // The whole path as bytes: earlier passes' decoded bytes and still-encoded %XX alike, so a multibyte character
+    // split across decoding depths is seen whole. Then what a lax decoder (overlong forms) or a lenient UTF-8 decoder
+    // plus a normalizer would make of those bytes.
+    const bytes = pathBytes(cur);
+    if (hasOverlong(bytes) || hasDelimiter(UTF8.decode(bytes))) return false;
     const next = cur.replace(/%([0-9a-f]{2})/gi, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16)));
     if (next === cur) return true;
     if (pass >= MAX_DECODE_PASSES) return false;
@@ -128,21 +130,36 @@ function hasDelimiter(s: string): boolean {
   return /[;?#]/.test(s) || /[;?#]/.test(s.normalize("NFKC"));
 }
 
-/**
- * Overlong UTF-8 sequences (a lead byte C0/C1, E0 80-9F, F0 80-8F, or the obsolete 5/6-byte leads F8-FD, followed by a
- * continuation byte): never valid, decoded to ASCII by lax decoders. A lone %C0 or %C1 (Latin-1 "A" with an accent)
- * is not followed by a continuation byte and stays allowed.
- */
-const OVERLONG_UTF8 = /%c[01]%[89ab][0-9a-f]|%e0%[89][0-9a-f]|%f0%8[0-9a-f]|%f[89a-d]%[89ab][0-9a-f]/i;
+const UTF8 = new TextDecoder("utf-8", { fatal: false }); // invalid bytes become U+FFFD; valid sequences still decode
+const UTF8_ENCODE = new TextEncoder();
 
-const UTF8 = new TextDecoder("utf-8", { fatal: false });
-/** Decode every run of %XX escapes as UTF-8, replacing invalid bytes with U+FFFD and leaving other text untouched. */
-function lenientUtf8Decode(s: string): string {
-  return s.replace(/(?:%[0-9a-f]{2})+/gi, (run) => {
-    const bytes = new Uint8Array(run.length / 3);
-    for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(run.slice(i * 3 + 1, i * 3 + 3), 16);
-    return UTF8.decode(bytes);
-  });
+/** %XX escapes become their byte, characters up to 0xFF are already bytes (Latin-1), anything wider is its UTF-8. */
+function pathBytes(s: string): Uint8Array {
+  const out: number[] = [];
+  for (let i = 0; i < s.length; ) {
+    if (s[i] === "%" && /^[0-9a-f]{2}$/i.test(s.slice(i + 1, i + 3))) { out.push(parseInt(s.slice(i + 1, i + 3), 16)); i += 3; continue; }
+    const cp = s.codePointAt(i) as number;
+    if (cp <= 0xff) out.push(cp);
+    else out.push(...UTF8_ENCODE.encode(String.fromCodePoint(cp)));
+    i += cp > 0xffff ? 2 : 1;
+  }
+  return Uint8Array.from(out);
+}
+
+/**
+ * Overlong UTF-8: a lead byte C0/C1, E0 then 80-9F, F0 then 80-8F, or an obsolete 5/6-byte lead F8-FD, followed by a
+ * continuation byte. Never valid; lax decoders turn them into ASCII. A lone C0/C1 (Latin-1 "A" with an accent) with no
+ * continuation byte after it stays allowed.
+ */
+function hasOverlong(b: Uint8Array): boolean {
+  for (let i = 0; i + 1 < b.length; i++) {
+    const x = b[i], y = b[i + 1];
+    if ((x === 0xc0 || x === 0xc1) && y >= 0x80 && y <= 0xbf) return true;
+    if (x === 0xe0 && y >= 0x80 && y <= 0x9f) return true;
+    if (x === 0xf0 && y >= 0x80 && y <= 0x8f) return true;
+    if (x >= 0xf8 && x <= 0xfd && y >= 0x80 && y <= 0xbf) return true;
+  }
+  return false;
 }
 
 /**
