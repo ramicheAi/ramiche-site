@@ -118,4 +118,30 @@ describe("supabaseMissionStore", () => {
     const r = await supabaseMissionStore(pagedClient(1, ids(1000), [])).dependencyEdges(["a"]);
     expect(r.ok).toBe(false);
   });
+
+  it("mission detail links are read to completion by id cursor, then returned in creation order", async () => {
+    const all = Array.from({ length: EDGE_PAGE + 7 }, (_, i) => ({ id: `l${String(i).padStart(6, "0")}`, created_at: `2026-10-03T00:00:${String(59 - (i % 60)).padStart(2, "0")}Z` }));
+    const seen: (string | null)[] = [];
+    const client = {
+      from: () => {
+        let gt: string | null = null;
+        const api: Record<string, unknown> = new Proxy({}, {
+          get(_t, prop: string) {
+            if (prop === "gt") return (_c: string, v: string) => { gt = v; return api; };
+            if (prop === "limit") return (n: number) => {
+              seen.push(gt);
+              // a server cap of 100, below the requested page size
+              return Promise.resolve({ data: all.filter((r) => gt === null || r.id > gt).slice(0, Math.min(n, 100)), error: null });
+            };
+            return () => api;
+          },
+        });
+        return api;
+      },
+    } as unknown as SupabaseClient;
+    const r = await supabaseMissionStore(client).listLinks("m", true);
+    expect(r.ok && r.data.length).toBe(all.length);
+    expect(r.ok && r.data.every((x, i, arr) => i === 0 || arr[i - 1].created_at <= x.created_at)).toBe(true);
+    expect(seen[0]).toBeNull();
+  });
 });

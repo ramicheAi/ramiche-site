@@ -52,7 +52,9 @@ export interface MissionStore {
   insertMission(row: NewMission): Promise<StoreResult<MissionRow>>;
   getMission(tenantId: string, id: string): Promise<StoreResult<MissionRow | null>>;
   listMissions(q: ListQuery): Promise<StoreResult<MissionRow[]>>;
+  /** Every link of the mission (complete, never truncated), in creation order. */
   listLinks(missionId: string, includeRemoved: boolean): Promise<StoreResult<LinkRow[]>>;
+  /** The most recent `limit` events, oldest first. */
   listEvents(missionId: string, limit: number): Promise<StoreResult<EventRow[]>>;
   transition(a: { id: string; to: MissionState; actor: string; actorKind: ActorKind; detail: Record<string, unknown>; expectedFrom: MissionState | null }): Promise<StoreResult<MissionRow>>;
   reassign(a: { id: string; owner: string; ownerKind: "human" | "agent"; agentIds: string[]; actor: string; actorKind: ActorKind }): Promise<StoreResult<MissionRow>>;
@@ -99,10 +101,25 @@ export function supabaseMissionStore(svc: SupabaseClient): MissionStore {
       return wrap(data ?? [], error);
     },
     async listLinks(missionId, includeRemoved) {
-      let b = svc.from("mission_links").select(LINK_COLS).eq("mission_id", missionId);
-      if (!includeRemoved) b = b.is("removed_at", null);
-      const { data, error } = await b.order("created_at", { ascending: true });
-      return wrap(data ?? [], error);
+      // The complete link set, never a server-capped first page: keyset pages on the immutable id until an empty
+      // page, with the same fail-closed budget as the edge walk. Returned in creation order.
+      const out: LinkRow[] = [];
+      let after: string | null = null;
+      for (let pageNo = 0; pageNo < EDGE_MAX_PAGES; pageNo++) {
+        let b = svc.from("mission_links").select(LINK_COLS).eq("mission_id", missionId);
+        if (!includeRemoved) b = b.is("removed_at", null);
+        if (after !== null) b = b.gt("id", after);
+        const { data, error } = await b.order("id", { ascending: true }).limit(EDGE_PAGE);
+        if (error) return wrap(null, error);
+        const rows = (data ?? []) as LinkRow[];
+        if (rows.length === 0) {
+          out.sort((x, y) => (x.created_at < y.created_at ? -1 : x.created_at > y.created_at ? 1 : x.id < y.id ? -1 : 1));
+          return { ok: true, data: out };
+        }
+        out.push(...rows);
+        after = rows[rows.length - 1].id;
+      }
+      return { ok: false, error: { message: "mission link read exceeded its page budget" } };
     },
     async listEvents(missionId, limit) {
       const { data, error } = await svc.from("mission_events").select(EVENT_COLS).eq("mission_id", missionId)

@@ -117,7 +117,9 @@ export async function createMission(ctx: Ctx, body: Record<string, unknown>): Pr
   return r.ok ? ok(r.data, 201) : fromStore(r.error);
 }
 
-export type MissionDetail = { mission: MissionRow; links: LinkRow[]; events: EventRow[] };
+/** Events are a recent window: the latest EVENT_WINDOW, oldest first, with eventsTruncated set when older ones exist. */
+export const EVENT_WINDOW = 200;
+export type MissionDetail = { mission: MissionRow; links: LinkRow[]; events: EventRow[]; eventsTruncated: boolean };
 
 export async function getMission(ctx: Ctx, id: unknown, opts: { includeRemoved?: boolean } = {}): Promise<MissionResult<MissionDetail>> {
   const denied = founderOnly(ctx);
@@ -126,11 +128,12 @@ export async function getMission(ctx: Ctx, id: unknown, opts: { includeRemoved?:
   if (isFail(m)) return m;
   const [links, events] = await Promise.all([
     ctx.store.listLinks(m.id, !!opts.includeRemoved),
-    ctx.store.listEvents(m.id, 200),
+    ctx.store.listEvents(m.id, EVENT_WINDOW + 1),
   ]);
   if (!links.ok) return fromStore(links.error);
   if (!events.ok) return fromStore(events.error);
-  return ok({ mission: m, links: links.data, events: events.data });
+  const eventsTruncated = events.data.length > EVENT_WINDOW;
+  return ok({ mission: m, links: links.data, events: eventsTruncated ? events.data.slice(1) : events.data, eventsTruncated });
 }
 
 export async function listMissions(

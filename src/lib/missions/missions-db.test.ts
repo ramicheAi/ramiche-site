@@ -315,6 +315,23 @@ describe.skipIf(!conn)("M2 Mission layer on real M1", () => {
     }
   });
 
+  it("mission detail returns the latest event window and says when older events exist", async () => {
+    const m = await mk(); await to(m, "plan"); await to(m, "approved"); await to(m, "executing");
+    const small = await svc.getMission(ctx(FOUNDER), m.id);
+    expect(small.ok && [small.data.events.length, small.data.eventsTruncated]).toEqual([4, false]);
+    for (let i = 0; i < 100; i++) { await to(m, "reviewing"); await to(m, "executing"); }
+    const total = await count(`select count(*) from public.mission_events where mission_id = '${m.id}'`);
+    expect(Number(total)).toBe(204);
+    const big = await svc.getMission(ctx(FOUNDER), m.id);
+    expect(big.ok && [big.data.events.length, big.data.eventsTruncated]).toEqual([svc.EVENT_WINDOW, true]);
+    if (big.ok) {
+      const seqs = big.data.events.map((e) => Number(e.seq));
+      expect(seqs.every((x, i) => i === 0 || seqs[i - 1] < x)).toBe(true);
+      const maxSeq = await count(`select max(seq) from public.mission_events where mission_id = '${m.id}'`);
+      expect(seqs[seqs.length - 1]).toBe(Number(maxSeq));
+    }
+  }, 60_000);
+
   // ── list ──
   it("list filters by state and owner and pages by ref", async () => {
     const mine = await mk({ owner: "nova", ownerKind: "agent" });
