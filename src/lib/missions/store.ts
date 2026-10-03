@@ -67,6 +67,8 @@ export interface MissionStore {
 
 /** Page size for edge reads; must not exceed the PostgREST max-rows setting (1000 by default). */
 export const EDGE_PAGE = 500;
+/** Upper bound on edge pages per read (far beyond MAX_DEPENDENCY_WALK); exceeding it is an error, never a partial read. */
+export const EDGE_MAX_PAGES = 100;
 
 const MISSION_COLS = "id, ref, tenant_id, objective, owner, owner_kind, agent_ids, success_criteria, deliverables, state, created_by, created_by_kind, created_at, updated_at";
 const LINK_COLS = "id, mission_id, target_type, target_id, target_index, relation, criterion_id, created_by, created_by_kind, created_at, removed_at, removed_by, removed_by_kind";
@@ -135,18 +137,23 @@ export function supabaseMissionStore(svc: SupabaseClient): MissionStore {
     },
     async dependencyEdges(fromMissionIds) {
       if (fromMissionIds.length === 0) return { ok: true, data: [] };
-      // Paged to completion: PostgREST caps a response (1000 rows by default), and a silently truncated edge set
-      // would let the cycle walk miss a path. Ordered by id so pages are stable.
+      // Paged to completion: PostgREST caps a response (max-rows, 1000 by default), and a silently truncated edge set
+      // would let the cycle walk miss a path. The next offset is what was actually returned and the loop stops only
+      // on an EMPTY page, so a server cap smaller than EDGE_PAGE cannot end the read early. Ordered by id for stable
+      // pages. A page budget bounds the loop; running out of it fails closed rather than returning a partial set.
       const out: { mission_id: string; target_id: string }[] = [];
-      for (let from = 0; ; from += EDGE_PAGE) {
+      let from = 0;
+      for (let pageNo = 0; pageNo < EDGE_MAX_PAGES; pageNo++) {
         const { data, error } = await svc.from("mission_links").select("mission_id, target_id")
           .in("mission_id", fromMissionIds).eq("relation", "dependency").eq("target_type", "mission").is("removed_at", null)
           .order("id", { ascending: true }).range(from, from + EDGE_PAGE - 1);
         if (error) return wrap(null, error);
         const rows = (data ?? []) as { mission_id: string; target_id: string }[];
+        if (rows.length === 0) return { ok: true, data: out };
         out.push(...rows);
-        if (rows.length < EDGE_PAGE) return { ok: true, data: out };
+        from += rows.length;
       }
+      return { ok: false, error: { message: "dependency edge read exceeded its page budget" } };
     },
     async lookupTarget(tenantId, type, id) {
       switch (type) {

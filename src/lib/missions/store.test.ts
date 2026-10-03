@@ -64,17 +64,15 @@ describe("supabaseMissionStore", () => {
     expect(c.ops.some(([op, a]) => op === "is" && a[0] === "removed_at" && a[1] === null)).toBe(true);
   });
 
-  it("reads dependency edges to completion across pages (a truncated edge set could hide a cycle)", async () => {
-    const ranges: [number, number][] = [];
-    const page = (n: number, off: number) => Array.from({ length: n }, (_, i) => ({ mission_id: "a", target_id: `t${off + i}` }));
-    const client = {
+  function pagedClient(serverCap: number, total: number, ranges: [number, number][]) {
+    return {
       from: () => {
         const api: Record<string, unknown> = new Proxy({}, {
           get(_t, prop: string) {
             if (prop === "range") return (from: number, to: number) => {
               ranges.push([from, to]);
-              const n = ranges.length === 1 ? EDGE_PAGE : ranges.length === 2 ? EDGE_PAGE : 3;
-              return Promise.resolve({ data: page(n, from), error: null });
+              const n = Math.max(0, Math.min(to - from + 1, serverCap, total - from));
+              return Promise.resolve({ data: Array.from({ length: n }, (_, i) => ({ mission_id: "a", target_id: `t${from + i}` })), error: null });
             };
             return () => api;
           },
@@ -82,9 +80,24 @@ describe("supabaseMissionStore", () => {
         return api;
       },
     } as unknown as SupabaseClient;
-    const r = await supabaseMissionStore(client).dependencyEdges(["a"]);
-    expect(r.ok && r.data.length).toBe(EDGE_PAGE * 2 + 3);
-    expect(ranges).toEqual([[0, EDGE_PAGE - 1], [EDGE_PAGE, 2 * EDGE_PAGE - 1], [2 * EDGE_PAGE, 3 * EDGE_PAGE - 1]]);
+  }
+
+  it("reads dependency edges to completion across pages (a truncated edge set could hide a cycle)", async () => {
+    const ranges: [number, number][] = [];
+    const r = await supabaseMissionStore(pagedClient(1000, EDGE_PAGE * 2 + 3, ranges)).dependencyEdges(["a"]);
+    expect(r.ok && r.data.map((e) => e.target_id)).toEqual(Array.from({ length: EDGE_PAGE * 2 + 3 }, (_, i) => `t${i}`));
+    expect(ranges[0]).toEqual([0, EDGE_PAGE - 1]);
     expect(EDGE_PAGE).toBeLessThanOrEqual(1000);
+  });
+
+  it("a server row cap smaller than the page size cannot end the read early", async () => {
+    const ranges: [number, number][] = [];
+    const r = await supabaseMissionStore(pagedClient(7, 40, ranges)).dependencyEdges(["a"]);
+    expect(r.ok && r.data.map((e) => e.target_id)).toEqual(Array.from({ length: 40 }, (_, i) => `t${i}`));
+  });
+
+  it("running out of the page budget fails closed instead of returning a partial set", async () => {
+    const r = await supabaseMissionStore(pagedClient(1, 1_000_000, [])).dependencyEdges(["a"]);
+    expect(r.ok).toBe(false);
   });
 });
