@@ -496,4 +496,92 @@ begin
   assert pg_temp.try(format($q$insert into public.mission_links (mission_id,target_type,target_id,relation,created_by,created_by_kind) values (%L,'url','https://x.test','context','atlas','agent')$q$, m), 'service_role') = 'OK', 'svc link under revoked PUBLIC';
 end $$;
 
+-- @test finding 1: an item is exactly {id, text}; a missing or mistyped key can never slip past the shape check
+do $$
+declare q text := $q$insert into public.missions (objective, owner, owner_kind, success_criteria, created_by, created_by_kind) values ('x','ramon','human',%L::jsonb,'ramon','human')$q$;
+begin
+  assert public.mission_valid_items('[{"id":"a","foo":"x"}]') = false, 'missing text (the original NULL bypass)';
+  assert public.mission_valid_items('[{"text":"x","foo":"y"}]') = false, 'missing id';
+  assert public.mission_valid_items('[{"id":"a","text":42}]') = false, 'non-string text';
+  assert public.mission_valid_items('[{"id":"a","text":{"nested":"x"}}]') = false, 'object as text';
+  assert public.mission_valid_items('[{"id":"a","text":"x","meta":{"k":"v"}}]') = false, 'extra unexpected nested object';
+  assert public.mission_valid_items('[{"id":"a","foo":{"password":"hunter2"}}]') = false, 'smuggled payload in place of text';
+  assert public.mission_valid_items('[{"id":"a","text":null}]') = false, 'null text';
+  assert public.mission_valid_items('[{"id":"a","text":"it works"}]') = true, 'valid control';
+  -- and the column constraints reject them at the door
+  assert pg_temp.try(format(q, '[{"id":"a","foo":"x"}]')) = '23514', 'criteria without text rejected on insert';
+  assert pg_temp.try(format($q$insert into public.missions (objective, owner, owner_kind, deliverables, created_by, created_by_kind) values ('x','ramon','human','[{"id":"d1","foo":{"secret":"x"}}]'::jsonb,'ramon','human')$q$)) = '23514', 'deliverables smuggle rejected on insert';
+  assert pg_temp.try(format(q, '[{"id":"a","text":"ok"}]')) = 'OK', 'valid criteria insert';
+end $$;
+
+-- @test finding 2: sensitive families rejected by normalized substring at any depth; structural words by exact match
+do $$
+declare k text;
+begin
+  foreach k in array array['x-api-key','prompt_text','authorizationHeader','private_key','API_KEY','Api Key',
+                           'systemPrompt','client_secret','refresh-token','token_count','user_password','set-cookie',
+                           'credentials','privateKey','Bearer','sessionId','SESSION','passwd'] loop
+    assert public.mission_detail_ok(jsonb_build_object(k, 'v')) = false, 'should reject key: ' || k;
+  end loop;
+  foreach k in array array['content','body','log','logs','trace','traces','message','messages','Message','MESSAGES'] loop
+    assert public.mission_detail_ok(jsonb_build_object(k, 'v')) = false, 'should reject structural key: ' || k;
+  end loop;
+  -- nested at every shape: object in object, object in array, array in array
+  assert public.mission_detail_ok('{"meta":{"x-api-key":"v"}}') = false, 'nested in object';
+  assert public.mission_detail_ok('{"items":[{"ok":1},{"prompt_text":"v"}]}') = false, 'nested in array of objects';
+  assert public.mission_detail_ok('{"a":[[{"authorizationHeader":"v"}]]}') = false, 'nested in array of arrays';
+  -- harmless governance metadata stays allowed
+  foreach k in array array['summary','pr','risk_id','severity','model_response','log_level','message_count_hint',
+                           'owner','owner_kind','agents_added','agents_removed','from','to','link_id','target_type',
+                           'relation','criterion_id','ref','build_status','author','outcome'] loop
+    assert public.mission_detail_ok(jsonb_build_object(k, 'v')) = true, 'should allow key: ' || k;
+  end loop;
+  assert public.mission_detail_ok('{"summary":"build green","pr":37,"checks":{"vercel":"pass"}}') = true, 'realistic note';
+end $$;
+
+-- @test finding 2: the hardened denylist holds on the real write paths, not just the function
+do $$
+declare m uuid := pg_temp.mk();
+begin
+  assert pg_temp.try(format($q$insert into public.mission_events (mission_id, kind, actor, actor_kind, detail) values (%L,'note','triage','agent','{"x-api-key":"v"}')$q$, m), 'service_role') = '23514', 'note with x-api-key';
+  assert pg_temp.try(format($q$insert into public.mission_events (mission_id, kind, actor, actor_kind, detail) values (%L,'note','triage','agent','{"prompt_text":"v"}')$q$, m), 'service_role') = '23514', 'note with prompt_text';
+  assert pg_temp.try(format($q$select public.mission_transition(%L,'plan','ramon','human','{"sessionId":"x"}'::jsonb)$q$, m)) = 'MI003', 'transition detail with sessionId';
+  assert pg_temp.try(format($q$insert into public.mission_events (mission_id, kind, actor, actor_kind, detail) values (%L,'note','triage','agent','{"summary":"ok"}')$q$, m), 'service_role') = 'OK', 'clean note';
+end $$;
+
+-- @test finding 3: owner and team are frozen from completed; reassignment still works (audited) through reviewing
+do $$
+declare s text; m uuid; n int;
+begin
+  foreach s in array array['intent','plan','approved','executing','reviewing'] loop
+    m := pg_temp.mk(p_agents => '{triage}');
+    if s <> 'intent' then perform pg_temp.walk_to(m, s); end if;
+    perform public.mission_reassign(m, 'ramon', 'human', '{triage,vee}', 'ramon', 'human');
+    select count(*) into n from public.mission_events where mission_id = m and kind = 'team_changed';
+    assert n = 1, format('exactly one team_changed in %s, got %s', s, n);
+  end loop;
+  m := pg_temp.mk(p_agents => '{triage}');
+  perform pg_temp.walk_to(m, 'completed');
+  assert pg_temp.try(format($q$select public.mission_reassign(%L,'ramon','human','{}','ramon','human')$q$, m)) = 'MI019', 'completed rejects reassignment';
+  assert pg_temp.try(format($q$select public.mission_reassign(%L,'atlas','agent','{triage}','ramon','human')$q$, m)) = 'MI019', 'completed rejects owner change';
+  assert (select count(*) from public.mission_events where mission_id = m and kind = 'team_changed') = 0, 'nothing written';
+end $$;
+
+-- @test finding 3 regression: an agent cannot leave the team after completed and then pass the verification check
+do $$
+declare m uuid := pg_temp.mk(p_owner => 'ramon', p_owner_kind => 'human', p_agents => '{triage}');
+begin
+  perform pg_temp.walk_to(m, 'completed'); perform pg_temp.ev(m, 'c1'); perform pg_temp.ev(m, 'c2');
+  -- the dodge: triage removes itself, then declares itself a human verifier
+  assert pg_temp.try(format($q$select public.mission_reassign(%L,'ramon','human','{}','triage','agent')$q$, m)) = 'MI019', 'self-removal after completed refused';
+  assert pg_temp.try(format($q$select public.mission_reassign(%L,'ramon','human','{}','triage','agent')$q$, m), 'service_role') = 'MI019', 'same through the app role';
+  assert (select agent_ids from public.missions where id = m) = '{triage}', 'triage is still on the team';
+  assert pg_temp.try(format($q$select public.mission_transition(%L,'verified','triage','human')$q$, m)) = 'MI008', 'so the structural check still stops it';
+  assert (select state from public.missions where id = m) = 'completed', 'not verified';
+  -- even the owner role cannot sneak a team change through a direct write in completed
+  assert pg_temp.try(format($q$update public.missions set agent_ids='{}' where id=%L$q$, m)) = 'MI016', 'direct write still blocked';
+  -- a human outside the team verifies normally
+  assert pg_temp.go(m, 'verified', 'ramon', 'human') = 'verified';
+end $$;
+
 select 'mission_identity_m1: all tests passed' as result;

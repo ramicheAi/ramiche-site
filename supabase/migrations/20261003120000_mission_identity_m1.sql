@@ -15,7 +15,8 @@
 --   correlation through links in a later packet).
 --
 -- WHAT THE DATABASE ENFORCES vs WHAT IT CANNOT:
---   Enforced here: legal transitions only, one locked transaction per transition with exactly one event, no hard
+--   Enforced here: legal transitions only, one locked transaction per transition with exactly one event, owner and
+--   team frozen from completed (audited reassignment only before that), no hard
 --   deletes, append-only events, tombstoned link removal, definition frozen once approved, terminal states frozen,
 --   success criteria required before approval, full per-criterion evidence coverage before verification, and the
 --   structural rule that a mission's own agents (or an agent owner) can never be recorded as its verifier.
@@ -57,7 +58,11 @@ begin
   for it in select * from jsonb_array_elements(v) loop
     if jsonb_typeof(it) <> 'object' then return false; end if;
     if (select count(*) from jsonb_object_keys(it)) <> 2 then return false; end if;
-    if jsonb_typeof(it->'id') <> 'string' or jsonb_typeof(it->'text') <> 'string' then return false; end if;
+    -- IS DISTINCT FROM, never <>: a missing key yields NULL, and NULL <> 'string' is NULL, which IF treats as false
+    -- (the original bypass). With exactly two keys and both typed strings, the item is exactly {id, text}.
+    if jsonb_typeof(it->'id') is distinct from 'string' or jsonb_typeof(it->'text') is distinct from 'string' then
+      return false;
+    end if;
     if not public.mission_valid_ident(it->>'id') then return false; end if;
     if length(btrim(it->>'text')) < 1 or length(it->>'text') > 500 then return false; end if;
     if (it->>'id') = any(ids) then return false; end if;
@@ -68,14 +73,20 @@ end $$;
 
 -- Event payload discipline: a small object of structured metadata. Bounded total size, bounded strings, bounded
 -- depth, and no key (at any depth) that names prompts, model output, credentials, headers or raw logs.
+-- Keys are normalized first: lower-cased with every non-alphanumeric character removed, so case and separators
+-- (-, _, spaces) cannot hide a name: x-api-key, API_KEY and authorizationHeader all normalize to a sensitive form.
+--   families: rejected wherever they appear INSIDE a key (prompt_text, x-api-key, private_key, sessionId).
+--             False positives such as token_count are accepted: this is governance metadata, not app payload.
+--   exact:    broader structural words rejected only as the WHOLE key, so model_response or log_level stay usable.
 create or replace function public.mission_detail_ok(v jsonb) returns boolean
 language plpgsql immutable parallel safe set search_path = pg_catalog, pg_temp as $$
-declare forbidden text[] := array[
-  'prompt','prompts','systemprompt','userprompt','response','responses','completion','completions','output',
-  'messages','content','body','rawbody','raw','log','logs','stdout','stderr','trace','stack','stacktrace',
-  'authorization','auth','cookie','cookies','setcookie','header','headers','token','tokens','accesstoken',
-  'refreshtoken','idtoken','bearer','apikey','secret','secrets','password','passwd','credential','credentials',
-  'privatekey','sessioncookie','session'];
+declare
+  families text[] := array[
+    'prompt','secret','token','password','passwd','apikey','authorization','cookie','credential','privatekey',
+    'bearer','session'];
+  exact text[] := array[
+    'content','body','rawbody','raw','log','logs','trace','traces','stack','stacktrace','message','messages',
+    'response','responses','completion','completions','output','stdout','stderr','header','headers','auth'];
 begin
   if v is null or jsonb_typeof(v) <> 'object' then return false; end if;
   if length(v::text) > 4096 then return false; end if;
@@ -97,7 +108,9 @@ begin
        or (jsonb_typeof(w.val) = 'string' and length(w.val #>> '{}') > 1000)
        or (jsonb_typeof(w.val) = 'object' and exists (
              select 1 from jsonb_object_keys(w.val) k
-             where regexp_replace(lower(k), '[^a-z0-9]', '', 'g') = any(forbidden)))
+             cross join lateral (select regexp_replace(lower(k), '[^a-z0-9]', '', 'g') as nk) n
+             where n.nk = any(exact)
+                or exists (select 1 from unnest(families) f where position(f in n.nk) > 0)))
   );
 end $$;
 
@@ -218,6 +231,10 @@ begin
   if (new.owner is distinct from old.owner or new.owner_kind is distinct from old.owner_kind
       or new.agent_ids is distinct from old.agent_ids) and not public.mission_internal_on() then
     raise exception 'owner and team change only through mission_reassign() (audited)' using errcode = 'MI016';
+  end if;
+  if old.state = 'completed' and (new.owner is distinct from old.owner or new.owner_kind is distinct from old.owner_kind
+      or new.agent_ids is distinct from old.agent_ids) then
+    raise exception 'owner and team are frozen from completed' using errcode = 'MI019';
   end if;
   if old.state not in ('intent', 'plan')
      and (new.objective is distinct from old.objective
@@ -489,6 +506,11 @@ begin
   end if;
   if m.state in ('verified', 'cancelled') then
     raise exception 'mission % is terminal (%) and cannot change', m.id, m.state using errcode = 'MI013';
+  end if;
+  -- Frozen from completed on: otherwise an agent could drop itself from the team between completed and verified and
+  -- slip past the structural "an agent on this mission cannot certify its own work" check.
+  if m.state = 'completed' then
+    raise exception 'mission % is completed; owner and team are frozen until verification', m.id using errcode = 'MI019';
   end if;
 
   select coalesce(array_agg(a order by a), '{}') into added   from unnest(p_agent_ids) a where not a = any(m.agent_ids);
