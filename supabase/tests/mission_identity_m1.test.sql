@@ -584,4 +584,85 @@ begin
   assert pg_temp.go(m, 'verified', 'ramon', 'human') = 'verified';
 end $$;
 
+-- @test historical independence (1, 2, 6, 8): reassignment in reviewing still works, but leaving the team does not
+-- restore the right to verify, and declaring actor_kind='human' does not bypass it
+do $$
+declare m uuid := pg_temp.mk(p_owner => 'ramon', p_owner_kind => 'human', p_agents => '{triage,vee}');
+begin
+  perform pg_temp.walk_to(m, 'reviewing');
+  -- (8) legitimate reassignment during reviewing still works, with exactly one audit event
+  perform public.mission_reassign(m, 'ramon', 'human', '{vee}', 'ramon', 'human');
+  assert (select count(*) from public.mission_events where mission_id = m and kind = 'team_changed') = 1, 'one team_changed';
+  assert (select agent_ids from public.missions where id = m) = '{vee}', 'triage left the team in reviewing';
+  perform pg_temp.go(m, 'completed'); perform pg_temp.ev(m, 'c1'); perform pg_temp.ev(m, 'c2');
+  -- (1) a current agent cannot verify
+  assert pg_temp.try(format($q$select public.mission_transition(%L,'verified','vee','human')$q$, m)) = 'MI008', 'current agent';
+  -- (2) an agent removed during reviewing cannot verify after completed; (6) declaring human does not bypass it
+  assert pg_temp.try(format($q$select public.mission_transition(%L,'verified','triage','human')$q$, m)) = 'MI008', 'removed in reviewing, declared human';
+  assert pg_temp.try(format($q$select public.mission_transition(%L,'verified','triage','agent')$q$, m)) = 'MI008', 'removed in reviewing, declared agent';
+  assert pg_temp.try(format($q$select public.mission_transition(%L,'verified','triage','human')$q$, m), 'service_role') = 'MI008', 'same through the app role';
+  assert (select state from public.missions where id = m) = 'completed', 'not verified';
+end $$;
+
+-- @test historical independence (3): a former agent owner, including the ORIGINAL owner no event records directly,
+-- can never verify
+do $$
+declare m uuid := pg_temp.mk(p_owner => 'atlas', p_owner_kind => 'agent', p_agents => '{triage}');
+begin
+  perform pg_temp.walk_to(m, 'reviewing');
+  perform public.mission_reassign(m, 'ramon', 'human', '{triage}', 'ramon', 'human');
+  perform pg_temp.go(m, 'completed'); perform pg_temp.ev(m, 'c1'); perform pg_temp.ev(m, 'c2');
+  assert (select owner from public.missions where id = m) = 'ramon', 'atlas no longer owns it';
+  assert pg_temp.try(format($q$select public.mission_transition(%L,'verified','atlas','human')$q$, m)) = 'MI008', 'former agent owner declared human';
+  assert pg_temp.go(m, 'verified', 'ramon', 'human') = 'verified', 'the current human owner, never on the execution team, passes the structural check';
+end $$;
+
+-- @test historical independence (4, 5, 7): added-then-removed agents and every former agent owner stay disqualified
+-- across many reassignments; an unrelated human passes once evidence is complete
+do $$
+declare m uuid := pg_temp.mk(p_owner => 'ramon', p_owner_kind => 'human', p_agents => '{triage}'); a text;
+begin
+  perform pg_temp.walk_to(m, 'executing');
+  perform public.mission_reassign(m, 'ramon', 'human', '{triage,vee}',   'ramon', 'human');  -- vee added
+  perform public.mission_reassign(m, 'atlas', 'agent', '{triage,vee}',   'ramon', 'human');  -- atlas owns (agent)
+  perform pg_temp.go(m, 'reviewing');
+  perform public.mission_reassign(m, 'atlas', 'agent', '{triage}',       'ramon', 'human');  -- vee removed
+  perform public.mission_reassign(m, 'shuri', 'agent', '{triage}',       'ramon', 'human');  -- shuri owns (agent)
+  perform public.mission_reassign(m, 'ramon', 'human', '{triage,ink}',   'ramon', 'human');  -- back to ramon, ink added
+  perform public.mission_reassign(m, 'ramon', 'human', '{triage}',       'ramon', 'human');  -- ink removed
+  assert (select count(*) from public.mission_events where mission_id = m and kind = 'team_changed') = 6, 'six reassignments';
+  perform pg_temp.go(m, 'completed'); perform pg_temp.ev(m, 'c1'); perform pg_temp.ev(m, 'c2');
+  -- (4) added then removed: vee and ink; (7) still detected after many reassignments: atlas and shuri owned as agents
+  foreach a in array array['vee','ink','atlas','shuri','triage'] loop
+    assert pg_temp.try(format($q$select public.mission_transition(%L,'verified',%L,'human')$q$, m, a)) = 'MI008', a || ' must be disqualified';
+  end loop;
+  assert (select state from public.missions where id = m) = 'completed', 'every disqualified attempt wrote nothing';
+  -- (5) an unrelated human actor passes the structural participant check when evidence is complete
+  assert pg_temp.go(m, 'verified', 'sid', 'human') = 'verified', 'unrelated human';
+end $$;
+
+-- @test design boundary: a FORMER HUMAN owner is accountable, not execution team, and is not disqualified.
+-- (Only agent participation disqualifies. M2 still decides who may actually verify.)
+do $$
+declare m uuid := pg_temp.mk(p_owner => 'ramon', p_owner_kind => 'human', p_agents => '{triage}');
+begin
+  perform pg_temp.walk_to(m, 'executing');
+  perform public.mission_reassign(m, 'atlas', 'agent', '{triage}', 'ramon', 'human');
+  perform pg_temp.go(m, 'reviewing'); perform pg_temp.go(m, 'completed');
+  perform pg_temp.ev(m, 'c1'); perform pg_temp.ev(m, 'c2');
+  assert pg_temp.try(format($q$select public.mission_transition(%L,'verified','atlas','human')$q$, m)) = 'MI008', 'current agent owner';
+  assert pg_temp.go(m, 'verified', 'ramon', 'human') = 'verified', 'former human owner may pass the structural check';
+end $$;
+
+-- @test historical independence reads only mechanism-written history: a forged team_changed event is impossible,
+-- so caller-supplied detail can never add or remove a disqualification
+do $$
+declare m uuid := pg_temp.mk(p_agents => '{triage}');
+begin
+  assert pg_temp.try(format($q$insert into public.mission_events (mission_id, kind, actor, actor_kind, detail) values (%L,'team_changed','sid','human','{"agents_added":["sid"]}')$q$, m), 'service_role') = 'MI031', 'forging history to disqualify someone';
+  assert pg_temp.try(format($q$insert into public.mission_events (mission_id, kind, actor, actor_kind, detail) values (%L,'note','sid','human','{"agents_removed":["triage"]}')$q$, m), 'service_role') = 'OK', 'a note may mention agents...';
+  perform pg_temp.walk_to(m, 'completed'); perform pg_temp.ev(m, 'c1'); perform pg_temp.ev(m, 'c2');
+  assert pg_temp.try(format($q$select public.mission_transition(%L,'verified','triage','human')$q$, m)) = 'MI008', '...but a note is never read as team history';
+end $$;
+
 select 'mission_identity_m1: all tests passed' as result;

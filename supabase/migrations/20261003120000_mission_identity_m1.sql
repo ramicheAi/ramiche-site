@@ -19,7 +19,8 @@
 --   team frozen from completed (audited reassignment only before that), no hard
 --   deletes, append-only events, tombstoned link removal, definition frozen once approved, terminal states frozen,
 --   success criteria required before approval, full per-criterion evidence coverage before verification, and the
---   structural rule that a mission's own agents (or an agent owner) can never be recorded as its verifier.
+--   structural rule that no identity that is or ever was on the mission's execution team (its agents, or an agent
+--   owner), current or historical, can be recorded as its verifier.
 --   NOT enforced here: that a verifier is really Ramon. Postgres cannot see the Firebase session, and actor_kind is
 --   caller-supplied, so actor_kind='human' is a declaration, never proof. Authenticated founder authority for
 --   completed -> verified is reserved for the guarded M2 verification route.
@@ -412,6 +413,10 @@ declare
   m        public.missions;
   v_from   text;
   missing  text[];
+  v_owner  text;
+  v_kind   text;
+  v_disq   text[];
+  v_ev     record;
 begin
   if p_to_state is null or p_to_state not in
      ('intent','plan','approved','executing','reviewing','completed','verified','cancelled') then
@@ -444,13 +449,41 @@ begin
   end if;
 
   if p_to_state = 'verified' then
-    -- Structural only. actor_kind is caller-supplied: 'human' is a declaration, not proof. Authenticated founder
-    -- authority is enforced by the guarded M2 verification route, never here.
+    -- WHAT THIS PROVES, AND WHAT IT DOES NOT. M1 proves only two structural facts: every success criterion has live
+    -- evidence (below), and the declared verifier is independent of the mission's current AND historical execution
+    -- team (here). It does NOT authorize verification: actor_kind is caller-supplied, so 'human' is a declaration,
+    -- never proof. Authenticated Ramon/founder identity, and the rule that only the guarded M2 route may request
+    -- completed -> verified, are enforced by M2. M1 alone is never sufficient verification authorization.
     if p_actor_kind <> 'human' then
       raise exception 'verification must be declared by a human actor, not %', p_actor_kind using errcode = 'MI008';
     end if;
-    if p_actor = any(m.agent_ids) or (m.owner_kind = 'agent' and p_actor = m.owner) then
-      raise exception 'an agent on this mission cannot certify its own work' using errcode = 'MI008';
+
+    -- Historical independence. Disqualified forever, whatever actor_kind is declared:
+    --   * every identity that is or ever was in agent_ids;
+    --   * every identity that is or ever was the owner WHILE owner_kind = 'agent'.
+    -- A human owner (current or former) is accountable, not part of the execution team, and is not disqualified.
+    -- History comes only from team_changed events, which mission_reassign() alone can write (the kind is
+    -- mechanism-only and events are append-only), so caller-supplied detail is never trusted here. The walk starts
+    -- from the current owner and steps back through each reassignment, so every ownership period is examined,
+    -- including the original one, which no event records directly.
+    v_disq  := m.agent_ids;
+    v_owner := m.owner;
+    v_kind  := m.owner_kind;
+    if v_kind = 'agent' then v_disq := v_disq || v_owner; end if;
+    for v_ev in
+      select e.detail from public.mission_events e
+       where e.mission_id = m.id and e.kind = 'team_changed'
+       order by e.seq desc
+    loop
+      v_disq := v_disq
+        || coalesce(array(select jsonb_array_elements_text(v_ev.detail->'agents_added')), '{}'::text[])
+        || coalesce(array(select jsonb_array_elements_text(v_ev.detail->'agents_removed')), '{}'::text[]);
+      if v_ev.detail ? 'owner' then v_owner := v_ev.detail->'owner'->>'from'; end if;
+      if v_ev.detail ? 'owner_kind' then v_kind := v_ev.detail->'owner_kind'->>'from'; end if;
+      if v_kind = 'agent' then v_disq := v_disq || v_owner; end if;
+    end loop;
+    if p_actor = any(v_disq) then
+      raise exception 'an actor who is or was on this mission''s execution team cannot certify it' using errcode = 'MI008';
     end if;
     select array_agg(c->>'id' order by c->>'id') into missing
       from jsonb_array_elements(m.success_criteria) c
@@ -508,7 +541,8 @@ begin
     raise exception 'mission % is terminal (%) and cannot change', m.id, m.state using errcode = 'MI013';
   end if;
   -- Frozen from completed on: otherwise an agent could drop itself from the team between completed and verified and
-  -- slip past the structural "an agent on this mission cannot certify its own work" check.
+  -- slip past the structural verifier-independence check. (Leaving the team earlier does not help either: the check
+  -- reads the full team_changed history.)
   if m.state = 'completed' then
     raise exception 'mission % is completed; owner and team are frozen until verification', m.id using errcode = 'MI019';
   end if;
