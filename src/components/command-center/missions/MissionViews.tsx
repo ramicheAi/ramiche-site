@@ -219,18 +219,22 @@ export function CreateMissionForm({ api = httpMissionApi, onCreated, onCancel, i
     onCreated(r.data);
   }
 
+  // Fields are locked while submitting (what is shown is exactly what is sent) and after a partial success (the
+  // mission already exists, so further edits would save nothing). The values stay visible as entered.
+  const fieldsLocked = busy || unlinked !== null;
+
   return (
     <Panel title={fromSynthesis ? "New Mission from plan" : "New Mission"} icon="bolt">
       <form onSubmit={submit} aria-label="New Mission" style={{ display: "grid", gap: 14 }}>
         <label style={{ display: "grid", gap: 6 }}>
           <span style={{ fontWeight: 600 }}>Objective</span>
-          <textarea value={form.objective} onChange={(e) => set("objective", e.target.value)} rows={3}
+          <textarea value={form.objective} disabled={fieldsLocked} onChange={(e) => set("objective", e.target.value)} rows={3}
             placeholder="What outcome do you want?" style={field} aria-invalid={Boolean(errors.objective)} />
           <ErrorLine text={errors.objective ?? null} />
         </label>
         <label style={{ display: "grid", gap: 6 }}>
           <span style={{ fontWeight: 600 }}>Owner</span>
-          <select value={form.owner} onChange={(e) => set("owner", e.target.value)} style={field}>
+          <select value={form.owner} disabled={fieldsLocked} onChange={(e) => set("owner", e.target.value)} style={field}>
             <option value={FOUNDER}>Ramon (you)</option>
             {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
@@ -241,8 +245,8 @@ export function CreateMissionForm({ api = httpMissionApi, onCreated, onCancel, i
             {agents.map((a) => {
               const on = form.agentIds.includes(a.id);
               return (
-                <button key={a.id} type="button" aria-pressed={on} onClick={() => set("agentIds", on ? form.agentIds.filter((x) => x !== a.id) : [...form.agentIds, a.id])}
-                  style={{ minHeight: 40, padding: "6px 12px", borderRadius: 999, fontSize: 13, cursor: "pointer",
+                <button key={a.id} type="button" aria-pressed={on} disabled={fieldsLocked} onClick={() => set("agentIds", on ? form.agentIds.filter((x) => x !== a.id) : [...form.agentIds, a.id])}
+                  style={{ minHeight: 40, padding: "6px 12px", borderRadius: 999, fontSize: 13, cursor: fieldsLocked ? "default" : "pointer", opacity: fieldsLocked ? 0.6 : 1,
                     border: `1px solid ${on ? "var(--accent)" : "var(--line)"}`, background: on ? "var(--accent)" : "var(--ink-2)", color: on ? "var(--ink-0)" : "var(--t-hi)" }}>
                   {a.name}
                 </button>
@@ -253,13 +257,13 @@ export function CreateMissionForm({ api = httpMissionApi, onCreated, onCancel, i
         </fieldset>
         <label style={{ display: "grid", gap: 6 }}>
           <span style={{ fontWeight: 600 }}>Success criteria <span style={muted}>(one per line; at least one)</span></span>
-          <textarea value={form.criteriaText} onChange={(e) => set("criteriaText", e.target.value)} rows={3} style={field}
+          <textarea value={form.criteriaText} disabled={fieldsLocked} onChange={(e) => set("criteriaText", e.target.value)} rows={3} style={field}
             placeholder={"The report is published\nMettle onboarding takes under 5 minutes"} />
           <ErrorLine text={errors.criteria ?? null} />
         </label>
         <label style={{ display: "grid", gap: 6 }}>
           <span style={{ fontWeight: 600 }}>Deliverables <span style={muted}>(one per line, optional)</span></span>
-          <textarea value={form.deliverablesText} onChange={(e) => set("deliverablesText", e.target.value)} rows={2} style={field} />
+          <textarea value={form.deliverablesText} disabled={fieldsLocked} onChange={(e) => set("deliverablesText", e.target.value)} rows={2} style={field} />
           <ErrorLine text={errors.deliverables ?? null} />
         </label>
         <ErrorLine text={serverError} />

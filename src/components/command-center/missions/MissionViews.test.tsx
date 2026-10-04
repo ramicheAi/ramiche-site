@@ -844,3 +844,75 @@ describe("reassignment editor while saving", () => {
     expect((screen.getByLabelText("New owner") as HTMLSelectElement).value).toBe("atlas");
   });
 });
+
+describe("New Mission form while submitting", () => {
+  const isDisabled = (el: HTMLElement) => (el as HTMLButtonElement | HTMLSelectElement | HTMLTextAreaElement).disabled;
+  const editable = () => [
+    screen.getByPlaceholderText(/what outcome/i), screen.getAllByRole("combobox")[0],
+    ...screen.getAllByRole("button", { pressed: true }), ...screen.getAllByRole("button", { pressed: false }),
+    screen.getAllByRole("textbox")[1], screen.getAllByRole("textbox")[2],
+  ];
+  function fill() {
+    fireEvent.change(screen.getByPlaceholderText(/what outcome/i), { target: { value: "Launch v2" } });
+    fireEvent.change(screen.getAllByRole("combobox")[0], { target: { value: "atlas" } });
+    fireEvent.click(screen.getByRole("button", { name: "Nova" }));
+    fireEvent.change(screen.getAllByRole("textbox")[1], { target: { value: "Coaches sign up" } });
+    fireEvent.change(screen.getAllByRole("textbox")[2], { target: { value: "Release notes" } });
+  }
+
+  it("locks every field during the create and the plan link, submits exactly what was shown, then closes on success", async () => {
+    let releaseCreate!: (v: unknown) => void; let releaseLink!: (v: unknown) => void;
+    const create = vi.fn(() => new Promise((r) => (releaseCreate = r)));
+    const addLink = vi.fn(() => new Promise((r) => (releaseLink = r)));
+    const created = vi.fn();
+    render(<CreateMissionForm api={fakeApi({ create: create as unknown as MissionApi["create"], addLink: addLink as unknown as MissionApi["addLink"] })}
+      onCreated={created} onCancel={() => {}} fromSynthesis="00000000-0000-4000-8000-0000000000cc" />);
+    fill();
+    fireEvent.click(screen.getByRole("button", { name: /create mission/i }));
+    // during the create request
+    for (const el of editable()) expect(isDisabled(el), el.getAttribute("aria-label") ?? el.textContent ?? "field").toBe(true);
+    expect(isDisabled(screen.getByRole("button", { name: /creating/i }))).toBe(true);
+    expect(isDisabled(screen.getByRole("button", { name: "Cancel" }))).toBe(true);
+    releaseCreate({ ok: true, data: mission() });
+    await waitFor(() => expect(addLink).toHaveBeenCalledTimes(1));
+    // during the follow-up plan link
+    for (const el of editable()) expect(isDisabled(el)).toBe(true);
+    expect(create).toHaveBeenCalledWith({ objective: "Launch v2", owner: "atlas", ownerKind: "agent", agentIds: ["nova"],
+      successCriteria: [{ id: "c1", text: "Coaches sign up" }], deliverables: [{ id: "d1", text: "Release notes" }] });
+    releaseLink({ ok: true, data: { link: evidenceLink(), resolution: "resolved" } });
+    await waitFor(() => expect(created).toHaveBeenCalledTimes(1));                      // existing close path
+  });
+
+  it("a failed create unlocks the form with the values exactly as entered", async () => {
+    let releaseCreate!: (v: unknown) => void;
+    const create = vi.fn(() => new Promise((r) => (releaseCreate = r)));
+    const created = vi.fn();
+    render(<CreateMissionForm api={fakeApi({ create: create as unknown as MissionApi["create"] })} onCreated={created} onCancel={() => {}} />);
+    fill();
+    fireEvent.click(screen.getByRole("button", { name: /create mission/i }));
+    expect(isDisabled(screen.getByPlaceholderText(/what outcome/i))).toBe(true);
+    releaseCreate({ ok: false, status: 422, message: "owner is not a registered active agent" });
+    expect((await screen.findByRole("alert")).textContent).toContain("registered active agent");
+    for (const el of editable()) expect(isDisabled(el)).toBe(false);
+    expect((screen.getByPlaceholderText(/what outcome/i) as HTMLTextAreaElement).value).toBe("Launch v2");
+    expect((screen.getAllByRole("combobox")[0] as HTMLSelectElement).value).toBe("atlas");
+    expect(screen.getByRole("button", { name: "Nova" }).getAttribute("aria-pressed")).toBe("true");
+    expect((screen.getAllByRole("textbox")[1] as HTMLTextAreaElement).value).toBe("Coaches sign up");
+    expect((screen.getAllByRole("textbox")[2] as HTMLTextAreaElement).value).toBe("Release notes");
+    expect(created).not.toHaveBeenCalled();
+  });
+
+  it("partial success (created, plan link failed) keeps the entered values visible and read-only, with the existing Open/Done path", async () => {
+    const created = vi.fn();
+    render(<CreateMissionForm api={fakeApi({ addLink: vi.fn(() => Promise.resolve({ ok: false as const, status: 404, message: "synthesis not found" })) })}
+      onCreated={created} onCancel={() => {}} fromSynthesis="00000000-0000-4000-8000-0000000000cc" />);
+    fill();
+    fireEvent.click(screen.getByRole("button", { name: /create mission/i }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/was created, but linking the plan failed/);
+    for (const el of editable()) expect(isDisabled(el)).toBe(true);
+    expect((screen.getByPlaceholderText(/what outcome/i) as HTMLTextAreaElement).value).toBe("Launch v2");
+    expect(screen.getByRole("link", { name: /open M-42/i })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(created).toHaveBeenCalledTimes(1);
+  });
+});
