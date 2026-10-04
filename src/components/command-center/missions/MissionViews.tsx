@@ -195,7 +195,7 @@ function MissionGroups({ missions, moreExist }: { missions: MissionRow[]; moreEx
   return (
     <div style={{ display: "grid", gap: 20 }}>
       <p data-testid="triage-summary" style={{ ...muted, fontSize: 14, margin: 0 }}>
-        {groups.map((g) => `${g.missions.length} ${g.label.toLowerCase()}`).join(" · ")}
+        {groups.map((g) => `${g.missions.length}${moreExist ? "+" : ""} ${g.label.toLowerCase()}`).join(" · ")}
         {moreExist && " · older missions are not loaded yet, so these counts cover only the missions shown (Load more below)"}
       </p>
       {groups.map((g) => (
@@ -203,9 +203,14 @@ function MissionGroups({ missions, moreExist }: { missions: MissionRow[]; moreEx
           <h2 style={{
             fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", margin: "0 0 10px",
             color: g.group === "needs_you" && needs > 0 ? "var(--c-amber, #f59e0b)" : "var(--t-mid)",
-          }}>{g.label} · {g.missions.length}</h2>
+          }}>{g.label} · {g.missions.length}{moreExist && "+"}</h2>
           {g.missions.length === 0 ? (
-            <p style={{ ...muted, margin: 0 }}>{g.group === "needs_you" ? "Nothing is waiting on you." : "None."}</p>
+            // With older missions unloaded, an empty group is only empty SO FAR: never claim nothing is waiting.
+            <p style={{ ...muted, margin: 0 }}>
+              {moreExist
+                ? (g.group === "needs_you" ? "Nothing waiting among the missions loaded. Older missions are not loaded yet (Load more below)." : "None among the missions loaded.")
+                : (g.group === "needs_you" ? "Nothing is waiting on you." : "None.")}
+            </p>
           ) : (
             <div role="list" style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 340px), 1fr))" }}>
               {g.missions.map((m) => <MissionCard key={m.id} m={m} quiet={g.group === "done"} />)}

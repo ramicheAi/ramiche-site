@@ -1151,6 +1151,14 @@ describe("M4B grouping", () => {
     render(<MissionListView api={fakeApi({ list: vi.fn(() => Promise.resolve({ ok: true as const, data: { missions: [at(9, "executing", "2026-10-01T00:00:00Z")], nextBefore: 9 } })) })} />);
     await screen.findAllByTestId("mission-card");
     expect(screen.getByTestId("triage-summary").textContent).toContain("older missions are not loaded yet");
+    // An empty group is only empty so far: the page must not claim nothing is waiting, and counts are lower bounds.
+    const needs = screen.getByTestId("group-needs_you").textContent ?? "";
+    expect(needs).not.toContain("Nothing is waiting on you.");
+    expect(needs).toContain("Nothing waiting among the missions loaded. Older missions are not loaded yet");
+    expect(needs).toContain("Needs you · 0+");
+    expect(screen.getByTestId("group-active").textContent).toContain("Active · 1+");
+    expect(screen.getByTestId("group-done").textContent).toContain("None among the missions loaded.");
+    expect(screen.getByTestId("triage-summary").textContent).toContain("0+ needs you · 1+ active");
   });
 
   it("the list makes one list request and no per-row detail or cost requests", async () => {
