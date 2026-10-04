@@ -17,7 +17,10 @@ import { CreateMissionForm, MissionDetailView, MissionListView } from "./Mission
 import type { MissionApi, MissionDetail } from "@/lib/missions/client";
 import type { MissionCosts } from "@/lib/missions/costs";
 import type { LinkRow, MissionRow, MissionState } from "@/lib/missions/types";
-import { forwardSteps, canVerify, EVIDENCE_TARGETS, planMissionShortcut, planPrefillHref, toWellFormed } from "@/lib/missions/ui";
+import {
+  actualCostText, attentionCue, canVerify, coverageText, decisionText, EVIDENCE_TARGETS, forwardSteps, GROUP_OF, GROUP_ORDER, groupMissions,
+  listHint, planMissionShortcut, planPrefillHref, toWellFormed,
+} from "@/lib/missions/ui";
 import { EVIDENCE_TYPES } from "@/lib/missions/targets";
 import { MISSION_STATES } from "@/lib/missions/types";
 
@@ -27,7 +30,7 @@ const M_ID = "00000000-0000-4000-8000-000000000001";
 const mission = (over: Partial<MissionRow> = {}): MissionRow => ({
   id: M_ID, ref: 42, tenant_id: "t", objective: "Ship the onboarding flow", owner: "ramon", owner_kind: "human",
   agent_ids: ["nova"], success_criteria: [{ id: "c1", text: "Onboarding under 5 minutes" }], deliverables: [{ id: "d1", text: "Flow live" }],
-  state: "intent", created_by: "ramon", created_by_kind: "human", created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ...over,
+  state: "intent", created_by: "ramon", created_by_kind: "human", created_at: "2026-10-01T00:00:00.000Z", updated_at: "2026-10-01T00:00:00.000Z", ...over,
 });
 const evidenceLink = (over: Partial<LinkRow> = {}): LinkRow => ({
   id: "00000000-0000-4000-8000-0000000000aa", mission_id: M_ID, target_type: "job", target_id: "00000000-0000-4000-8000-0000000000bb",
@@ -1078,5 +1081,251 @@ describe("cost & usage (M3)", () => {
     const before = (api.costs as ReturnType<typeof vi.fn>).mock.calls.length;
     fireEvent.click(screen.getByRole("button", { name: /remove/i }));
     await waitFor(() => expect((api.costs as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(before));
+  });
+});
+
+/* ── M4B: founder triage ─────────────────────────────────────────────────────────────────────────────── */
+
+describe("M4B grouping", () => {
+  const at = (ref: number, state: MissionState, updated: string) =>
+    mission({ id: `00000000-0000-4000-8000-${String(ref).padStart(12, "0")}`, ref, state, updated_at: updated, objective: `Mission ${ref}` });
+
+  it("every mission state belongs to exactly one group, as specified", () => {
+    expect(Object.keys(GROUP_OF).sort()).toEqual([...MISSION_STATES].sort());
+    expect(GROUP_OF).toEqual({
+      reviewing: "needs_you", completed: "needs_you", executing: "active", approved: "active", plan: "active",
+      intent: "early", verified: "done", cancelled: "done",
+    });
+    expect(GROUP_ORDER).toEqual(["needs_you", "active", "early", "done"]);
+    for (const st of MISSION_STATES) {
+      const g = groupMissions([at(1, st, "2026-10-01T00:00:00Z")]);
+      expect(g.filter((x) => x.missions.length === 1).map((x) => x.group)).toEqual([GROUP_OF[st]]);
+    }
+  });
+
+  it("order inside a group is most recently updated first, ties and unreadable dates by newest ref, whatever the input order", () => {
+    const rows = [
+      at(1, "executing", "2026-10-03T00:00:00Z"), at(2, "plan", "2026-10-05T00:00:00Z"), at(3, "approved", "2026-10-03T00:00:00Z"),
+      at(4, "executing", "not a date"), at(5, "executing", "not a date"),
+    ];
+    const order = (xs: MissionRow[]) => groupMissions(xs).find((g) => g.group === "active")!.missions.map((m) => m.ref);
+    expect(order(rows)).toEqual([2, 3, 1, 5, 4]);
+    expect(order([...rows].reverse())).toEqual([2, 3, 1, 5, 4]);
+    expect(rows.map((m) => m.ref)).toEqual([1, 2, 3, 4, 5]);            // the input is not mutated
+  });
+
+  it("the list renders the four groups in order with their missions; verified and cancelled sit in Done", async () => {
+    const missions = [
+      at(8, "verified", "2026-10-08T00:00:00Z"), at(7, "cancelled", "2026-10-07T00:00:00Z"), at(6, "intent", "2026-10-06T00:00:00Z"),
+      at(5, "plan", "2026-10-05T00:00:00Z"), at(4, "approved", "2026-10-04T00:00:00Z"), at(3, "executing", "2026-10-03T00:00:00Z"),
+      at(2, "completed", "2026-10-02T00:00:00Z"), at(1, "reviewing", "2026-10-01T00:00:00Z"),
+    ];
+    render(<MissionListView api={fakeApi({ list: vi.fn(() => Promise.resolve({ ok: true as const, data: { missions, nextBefore: null } })) })} />);
+    await screen.findAllByTestId("mission-card");
+    const refs = (g: string) => within(screen.getByTestId(`group-${g}`)).queryAllByTestId("mission-card").map((c) => c.querySelector("span")?.textContent);
+    expect(refs("needs_you")).toEqual(["M-2", "M-1"]);
+    expect(refs("active")).toEqual(["M-5", "M-4", "M-3"]);
+    expect(refs("early")).toEqual(["M-6"]);
+    expect(refs("done")).toEqual(["M-8", "M-7"]);
+    const order = ["needs_you", "active", "early", "done"].map((g) => screen.getByTestId(`group-${g}`));
+    for (let i = 1; i < order.length; i++) expect(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByTestId("triage-summary").textContent).toBe("2 needs you · 3 active · 1 inbox / early · 2 done");
+    // Completed and Verified are different cards in different groups with different labels.
+    const completed = within(screen.getByTestId("group-needs_you")).getAllByTestId("mission-card")[0].textContent ?? "";
+    expect(completed).toContain("Needs verification");
+    expect(completed).toContain("Completed, not yet verified");
+    const verified = within(screen.getByTestId("group-done")).getAllByTestId("mission-card")[0];
+    expect(within(verified).getByTestId("state-badge").textContent).toBe("Verified");
+    expect(within(verified).queryByTestId("cue")).toBeNull();          // done rows stay quiet
+    expect(within(verified).queryByTestId("card-next")).toBeNull();
+  });
+
+  it("an empty group says so; nothing waiting reads as nothing waiting", async () => {
+    render(<MissionListView api={fakeApi({ list: vi.fn(() => Promise.resolve({ ok: true as const, data: { missions: [at(1, "intent", "2026-10-01T00:00:00Z")], nextBefore: null } })) })} />);
+    await screen.findAllByTestId("mission-card");
+    expect(screen.getByTestId("group-needs_you").textContent).toContain("Nothing is waiting on you.");
+    expect(screen.getByTestId("group-done").textContent).toContain("None.");
+  });
+
+  it("when older missions are not loaded, the summary says its counts are partial", async () => {
+    render(<MissionListView api={fakeApi({ list: vi.fn(() => Promise.resolve({ ok: true as const, data: { missions: [at(9, "executing", "2026-10-01T00:00:00Z")], nextBefore: 9 } })) })} />);
+    await screen.findAllByTestId("mission-card");
+    expect(screen.getByTestId("triage-summary").textContent).toContain("older missions are not loaded yet");
+  });
+
+  it("the list makes one list request and no per-row detail or cost requests", async () => {
+    const api = fakeApi({ list: vi.fn(() => Promise.resolve({ ok: true as const, data: { missions: [at(2, "completed", "2026-10-02T00:00:00Z"), at(1, "executing", "2026-10-01T00:00:00Z")], nextBefore: null } })) });
+    render(<MissionListView api={api} />);
+    await screen.findAllByTestId("mission-card");
+    expect(api.list).toHaveBeenCalledTimes(1);
+    expect(api.get).not.toHaveBeenCalled();
+    expect(api.costs).not.toHaveBeenCalled();
+  });
+});
+
+describe("M4B cues", () => {
+  const cue = (state: MissionState, ev?: { criterion_id: string | null }[], criteria = [{ id: "c1", text: "a" }, { id: "c2", text: "b" }]) =>
+    attentionCue({ state, success_criteria: criteria }, ev).label;
+  it("each state has one fixed cue; completed depends only on evidence coverage", () => {
+    expect(cue("reviewing")).toBe("Needs review");
+    expect(cue("approved")).toBe("Ready to start");
+    expect(cue("executing")).toBe("Active");
+    expect(cue("plan")).toBe("Planning");
+    expect(cue("intent")).toBe("New");
+    expect(cue("intent", undefined, [])).toBe("No criteria");
+    expect(cue("verified")).toBe("Verified");
+    expect(cue("cancelled")).toBe("Cancelled");
+    expect(cue("completed", [{ criterion_id: "c1" }, { criterion_id: "c2" }])).toBe("Verify");
+    expect(cue("completed", [{ criterion_id: "c1" }])).toBe("Evidence missing");
+    expect(cue("completed", [])).toBe("Evidence missing");
+    expect(cue("completed")).toBe("Needs verification");               // links not loaded: say only what is known
+    for (const st of MISSION_STATES) expect(attentionCue({ state: st, success_criteria: [] }).label).not.toMatch(/blocked|urgent|priority/i);
+  });
+  it("only reviewing and completed are attention cues", () => {
+    expect(MISSION_STATES.filter((st) => attentionCue({ state: st, success_criteria: [{ id: "c1", text: "a" }] }).tone === "attention").sort()).toEqual(["completed", "reviewing"]);
+  });
+  it("coverage and decision text keep Completed and Verified distinct", () => {
+    const crit = [{ id: "c1", text: "a" }, { id: "c2", text: "b" }];
+    expect(coverageText(crit, [{ criterion_id: "c1" }])).toBe("1 of 2 criteria have evidence");
+    expect(coverageText([crit[0]], [{ criterion_id: "c1" }])).toBe("1 of 1 criterion has evidence");
+    expect(coverageText([], [])).toBeNull();
+    const full = decisionText({ state: "completed", success_criteria: crit }, [{ criterion_id: "c1" }, { criterion_id: "c2" }])!;
+    const part = decisionText({ state: "completed", success_criteria: crit }, [{ criterion_id: "c1" }])!;
+    const ver = decisionText({ state: "verified", success_criteria: crit }, [])!;
+    expect(full).toContain("NOT yet verified");
+    expect(part).toContain("no evidence yet");
+    expect(ver).toMatch(/^Verified:/);
+    expect(ver).not.toContain("Completed");
+    expect(decisionText({ state: "reviewing", success_criteria: crit }, [])).toContain("Your review is the current decision point");
+    for (const st of ["intent", "plan", "approved", "executing", "cancelled"] as const) expect(decisionText({ state: st, success_criteria: crit }, [])).toBeNull();
+    expect(listHint({ state: "completed", success_criteria: crit })).toContain("not yet verified");
+  });
+});
+
+describe("M4B detail", () => {
+  const crit2 = [{ id: "c1", text: "First" }, { id: "c2", text: "Second" }];
+  const detail = (state: MissionState, links: LinkRow[]) => fakeApi({}, { mission: mission({ state, success_criteria: crit2 }), links });
+
+  it("completed with full evidence: Verify cue, prominent not-yet-verified notice, verify enabled", async () => {
+    render(<MissionDetailView id={M_ID} api={detail("completed", [evidenceLink(), evidenceLink({ id: "00000000-0000-4000-8000-0000000000ab", criterion_id: "c2" })])} />);
+    expect((await screen.findByTestId("cue")).textContent).toBe("Verify");
+    expect(screen.getByTestId("decision").textContent).toContain("Completed, NOT yet verified");
+    expect(screen.getByTestId("state-badge").textContent).toBe("Completed");
+    expect(screen.getByTestId("coverage").textContent).toBe("2 of 2 criteria have evidence");
+    expect((screen.getByRole("button", { name: "Verify mission" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("completed with missing evidence: Evidence missing cue, and verify stays disabled", async () => {
+    render(<MissionDetailView id={M_ID} api={detail("completed", [evidenceLink()])} />);
+    expect((await screen.findByTestId("cue")).textContent).toBe("Evidence missing");
+    expect(screen.getByTestId("decision").textContent).toContain("some success criteria have no evidence yet");
+    expect(screen.getByTestId("coverage").textContent).toBe("1 of 2 criteria have evidence");
+    expect((screen.getByRole("button", { name: "Verify mission" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("verified reads as verified, never as completed; reviewing names the founder decision", async () => {
+    const { unmount } = render(<MissionDetailView id={M_ID} api={detail("verified", [evidenceLink()])} />);
+    expect((await screen.findByTestId("decision")).textContent).toMatch(/^Verified:/);
+    expect(screen.getByTestId("state-badge").textContent).toBe("Verified");
+    expect(screen.queryByRole("button", { name: "Verify mission" })).toBeNull();
+    unmount();
+    render(<MissionDetailView id={M_ID} api={detail("reviewing", [])} />);
+    expect((await screen.findByTestId("cue")).textContent).toBe("Needs review");
+    expect(screen.getByTestId("decision").textContent).toContain("Your review is the current decision point");
+  });
+
+  it("states without a founder decision show no decision notice", async () => {
+    render(<MissionDetailView id={M_ID} api={detail("executing", [])} />);
+    expect((await screen.findByTestId("cue")).textContent).toBe("Active");
+    expect(screen.queryByTestId("decision")).toBeNull();
+  });
+
+  it("sections come in the founder's order: actions, criteria, owner/team, cost, links, history", async () => {
+    render(<MissionDetailView id={M_ID} api={detail("executing", [])} />);
+    await screen.findByTestId("actual-cost");
+    const marks = [screen.getByTestId("lifecycle-actions"), screen.getByText("Success criteria"), screen.getByRole("button", { name: "Change owner or team" }),
+      screen.getByTestId("costs"), screen.getByText("Links and evidence"), screen.getByTestId("history")];
+    for (let i = 1; i < marks.length; i++) expect(marks[i - 1].compareDocumentPosition(marks[i]) & Node.DOCUMENT_POSITION_FOLLOWING, String(i)).toBeTruthy();
+  });
+
+  it("a mission that fails to load shows the failure and a retry, never a blank or fake mission", async () => {
+    const get = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 502, message: "mission storage call failed" })
+      .mockResolvedValueOnce({ ok: true, data: { mission: mission({ state: "plan" }), links: [], events: [], eventsTruncated: false } });
+    render(<MissionDetailView id={M_ID} api={fakeApi({ get })} />);
+    expect((await screen.findByRole("alert")).textContent).toContain("This mission could not be loaded");
+    expect(screen.queryByTestId("lifecycle-actions")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByTestId("lifecycle-actions")).toBeTruthy();
+  });
+});
+
+describe("M4B list failure and recovery", () => {
+  it("a failed first load shows the error and a retry: no groups, no empty state, no cards", async () => {
+    const list = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 502, message: "mission storage call failed" })
+      .mockResolvedValueOnce({ ok: true, data: { missions: [mission({ state: "reviewing" })], nextBefore: null } });
+    render(<MissionListView api={fakeApi({ list })} />);
+    expect((await screen.findByRole("alert")).textContent).toContain("mission storage call failed");
+    expect(screen.queryByTestId("mission-card")).toBeNull();
+    expect(screen.queryByTestId("group-needs_you")).toBeNull();
+    expect(screen.queryByText("No missions yet")).toBeNull();
+    expect(screen.queryByTestId("triage-summary")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByTestId("mission-card")).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+});
+
+describe("M4B mobile and authority", () => {
+  const src = readFileSync(join(process.cwd(), "src/components/command-center/missions/MissionViews.tsx"), "utf8");
+  it("cards and retry controls are touch-sized and grids never force horizontal scroll", async () => {
+    render(<MissionListView api={fakeApi({ list: vi.fn(() => Promise.resolve({ ok: true as const, data: { missions: [mission({ state: "reviewing" })], nextBefore: null } })) })} />);
+    const card = await screen.findByTestId("mission-card");
+    expect(parseInt(card.style.minHeight, 10)).toBeGreaterThanOrEqual(44);
+    expect(card.querySelector("p")?.style.overflowWrap).toBe("anywhere");
+    expect((card.parentElement as HTMLElement).style.gridTemplateColumns).toContain("min(100%, 340px)");
+    expect(parseInt(screen.getByRole("button", { name: /new mission/i }).style.minHeight, 10)).toBeGreaterThanOrEqual(44);
+    expect(src).not.toMatch(/minmax\(\d+px/);
+    expect(src).not.toMatch(/width: \d{3,}(px)?[,}]/);
+    expect(src).not.toMatch(/overflow-?x|overflowX/i);
+    expect(src).not.toMatch(/<table/);
+  });
+  it("the surface adds no identity, agent authority, polling or new endpoint", () => {
+    const client = readFileSync(join(process.cwd(), "src/lib/missions/client.ts"), "utf8");
+    const ui = readFileSync(join(process.cwd(), "src/lib/missions/ui.ts"), "utf8");
+    for (const text of [src, client, ui]) {
+      expect(text).not.toMatch(/x-parallax-agent|PARALLAX_MISSIONS_AGENT_TOKEN|actor_kind|actorKind|verified_by|x-ramon-uid/);
+      expect(text).not.toMatch(/setInterval|priorityScore|priority_score/);
+    }
+    expect([...client.matchAll(/call\(/g)].length).toBe(9);             // the 9 existing M2/M3 calls: no new route
+  });
+});
+
+describe("M4B cost wording", () => {
+  const a = (over: Partial<MissionCosts["actualCost"]>) => actualCostText({ status: "complete", knownUsd: null, knownEvents: 0, unknownEvents: 0, notApplicableEvents: 0, ...over });
+  it("unknown is never zero; partial is marked as known + unknown", () => {
+    expect(a({ status: "complete", knownUsd: "1.42000000", knownEvents: 3 })).toBe("$1.42 recorded across 3 calls.");
+    expect(a({ status: "partial", knownUsd: "1.42000000", knownEvents: 3, unknownEvents: 2 })).toBe("$1.42 + unknown. Recorded across 3 calls. Partial: cost unknown for 2 calls.");
+    for (const st of ["no_events", "none_recorded", "unknown"] as const) {
+      const text = a({ status: st, unknownEvents: st === "unknown" ? 2 : 0 });
+      expect(text).not.toMatch(/\$\s?0|\b0\.00\b/);
+      if (st !== "no_events") expect(text).toContain("No actual marginal cost recorded");
+    }
+    expect(a({ status: "complete", knownUsd: "0.00000000", knownEvents: 1 })).toBe("$0.00 recorded across 1 call.");   // a recorded zero is real
+  });
+  it("the panel labels actual and shadow separately, and shadow as not actual spend", async () => {
+    const c: MissionCosts = { ...noCosts, events: { total: 2, direct: 2, linked: 0, both: 0 },
+      actualCost: { status: "partial", knownUsd: "1.42000000", knownEvents: 1, unknownEvents: 1, notApplicableEvents: 0 },
+      shadowCost: { label: "list_price_equivalent_not_actual_spend", basis: "b", usd: "8.75000000", pricedEvents: 1, unpricedEvents: 1 } };
+    render(<MissionDetailView id={M_ID} api={fakeApi({ costs: vi.fn(() => Promise.resolve({ ok: true as const, data: c })) })} />);
+    const actual = (await screen.findByTestId("actual-cost")).textContent ?? "";
+    expect(actual).toContain("Actual marginal cost:");
+    expect(actual).toContain("$1.42 + unknown");
+    expect(actual).not.toContain("8.75");
+    const shadow = screen.getByTestId("shadow-cost").textContent ?? "";
+    expect(shadow).toContain("NOT actual spend");
+    expect(shadow).toContain("$8.75");
+    expect(shadow).not.toContain("1.42");
   });
 });
