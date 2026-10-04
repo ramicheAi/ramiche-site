@@ -520,6 +520,15 @@ describe.skipIf(!conn)("M3 Mission cost attribution on real Packet 3 telemetry",
     expect(again).toEqual(r);
   });
 
+  it("an event stored with an upper-case correlation id is still attributed through its lower-case link", async () => {
+    const m = await mk();
+    const { lead } = await records();
+    await link(m, "pipeline_lead", lead.toUpperCase());                     // stored canonical (lower-case) by M2
+    await ev({ id: uuid("9f"), provider: "openrouter", billing: "unknown", corr: ["lead", lead.toUpperCase()], cost: "0.50000000" });
+    const r = await costs(m.id);
+    expect([r.events.total, r.actualCost.knownUsd]).toEqual([1, "0.50000000"]);
+  });
+
   it("a mission with no telemetry is an honest zero; all-null cost is never $0", async () => {
     const empty = await costs((await mk()).id);
     expect(empty.events).toEqual({ total: 0, direct: 0, linked: 0, both: 0 });

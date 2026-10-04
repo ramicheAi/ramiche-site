@@ -12,7 +12,7 @@
  */
 import { canTransition, FOUNDER_ACTOR, isFounder, type Principal } from "./principal";
 import type { CorrelationType, CostEventRow, MissionStore } from "./store";
-import { costTargets, mergeAttribution, summarize, type MissionCosts } from "./costs";
+import { correlationIdForms, costTargets, mergeAttribution, summarize, type MissionCosts } from "./costs";
 import { EVIDENCE_TYPES, resolveTarget, type ResolvedTarget } from "./targets";
 import type { EventRow, LinkRow, MissionResult, MissionRow, MissionState, StoreError, TargetType } from "./types";
 import * as v from "./validate";
@@ -383,11 +383,16 @@ export async function missionCosts(ctx: Ctx, id: unknown): Promise<MissionResult
   if (!direct.ok) return fromStore(direct.error);
   const linked: { type: CorrelationType; rows: CostEventRow[] }[] = [];
   for (const [type, ids] of targets) {
-    const r = await ctx.store.eventsForCorrelation(type, [...ids.keys()]);
+    const r = await ctx.store.eventsForCorrelation(type, correlationIdForms(ids.keys()));
     if (!r.ok) return fromStore(r.error);
     linked.push({ type, rows: r.data });
   }
-  return ok(summarize(m.id, mergeAttribution(direct.data, linked, targets)));
+  try {
+    return ok(summarize(m.id, mergeAttribution(direct.data, linked, targets)));
+  } catch {
+    // An unexpected stored value (e.g. a cost the exact-decimal parser does not accept) fails loudly, never as a guess.
+    return fail(502, "cost_data_unreadable", "mission cost data could not be read exactly");
+  }
 }
 
 /** Read-only preview of what a link would point at, without writing anything. */

@@ -444,16 +444,19 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
  * mission detail does (links change what is attributed); an older read never overwrites a newer one.
  */
 function CostsPanel({ api, id, version }: { api: MissionApi; id: string; version: number }) {
-  const [c, setC] = useState<MissionCosts | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+  // Each result is tagged with the detail read it answers. Numbers from an earlier read are never shown next to a newer
+  // mission state: while the matching read is in flight, or when it failed, no figures are displayed at all.
+  const [res, setRes] = useState<{ version: number; data: MissionCosts | null; err: string | null } | null>(null);
   useEffect(() => {
     let alive = true;
     api.costs(id).then((r) => {
-      if (!alive) return;
-      if (r.ok) { setC(r.data); setErr(null); } else setErr(r.message);
+      if (alive) setRes({ version, data: r.ok ? r.data : null, err: r.ok ? null : r.message });
     });
     return () => { alive = false; };
   }, [api, id, version]);
+  const current = res?.version === version ? res : null;
+  const c = current?.data ?? null;
+  const err = current?.err ?? null;
 
   return (
     <Panel title="Cost & Usage" icon="pulse">

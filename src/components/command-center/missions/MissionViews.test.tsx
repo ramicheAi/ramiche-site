@@ -1053,6 +1053,24 @@ describe("cost & usage (M3)", () => {
     expect(screen.getByTestId("lifecycle-actions")).toBeTruthy();
   });
 
+  it("after an action, earlier numbers are never shown while the new read is pending or once it fails", async () => {
+    const partial = withCosts({ events: { total: 1, direct: 0, linked: 1, both: 0 },
+      actualCost: { status: "complete", knownUsd: "1.23000000", knownEvents: 1, unknownEvents: 0, notApplicableEvents: 0 } });
+    let fail!: (v: unknown) => void;
+    const costs = vi.fn()
+      .mockResolvedValueOnce({ ok: true, data: partial })
+      .mockImplementationOnce(() => new Promise((r) => (fail = r)));
+    const api = fakeApi({ costs }, { mission: mission({ state: "executing" }), links: [evidenceLink()] });
+    render(<MissionDetailView id={M_ID} api={api} />);
+    expect((await screen.findByTestId("actual-cost")).textContent).toContain("$1.23");
+    fireEvent.click(screen.getByRole("button", { name: /remove/i }));
+    await waitFor(() => expect(costs).toHaveBeenCalledTimes(2));
+    expect(screen.queryByTestId("actual-cost")).toBeNull();                 // pending: no stale figures
+    fail({ ok: false, status: 502, message: "mission storage call failed" });
+    expect((await screen.findByText(/Cost & usage could not be loaded/)).textContent).toContain("mission storage call failed");
+    expect(screen.getByTestId("costs").textContent).not.toContain("$1.23");
+  });
+
   it("costs are re-read after an action (a link can change attribution)", async () => {
     const api = fakeApi({}, { mission: mission({ state: "executing" }), links: [evidenceLink()] });
     render(<MissionDetailView id={M_ID} api={api} />);

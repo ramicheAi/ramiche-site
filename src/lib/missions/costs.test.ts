@@ -3,7 +3,7 @@
  * shadow view in missions-db.test.ts; these pin each rule in isolation.
  */
 import { describe, expect, it } from "vitest";
-import { COST_LINK_MAP, costTargets, mergeAttribution, summarize } from "./costs";
+import { correlationIdForms, COST_LINK_MAP, costTargets, mergeAttribution, summarize } from "./costs";
 import type { CostEventRow } from "./store";
 import type { LinkRow, TargetType } from "./types";
 
@@ -94,5 +94,15 @@ describe("summarize: truth rules", () => {
       ["gemini", "m-a", null, "unknown", 1, null],
       ["openrouter", "m-a", "m-a-2024", "unknown", 1, null],
     ]);
+  });
+});
+
+describe("correlation id spellings", () => {
+  it("queries both canonical spellings so an upper-case stored id is not silently missed", () => {
+    expect(correlationIdForms([J])).toEqual([J, J.toUpperCase()]);
+    const t = costTargets([link("l", "pipeline_lead", J.toUpperCase())]);
+    const upperRow = row("e", { correlation_type: "lead", correlation_id: J.toUpperCase() });
+    const out = mergeAttribution([], [{ type: "lead", rows: [upperRow] }], t);
+    expect(out.map((e) => e.id)).toEqual(["e"]);
   });
 });

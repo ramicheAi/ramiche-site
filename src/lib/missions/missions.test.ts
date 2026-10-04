@@ -277,3 +277,44 @@ describe("missionContext", () => {
     }
   });
 });
+
+describe("missionCosts failure handling (M3)", () => {
+  const MID = "00000000-0000-4000-8000-000000000001";
+  const base = (over: Partial<MissionStore>) => ({
+    getMission: async () => ({ ok: true, data: { id: MID, tenant_id: "t", state: "executing" } }),
+    listLinks: async () => ({ ok: true, data: [] }),
+    eventsForMission: async () => ({ ok: true, data: [] }),
+    eventsForCorrelation: async () => ({ ok: true, data: [] }),
+    ...over,
+  }) as unknown as MissionStore;
+  const run = (store: MissionStore) => svc.missionCosts({ store, tenantId: "t", principal: FOUNDER }, MID);
+
+  it("a cost value the exact parser cannot read is a structured failure, never a guessed total", async () => {
+    const bad = { id: "e", mission_id: MID, correlation_type: null, correlation_id: null, provider: "openrouter", model_requested: null, model_reported: null,
+      outcome: "ok", usage_quality: "not_reported", input_tokens: null, output_tokens: null, total_tokens: null, direct_cost_usd: "1e-3",
+      billing_mode: "unknown", shadow_cost_usd: null, shadow_cost_basis: null };
+    const r = await run(base({ eventsForMission: async () => ({ ok: true, data: [bad] }) } as Partial<MissionStore>));
+    expect(!r.ok && [r.status, r.code]).toEqual([502, "cost_data_unreadable"]);
+  });
+
+  it("any telemetry read failure fails the whole request; no partial total is returned", async () => {
+    const link = { id: "l", mission_id: MID, target_type: "job", target_id: "00000000-0000-4000-8000-0000000000aa", removed_at: null };
+    const r = await run(base({
+      listLinks: async () => ({ ok: true, data: [link] }),
+      eventsForCorrelation: async () => ({ ok: false, error: { message: "boom" } }),
+    } as unknown as Partial<MissionStore>));
+    expect(!r.ok && r.status).toBe(502);
+    const r2 = await run(base({ eventsForMission: async () => ({ ok: false, error: { message: "boom" } }) } as unknown as Partial<MissionStore>));
+    expect(!r2.ok && r2.status).toBe(502);
+  });
+
+  it("linked ids are queried in both canonical spellings", async () => {
+    const seen: string[][] = [];
+    const link = { id: "l", mission_id: MID, target_type: "pipeline_lead", target_id: "0000000a-0000-4000-8000-0000000000aa", removed_at: null };
+    await run(base({
+      listLinks: async () => ({ ok: true, data: [link] }),
+      eventsForCorrelation: async (_t: string, ids: string[]) => { seen.push(ids); return { ok: true, data: [] }; },
+    } as unknown as Partial<MissionStore>));
+    expect(seen).toEqual([["0000000a-0000-4000-8000-0000000000aa", "0000000A-0000-4000-8000-0000000000AA"]]);
+  });
+});
