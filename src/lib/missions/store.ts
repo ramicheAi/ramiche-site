@@ -34,6 +34,30 @@ export type NewLink = {
   created_by_kind: ActorKind;
 };
 
+/** execution_events correlation types (Packet 3). */
+export type CorrelationType = "job" | "chat_message" | "lead";
+
+/** The execution_events_with_shadow_cost columns cost attribution needs. Metadata only: no prompts or bodies. */
+export type CostEventRow = {
+  id: string;
+  mission_id: string | null;
+  correlation_type: CorrelationType | null;
+  correlation_id: string | null;
+  provider: string;
+  model_requested: string | null;
+  model_reported: string | null;
+  outcome: string;
+  usage_quality: string;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  total_tokens: number | null;
+  direct_cost_usd: number | string | null;
+  billing_mode: string;
+  shadow_cost_usd: number | string | null;
+  shadow_cost_basis: string | null;
+};
+export const COST_EVENT_COLS = "id, mission_id, correlation_type, correlation_id, provider, model_requested, model_reported, outcome, usage_quality, input_tokens, output_tokens, total_tokens, direct_cost_usd, billing_mode, shadow_cost_usd, shadow_cost_basis";
+
 export type ListQuery = { tenantId: string; state?: MissionState; owner?: string; beforeRef?: number; limit: number };
 
 /** What a resolver needs to know about a database-backed target. Only existence and a few typed facts. */
@@ -65,6 +89,14 @@ export interface MissionStore {
   dependencyEdges(fromMissionIds: string[]): Promise<StoreResult<{ mission_id: string; target_id: string }[]>>;
   /** Which of these missions (in this tenant) are not terminal. Edges out of a terminal mission can never gate anything. */
   liveMissionIds(tenantId: string, ids: string[]): Promise<StoreResult<string[]>>;
+  /**
+   * M3 cost attribution reads (execution_events_with_shadow_cost, read-only). Complete or an error, never partial.
+   * eventsForMission: rows whose mission_id is this mission. eventsForCorrelation: rows with this correlation type
+   * whose correlation_id equals one of these UUIDs IGNORING CASE (writers store the spelling they were given, and the
+   * column's UUID CHECK is case-insensitive). Every id must be a UUID; anything else fails the read.
+   */
+  eventsForMission(missionId: string): Promise<StoreResult<CostEventRow[]>>;
+  eventsForCorrelation(type: CorrelationType, ids: string[]): Promise<StoreResult<CostEventRow[]>>;
   /** Existence (and typed facts) of a database-backed target inside the tenant. null = does not exist. */
   lookupTarget(tenantId: string, type: DbTargetType, id: string): Promise<StoreResult<TargetRecord | null>>;
 }
@@ -76,6 +108,9 @@ export const EDGE_MAX_PAGES = 100;
 
 /** Ids per IN (...) filter: keeps request URLs short and every response far below the PostgREST row cap. */
 export const ID_CHUNK = 200;
+/** Ids per case-insensitive correlation query (each becomes an or() term in the request URL, so keep it short). */
+export const COST_ID_CHUNK = 50;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 function chunks<T>(xs: T[]): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < xs.length; i += ID_CHUNK) out.push(xs.slice(i, i + ID_CHUNK));
@@ -126,7 +161,45 @@ export function supabaseMissionStore(svc: SupabaseClient): MissionStore {
     return { ok: false, error: { message: "dependency edge read exceeded its page budget" } };
   }
 
+  type CostQuery = ReturnType<ReturnType<SupabaseClient["from"]>["select"]>;
+  /**
+   * Every matching cost row, keyset-paged on the event id to completion (the server row cap cannot truncate an
+   * attribution), with a fail-closed page budget: a total is either complete or an error, never a silent subset.
+   */
+  async function costPages(filter: (q: CostQuery) => CostQuery): Promise<StoreResult<CostEventRow[]>> {
+    const out: CostEventRow[] = [];
+    let after: string | null = null;
+    for (let pageNo = 0; pageNo < EDGE_MAX_PAGES; pageNo++) {
+      let q = filter(svc.from("execution_events_with_shadow_cost").select(COST_EVENT_COLS));
+      if (after !== null) q = q.gt("id", after);
+      const { data, error } = await q.order("id", { ascending: true }).limit(EDGE_PAGE);
+      if (error) return wrap(null, error);
+      const rows = (data ?? []) as unknown as CostEventRow[];
+      if (rows.length === 0) return { ok: true, data: out };
+      out.push(...rows);
+      after = rows[rows.length - 1].id;
+    }
+    return { ok: false, error: { message: "cost attribution read exceeded its page budget" } };
+  }
+
   return {
+    async eventsForMission(missionId) {
+      return costPages((q) => q.eq("mission_id", missionId));
+    },
+    async eventsForCorrelation(type, ids) {
+      const out: CostEventRow[] = [];
+      // Case-insensitive equality via ILIKE with a pattern that is a validated UUID: hex digits and hyphens only, so it
+      // contains no wildcard (% _ *) and no PostgREST or() syntax, and matches exactly that UUID in any letter case.
+      const uuids = ids.map((id) => id.toLowerCase());
+      if (!uuids.every((id) => UUID_RE.test(id))) return { ok: false, error: { message: "cost attribution needs UUID correlation ids" } };
+      for (let i = 0; i < uuids.length; i += COST_ID_CHUNK) {
+        const filter = uuids.slice(i, i + COST_ID_CHUNK).map((id) => `correlation_id.ilike.${id}`).join(",");
+        const r = await costPages((q) => q.eq("correlation_type", type).or(filter));
+        if (!r.ok) return r;
+        out.push(...r.data);
+      }
+      return { ok: true, data: out };
+    },
     async insertMission(row) {
       const { data, error } = await svc.from("missions").insert(row).select(MISSION_COLS).single();
       return wrap(data, error);

@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { EDGE_PAGE, ID_CHUNK, supabaseMissionStore } from "./store";
+import { COST_ID_CHUNK, EDGE_PAGE, ID_CHUNK, supabaseMissionStore } from "./store";
 
 type Call = { table?: string; rpc?: string; ops: [string, unknown[]][] };
 let rpcData: unknown = { id: "m" };
@@ -174,5 +174,70 @@ describe("supabaseMissionStore", () => {
       const inIds = c.ops.find(([op]) => op === "in")?.[1][1] as string[];
       expect(inIds.length).toBeLessThanOrEqual(ID_CHUNK);
     }
+  });
+});
+
+describe("supabaseMissionStore cost reads (M3)", () => {
+  it("refuses anything that is not a UUID before querying: no free-text or wildcard pattern can reach ILIKE", async () => {
+    for (const bad of ["%", "abcdef12-3456-4abc-8def-0123456789a_", "*", "x", "abcdef12-3456-4abc-8def-0123456789ab,correlation_id.ilike.*"]) {
+      const { client, queries } = viewClient([]);
+      const r = await supabaseMissionStore(client).eventsForCorrelation("lead", [bad]);
+      expect(r.ok, bad).toBe(false);
+      expect(queries.length, bad).toBe(0);
+    }
+  });
+
+  /** Records every query against a fake view and answers with id-cursor pages of the given rows. */
+  function viewClient(rows: { id: string }[], cap = 1000) {
+    const queries: { table: string; ops: [string, unknown[]][] }[] = [];
+    const client = {
+      from: (table: string) => {
+        const q = { table, ops: [] as [string, unknown[]][] };
+        queries.push(q);
+        let gt: string | null = null;
+        const api: Record<string, unknown> = new Proxy({}, {
+          get(_t, prop: string) {
+            return (...args: unknown[]) => {
+              q.ops.push([prop, args]);
+              if (prop === "gt") gt = args[1] as string;
+              if (prop === "limit") return Promise.resolve({ data: rows.filter((r) => gt === null || r.id > gt).slice(0, Math.min(args[0] as number, cap)), error: null });
+              return api;
+            };
+          },
+        });
+        return api;
+      },
+    } as unknown as SupabaseClient;
+    return { client, queries };
+  }
+
+  it("reads only the existing shadow-cost view, by exact mission id or exact correlation pair, never writing", async () => {
+    const { client, queries } = viewClient([]);
+    const s = supabaseMissionStore(client);
+    await s.eventsForMission("m1");
+    const A = "abcdef12-3456-4abc-8def-0123456789ab", B = "00000000-0000-4000-8000-0000000000ff";
+    expect((await s.eventsForCorrelation("lead", [A.toUpperCase(), B])).ok).toBe(true);
+    expect(queries.map((q) => q.table)).toEqual(["execution_events_with_shadow_cost", "execution_events_with_shadow_cost"]);
+    const opsOf = (i: number) => queries[i].ops.map(([op]) => op);
+    for (const i of [0, 1]) for (const w of ["insert", "update", "upsert", "delete", "rpc"]) expect(opsOf(i)).not.toContain(w);
+    expect(queries[0].ops).toContainEqual(["eq", ["mission_id", "m1"]]);
+    expect(queries[1].ops).toContainEqual(["eq", ["correlation_type", "lead"]]);
+    // case-insensitive equality on exactly these UUIDs (lower-cased, validated, no wildcard), never an exact-string in()
+    expect(queries[1].ops).toContainEqual(["or", [`correlation_id.ilike.${A},correlation_id.ilike.${B}`]]);
+    expect(opsOf(1)).not.toContain("in");
+    expect(opsOf(1)).not.toContain("like");
+  });
+
+  it("pages to completion by id cursor under a server cap, chunks ids, and fails closed past the page budget", async () => {
+    const rows = Array.from({ length: EDGE_PAGE + 9 }, (_, i) => ({ id: `e${String(i).padStart(6, "0")}` }));
+    const r = await supabaseMissionStore(viewClient(rows, 100).client).eventsForMission("m");
+    expect(r.ok && r.data.length).toBe(rows.length);
+    const { client, queries } = viewClient([]);
+    const uuids = Array.from({ length: COST_ID_CHUNK * 2 + 1 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`);
+    await supabaseMissionStore(client).eventsForCorrelation("job", uuids);
+    expect(queries.length).toBe(3);
+    expect(ID_CHUNK).toBeGreaterThan(0);
+    const many = Array.from({ length: 2000 }, (_, i) => ({ id: `e${String(i).padStart(6, "0")}` }));
+    expect((await supabaseMissionStore(viewClient(many, 1).client).eventsForMission("m")).ok).toBe(false);
   });
 });
