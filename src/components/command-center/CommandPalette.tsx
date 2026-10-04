@@ -77,7 +77,8 @@ const ROUTES: RouteEntry[] = [
   { kind: "route", id: "tasks", label: "Tasks", hint: "Kanban board", icon: "▣", accent: "#f59e0b", href: "/command-center/tasks" },
   { kind: "route", id: "calendar", label: "Calendar", hint: "Cron + events", icon: "○", accent: "#38bdf8", href: "/command-center/calendar" },
   { kind: "route", id: "projects", label: "Projects", hint: "Tracked work", icon: "◉", accent: "#818cf8", href: "/command-center/projects" },
-  { kind: "route", id: "missions", label: "Missions", icon: "✦", accent: TOKENS.gold, href: "/command-center/missions" },
+  { kind: "route", id: "missions", label: "Missions", hint: "Objectives, criteria, evidence", icon: "✦", accent: TOKENS.gold, href: "/command-center/missions" },
+  { kind: "route", id: "project-progress", label: "Project Progress", hint: "Projects, progress, checklists", icon: "▤", accent: TOKENS.gold, href: "/command-center/projects/progress" },
   { kind: "route", id: "memory", label: "Memory", hint: "Agent journal", icon: "◎", accent: TOKENS.purpleSoft, href: "/command-center/memory" },
   { kind: "route", id: "docs", label: "Docs", hint: "Library", icon: "≡", accent: "#3b82f6", href: "/command-center/docs" },
   { kind: "route", id: "office", label: "Office", hint: "3D workspace", icon: "▣", accent: "#06b6d4", href: "/command-center/office" },
@@ -110,7 +111,7 @@ const ROUTES: RouteEntry[] = [
 /* route id → Parallax OS geometric icon name */
 const ROUTE_ICON: Record<string, string> = {
   dashboard: "dashboard", jobs: "bolt", chat: "comms", agents: "agents", tasks: "tasks",
-  calendar: "calendar", projects: "projects", missions: "mettle", memory: "memory",
+  calendar: "calendar", projects: "projects", "project-progress": "projects", missions: "mettle", memory: "memory",
   docs: "docs", office: "office", comms: "comms", vitals: "health", activity: "pulse",
   health: "health", security: "security", settings: "settings", finance: "finance",
   arbitrage: "arbitrage", revenue: "finance", sales: "sales", prospector: "nexus",

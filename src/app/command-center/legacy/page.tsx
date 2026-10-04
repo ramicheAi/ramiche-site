@@ -1573,7 +1573,7 @@ export default function CommandCenter() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             {[
               { label: "AGENTS", href: "/command-center/agents", icon: "\u25C8", accent: "#7c3aed", desc: `${activeAgents} active \u00B7 ${agents.length} total`, sub: "Usage, skills, tools, config" },
-              { label: "MISSIONS", href: "/command-center/missions", icon: "\u2726", accent: "#C9A84C", desc: `${activeMissions} active \u00B7 ${doneT}/${totalT} tasks`, sub: "Projects, progress, checklists" },
+              { label: "PROJECTS", href: "/command-center/projects/progress", icon: "\u2726", accent: "#C9A84C", desc: `${activeMissions} active \u00B7 ${doneT}/${totalT} tasks`, sub: "Projects, progress, checklists" },
               { label: "VITALS", href: "/command-center/vitals", icon: "\u2665", accent: "#10b981", desc: "Health \u00B7 Spiritual \u00B7 Weather", sub: "Steps, water, sleep, scripture" },
               { label: "REVENUE", href: "/command-center/revenue", icon: "\u25C9", accent: "#d97706", desc: "Pipeline \u00B7 Opportunities", sub: "Sales, pricing, deals" },
               { label: "ACTIVITY", href: "/command-center/activity", icon: "\u25CF", accent: "#2563eb", desc: `${activityLog.length} recent events`, sub: "Feed, schedule, history" },
