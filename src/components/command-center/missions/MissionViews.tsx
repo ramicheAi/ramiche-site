@@ -14,7 +14,7 @@ import { httpMissionApi, type MissionApi, type MissionDetail } from "@/lib/missi
 import type { LinkRow, MissionRow, MissionState, Relation, TargetType } from "@/lib/missions/types";
 import {
   agentName, canCancel, canEditLinks, canReassign, canVerify, createBody, emptyCreateForm, EVIDENCE_TARGETS, formatRef,
-  forwardSteps, FOUNDER, LINK_TARGETS, nextHint, RELATION_LABEL, selectableAgents, STATE_LABEL, targetLabel,
+  forwardSteps, FOUNDER, LINK_TARGETS, mergeMissionPages, nextHint, RELATION_LABEL, selectableAgents, STATE_LABEL, targetLabel,
   uncoveredCriteria, validateCreate, type CreateForm,
 } from "@/lib/missions/ui";
 
@@ -69,16 +69,32 @@ function timeAgo(iso: string): string {
 
 /* ── list ───────────────────────────────────────────────────────────────────────────────────────────── */
 
-export function MissionListView({ api = httpMissionApi, initialObjective, fromSynthesis, onCreated }: {
+export function MissionListView({ api = httpMissionApi, initialObjective, fromSynthesis, onCreated, onPrefillDone }: {
   api?: MissionApi; initialObjective?: string; fromSynthesis?: string; onCreated?: (m: MissionRow) => void;
+  /** Called when a prefilled form is finished with (created or cancelled), so the page can drop the prefill query. */
+  onPrefillDone?: () => void;
 }) {
   const [missions, setMissions] = useState<MissionRow[] | null>(null);
+  const [nextBefore, setNextBefore] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [moreError, setMoreError] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [creating, setCreating] = useState(Boolean(initialObjective || fromSynthesis));
 
+  // First page: replaces the list (used on mount and after a create).
   const apply = useCallback((r: Awaited<ReturnType<MissionApi["list"]>>) => {
-    if (r.ok) { setMissions(r.data.missions); setError(null); } else { setError(r.message); }
+    if (r.ok) { setMissions(r.data.missions); setNextBefore(r.data.nextBefore); setError(null); setMoreError(null); } else { setError(r.message); }
   }, []);
+  // Older pages: appended without duplicates; a failure keeps everything already loaded.
+  async function loadMore() {
+    if (nextBefore === null || loadingMore) return;
+    setLoadingMore(true); setMoreError(null);
+    const r = await api.list(nextBefore);
+    setLoadingMore(false);
+    if (!r.ok) { setMoreError(r.message); return; }
+    setMissions((cur) => mergeMissionPages(cur ?? [], r.data.missions));
+    setNextBefore(r.data.nextBefore);
+  }
   const load = useCallback(async () => apply(await api.list()), [api, apply]);
   useEffect(() => {
     let alive = true;
@@ -90,7 +106,8 @@ export function MissionListView({ api = httpMissionApi, initialObjective, fromSy
     <>
       {creating ? (
         <CreateMissionForm api={api} initialObjective={initialObjective} fromSynthesis={fromSynthesis}
-          onCancel={() => setCreating(false)} onCreated={(m) => { setCreating(false); void load(); onCreated?.(m); }} />
+          onCancel={() => { setCreating(false); onPrefillDone?.(); }}
+          onCreated={(m) => { setCreating(false); void load(); onCreated?.(m); onPrefillDone?.(); }} />
       ) : (
         <div style={{ ...row, marginBottom: 16 }}>
           <Btn tone="primary" onClick={() => setCreating(true)}>+ New Mission</Btn>
@@ -125,6 +142,12 @@ export function MissionListView({ api = httpMissionApi, initialObjective, fromSy
               </p>
             </Link>
           ))}
+        </div>
+      )}
+      {missions !== null && missions.length > 0 && (
+        <div style={{ ...row, marginTop: 16 }}>
+          {nextBefore !== null && <Btn onClick={() => void loadMore()} disabled={loadingMore}>{loadingMore ? "Loading…" : "Load more"}</Btn>}
+          <ErrorLine text={moreError} />
         </div>
       )}
     </>

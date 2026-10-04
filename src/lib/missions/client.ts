@@ -11,7 +11,8 @@ export type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number; 
 export type MissionDetail = { mission: MissionRow; links: LinkRow[]; events: EventRow[]; eventsTruncated: boolean };
 
 export interface MissionApi {
-  list(): Promise<ApiResult<{ missions: MissionRow[]; nextBefore: number | null }>>;
+  /** Newest first, 100 per page; pass the previous page's nextBefore to get the next (older) page. */
+  list(before?: number): Promise<ApiResult<{ missions: MissionRow[]; nextBefore: number | null }>>;
   get(id: string, includeRemoved?: boolean): Promise<ApiResult<MissionDetail>>;
   create(body: Record<string, unknown>): Promise<ApiResult<MissionRow>>;
   transition(id: string, to: MissionState, expectedFrom: MissionState): Promise<ApiResult<MissionRow>>;
@@ -39,7 +40,7 @@ const post = (body: unknown): RequestInit => ({ method: "POST", body: JSON.strin
 const enc = encodeURIComponent;
 
 export const httpMissionApi: MissionApi = {
-  list: () => call(`${BASE}?limit=100`),
+  list: (before) => call(`${BASE}?limit=100${before !== undefined ? `&before=${before}` : ""}`),
   get: (id, includeRemoved) => call(`${BASE}/${enc(id)}${includeRemoved ? "?includeRemoved=1" : ""}`),
   create: (body) => call(BASE, post(body)),
   transition: (id, to, expectedFrom) => call(`${BASE}/${enc(id)}/transition`, post({ to, expectedFrom })),

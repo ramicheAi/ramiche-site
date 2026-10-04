@@ -16,7 +16,7 @@ vi.mock("next/link", () => ({
 import { CreateMissionForm, MissionDetailView, MissionListView } from "./MissionViews";
 import type { MissionApi, MissionDetail } from "@/lib/missions/client";
 import type { LinkRow, MissionRow, MissionState } from "@/lib/missions/types";
-import { forwardSteps, canVerify, EVIDENCE_TARGETS } from "@/lib/missions/ui";
+import { forwardSteps, canVerify, EVIDENCE_TARGETS, planPrefillHref, toWellFormed } from "@/lib/missions/ui";
 import { EVIDENCE_TYPES } from "@/lib/missions/targets";
 import { MISSION_STATES } from "@/lib/missions/types";
 
@@ -274,12 +274,10 @@ describe("links", () => {
     expect([...(screen.getByLabelText("Relation") as HTMLSelectElement).options].map((o) => o.value)).not.toContain("evidence");
   });
 
-  it("the Decisions shortcut truncates by code points, so an emoji at the cut cannot crash the page", () => {
+  it("the Decisions shortcut builds its link with planPrefillHref", () => {
     const src = readFileSync(join(process.cwd(), "src/app/command-center/decisions/page.tsx"), "utf8");
-    expect(src).toContain("[...d.plan.decision].slice(0, 2000)");
-    const decision = "a".repeat(1999) + "😀" + "tail";
-    expect(() => encodeURIComponent([...decision].slice(0, 2000).join(""))).not.toThrow();
-    expect(() => encodeURIComponent(decision.slice(0, 2000))).toThrow();
+    expect(src).toContain("href={planPrefillHref(d.synthesisId, d.plan.decision)}");
+    expect(src).not.toMatch(/encodeURIComponent\(\[\.\.\.d\.plan/);
   });
 
   it("the UI's evidence set is exactly the server's", () => {
@@ -353,5 +351,128 @@ describe("mobile", () => {
     const src = readFileSync(join(process.cwd(), "src/components/command-center/missions/MissionViews.tsx"), "utf8");
     expect(src).not.toMatch(/minmax\(\d+px/); // every grid column is minmax(min(100%, Npx), 1fr)
     expect(src).not.toMatch(/width: \d{3,}(px)?[,}]/);
+  });
+});
+
+describe("pagination", () => {
+  const page = (refs: number[]) => refs.map((ref) => mission({ id: `00000000-0000-4000-8000-${String(ref).padStart(12, "0")}`, ref, objective: `Mission ${ref}` }));
+  const shown = () => screen.getAllByTestId("mission-card").map((c) => c.querySelector("span")?.textContent);
+
+  it("loads the next page through nextBefore, appends without duplicates, keeps newest first, then hides Load more", async () => {
+    const list = vi.fn()
+      .mockResolvedValueOnce({ ok: true, data: { missions: page([105, 104, 103]), nextBefore: 103 } })
+      .mockResolvedValueOnce({ ok: true, data: { missions: page([103, 102, 101]), nextBefore: null } });
+    render(<MissionListView api={fakeApi({ list })} />);
+    await screen.findAllByTestId("mission-card");
+    expect(list).toHaveBeenNthCalledWith(1);
+    expect(shown()).toEqual(["M-105", "M-104", "M-103"]);
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    await waitFor(() => expect(shown()).toEqual(["M-105", "M-104", "M-103", "M-102", "M-101"]));
+    expect(list).toHaveBeenNthCalledWith(2, 103);
+    expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+  });
+
+  it("no Load more when the first page has no cursor", async () => {
+    render(<MissionListView api={fakeApi({ list: vi.fn().mockResolvedValue({ ok: true, data: { missions: page([2, 1]), nextBefore: null } }) })} />);
+    await screen.findAllByTestId("mission-card");
+    expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+  });
+
+  it("a failed page keeps every mission already loaded and lets you try again", async () => {
+    const list = vi.fn()
+      .mockResolvedValueOnce({ ok: true, data: { missions: page([5, 4]), nextBefore: 4 } })
+      .mockResolvedValueOnce({ ok: false, status: 502, message: "mission storage call failed" })
+      .mockResolvedValueOnce({ ok: true, data: { missions: page([3]), nextBefore: null } });
+    render(<MissionListView api={fakeApi({ list })} />);
+    await screen.findAllByTestId("mission-card");
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("mission storage call failed");
+    expect(shown()).toEqual(["M-5", "M-4"]);
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    await waitFor(() => expect(shown()).toEqual(["M-5", "M-4", "M-3"]));
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("the client sends the cursor as before=", async () => {
+    const cockpit = vi.fn(async () => new Response(JSON.stringify({ data: { missions: [], nextBefore: null }, error: null }), { status: 200 }));
+    vi.doMock("@/lib/cockpit-fetch", () => ({ cockpitFetch: cockpit }));
+    vi.resetModules();
+    const { httpMissionApi } = await import("@/lib/missions/client");
+    await httpMissionApi.list();
+    await httpMissionApi.list(103);
+    expect(cockpit.mock.calls.map((c) => (c as unknown as [string])[0])).toEqual(["/api/command-center/missions?limit=100", "/api/command-center/missions?limit=100&before=103"]);
+    vi.doUnmock("@/lib/cockpit-fetch");
+  });
+});
+
+describe("cancelling a plan prefill", () => {
+  it("Cancel clears the prefill query through the same path as a successful create", async () => {
+    const replace = vi.fn();
+    vi.resetModules();
+    vi.doMock("next/navigation", () => ({
+      useRouter: () => ({ replace }),
+      useSearchParams: () => new URLSearchParams("fromSynthesis=00000000-0000-4000-8000-0000000000cc&objective=Plan%20text"),
+    }));
+    vi.doMock("@/lib/missions/client", async (orig) => ({ ...(await orig<object>()), httpMissionApi: fakeApi() }));
+    const { default: MissionsPage } = await import("@/app/command-center/missions/page");
+    render(<MissionsPage />);
+    expect(((await screen.findByPlaceholderText(/what outcome/i)) as HTMLTextAreaElement).value).toBe("Plan text");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(replace).toHaveBeenCalledWith("/command-center/missions");
+    expect(screen.queryByPlaceholderText(/what outcome/i)).toBeNull();
+    vi.doUnmock("next/navigation");
+    vi.doUnmock("@/lib/missions/client");
+  });
+
+  it("with the query gone (refresh or New Mission again) the form starts closed and clean", async () => {
+    vi.resetModules();
+    vi.doMock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), useSearchParams: () => new URLSearchParams("") }));
+    vi.doMock("@/lib/missions/client", async (orig) => ({ ...(await orig<object>()), httpMissionApi: fakeApi() }));
+    const { default: MissionsPage } = await import("@/app/command-center/missions/page");
+    render(<MissionsPage />);
+    expect(screen.queryByPlaceholderText(/what outcome/i)).toBeNull();
+    fireEvent.click(await screen.findByRole("button", { name: /new mission/i }));
+    expect((screen.getByPlaceholderText(/what outcome/i) as HTMLTextAreaElement).value).toBe("");
+    vi.doUnmock("next/navigation");
+    vi.doUnmock("@/lib/missions/client");
+  });
+
+  it("MissionListView reports the prefill as done on cancel and on create", async () => {
+    const done = vi.fn();
+    render(<MissionListView api={fakeApi()} initialObjective="x" onPrefillDone={done} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+    expect(done).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("plan text with surrogates", () => {
+  const cases: [string, string][] = [
+    ["ordinary text", "Ship the onboarding flow"],
+    ["valid emoji pair", "Launch 🚀 this week"],
+    ["lone high surrogate", "broken \uD83D end"],
+    ["lone low surrogate", "broken \uDE80 end"],
+  ];
+  for (const [name, text] of cases) {
+    it(`${name}: the prefill link builds without throwing and decodes to well-formed text`, () => {
+      let href = "";
+      expect(() => { href = planPrefillHref("00000000-0000-4000-8000-0000000000cc", text); }).not.toThrow();
+      const objective = new URL(href, "https://x.test").searchParams.get("objective") ?? "";
+      expect(objective).toBe(toWellFormed(text));
+      expect(() => encodeURIComponent(objective)).not.toThrow();
+    });
+  }
+  it("valid pairs survive untouched; lone halves become U+FFFD", () => {
+    expect(toWellFormed("a🚀b")).toBe("a🚀b");
+    expect(toWellFormed("a\uD83Db")).toBe("a\uFFFDb");
+    expect(toWellFormed("a\uDE80b")).toBe("a\uFFFDb");
+    expect(toWellFormed("\uDE80\uD83D")).toBe("\uFFFD\uFFFD"); // reversed order is two lone halves
+  });
+  it("truncation still never splits a valid pair", () => {
+    const href = planPrefillHref("x", "a".repeat(1999) + "😀" + "tail");
+    expect(new URL(href, "https://x.test").searchParams.get("objective")).toBe("a".repeat(1999) + "😀");
+  });
+  it("a Decisions card with a lone surrogate renders without crashing", () => {
+    render(<a href={planPrefillHref("00000000-0000-4000-8000-0000000000cc", "plan \uD800 text")}>Create Mission from this plan</a>);
+    expect(screen.getByText("Create Mission from this plan").getAttribute("href")).toContain("objective=plan%20%EF%BF%BD%20text");
   });
 });

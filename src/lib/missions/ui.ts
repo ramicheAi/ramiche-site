@@ -85,6 +85,24 @@ export function uncoveredCriteria(criteria: Item[], evidence: Pick<LinkRow, "cri
 
 export const formatRef = (ref: number): string => `M-${ref}`;
 
+/** Lone UTF-16 surrogates become U+FFFD; valid pairs are kept. encodeURIComponent throws on a lone surrogate. */
+export function toWellFormed(s: string): string {
+  return s.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "\uFFFD");
+}
+
+/** Decisions -> New Mission link: objective cut to 2000 code points, made well-formed, then encoded. Never throws. */
+export function planPrefillHref(synthesisId: string, decision: string): string {
+  const objective = toWellFormed([...decision].slice(0, 2000).join(""));
+  return `/command-center/missions?fromSynthesis=${encodeURIComponent(toWellFormed(synthesisId))}&objective=${encodeURIComponent(objective)}`;
+}
+
+/** Older pages appended to newer ones: no duplicate ids, newest (highest ref) first. */
+export function mergeMissionPages(current: MissionRow[], page: MissionRow[]): MissionRow[] {
+  const byId = new Map<string, MissionRow>();
+  for (const m of [...current, ...page]) if (!byId.has(m.id)) byId.set(m.id, m);
+  return [...byId.values()].sort((a, b) => b.ref - a.ref);
+}
+
 /** Canonical active registry agents, for the owner/team pickers. The server re-validates every id. */
 export function selectableAgents(): { id: string; name: string }[] {
   return AGENT_CORE.filter((a) => a.status === "active").map((a) => ({ id: a.id, name: a.name }));

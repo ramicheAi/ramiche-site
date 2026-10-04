@@ -15,9 +15,10 @@ function MissionsWithParams() {
   const router = useRouter();
   const fromSynthesis = q.get("fromSynthesis") ?? undefined;
   const objective = q.get("objective") ?? undefined;
-  // After creating from a plan, drop the prefill query so "New Mission" does not reopen it (no accidental duplicate).
+  // Once a prefilled form is created OR cancelled, drop the prefill query: "New Mission" then starts clean, a refresh
+  // does not reopen it, and the cancelled plan cannot be attached by accident.
   return <MissionListView key={`${fromSynthesis ?? ""}|${objective ?? ""}`} fromSynthesis={fromSynthesis} initialObjective={objective}
-    onCreated={() => { if (fromSynthesis || objective) router.replace("/command-center/missions"); }} />;
+    onPrefillDone={() => { if (fromSynthesis || objective) router.replace("/command-center/missions"); }} />;
 }
 
 export default function MissionsPage() {
