@@ -15,6 +15,7 @@ vi.mock("next/link", () => ({
 
 import { CreateMissionForm, MissionDetailView, MissionListView } from "./MissionViews";
 import type { MissionApi, MissionDetail } from "@/lib/missions/client";
+import type { MissionCosts } from "@/lib/missions/costs";
 import type { LinkRow, MissionRow, MissionState } from "@/lib/missions/types";
 import { forwardSteps, canVerify, EVIDENCE_TARGETS, planMissionShortcut, planPrefillHref, toWellFormed } from "@/lib/missions/ui";
 import { EVIDENCE_TYPES } from "@/lib/missions/targets";
@@ -34,6 +35,14 @@ const evidenceLink = (over: Partial<LinkRow> = {}): LinkRow => ({
   created_at: new Date().toISOString(), removed_at: null, removed_by: null, removed_by_kind: null, ...over,
 });
 
+const noCosts: MissionCosts = {
+  missionId: M_ID, events: { total: 0, direct: 0, linked: 0, both: 0 },
+  usage: { input: { sum: null, knownEvents: 0, unknownEvents: 0 }, output: { sum: null, knownEvents: 0, unknownEvents: 0 }, total: { sum: null, knownEvents: 0, unknownEvents: 0 }, byQuality: {} },
+  actualCost: { status: "no_events", knownUsd: null, knownEvents: 0, unknownEvents: 0, notApplicableEvents: 0 },
+  shadowCost: { label: "list_price_equivalent_not_actual_spend", basis: null, usd: null, pricedEvents: 0, unpricedEvents: 0 },
+  breakdown: [], attribution: [],
+};
+
 function fakeApi(over: Partial<MissionApi> = {}, detail?: Partial<MissionDetail>): MissionApi & { calls: string[] } {
   const calls: string[] = [];
   const ok = <T,>(data: T) => Promise.resolve({ ok: true as const, data });
@@ -47,6 +56,7 @@ function fakeApi(over: Partial<MissionApi> = {}, detail?: Partial<MissionDetail>
     reassign: vi.fn((_id, b) => { calls.push(`reassign ${JSON.stringify(b)}`); return ok(mission()); }),
     addLink: vi.fn((_id, b) => { calls.push(`addLink ${JSON.stringify(b)}`); return ok({ link: evidenceLink(), resolution: "resolved" }); }),
     removeLink: vi.fn((_id, l) => { calls.push(`removeLink ${l}`); return ok(evidenceLink({ removed_at: new Date().toISOString() })); }),
+    costs: vi.fn(() => ok(noCosts)),
     ...over,
   };
   return Object.assign(api, { calls });
@@ -987,5 +997,68 @@ describe("the plan prefill is consumed the moment a mission exists", () => {
     expect((await screen.findByRole("alert")).textContent).toContain("registered active agent");
     expect(replace).not.toHaveBeenCalled();
     expect(search).toContain("fromSynthesis");
+  });
+});
+
+describe("cost & usage (M3)", () => {
+  const withCosts = (over: Partial<MissionCosts>): MissionCosts => ({ ...noCosts, ...over });
+  const cs = (sum: number | null, known: number, unknown: number) => ({ sum, knownEvents: known, unknownEvents: unknown });
+
+  it("all-null actual cost reads 'No actual marginal cost recorded', never $0.00", async () => {
+    const c = withCosts({
+      events: { total: 2, direct: 2, linked: 0, both: 0 },
+      actualCost: { status: "none_recorded", knownUsd: null, knownEvents: 0, unknownEvents: 0, notApplicableEvents: 2 },
+      usage: { input: cs(null, 0, 2), output: cs(null, 0, 2), total: cs(null, 0, 2), byQuality: { ambiguous_proxy_zero: 2 } },
+      shadowCost: { ...noCosts.shadowCost, unpricedEvents: 2 },
+      breakdown: [{ provider: "claude-max", modelRequested: "claude-opus-4-6", modelReported: "claude-opus-4", billingMode: "subscription", events: 2,
+        inputTokens: cs(null, 0, 2), outputTokens: cs(null, 0, 2), actualKnownUsd: null, shadowUsd: null }],
+    });
+    render(<MissionDetailView id={M_ID} api={fakeApi({ costs: vi.fn(() => Promise.resolve({ ok: true as const, data: c })) })} />);
+    const panel = await screen.findByTestId("actual-cost");
+    expect(panel.textContent).toContain("No actual marginal cost recorded");
+    const all = screen.getByTestId("costs").textContent ?? "";
+    expect(all).not.toMatch(/\$0(\.0+)?\b/);
+    expect(screen.getByTestId("usage").textContent).toContain("unknown (2 calls)");
+    expect(screen.getByTestId("shadow-cost").textContent).toContain("NOT actual spend");
+    expect(screen.getByTestId("cost-breakdown").textContent).toContain("actual not recorded");
+  });
+
+  it("mixed known and unknown shows the known total marked partial; shadow is separate and labelled", async () => {
+    const c = withCosts({
+      events: { total: 3, direct: 1, linked: 3, both: 1 },
+      actualCost: { status: "partial", knownUsd: "0.01230001", knownEvents: 1, unknownEvents: 1, notApplicableEvents: 1 },
+      usage: { input: cs(1100, 2, 1), output: cs(550, 2, 1), total: cs(150, 1, 2), byQuality: {} },
+      shadowCost: { label: "list_price_equivalent_not_actual_spend", basis: "list_price_equivalent_lower_bound_excludes_cache_tokens", usd: "0.01050000", pricedEvents: 1, unpricedEvents: 2 },
+    });
+    render(<MissionDetailView id={M_ID} api={fakeApi({ costs: vi.fn(() => Promise.resolve({ ok: true as const, data: c })) })} />);
+    const actual = (await screen.findByTestId("actual-cost")).textContent ?? "";
+    expect(actual).toContain("$0.01230001");
+    expect(actual).toContain("Partial: cost unknown for 1 call");
+    expect(actual).not.toContain("0.0105");
+    expect(screen.getByTestId("shadow-cost").textContent).toContain("$0.0105 (lower bound, 1 of 3 calls priced)");
+    expect(screen.getByTestId("usage").textContent).toContain("1,100 known, unknown for 1 call");
+    expect(screen.getByTestId("event-counts").textContent).toContain("1 reached both ways, counted once");
+  });
+
+  it("a mission with no telemetry says so plainly", async () => {
+    render(<MissionDetailView id={M_ID} api={fakeApi()} />);
+    expect((await screen.findByTestId("actual-cost")).textContent).toContain("No usage attributed to this mission yet.");
+    expect(screen.queryByTestId("shadow-cost")).toBeNull();
+  });
+
+  it("a failed cost read is shown as a failure, never as zero, and the rest of the page still works", async () => {
+    render(<MissionDetailView id={M_ID} api={fakeApi({ costs: vi.fn(() => Promise.resolve({ ok: false as const, status: 502, message: "mission storage call failed" })) })} />);
+    expect((await screen.findByRole("alert")).textContent).toContain("Cost & usage could not be loaded");
+    expect(screen.queryByTestId("actual-cost")).toBeNull();
+    expect(screen.getByTestId("lifecycle-actions")).toBeTruthy();
+  });
+
+  it("costs are re-read after an action (a link can change attribution)", async () => {
+    const api = fakeApi({}, { mission: mission({ state: "executing" }), links: [evidenceLink()] });
+    render(<MissionDetailView id={M_ID} api={api} />);
+    await screen.findByTestId("actual-cost");
+    const before = (api.costs as ReturnType<typeof vi.fn>).mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: /remove/i }));
+    await waitFor(() => expect((api.costs as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(before));
   });
 });

@@ -3,7 +3,7 @@
  * P06 M4A: founder Mission surface. Three views over the M2 API and nothing else:
  *   MissionListView    every mission, newest first, with "New Mission"
  *   CreateMissionForm  objective, owner, team, criteria, deliverables (one per line)
- *   MissionDetailView  state, definition, links/evidence, history, and the founder's lifecycle actions
+ *   MissionDetailView  state, definition, links/evidence, cost & usage (read-only, M3), history, and the founder's lifecycle actions
  * Every action calls one M2 route through `api` (default: cockpitFetch). The server decides; these views only offer
  * what M1 allows next, and "verified" is reachable only through the separate Verify button (/verify).
  */
@@ -11,11 +11,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import Link from "next/link";
 import { Panel } from "@/components/command-center/po/Instrument";
 import { httpMissionApi, type MissionApi, type MissionDetail } from "@/lib/missions/client";
+import type { MissionCosts } from "@/lib/missions/costs";
 import type { LinkRow, MissionRow, MissionState, Relation, TargetType } from "@/lib/missions/types";
 import {
-  agentName, canCancel, canEditLinks, canReassign, canVerify, createBody, emptyCreateForm, EVIDENCE_TARGETS, formatRef,
-  forwardSteps, FOUNDER, LINK_TARGETS, mergeMissionPages, nextHint, RELATION_LABEL, selectableAgents, STATE_LABEL, targetLabel,
-  uncoveredCriteria, validateCreate, type CreateForm,
+  actualCostText, agentName, canCancel, canEditLinks, canReassign, canVerify, createBody, emptyCreateForm, EVIDENCE_TARGETS, formatRef,
+  formatUsd, forwardSteps, FOUNDER, LINK_TARGETS, mergeMissionPages, nextHint, RELATION_LABEL, selectableAgents, STATE_LABEL, targetLabel,
+  tokenText, uncoveredCriteria, validateCreate, type CreateForm,
 } from "@/lib/missions/ui";
 
 /* ── small shared pieces ─────────────────────────────────────────────────────────────────────────────── */
@@ -310,11 +311,12 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
   const locked = busy || needsRefresh;
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [showRemoved, setShowRemoved] = useState(false);
+  const [reads, setReads] = useState(0); // successful detail reads; Cost & Usage re-reads on each one
 
   // Action errors and read errors are separate: a successful reload never hides why the last action was refused
   // (cleared only when the next action starts), while a read error clears as soon as a read succeeds.
   const apply = useCallback((r: Awaited<ReturnType<MissionApi["get"]>>) => {
-    if (r.ok) { setD(r.data); setReadError(null); } else setReadError(r.message);
+    if (r.ok) { setD(r.data); setReadError(null); setReads((n) => n + 1); } else setReadError(r.message);
   }, []);
   // Reads are numbered when they START; only the newest may apply, so a slow earlier read (e.g. the "show removed"
   // toggle) can never revert the view to its state before an action that has since reloaded it.
@@ -419,6 +421,8 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
       <LinksPanel m={m} links={d.links} busy={locked} showRemoved={showRemoved} setShowRemoved={setShowRemoved}
         onAdd={(body) => act(() => api.addLink(m.id, body)).then((x) => x.ok)} onRemove={(l) => void act(() => api.removeLink(m.id, l.id))} />
 
+      <CostsPanel api={api} id={m.id} version={reads} />
+
       {canReassign(m.state) && <ReassignPanel m={m} busy={locked} onSave={(b) => act(() => api.reassign(m.id, b)).then((x) => x.ok && x.fresh)} />}
 
       <Panel title="History" icon="pulse" badge={d.eventsTruncated ? "latest 200" : undefined}>
@@ -432,6 +436,63 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
         </ol>
       </Panel>
     </div>
+  );
+}
+
+/**
+ * M3: read-only Cost & Usage, recomputed by the server from Packet 3 telemetry on every read. It reloads whenever the
+ * mission detail does (links change what is attributed); an older read never overwrites a newer one.
+ */
+function CostsPanel({ api, id, version }: { api: MissionApi; id: string; version: number }) {
+  const [c, setC] = useState<MissionCosts | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    api.costs(id).then((r) => {
+      if (!alive) return;
+      if (r.ok) { setC(r.data); setErr(null); } else setErr(r.message);
+    });
+    return () => { alive = false; };
+  }, [api, id, version]);
+
+  return (
+    <Panel title="Cost & Usage" icon="pulse">
+      <div data-testid="costs" style={{ display: "grid", gap: 8 }}>
+        {err && <ErrorLine text={`Cost & usage could not be loaded: ${err}`} />}
+        {!c ? (!err && <p style={muted}>Loading cost and usage…</p>) : (
+          <>
+            <p data-testid="actual-cost" style={{ margin: 0, color: "var(--t-hi)", fontSize: 15 }}>
+              <strong>Actual cost:</strong> {actualCostText(c.actualCost)}
+            </p>
+            {c.events.total > 0 && (
+              <>
+                <p data-testid="shadow-cost" style={{ ...muted, margin: 0 }}>
+                  List-price equivalent, NOT actual spend:{" "}
+                  {c.shadowCost.usd === null ? "not available" : `${formatUsd(c.shadowCost.usd)} (lower bound, ${c.shadowCost.pricedEvents} of ${c.events.total} calls priced)`}
+                </p>
+                <p data-testid="usage" style={{ ...muted, margin: 0 }}>
+                  Tokens in: {tokenText(c.usage.input)} · out: {tokenText(c.usage.output)} · total reported: {tokenText(c.usage.total)}
+                </p>
+                <p data-testid="event-counts" style={{ ...muted, margin: 0 }}>
+                  {c.events.total} {c.events.total === 1 ? "call" : "calls"} attributed: {c.events.direct} direct, {c.events.linked} through linked jobs, chat messages or leads
+                  {c.events.both > 0 && ` (${c.events.both} reached both ways, counted once)`}
+                </p>
+                <ul data-testid="cost-breakdown" style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 4 }}>
+                  {c.breakdown.map((b) => (
+                    <li key={`${b.provider}|${b.modelRequested}|${b.modelReported}|${b.billingMode}`} style={{ color: "var(--t-hi)", fontSize: 13, overflowWrap: "anywhere" }}>
+                      {b.provider} · {b.modelReported ?? b.modelRequested ?? "model not reported"}
+                      {b.modelRequested && b.modelReported && b.modelRequested !== b.modelReported && ` (requested ${b.modelRequested})`}
+                      {" "}· {b.billingMode} · {b.events} {b.events === 1 ? "call" : "calls"}
+                      {" "}· actual {b.actualKnownUsd === null ? "not recorded" : formatUsd(b.actualKnownUsd)}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </>
+        )}
+      </div>
+    </Panel>
   );
 }
 

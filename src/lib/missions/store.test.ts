@@ -176,3 +176,53 @@ describe("supabaseMissionStore", () => {
     }
   });
 });
+
+describe("supabaseMissionStore cost reads (M3)", () => {
+  /** Records every query against a fake view and answers with id-cursor pages of the given rows. */
+  function viewClient(rows: { id: string }[], cap = 1000) {
+    const queries: { table: string; ops: [string, unknown[]][] }[] = [];
+    const client = {
+      from: (table: string) => {
+        const q = { table, ops: [] as [string, unknown[]][] };
+        queries.push(q);
+        let gt: string | null = null;
+        const api: Record<string, unknown> = new Proxy({}, {
+          get(_t, prop: string) {
+            return (...args: unknown[]) => {
+              q.ops.push([prop, args]);
+              if (prop === "gt") gt = args[1] as string;
+              if (prop === "limit") return Promise.resolve({ data: rows.filter((r) => gt === null || r.id > gt).slice(0, Math.min(args[0] as number, cap)), error: null });
+              return api;
+            };
+          },
+        });
+        return api;
+      },
+    } as unknown as SupabaseClient;
+    return { client, queries };
+  }
+
+  it("reads only the existing shadow-cost view, by exact mission id or exact correlation pair, never writing", async () => {
+    const { client, queries } = viewClient([]);
+    const s = supabaseMissionStore(client);
+    await s.eventsForMission("m1");
+    await s.eventsForCorrelation("lead", ["x", "y"]);
+    expect(queries.map((q) => q.table)).toEqual(["execution_events_with_shadow_cost", "execution_events_with_shadow_cost"]);
+    const opsOf = (i: number) => queries[i].ops.map(([op]) => op);
+    for (const i of [0, 1]) for (const w of ["insert", "update", "upsert", "delete", "rpc"]) expect(opsOf(i)).not.toContain(w);
+    expect(queries[0].ops).toContainEqual(["eq", ["mission_id", "m1"]]);
+    expect(queries[1].ops).toContainEqual(["eq", ["correlation_type", "lead"]]);
+    expect(queries[1].ops).toContainEqual(["in", ["correlation_id", ["x", "y"]]]);
+  });
+
+  it("pages to completion by id cursor under a server cap, chunks ids, and fails closed past the page budget", async () => {
+    const rows = Array.from({ length: EDGE_PAGE + 9 }, (_, i) => ({ id: `e${String(i).padStart(6, "0")}` }));
+    const r = await supabaseMissionStore(viewClient(rows, 100).client).eventsForMission("m");
+    expect(r.ok && r.data.length).toBe(rows.length);
+    const { client, queries } = viewClient([]);
+    await supabaseMissionStore(client).eventsForCorrelation("job", Array.from({ length: ID_CHUNK * 2 + 1 }, (_, i) => `j${i}`));
+    expect(queries.length).toBe(3);
+    const many = Array.from({ length: 2000 }, (_, i) => ({ id: `e${String(i).padStart(6, "0")}` }));
+    expect((await supabaseMissionStore(viewClient(many, 1).client).eventsForMission("m")).ok).toBe(false);
+  });
+});

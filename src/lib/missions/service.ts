@@ -11,7 +11,8 @@
  * let a forbidden write through.
  */
 import { canTransition, FOUNDER_ACTOR, isFounder, type Principal } from "./principal";
-import type { MissionStore } from "./store";
+import type { CorrelationType, CostEventRow, MissionStore } from "./store";
+import { costTargets, mergeAttribution, summarize, type MissionCosts } from "./costs";
 import { EVIDENCE_TYPES, resolveTarget, type ResolvedTarget } from "./targets";
 import type { EventRow, LinkRow, MissionResult, MissionRow, MissionState, StoreError, TargetType } from "./types";
 import * as v from "./validate";
@@ -362,6 +363,31 @@ export async function removeLink(ctx: Ctx, id: unknown, linkId: unknown): Promis
   if (!r.ok) return fromStore(r.error);
   if (!r.data) return fail(404, "link_not_found", "no live link with that id on this mission");
   return ok(r.data);
+}
+
+/**
+ * M3: cost and usage attributable to one mission, derived on read from execution_events_with_shadow_cost (see
+ * costs.ts for the exact attribution and truth rules). Founder-only and tenant-scoped through the mission load; the
+ * telemetry rows themselves have no tenant column and are reached only through this mission's id and its own live,
+ * tenant-resolved links. Any read failure fails the whole request: a partial total is never returned.
+ */
+export async function missionCosts(ctx: Ctx, id: unknown): Promise<MissionResult<MissionCosts>> {
+  const denied = founderOnly(ctx);
+  if (denied) return denied;
+  const m = await load(ctx, id);
+  if (isFail(m)) return m;
+  const links = await ctx.store.listLinks(m.id, false);
+  if (!links.ok) return fromStore(links.error);
+  const targets = costTargets(links.data);
+  const direct = await ctx.store.eventsForMission(m.id);
+  if (!direct.ok) return fromStore(direct.error);
+  const linked: { type: CorrelationType; rows: CostEventRow[] }[] = [];
+  for (const [type, ids] of targets) {
+    const r = await ctx.store.eventsForCorrelation(type, [...ids.keys()]);
+    if (!r.ok) return fromStore(r.error);
+    linked.push({ type, rows: r.data });
+  }
+  return ok(summarize(m.id, mergeAttribution(direct.data, linked, targets)));
 }
 
 /** Read-only preview of what a link would point at, without writing anything. */
