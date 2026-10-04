@@ -245,6 +245,45 @@ describe("lifecycle controls", () => {
   });
 });
 
+describe("stale detail reads", () => {
+  it("an action's reload that lands after a newer read cannot overwrite it", async () => {
+    let releaseActionReload!: (v: unknown) => void;
+    const base = { mission: mission({ state: "intent" }), links: [], events: [], eventsTruncated: false };
+    const get = vi.fn()
+      .mockResolvedValueOnce({ ok: true, data: base })                                                   // mount
+      .mockImplementationOnce(() => new Promise((r) => (releaseActionReload = r)))                       // reload after the action, held
+      .mockResolvedValueOnce({ ok: true, data: { ...base, mission: mission({ state: "plan", objective: "newest read" }) } }); // toggle read
+    render(<MissionDetailView id={M_ID} api={fakeApi({ get })} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Move to plan" }));
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByRole("checkbox"));
+    expect(await screen.findByText("newest read")).toBeTruthy();
+    releaseActionReload({ ok: true, data: { ...base, mission: mission({ state: "plan", objective: "older reload" }) } });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.getByText("newest read")).toBeTruthy();
+    expect(screen.queryByText("older reload")).toBeNull();
+  });
+
+  it("a slow read that lands after an action's reload cannot revert the view", async () => {
+    let releaseToggleRead!: (v: unknown) => void;
+    const before = { mission: mission({ state: "intent" }), links: [], events: [], eventsTruncated: false };
+    const after = { ...before, mission: mission({ state: "plan" }) };
+    const get = vi.fn()
+      .mockResolvedValueOnce({ ok: true, data: before })                          // mount
+      .mockImplementationOnce(() => new Promise((r) => (releaseToggleRead = r)))  // "show removed" toggle, held
+      .mockResolvedValueOnce({ ok: true, data: after });                          // reload after the action
+    render(<MissionDetailView id={M_ID} api={fakeApi({ get })} />);
+    await screen.findByRole("button", { name: "Move to plan" });
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByRole("button", { name: "Move to plan" }));
+    await screen.findByRole("button", { name: "Approve" });
+    releaseToggleRead({ ok: true, data: before });                                // stale pre-action state
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByRole("button", { name: "Move to plan" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Approve" })).toBeTruthy();
+  });
+});
+
 describe("links", () => {
   it("adds a link through the M2 call and removes one by tombstone call", async () => {
     const api = fakeApi({}, { mission: mission({ state: "executing" }), links: [evidenceLink()] });
@@ -412,6 +451,43 @@ describe("pagination", () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(shown()).toEqual(["M-201", "M-200"]);                                  // stale page not merged
     expect(screen.getByRole("button", { name: "Load more" })).toBeTruthy();       // cursor still 200, nothing lost
+  });
+
+  it("a slow mount load that lands after a create reload cannot overwrite the newer list", async () => {
+    let releaseMount!: (v: unknown) => void;
+    const list = vi.fn()
+      .mockImplementationOnce(() => new Promise((r) => (releaseMount = r)))                         // mount load, held
+      .mockResolvedValueOnce({ ok: true, data: { missions: page([11, 10]), nextBefore: null } });  // reload after create
+    render(<MissionListView api={fakeApi({ list })} />);
+    fireEvent.click(screen.getByRole("button", { name: /new mission/i }));
+    fireEvent.change(screen.getByPlaceholderText(/what outcome/i), { target: { value: "new" } });
+    fireEvent.change(screen.getAllByRole("textbox")[1], { target: { value: "c" } });
+    fireEvent.click(screen.getByRole("button", { name: /create mission/i }));
+    await waitFor(() => expect(shown()).toEqual(["M-11", "M-10"]));
+    releaseMount({ ok: true, data: { missions: page([10]), nextBefore: null } });                // pre-create snapshot
+    await new Promise((r) => setTimeout(r, 20));
+    expect(shown()).toEqual(["M-11", "M-10"]);
+  });
+
+  it("two creates in a row: the first reload landing last cannot overwrite the second", async () => {
+    let releaseFirstReload!: (v: unknown) => void;
+    const list = vi.fn()
+      .mockResolvedValueOnce({ ok: true, data: { missions: page([10]), nextBefore: null } })             // mount
+      .mockImplementationOnce(() => new Promise((r) => (releaseFirstReload = r)))                       // reload after create #1, held
+      .mockResolvedValueOnce({ ok: true, data: { missions: page([12, 11, 10]), nextBefore: null } });   // reload after create #2
+    render(<MissionListView api={fakeApi({ list })} />);
+    await screen.findAllByTestId("mission-card");
+    for (const objective of ["first", "second"]) {
+      fireEvent.click(screen.getByRole("button", { name: /new mission/i }));
+      fireEvent.change(screen.getByPlaceholderText(/what outcome/i), { target: { value: objective } });
+      fireEvent.change(screen.getAllByRole("textbox")[1], { target: { value: "c" } });
+      fireEvent.click(screen.getByRole("button", { name: /create mission/i }));
+      await waitFor(() => expect(screen.queryByPlaceholderText(/what outcome/i)).toBeNull());
+    }
+    await waitFor(() => expect(shown()).toEqual(["M-12", "M-11", "M-10"]));
+    releaseFirstReload({ ok: true, data: { missions: page([11, 10]), nextBefore: null } });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(shown()).toEqual(["M-12", "M-11", "M-10"]);
   });
 
   it("a double click requests the next page once", async () => {

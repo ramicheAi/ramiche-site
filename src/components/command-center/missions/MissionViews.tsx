@@ -81,33 +81,38 @@ export function MissionListView({ api = httpMissionApi, initialObjective, fromSy
   const [loadingMore, setLoadingMore] = useState(false);
   const [creating, setCreating] = useState(Boolean(initialObjective || fromSynthesis));
 
-  // Every first-page load starts a new list generation. An older page fetched for a previous generation is dropped
-  // on arrival: merging it into a newer first page would leave a gap and skip a mission for good.
-  const generation = useRef(0);
+  // Every first-page request is numbered when it STARTS, and only the newest one may apply: a slow older request
+  // (e.g. the mount load still pending when a create reloads) can never overwrite a newer list. An older page
+  // ("Load more") is likewise dropped if any first-page request started after it.
+  const listRequest = useRef(0);
   const moreInFlight = useRef(false); // synchronous guard: a double click must not request the same page twice
-  // First page: replaces the list (used on mount and after a create).
   const apply = useCallback((r: Awaited<ReturnType<MissionApi["list"]>>) => {
-    generation.current += 1;
     if (r.ok) { setMissions(r.data.missions); setNextBefore(r.data.nextBefore); setError(null); setMoreError(null); } else { setError(r.message); }
   }, []);
+  // First page: replaces the list (used on mount and after a create).
+  const load = useCallback(async () => {
+    const mine = ++listRequest.current;
+    const r = await api.list();
+    if (mine === listRequest.current) apply(r);
+  }, [api, apply]);
   // Older pages: appended without duplicates; a failure keeps everything already loaded.
   async function loadMore() {
     if (nextBefore === null || moreInFlight.current) return;
     moreInFlight.current = true;
-    const gen = generation.current;
+    const startedFor = listRequest.current;
     setLoadingMore(true); setMoreError(null);
     const r = await api.list(nextBefore);
     moreInFlight.current = false;
     setLoadingMore(false);
-    if (gen !== generation.current) return; // the list was reloaded meanwhile: this page belongs to an old list
+    if (startedFor !== listRequest.current) return; // the list was reloaded meanwhile: this page belongs to an old list
     if (!r.ok) { setMoreError(r.message); return; }
     setMissions((cur) => mergeMissionPages(cur ?? [], r.data.missions));
     setNextBefore(r.data.nextBefore);
   }
-  const load = useCallback(async () => apply(await api.list()), [api, apply]);
   useEffect(() => {
     let alive = true;
-    api.list().then((r) => { if (alive) apply(r); });
+    const mine = ++listRequest.current;
+    api.list().then((r) => { if (alive && mine === listRequest.current) apply(r); });
     return () => { alive = false; };
   }, [api, apply]);
 
@@ -280,10 +285,18 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
   const apply = useCallback((r: Awaited<ReturnType<MissionApi["get"]>>) => {
     if (r.ok) setD(r.data); else setError(r.message);
   }, []);
-  const load = useCallback(async () => apply(await api.get(id, showRemoved)), [api, id, showRemoved, apply]);
+  // Reads are numbered when they START; only the newest may apply, so a slow earlier read (e.g. the "show removed"
+  // toggle) can never revert the view to its state before an action that has since reloaded it.
+  const readRequest = useRef(0);
+  const load = useCallback(async () => {
+    const mine = ++readRequest.current;
+    const r = await api.get(id, showRemoved);
+    if (mine === readRequest.current) apply(r);
+  }, [api, id, showRemoved, apply]);
   useEffect(() => {
     let alive = true;
-    api.get(id, showRemoved).then((r) => { if (alive) apply(r); });
+    const mine = ++readRequest.current;
+    api.get(id, showRemoved).then((r) => { if (alive && mine === readRequest.current) apply(r); });
     return () => { alive = false; };
   }, [api, id, showRemoved, apply]);
 
