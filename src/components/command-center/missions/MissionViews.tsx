@@ -291,15 +291,16 @@ const EVENT_TEXT: Record<string, (e: MissionDetail["events"][number]) => string>
 
 export function MissionDetailView({ id, api = httpMissionApi }: { id: string; api?: MissionApi }) {
   const [d, setD] = useState<MissionDetail | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);         // why the last ACTION was refused
+  const [readError, setReadError] = useState<string | null>(null); // why the last READ failed (clears on a good read)
   const [busy, setBusy] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [showRemoved, setShowRemoved] = useState(false);
 
-  // A successful reload never clears an action's error: the founder must see why the last action was refused.
-  // Errors are cleared only when the next action starts (act).
+  // Action errors and read errors are separate: a successful reload never hides why the last action was refused
+  // (cleared only when the next action starts), while a read error clears as soon as a read succeeds.
   const apply = useCallback((r: Awaited<ReturnType<MissionApi["get"]>>) => {
-    if (r.ok) setD(r.data); else setError(r.message);
+    if (r.ok) { setD(r.data); setReadError(null); } else setReadError(r.message);
   }, []);
   // Reads are numbered when they START; only the newest may apply, so a slow earlier read (e.g. the "show removed"
   // toggle) can never revert the view to its state before an action that has since reloaded it.
@@ -319,13 +320,13 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
   async function act(fn: () => Promise<{ ok: boolean; message?: string }>): Promise<boolean> {
     setBusy(true); setError(null); setConfirmCancel(false);
     const r = await fn();
-    setBusy(false);
     if (!r.ok) setError(r.message ?? "That did not work.");
-    await load();
+    // Controls stay disabled until the refreshed mission arrives, so nothing is offered against a stale snapshot.
+    try { await load(); } finally { setBusy(false); }
     return r.ok;
   }
 
-  if (!d) return <>{error ? <ErrorLine text={error} /> : <p style={muted}>Loading mission…</p>}</>;
+  if (!d) return <>{readError ? <ErrorLine text={readError} /> : <p style={muted}>Loading mission…</p>}</>;
   const m = d.mission;
   const live = d.links.filter((l) => !l.removed_at);
   const evidence = live.filter((l) => l.relation === "evidence");
@@ -341,6 +342,7 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
         </p>
         <p data-testid="next-hint" style={{ fontSize: 15, margin: "0 0 14px", color: "var(--accent)" }}>{nextHint(m, evidence)}</p>
         <ErrorLine text={error} />
+        <ErrorLine text={readError} />
         <div style={row} data-testid="lifecycle-actions">
           {forwardSteps(m.state, m.success_criteria.length).map((s) => (
             <Btn key={s.to} tone="primary" disabled={busy} onClick={() => act(() => api.transition(m.id, s.to, m.state))}>{s.label}</Btn>

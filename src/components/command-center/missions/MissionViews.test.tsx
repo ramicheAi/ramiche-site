@@ -284,6 +284,40 @@ describe("stale detail reads", () => {
   });
 });
 
+describe("detail action and read state", () => {
+  it("controls stay disabled until the refreshed mission arrives after an action", async () => {
+    let releaseReload!: (v: unknown) => void;
+    const base = { mission: mission({ state: "intent" }), links: [], events: [], eventsTruncated: false };
+    const get = vi.fn()
+      .mockResolvedValueOnce({ ok: true, data: base })
+      .mockImplementationOnce(() => new Promise((r) => (releaseReload = r)));
+    const api = fakeApi({ get });
+    render(<MissionDetailView id={M_ID} api={api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Move to plan" }));
+    await waitFor(() => expect(api.transition).toHaveBeenCalledTimes(1));
+    expect((screen.getByRole("button", { name: "Move to plan" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Move to plan" }));
+    expect(api.transition).toHaveBeenCalledTimes(1);                       // no resubmission against the stale snapshot
+    releaseReload({ ok: true, data: { ...base, mission: mission({ state: "plan" }) } });
+    expect(await screen.findByRole("button", { name: "Approve" })).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Approve" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("a failed read's error clears once a later read succeeds; an action's error survives its reload", async () => {
+    const base = { mission: mission({ state: "intent" }), links: [], events: [], eventsTruncated: false };
+    const get = vi.fn()
+      .mockResolvedValueOnce({ ok: true, data: base })
+      .mockResolvedValueOnce({ ok: false, status: 502, message: "mission storage call failed" })   // toggle on: fails
+      .mockResolvedValueOnce({ ok: true, data: base });                                            // toggle off: fine
+    render(<MissionDetailView id={M_ID} api={fakeApi({ get })} />);
+    await screen.findByTestId("lifecycle-actions");
+    fireEvent.click(screen.getByRole("checkbox"));
+    expect((await screen.findByRole("alert")).textContent).toContain("mission storage call failed");
+    fireEvent.click(screen.getByRole("checkbox"));
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  });
+});
+
 describe("links", () => {
   it("adds a link through the M2 call and removes one by tombstone call", async () => {
     const api = fakeApi({}, { mission: mission({ state: "executing" }), links: [evidenceLink()] });
