@@ -444,6 +444,15 @@ export default function DecisionsPage() {
                     </div>
                   )}
 
+                  {d.plan && (
+                    <Link
+                      href={`/command-center/missions?fromSynthesis=${encodeURIComponent(d.synthesisId)}&objective=${encodeURIComponent(d.plan.decision.slice(0, 2000))}`}
+                      style={{ display: "inline-block", fontSize: 13, color: COLORS.accent.purpleSoft, marginBottom: 12 }}
+                    >
+                      Create Mission from this plan →
+                    </Link>
+                  )}
+
                   {/* Actions */}
                   {d.plan && d.plan.actions.length > 0 && (
                     <div

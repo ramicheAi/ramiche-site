@@ -64,6 +64,7 @@ const sections = [
   {
     label: 'WORKSPACE',
     items: [
+      { href: '/command-center/missions', label: 'Missions', icon: '✦', accent: '#C9A84C' },
       { href: '/command-center/projects', label: 'Projects', icon: '◉', accent: '#818cf8' },
       { href: '/command-center/memory', label: 'Memory', icon: '◎', accent: '#a855f7' },
       { href: '/command-center/calendar', label: 'Calendar', icon: '○', accent: '#38bdf8' },
@@ -105,6 +106,7 @@ const ICON_BY_HREF: Record<string, string> = {
   '/command-center/builder': 'builder',
   '/command-center/wellness': 'wellness',
   '/command-center/fabrication': 'fabrication',
+  '/command-center/missions': 'mettle',
   '/command-center/projects': 'projects',
   '/command-center/memory': 'memory',
   '/command-center/calendar': 'calendar',
