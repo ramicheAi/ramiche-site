@@ -100,18 +100,6 @@ export function costTargets(links: LinkRow[]): Map<CorrelationType, Map<string, 
   return out;
 }
 
-/**
- * The stored spellings to query for a set of (lower-cased) link ids. correlation_id is text and its CHECK is
- * case-insensitive, and some writers (lead intel/kit) store the id exactly as the request sent it, so an exact-string
- * match on the lower-case form alone could silently miss an upper-case row. A UUID's only letters are a-f, so its
- * canonical spellings are all-lower and all-upper; a mixed-case spelling is not matched (no writer produces one).
- */
-export function correlationIdForms(ids: Iterable<string>): string[] {
-  const out = new Set<string>();
-  for (const id of ids) { out.add(id.toLowerCase()); out.add(id.toUpperCase()); }
-  return [...out];
-}
-
 /** Merge direct and linked rows by event id; an event reached by several paths appears once with every source. */
 export function mergeAttribution(
   direct: CostEventRow[],

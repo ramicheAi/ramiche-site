@@ -12,7 +12,7 @@
  */
 import { canTransition, FOUNDER_ACTOR, isFounder, type Principal } from "./principal";
 import type { CorrelationType, CostEventRow, MissionStore } from "./store";
-import { correlationIdForms, costTargets, mergeAttribution, summarize, type MissionCosts } from "./costs";
+import { costTargets, mergeAttribution, summarize, type MissionCosts } from "./costs";
 import { EVIDENCE_TYPES, resolveTarget, type ResolvedTarget } from "./targets";
 import type { EventRow, LinkRow, MissionResult, MissionRow, MissionState, StoreError, TargetType } from "./types";
 import * as v from "./validate";
@@ -383,7 +383,7 @@ export async function missionCosts(ctx: Ctx, id: unknown): Promise<MissionResult
   if (!direct.ok) return fromStore(direct.error);
   const linked: { type: CorrelationType; rows: CostEventRow[] }[] = [];
   for (const [type, ids] of targets) {
-    const r = await ctx.store.eventsForCorrelation(type, correlationIdForms(ids.keys()));
+    const r = await ctx.store.eventsForCorrelation(type, [...ids.keys()]);
     if (!r.ok) return fromStore(r.error);
     linked.push({ type, rows: r.data });
   }

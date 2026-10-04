@@ -520,13 +520,34 @@ describe.skipIf(!conn)("M3 Mission cost attribution on real Packet 3 telemetry",
     expect(again).toEqual(r);
   });
 
-  it("an event stored with an upper-case correlation id is still attributed through its lower-case link", async () => {
+  it("lower, upper and mixed-case stored correlation ids all match the one link; nothing else does", async () => {
     const m = await mk();
-    const { lead } = await records();
-    await link(m, "pipeline_lead", lead.toUpperCase());                     // stored canonical (lower-case) by M2
-    await ev({ id: uuid("9f"), provider: "openrouter", billing: "unknown", corr: ["lead", lead.toUpperCase()], cost: "0.50000000" });
+    const L = `abcdef${String(++n).padStart(2, "0")}-3456-4abc-8def-0123456789ab`;   // letters in every group
+    const L2 = `abcdef${String(++n).padStart(2, "0")}-3456-4abc-8def-0123456789ab`;
+    const mixed = (u: string) => [...u].map((ch, i) => (i % 2 ? ch.toUpperCase() : ch)).join("");
+    expect(mixed(L)).not.toBe(L.toLowerCase());
+    expect(mixed(L)).not.toBe(L.toUpperCase());
+    await sql(`insert into public.pipeline_leads (id, tenant_id) values (${lit(L)}, ${lit(TENANT)}), (${lit(L2)}, ${lit(TENANT)});`);
+    const l = await link(m, "pipeline_lead", mixed(L));                    // M2 stores the canonical lower-case id
+    expect(l.target_id).toBe(L);
+    const gone = await link(m, "pipeline_lead", L2);
+    await svc.removeLink(ctx(FOUNDER), m.id, gone.id);
+    await link(m, "synthesis", SYNTH);
+    const E = Array.from({ length: 8 }, () => uuid("9d"));
+    await ev({ id: E[0], provider: "openrouter", billing: "unknown", corr: ["lead", L], cost: "0.10000000" });
+    await ev({ id: E[1], provider: "openrouter", billing: "unknown", corr: ["lead", L.toUpperCase()], cost: "0.20000000" });
+    await ev({ id: E[2], provider: "openrouter", billing: "unknown", corr: ["lead", mixed(L)], cost: "0.30000000" });
+    await ev({ id: E[3], provider: "openrouter", billing: "unknown", mission: m.id, corr: ["lead", mixed(L)], cost: "0.40000000" });                    // direct + link
+    await ev({ id: E[4], provider: "openrouter", billing: "unknown", corr: ["lead", L.slice(0, -1) + "c"], cost: "1.00000000" });     // different UUID
+    await ev({ id: E[5], provider: "openrouter", billing: "unknown", corr: ["job", mixed(L)], cost: "2.00000000" });                   // wrong type
+    await ev({ id: E[6], provider: "openrouter", billing: "unknown", corr: ["lead", mixed(L2)], cost: "3.00000000" });                // tombstoned link
+    await ev({ id: E[7], provider: "openrouter", billing: "unknown", corr: ["chat_message", mixed(SYNTH)], cost: "4.00000000" });     // unsupported link type
     const r = await costs(m.id);
-    expect([r.events.total, r.actualCost.knownUsd]).toEqual([1, "0.50000000"]);
+    expect(r.attribution.map((a) => a.eventId).sort()).toEqual([E[0], E[1], E[2], E[3]].sort());
+    expect(r.events).toEqual({ total: 4, direct: 1, linked: 4, both: 1 });
+    expect(r.actualCost).toMatchObject({ status: "complete", knownUsd: "1.00000000", knownEvents: 4 });
+    for (const id of [E[0], E[1], E[2]]) expect(r.attribution.find((a) => a.eventId === id)!.sources).toEqual([{ kind: "link", linkId: l.id, targetType: "pipeline_lead", correlationType: "lead", correlationId: L }]);
+    expect(r.attribution.find((a) => a.eventId === E[3])!.sources.map((s) => s.kind)).toEqual(["direct", "link"]);
   });
 
   it("a mission with no telemetry is an honest zero; all-null cost is never $0", async () => {

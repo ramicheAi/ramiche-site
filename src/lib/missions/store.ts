@@ -92,7 +92,8 @@ export interface MissionStore {
   /**
    * M3 cost attribution reads (execution_events_with_shadow_cost, read-only). Complete or an error, never partial.
    * eventsForMission: rows whose mission_id is this mission. eventsForCorrelation: rows with this correlation type
-   * and one of these correlation ids.
+   * whose correlation_id equals one of these UUIDs IGNORING CASE (writers store the spelling they were given, and the
+   * column's UUID CHECK is case-insensitive). Every id must be a UUID; anything else fails the read.
    */
   eventsForMission(missionId: string): Promise<StoreResult<CostEventRow[]>>;
   eventsForCorrelation(type: CorrelationType, ids: string[]): Promise<StoreResult<CostEventRow[]>>;
@@ -107,6 +108,9 @@ export const EDGE_MAX_PAGES = 100;
 
 /** Ids per IN (...) filter: keeps request URLs short and every response far below the PostgREST row cap. */
 export const ID_CHUNK = 200;
+/** Ids per case-insensitive correlation query (each becomes an or() term in the request URL, so keep it short). */
+export const COST_ID_CHUNK = 50;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 function chunks<T>(xs: T[]): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < xs.length; i += ID_CHUNK) out.push(xs.slice(i, i + ID_CHUNK));
@@ -184,8 +188,13 @@ export function supabaseMissionStore(svc: SupabaseClient): MissionStore {
     },
     async eventsForCorrelation(type, ids) {
       const out: CostEventRow[] = [];
-      for (const chunk of chunks(ids)) {
-        const r = await costPages((q) => q.eq("correlation_type", type).in("correlation_id", chunk));
+      // Case-insensitive equality via ILIKE with a pattern that is a validated UUID: hex digits and hyphens only, so it
+      // contains no wildcard (% _ *) and no PostgREST or() syntax, and matches exactly that UUID in any letter case.
+      const uuids = ids.map((id) => id.toLowerCase());
+      if (!uuids.every((id) => UUID_RE.test(id))) return { ok: false, error: { message: "cost attribution needs UUID correlation ids" } };
+      for (let i = 0; i < uuids.length; i += COST_ID_CHUNK) {
+        const filter = uuids.slice(i, i + COST_ID_CHUNK).map((id) => `correlation_id.ilike.${id}`).join(",");
+        const r = await costPages((q) => q.eq("correlation_type", type).or(filter));
         if (!r.ok) return r;
         out.push(...r.data);
       }

@@ -71,7 +71,7 @@ export function pgMissionStore(c: PgConn): MissionStore {
     eventsForMission: (missionId) => one(c, `select coalesce(jsonb_agg(jsonb_build_object(${COST_JSON}) order by e.id), '[]')
       from public.execution_events_with_shadow_cost e where e.mission_id = ${lit(missionId)};`),
     eventsForCorrelation: (type, ids) => ids.length === 0 ? Promise.resolve({ ok: true, data: [] }) : one(c, `select coalesce(jsonb_agg(jsonb_build_object(${COST_JSON}) order by e.id), '[]')
-      from public.execution_events_with_shadow_cost e where e.correlation_type = ${lit(type)} and e.correlation_id = any(${arrLit(ids)});`),
+      from public.execution_events_with_shadow_cost e where e.correlation_type = ${lit(type)} and e.correlation_id ilike any(${arrLit(ids.map((id) => id.toLowerCase()))});`),
     liveMissionIds: (tenantId, ids) => ids.length === 0 ? Promise.resolve({ ok: true, data: [] }) : one(c, `select coalesce(jsonb_agg(id), '[]') from public.missions
       where tenant_id = ${lit(tenantId)} and id = any(${arrLit(ids)}::uuid[]) and state not in ('verified','cancelled');`),
     // The production adapter reads these tables as service_role (which bypasses RLS); the harness grants the same reads.

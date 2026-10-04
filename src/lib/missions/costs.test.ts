@@ -3,7 +3,7 @@
  * shadow view in missions-db.test.ts; these pin each rule in isolation.
  */
 import { describe, expect, it } from "vitest";
-import { correlationIdForms, COST_LINK_MAP, costTargets, mergeAttribution, summarize } from "./costs";
+import { COST_LINK_MAP, costTargets, mergeAttribution, summarize } from "./costs";
 import type { CostEventRow } from "./store";
 import type { LinkRow, TargetType } from "./types";
 
@@ -97,12 +97,20 @@ describe("summarize: truth rules", () => {
   });
 });
 
-describe("correlation id spellings", () => {
-  it("queries both canonical spellings so an upper-case stored id is not silently missed", () => {
-    expect(correlationIdForms([J])).toEqual([J, J.toUpperCase()]);
-    const t = costTargets([link("l", "pipeline_lead", J.toUpperCase())]);
-    const upperRow = row("e", { correlation_type: "lead", correlation_id: J.toUpperCase() });
-    const out = mergeAttribution([], [{ type: "lead", rows: [upperRow] }], t);
-    expect(out.map((e) => e.id)).toEqual(["e"]);
+describe("correlation id letter case", () => {
+  const U = "abcdef12-3456-4abc-8def-0123456789ab";
+  const spellings = [U, U.toUpperCase(), "AbCdEf12-3456-4aBc-8DeF-0123456789Ab"];
+  it("lower, upper and mixed-case stored ids all attribute through the one live link, with provenance", () => {
+    const t = costTargets([link("l", "pipeline_lead", U)]);
+    const rows = spellings.map((s, i) => row(`e${i}`, { correlation_type: "lead", correlation_id: s }));
+    const out = mergeAttribution([], [{ type: "lead", rows }], t);
+    expect(out.map((e) => e.id)).toEqual(["e0", "e1", "e2"]);
+    for (const e of out) expect(e.sources).toEqual([{ kind: "link", linkId: "l", targetType: "pipeline_lead", correlationType: "lead", correlationId: U }]);
+  });
+  it("a different UUID, or the same UUID under the wrong type, does not attribute", () => {
+    const t = costTargets([link("l", "pipeline_lead", U)]);
+    const other = row("x", { correlation_type: "lead", correlation_id: "abcdef12-3456-4abc-8def-0123456789ac" });
+    const wrongType = row("y", { correlation_type: "job", correlation_id: spellings[2] });
+    expect(mergeAttribution([], [{ type: "lead", rows: [other, wrongType] }], t)).toEqual([]);
   });
 });

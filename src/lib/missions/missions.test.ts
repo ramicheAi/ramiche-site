@@ -308,13 +308,13 @@ describe("missionCosts failure handling (M3)", () => {
     expect(!r2.ok && r2.status).toBe(502);
   });
 
-  it("linked ids are queried in both canonical spellings", async () => {
+  it("linked ids are passed once, canonical lower-case (the store matches them ignoring case)", async () => {
     const seen: string[][] = [];
     const link = { id: "l", mission_id: MID, target_type: "pipeline_lead", target_id: "0000000a-0000-4000-8000-0000000000aa", removed_at: null };
     await run(base({
       listLinks: async () => ({ ok: true, data: [link] }),
       eventsForCorrelation: async (_t: string, ids: string[]) => { seen.push(ids); return { ok: true, data: [] }; },
     } as unknown as Partial<MissionStore>));
-    expect(seen).toEqual([["0000000a-0000-4000-8000-0000000000aa", "0000000A-0000-4000-8000-0000000000AA"]]);
+    expect(seen).toEqual([["0000000a-0000-4000-8000-0000000000aa"]]);
   });
 });
