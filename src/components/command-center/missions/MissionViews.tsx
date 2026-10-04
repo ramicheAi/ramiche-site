@@ -176,7 +176,7 @@ export function MissionListView({ api = httpMissionApi, initialObjective, fromSy
         </Panel>
       )}
       {missions !== null && missions.length > 0 && (
-        <MissionGroups missions={missions} moreExist={nextBefore !== null} />
+        <MissionGroups missions={missions} mayHaveMore={nextBefore !== null} />
       )}
       {missions !== null && missions.length > 0 && (
         <div style={{ ...row, marginTop: 16 }}>
@@ -188,27 +188,33 @@ export function MissionListView({ api = httpMissionApi, initialObjective, fromSy
   );
 }
 
-/** The loaded missions in four fixed groups (ui.ts GROUP_OF). Grouping and order are derived from state and updated_at. */
-function MissionGroups({ missions, moreExist }: { missions: MissionRow[]; moreExist: boolean }) {
+/**
+ * The loaded missions in four fixed groups (ui.ts GROUP_OF). Grouping and order are derived from state and updated_at.
+ *
+ * mayHaveMore is the list cursor: it means another page MAY exist, never that one does (a final page that is exactly
+ * full still carries a cursor). So while it is set, every count is a count of what is LOADED and no wording claims that
+ * more missions exist or that nothing is waiting. Definitive wording is used only once paging is exhausted.
+ */
+function MissionGroups({ missions, mayHaveMore }: { missions: MissionRow[]; mayHaveMore: boolean }) {
   const groups = useMemo(() => groupMissions(missions), [missions]);
   const needs = groups[0].missions.length;
   return (
     <div style={{ display: "grid", gap: 20 }}>
       <p data-testid="triage-summary" style={{ ...muted, fontSize: 14, margin: 0 }}>
-        {groups.map((g) => `${g.missions.length}${moreExist ? "+" : ""} ${g.label.toLowerCase()}`).join(" · ")}
-        {moreExist && " · older missions are not loaded yet, so these counts cover only the missions shown (Load more below)"}
+        {groups.map((g) => `${g.missions.length} ${g.label.toLowerCase()}`).join(" · ")}
+        {mayHaveMore && ` · counted from the ${missions.length} ${missions.length === 1 ? "mission" : "missions"} loaded; more may be available (Load more below)`}
       </p>
       {groups.map((g) => (
         <section key={g.group} data-testid={`group-${g.group}`} aria-label={g.label}>
           <h2 style={{
             fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", margin: "0 0 10px",
             color: g.group === "needs_you" && needs > 0 ? "var(--c-amber, #f59e0b)" : "var(--t-mid)",
-          }}>{g.label} · {g.missions.length}{moreExist && "+"}</h2>
+          }}>{g.label} · {g.missions.length}{mayHaveMore && " loaded"}</h2>
           {g.missions.length === 0 ? (
-            // With older missions unloaded, an empty group is only empty SO FAR: never claim nothing is waiting.
+            // While more may be available, an empty group is empty only among what is loaded.
             <p style={{ ...muted, margin: 0 }}>
-              {moreExist
-                ? (g.group === "needs_you" ? "Nothing waiting among the missions loaded. Older missions are not loaded yet (Load more below)." : "None among the missions loaded.")
+              {mayHaveMore
+                ? (g.group === "needs_you" ? "No missions need you among those loaded. More may be available (Load more below)." : "None among those loaded.")
                 : (g.group === "needs_you" ? "Nothing is waiting on you." : "None.")}
             </p>
           ) : (

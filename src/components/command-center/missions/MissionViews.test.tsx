@@ -1147,18 +1147,47 @@ describe("M4B grouping", () => {
     expect(screen.getByTestId("group-done").textContent).toContain("None.");
   });
 
-  it("when older missions are not loaded, the summary says its counts are partial", async () => {
+  // The cursor means another page MAY exist, never that one does (a final page that is exactly full still has one).
+  const claimsMore = /\d\+|older missions|not loaded yet|remain|more exist/i;
+
+  it("empty Needs you with a cursor: no claim that nothing is waiting, and no claim that more missions exist", async () => {
     render(<MissionListView api={fakeApi({ list: vi.fn(() => Promise.resolve({ ok: true as const, data: { missions: [at(9, "executing", "2026-10-01T00:00:00Z")], nextBefore: 9 } })) })} />);
     await screen.findAllByTestId("mission-card");
-    expect(screen.getByTestId("triage-summary").textContent).toContain("older missions are not loaded yet");
-    // An empty group is only empty so far: the page must not claim nothing is waiting, and counts are lower bounds.
     const needs = screen.getByTestId("group-needs_you").textContent ?? "";
     expect(needs).not.toContain("Nothing is waiting on you.");
-    expect(needs).toContain("Nothing waiting among the missions loaded. Older missions are not loaded yet");
-    expect(needs).toContain("Needs you · 0+");
-    expect(screen.getByTestId("group-active").textContent).toContain("Active · 1+");
-    expect(screen.getByTestId("group-done").textContent).toContain("None among the missions loaded.");
-    expect(screen.getByTestId("triage-summary").textContent).toContain("0+ needs you · 1+ active");
+    expect(needs).toContain("No missions need you among those loaded. More may be available (Load more below).");
+    expect(needs).toContain("Needs you · 0 loaded");
+    expect(screen.getByTestId("group-active").textContent).toContain("Active · 1 loaded");
+    expect(screen.getByTestId("group-done").textContent).toContain("None among those loaded.");
+    expect(screen.getByTestId("triage-summary").textContent).toBe("0 needs you · 1 active · 0 inbox / early · 0 done · counted from the 1 mission loaded; more may be available (Load more below)");
+    for (const g of ["needs_you", "active", "early", "done"]) expect(screen.getByTestId(`group-${g}`).textContent).not.toMatch(claimsMore);
+    expect(screen.getByTestId("triage-summary").textContent).not.toMatch(claimsMore);
+  });
+
+  it("exactly 100 loaded with a cursor says 100 loaded and more MAY be available, never 100+ or that older missions exist", async () => {
+    const hundred = Array.from({ length: 100 }, (_, i) => at(100 - i, "executing", "2026-10-01T00:00:00Z"));
+    const list = vi.fn()
+      .mockResolvedValueOnce({ ok: true, data: { missions: hundred, nextBefore: 1 } })
+      .mockResolvedValueOnce({ ok: true, data: { missions: [], nextBefore: null } });   // the tenant has exactly 100
+    render(<MissionListView api={fakeApi({ list })} />);
+    expect((await screen.findAllByTestId("mission-card")).length).toBe(100);
+    const summary = () => screen.getByTestId("triage-summary").textContent ?? "";
+    expect(summary()).toContain("100 active");
+    expect(summary()).toContain("counted from the 100 missions loaded; more may be available");
+    expect(summary()).not.toMatch(claimsMore);
+    expect(screen.getByTestId("group-active").textContent).toContain("Active · 100 loaded");
+    expect(screen.getByTestId("group-active").textContent).not.toContain("100+");
+    expect(screen.getByTestId("group-needs_you").textContent).not.toContain("Nothing is waiting on you.");
+    // Load more is unchanged: it asks for the next page by cursor, and the empty final read exhausts paging.
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Load more" })).toBeNull());
+    expect(list).toHaveBeenNthCalledWith(2, 1);
+    expect(screen.getAllByTestId("mission-card").length).toBe(100);
+    // Paging is exhausted: definitive wording is now true and allowed.
+    expect(summary()).toBe("0 needs you · 100 active · 0 inbox / early · 0 done");
+    expect(screen.getByTestId("group-needs_you").textContent).toBe("Needs you · 0Nothing is waiting on you.");
+    expect(screen.getByTestId("group-active").textContent).toContain("Active · 100");
+    expect(screen.getByTestId("group-active").textContent).not.toContain("loaded");
   });
 
   it("the list makes one list request and no per-row detail or cost requests", async () => {
