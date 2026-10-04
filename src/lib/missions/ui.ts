@@ -42,8 +42,11 @@ const STEP_LABEL: Partial<Record<`${MissionState}>${MissionState}`, string>> = {
 export type StepAction = { to: MissionState; label: string };
 
 /** Forward steps the founder can take now. Never includes "verified". */
-export function forwardSteps(state: MissionState): StepAction[] {
-  return FORWARD[state].map((to) => ({ to, label: STEP_LABEL[`${state}>${to}`] ?? `Move to ${STATE_LABEL[to]}` }));
+export function forwardSteps(state: MissionState, criteriaCount = 1): StepAction[] {
+  return FORWARD[state]
+    // Approval needs a success criterion (M1 MI007) and criteria cannot be edited after creation, so never offer it.
+    .filter((to) => !(to === "approved" && criteriaCount === 0))
+    .map((to) => ({ to, label: STEP_LABEL[`${state}>${to}`] ?? `Move to ${STATE_LABEL[to]}` }));
 }
 export const canCancel = (state: MissionState): boolean => CANCELLABLE.has(state);
 export const canVerify = (state: MissionState): boolean => state === "completed";
@@ -56,8 +59,12 @@ export const canEditLinks = (state: MissionState): boolean => !isTerminal(state)
 /** The one thing the founder should look at next, in plain words. */
 export function nextHint(m: Pick<MissionRow, "state" | "success_criteria">, evidence: Pick<LinkRow, "criterion_id">[]): string {
   switch (m.state) {
-    case "intent": return "Shape it into a plan.";
-    case "plan": return m.success_criteria.length === 0 ? "Add at least one success criterion before approval." : "Review the plan and approve it.";
+    case "intent": return m.success_criteria.length === 0
+      ? "No success criteria, so this mission can never be approved. Cancel it and create a new one with criteria."
+      : "Shape it into a plan.";
+    case "plan": return m.success_criteria.length === 0
+      ? "This mission has no success criteria, so it cannot be approved. Criteria are set when a mission is created: cancel this one and create a new one with criteria."
+      : "Review the plan and approve it.";
     case "approved": return "Start execution when the team is ready.";
     case "executing": return "Work in progress. Send to review when the deliverables exist.";
     case "reviewing": return "Review the work: complete it, or send it back for rework.";
@@ -111,13 +118,15 @@ export function validateCreate(f: CreateForm): FormErrors {
   const chars = (s: string) => [...s].length;
   const objective = f.objective.trim();
   if (!objective) e.objective = "Say what this mission is for.";
-  else if (chars(objective) > 2000) e.objective = "Keep the objective under 2000 characters.";
+  else if (chars(objective) > 2000) e.objective = "Keep the objective to at most 2,000 characters.";
   const criteria = linesToItems(f.criteriaText, "c");
-  if (criteria.length > 50) e.criteria = "At most 50 success criteria.";
-  else if (criteria.some((c) => chars(c.text) > 500)) e.criteria = "Each criterion must be under 500 characters.";
+  // Required here (not by M1 at creation) because approval needs one and M4A has no way to add criteria later.
+  if (criteria.length === 0) e.criteria = "Add at least one success criterion: how will you know it is done?";
+  else if (criteria.length > 50) e.criteria = "At most 50 success criteria.";
+  else if (criteria.some((c) => chars(c.text) > 500)) e.criteria = "Each criterion must be at most 500 characters.";
   const deliverables = linesToItems(f.deliverablesText, "d");
   if (deliverables.length > 50) e.deliverables = "At most 50 deliverables.";
-  else if (deliverables.some((c) => chars(c.text) > 500)) e.deliverables = "Each deliverable must be under 500 characters.";
+  else if (deliverables.some((c) => chars(c.text) > 500)) e.deliverables = "Each deliverable must be at most 500 characters.";
   if (f.agentIds.length > 24) e.agents = "At most 24 agents.";
   return e;
 }

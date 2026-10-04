@@ -69,8 +69,8 @@ function timeAgo(iso: string): string {
 
 /* ── list ───────────────────────────────────────────────────────────────────────────────────────────── */
 
-export function MissionListView({ api = httpMissionApi, initialObjective, fromSynthesis }: {
-  api?: MissionApi; initialObjective?: string; fromSynthesis?: string;
+export function MissionListView({ api = httpMissionApi, initialObjective, fromSynthesis, onCreated }: {
+  api?: MissionApi; initialObjective?: string; fromSynthesis?: string; onCreated?: (m: MissionRow) => void;
 }) {
   const [missions, setMissions] = useState<MissionRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -90,7 +90,7 @@ export function MissionListView({ api = httpMissionApi, initialObjective, fromSy
     <>
       {creating ? (
         <CreateMissionForm api={api} initialObjective={initialObjective} fromSynthesis={fromSynthesis}
-          onCancel={() => setCreating(false)} onCreated={() => { setCreating(false); void load(); }} />
+          onCancel={() => setCreating(false)} onCreated={(m) => { setCreating(false); void load(); onCreated?.(m); }} />
       ) : (
         <div style={{ ...row, marginBottom: 16 }}>
           <Btn tone="primary" onClick={() => setCreating(true)}>+ New Mission</Btn>
@@ -140,6 +140,7 @@ export function CreateMissionForm({ api = httpMissionApi, onCreated, onCancel, i
   const [errors, setErrors] = useState<ReturnType<typeof validateCreate>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [unlinked, setUnlinked] = useState<MissionRow | null>(null);
   const agents = useMemo(() => selectableAgents(), []);
   const set = <K extends keyof CreateForm>(k: K, v: CreateForm[K]) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -154,7 +155,12 @@ export function CreateMissionForm({ api = httpMissionApi, onCreated, onCancel, i
     if (fromSynthesis) {
       // Keep the plan where it lives; the mission only points at it.
       const l = await api.addLink(r.data.id, { targetType: "synthesis", targetId: fromSynthesis, relation: "source" });
-      if (!l.ok) setServerError(`Mission ${formatRef(r.data.ref)} created, but linking the plan failed: ${l.message}`);
+      if (!l.ok) {
+        // Stay open: the founder must see that the mission exists but the plan link does not.
+        setBusy(false); setUnlinked(r.data);
+        setServerError(`Mission ${formatRef(r.data.ref)} was created, but linking the plan failed: ${l.message}`);
+        return;
+      }
     }
     setBusy(false);
     onCreated(r.data);
@@ -193,7 +199,7 @@ export function CreateMissionForm({ api = httpMissionApi, onCreated, onCancel, i
           <ErrorLine text={errors.agents ?? null} />
         </fieldset>
         <label style={{ display: "grid", gap: 6 }}>
-          <span style={{ fontWeight: 600 }}>Success criteria <span style={muted}>(one per line; needed before approval)</span></span>
+          <span style={{ fontWeight: 600 }}>Success criteria <span style={muted}>(one per line; at least one)</span></span>
           <textarea value={form.criteriaText} onChange={(e) => set("criteriaText", e.target.value)} rows={3} style={field}
             placeholder={"The report is published\nMettle onboarding takes under 5 minutes"} />
           <ErrorLine text={errors.criteria ?? null} />
@@ -204,10 +210,17 @@ export function CreateMissionForm({ api = httpMissionApi, onCreated, onCancel, i
           <ErrorLine text={errors.deliverables ?? null} />
         </label>
         <ErrorLine text={serverError} />
-        <div style={row}>
-          <Btn type="submit" tone="primary" disabled={busy}>{busy ? "Creating…" : "Create Mission"}</Btn>
-          <Btn onClick={onCancel} disabled={busy}>Cancel</Btn>
-        </div>
+        {unlinked ? (
+          <div style={row}>
+            <Link href={`/command-center/missions/${unlinked.id}`} style={{ color: "var(--accent)", fontWeight: 600 }}>Open {formatRef(unlinked.ref)} to link the plan by hand</Link>
+            <Btn onClick={() => onCreated(unlinked)}>Done</Btn>
+          </div>
+        ) : (
+          <div style={row}>
+            <Btn type="submit" tone="primary" disabled={busy}>{busy ? "Creating…" : "Create Mission"}</Btn>
+            <Btn onClick={onCancel} disabled={busy}>Cancel</Btn>
+          </div>
+        )}
       </form>
     </Panel>
   );
@@ -242,12 +255,13 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
     return () => { alive = false; };
   }, [api, id, showRemoved, apply]);
 
-  async function act(fn: () => Promise<{ ok: boolean; message?: string }>) {
-    setBusy(true); setError(null);
+  async function act(fn: () => Promise<{ ok: boolean; message?: string }>): Promise<boolean> {
+    setBusy(true); setError(null); setConfirmCancel(false);
     const r = await fn();
     setBusy(false);
     if (!r.ok) setError(r.message ?? "That did not work.");
     await load();
+    return r.ok;
   }
 
   if (!d) return <>{error ? <ErrorLine text={error} /> : <p style={muted}>Loading mission…</p>}</>;
@@ -267,7 +281,7 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
         <p data-testid="next-hint" style={{ fontSize: 15, margin: "0 0 14px", color: "var(--accent)" }}>{nextHint(m, evidence)}</p>
         <ErrorLine text={error} />
         <div style={row} data-testid="lifecycle-actions">
-          {forwardSteps(m.state).map((s) => (
+          {forwardSteps(m.state, m.success_criteria.length).map((s) => (
             <Btn key={s.to} tone="primary" disabled={busy} onClick={() => act(() => api.transition(m.id, s.to, m.state))}>{s.label}</Btn>
           ))}
           {canVerify(m.state) && (
@@ -278,7 +292,7 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
           {confirmCancel && (
             <>
               <span style={muted}>Cancelling is final.</span>
-              <Btn tone="danger" disabled={busy} onClick={() => { setConfirmCancel(false); void act(() => api.transition(m.id, "cancelled", m.state)); }}>Confirm cancel</Btn>
+              <Btn tone="danger" disabled={busy} onClick={() => void act(() => api.transition(m.id, "cancelled", m.state))}>Confirm cancel</Btn>
               <Btn onClick={() => setConfirmCancel(false)}>Keep it</Btn>
             </>
           )}
@@ -304,7 +318,7 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
       </div>
 
       <LinksPanel m={m} links={d.links} busy={busy} showRemoved={showRemoved} setShowRemoved={setShowRemoved}
-        onAdd={(body) => act(() => api.addLink(m.id, body))} onRemove={(l) => act(() => api.removeLink(m.id, l.id))} />
+        onAdd={(body) => void act(() => api.addLink(m.id, body))} onRemove={(l) => void act(() => api.removeLink(m.id, l.id))} />
 
       {canReassign(m.state) && <ReassignPanel m={m} busy={busy} onSave={(b) => act(() => api.reassign(m.id, b))} />}
 
@@ -331,7 +345,7 @@ function LinksPanel({ m, links, busy, showRemoved, setShowRemoved, onAdd, onRemo
   const [relation, setRelation] = useState<Relation>("context");
   const [criterionId, setCriterionId] = useState(m.success_criteria[0]?.id ?? "");
   const [target, setTarget] = useState("");
-  const canBeEvidence = EVIDENCE_TARGETS.has(type);
+  const canBeEvidence = EVIDENCE_TARGETS.has(type) && m.success_criteria.length > 0;
   const relations = (Object.keys(RELATION_LABEL) as Relation[]).filter((r) => r !== "approval" && r !== "branch" && (r !== "evidence" || canBeEvidence) && (r !== "dependency" || type === "mission"));
   const effectiveRelation = relations.includes(relation) ? relation : "context";
 
@@ -389,8 +403,13 @@ function LinksPanel({ m, links, busy, showRemoved, setShowRemoved, onAdd, onRemo
   );
 }
 
-function ReassignPanel({ m, busy, onSave }: { m: MissionRow; busy: boolean; onSave: (b: { owner: string; ownerKind: "human" | "agent"; agentIds: string[] }) => void }) {
-  const agents = useMemo(() => selectableAgents(), []);
+function ReassignPanel({ m, busy, onSave }: { m: MissionRow; busy: boolean; onSave: (b: { owner: string; ownerKind: "human" | "agent"; agentIds: string[] }) => Promise<boolean> }) {
+  // Current members stay visible (and removable) even if the registry no longer lists them as active.
+  const agents = useMemo(() => {
+    const active = selectableAgents();
+    const extra = m.agent_ids.filter((id) => !active.some((a) => a.id === id)).map((id) => ({ id, name: agentName(id) }));
+    return [...active, ...extra];
+  }, [m.agent_ids]);
   const [open, setOpen] = useState(false);
   const [owner, setOwner] = useState(m.owner);
   const [team, setTeam] = useState<string[]>(m.agent_ids);
@@ -411,7 +430,7 @@ function ReassignPanel({ m, busy, onSave }: { m: MissionRow; busy: boolean; onSa
           })}
         </div>
         <div style={row}>
-          <Btn tone="primary" disabled={busy} onClick={() => { setOpen(false); onSave({ owner, ownerKind: owner === FOUNDER ? "human" : "agent", agentIds: team }); }}>Save</Btn>
+          <Btn tone="primary" disabled={busy} onClick={async () => { if (await onSave({ owner, ownerKind: owner === FOUNDER ? "human" : "agent", agentIds: team })) setOpen(false); }}>Save</Btn>
           <Btn onClick={() => setOpen(false)}>Cancel</Btn>
         </div>
       </div>

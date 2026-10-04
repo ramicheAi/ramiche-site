@@ -100,7 +100,9 @@ describe("create mission", () => {
     const api = fakeApi();
     render(<CreateMissionForm api={api} onCreated={() => {}} onCancel={() => {}} />);
     fireEvent.click(screen.getByRole("button", { name: /create mission/i }));
-    expect((await screen.findByRole("alert")).textContent).toMatch(/what this mission is for/i);
+    const alerts = (await screen.findAllByRole("alert")).map((x) => x.textContent ?? "");
+    expect(alerts.some((t) => /what this mission is for/i.test(t))).toBe(true);
+    expect(alerts.some((t) => /at least one success criterion/i.test(t))).toBe(true);
     expect(api.create).not.toHaveBeenCalled();
   });
 
@@ -108,6 +110,7 @@ describe("create mission", () => {
     const api = fakeApi({ create: vi.fn(() => Promise.resolve({ ok: false as const, status: 422, message: "owner is not a registered active agent" })) });
     render(<CreateMissionForm api={api} onCreated={() => {}} onCancel={() => {}} />);
     fireEvent.change(screen.getByPlaceholderText(/what outcome/i), { target: { value: "x" } });
+    fireEvent.change(screen.getAllByRole("textbox")[1], { target: { value: "done means done" } });
     fireEvent.click(screen.getByRole("button", { name: /create mission/i }));
     expect((await screen.findByRole("alert")).textContent).toContain("registered active agent");
   });
@@ -116,14 +119,39 @@ describe("create mission", () => {
     const api = fakeApi();
     render(<CreateMissionForm api={api} onCreated={() => {}} onCancel={() => {}} initialObjective="Decision text" fromSynthesis="00000000-0000-4000-8000-0000000000cc" />);
     expect((screen.getByPlaceholderText(/what outcome/i) as HTMLTextAreaElement).value).toBe("Decision text");
+    fireEvent.change(screen.getAllByRole("textbox")[1], { target: { value: "Plan executed" } });
     fireEvent.click(screen.getByRole("button", { name: /create mission/i }));
     await waitFor(() => expect(api.addLink).toHaveBeenCalledWith(M_ID, { targetType: "synthesis", targetId: "00000000-0000-4000-8000-0000000000cc", relation: "source" }));
+  });
+
+  it("from a plan: if linking the plan fails, the form stays open, says so, and offers the created mission", async () => {
+    const api = fakeApi({ addLink: vi.fn(() => Promise.resolve({ ok: false as const, status: 404, message: "synthesis not found" })) });
+    const created = vi.fn();
+    render(<CreateMissionForm api={api} onCreated={created} onCancel={() => {}} initialObjective="Decision" fromSynthesis="00000000-0000-4000-8000-0000000000cc" />);
+    fireEvent.change(screen.getAllByRole("textbox")[1], { target: { value: "Plan executed" } });
+    fireEvent.click(screen.getByRole("button", { name: /create mission/i }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/M-42 was created, but linking the plan failed: synthesis not found/);
+    expect(created).not.toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: /open M-42/i }).getAttribute("href")).toBe(`/command-center/missions/${M_ID}`);
+    expect(screen.queryByRole("button", { name: /create mission/i })).toBeNull(); // no accidental second create
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(created).toHaveBeenCalledTimes(1);
+  });
+
+  it("at least one success criterion is required, since criteria cannot be added later", async () => {
+    const api = fakeApi();
+    render(<CreateMissionForm api={api} onCreated={() => {}} onCancel={() => {}} />);
+    fireEvent.change(screen.getByPlaceholderText(/what outcome/i), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: /create mission/i }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/at least one success criterion/i);
+    expect(api.create).not.toHaveBeenCalled();
   });
 });
 
 describe("lifecycle controls", () => {
   it("helpers never offer verified as a generic transition, from any state", () => {
-    for (const s of MISSION_STATES) expect(forwardSteps(s).map((x) => x.to)).not.toContain("verified");
+    for (const s of MISSION_STATES) for (const n of [0, 1]) expect(forwardSteps(s, n).map((x) => x.to)).not.toContain("verified");
+    expect(forwardSteps("plan", 0)).toEqual([]);
     expect(MISSION_STATES.filter(canVerify)).toEqual(["completed"]);
   });
 
@@ -179,11 +207,28 @@ describe("lifecycle controls", () => {
   });
 
   it("a refused action shows the server's reason", async () => {
-    const api = fakeApi({ transition: vi.fn(() => Promise.resolve({ ok: false as const, status: 422, message: "at least one success criterion is required before approval" })) },
-      { mission: mission({ state: "plan", success_criteria: [] }) });
+    const api = fakeApi({ transition: vi.fn(() => Promise.resolve({ ok: false as const, status: 409, message: "mission state changed since it was read" })) },
+      { mission: mission({ state: "plan" }) });
     render(<MissionDetailView id={M_ID} api={api} />);
     fireEvent.click(await screen.findByRole("button", { name: "Approve" }));
-    expect((await screen.findByRole("alert")).textContent).toContain("success criterion");
+    expect((await screen.findByRole("alert")).textContent).toContain("state changed since it was read");
+  });
+
+  it("a mission with no criteria is never offered Approve, and the hint says how to get out", async () => {
+    render(<MissionDetailView id={M_ID} api={fakeApi({}, { mission: mission({ state: "plan", success_criteria: [] }) })} />);
+    const box = await screen.findByTestId("lifecycle-actions");
+    expect(within(box).queryByRole("button", { name: "Approve" })).toBeNull();
+    expect(screen.getByTestId("next-hint").textContent).toMatch(/cannot be approved.*create a new one with criteria/i);
+  });
+
+  it("a failed reassign keeps the panel open with the founder's edits", async () => {
+    const api = fakeApi({ reassign: vi.fn(() => Promise.resolve({ ok: false as const, status: 422, message: "invalid owner or team" })) }, { mission: mission({ state: "executing" }) });
+    render(<MissionDetailView id={M_ID} api={api} />);
+    fireEvent.click(await screen.findByRole("button", { name: /change owner or team/i }));
+    fireEvent.change(screen.getByLabelText("New owner"), { target: { value: "atlas" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("invalid owner or team");
+    expect((screen.getByLabelText("New owner") as HTMLSelectElement).value).toBe("atlas");
   });
 
   it("reassign is offered before completed and sends the whole new team", async () => {
@@ -221,6 +266,20 @@ describe("links", () => {
     fireEvent.change(screen.getByLabelText("Link target"), { target: { value: "00000000-0000-4000-8000-0000000000bb" } });
     fireEvent.click(screen.getByRole("button", { name: "Add link" }));
     await waitFor(() => expect(api.addLink).toHaveBeenCalledWith(M_ID, { targetType: "job", targetId: "00000000-0000-4000-8000-0000000000bb", relation: "evidence", criterionId: "c1" }));
+  });
+
+  it("evidence is not offered when the mission has no criteria", async () => {
+    render(<MissionDetailView id={M_ID} api={fakeApi({}, { mission: mission({ state: "executing", success_criteria: [] }) })} />);
+    fireEvent.change(await screen.findByLabelText("Link type"), { target: { value: "job" } });
+    expect([...(screen.getByLabelText("Relation") as HTMLSelectElement).options].map((o) => o.value)).not.toContain("evidence");
+  });
+
+  it("the Decisions shortcut truncates by code points, so an emoji at the cut cannot crash the page", () => {
+    const src = readFileSync(join(process.cwd(), "src/app/command-center/decisions/page.tsx"), "utf8");
+    expect(src).toContain("[...d.plan.decision].slice(0, 2000)");
+    const decision = "a".repeat(1999) + "😀" + "tail";
+    expect(() => encodeURIComponent([...decision].slice(0, 2000).join(""))).not.toThrow();
+    expect(() => encodeURIComponent(decision.slice(0, 2000))).toThrow();
   });
 
   it("the UI's evidence set is exactly the server's", () => {

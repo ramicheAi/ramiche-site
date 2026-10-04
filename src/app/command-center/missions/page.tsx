@@ -1,6 +1,6 @@
 "use client";
 import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { InstrumentPage } from "@/components/command-center/po/Instrument";
 import { MissionListView } from "@/components/command-center/missions/MissionViews";
 
@@ -12,9 +12,12 @@ import { MissionListView } from "@/components/command-center/missions/MissionVie
 
 function MissionsWithParams() {
   const q = useSearchParams();
+  const router = useRouter();
   const fromSynthesis = q.get("fromSynthesis") ?? undefined;
   const objective = q.get("objective") ?? undefined;
-  return <MissionListView key={`${fromSynthesis ?? ""}|${objective ?? ""}`} fromSynthesis={fromSynthesis} initialObjective={objective} />;
+  // After creating from a plan, drop the prefill query so "New Mission" does not reopen it (no accidental duplicate).
+  return <MissionListView key={`${fromSynthesis ?? ""}|${objective ?? ""}`} fromSynthesis={fromSynthesis} initialObjective={objective}
+    onCreated={() => { if (fromSynthesis || objective) router.replace("/command-center/missions"); }} />;
 }
 
 export default function MissionsPage() {
