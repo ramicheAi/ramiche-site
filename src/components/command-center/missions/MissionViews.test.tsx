@@ -295,6 +295,21 @@ describe("links", () => {
     await waitFor(() => expect(api.removeLink).toHaveBeenCalledWith(M_ID, evidenceLink().id));
   });
 
+  it("a refused link keeps what the founder typed; an accepted one clears the field", async () => {
+    const addLink = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 422, message: "url host must be public" })
+      .mockResolvedValueOnce({ ok: true, data: { link: evidenceLink(), resolution: "format_only" } });
+    render(<MissionDetailView id={M_ID} api={fakeApi({ addLink }, { mission: mission({ state: "executing" }) })} />);
+    const input = (await screen.findByLabelText("Link target")) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "http://imac/report" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add link" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("url host must be public");
+    expect((screen.getByLabelText("Link target") as HTMLInputElement).value).toBe("http://imac/report");
+    fireEvent.change(screen.getByLabelText("Link target"), { target: { value: "https://docs.example.com/report" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add link" }));
+    await waitFor(() => expect((screen.getByLabelText("Link target") as HTMLInputElement).value).toBe(""));
+  });
+
   it("evidence is offered only for database-resolved targets, and names a criterion", async () => {
     const api = fakeApi({}, { mission: mission({ state: "executing" }) });
     render(<MissionDetailView id={M_ID} api={api} />);
@@ -488,6 +503,73 @@ describe("pagination", () => {
     releaseFirstReload({ ok: true, data: { missions: page([11, 10]), nextBefore: null } });
     await new Promise((r) => setTimeout(r, 20));
     expect(shown()).toEqual(["M-12", "M-11", "M-10"]);
+  });
+
+  it("a stalled older page never keeps Load more disabled after a reload, and its late arrival changes nothing", async () => {
+    let releaseStale!: (v: unknown) => void;
+    const list = vi.fn()
+      .mockResolvedValueOnce({ ok: true, data: { missions: page([20, 19]), nextBefore: 19 } })            // mount
+      .mockImplementationOnce(() => new Promise((r) => (releaseStale = r)))                              // Load more, stalls
+      .mockResolvedValueOnce({ ok: true, data: { missions: page([21, 20]), nextBefore: 20 } })            // reload after create
+      .mockResolvedValueOnce({ ok: true, data: { missions: page([19, 18]), nextBefore: null } });         // Load more on the new list
+    render(<MissionListView api={fakeApi({ list })} />);
+    await screen.findAllByTestId("mission-card");
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    fireEvent.click(screen.getByRole("button", { name: /new mission/i }));
+    fireEvent.change(screen.getByPlaceholderText(/what outcome/i), { target: { value: "new" } });
+    fireEvent.change(screen.getAllByRole("textbox")[1], { target: { value: "c" } });
+    fireEvent.click(screen.getByRole("button", { name: /create mission/i }));
+    await waitFor(() => expect(shown()).toEqual(["M-21", "M-20"]));
+    const more = screen.getByRole("button", { name: "Load more" }) as HTMLButtonElement;
+    expect(more.disabled).toBe(false);                                                    // not held hostage by the stale request
+    fireEvent.click(more);
+    await waitFor(() => expect(shown()).toEqual(["M-21", "M-20", "M-19", "M-18"]));
+    expect(list).toHaveBeenLastCalledWith(20);
+    releaseStale({ ok: true, data: { missions: page([18, 17]), nextBefore: 17 } });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(shown()).toEqual(["M-21", "M-20", "M-19", "M-18"]);                            // stale page dropped
+    expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();               // cursor not resurrected
+  });
+
+  it("a stale older page finishing during a newer Load more does not clear the newer one's loading state", async () => {
+    let releaseStale!: (v: unknown) => void; let releaseNew!: (v: unknown) => void;
+    const list = vi.fn()
+      .mockResolvedValueOnce({ ok: true, data: { missions: page([20, 19]), nextBefore: 19 } })
+      .mockImplementationOnce(() => new Promise((r) => (releaseStale = r)))
+      .mockResolvedValueOnce({ ok: true, data: { missions: page([21, 20]), nextBefore: 20 } })
+      .mockImplementationOnce(() => new Promise((r) => (releaseNew = r)));
+    render(<MissionListView api={fakeApi({ list })} />);
+    await screen.findAllByTestId("mission-card");
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    fireEvent.click(screen.getByRole("button", { name: /new mission/i }));
+    fireEvent.change(screen.getByPlaceholderText(/what outcome/i), { target: { value: "new" } });
+    fireEvent.change(screen.getAllByRole("textbox")[1], { target: { value: "c" } });
+    fireEvent.click(screen.getByRole("button", { name: /create mission/i }));
+    await waitFor(() => expect(shown()).toEqual(["M-21", "M-20"]));
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    expect(screen.getByRole("button", { name: "Loading…" })).toBeTruthy();
+    releaseStale({ ok: true, data: { missions: page([18]), nextBefore: null } });
+    await new Promise((r) => setTimeout(r, 20));
+    expect((screen.getByRole("button", { name: "Loading…" }) as HTMLButtonElement).disabled).toBe(true); // still the newer one's
+    releaseNew({ ok: true, data: { missions: page([19, 18]), nextBefore: null } });
+    await waitFor(() => expect(shown()).toEqual(["M-21", "M-20", "M-19", "M-18"]));
+  });
+
+  it("Load more is disabled while a reload is pending, so it cannot start against a list about to be replaced", async () => {
+    let releaseReload!: (v: unknown) => void;
+    const list = vi.fn()
+      .mockResolvedValueOnce({ ok: true, data: { missions: page([9, 8]), nextBefore: 8 } })
+      .mockImplementationOnce(() => new Promise((r) => (releaseReload = r)));
+    render(<MissionListView api={fakeApi({ list })} />);
+    await screen.findAllByTestId("mission-card");
+    fireEvent.click(screen.getByRole("button", { name: /new mission/i }));
+    fireEvent.change(screen.getByPlaceholderText(/what outcome/i), { target: { value: "new" } });
+    fireEvent.change(screen.getAllByRole("textbox")[1], { target: { value: "c" } });
+    fireEvent.click(screen.getByRole("button", { name: /create mission/i }));
+    await waitFor(() => expect((screen.getByRole("button", { name: "Load more" }) as HTMLButtonElement).disabled).toBe(true));
+    releaseReload({ ok: true, data: { missions: page([10, 9]), nextBefore: 9 } });
+    await waitFor(() => expect((screen.getByRole("button", { name: "Load more" }) as HTMLButtonElement).disabled).toBe(false));
+    expect(shown()).toEqual(["M-10", "M-9"]);
   });
 
   it("a double click requests the next page once", async () => {

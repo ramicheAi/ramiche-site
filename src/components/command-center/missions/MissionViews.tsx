@@ -79,39 +79,55 @@ export function MissionListView({ api = httpMissionApi, initialObjective, fromSy
   const [error, setError] = useState<string | null>(null);
   const [moreError, setMoreError] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [reloading, setReloading] = useState(false);
   const [creating, setCreating] = useState(Boolean(initialObjective || fromSynthesis));
 
-  // Every first-page request is numbered when it STARTS, and only the newest one may apply: a slow older request
-  // (e.g. the mount load still pending when a create reloads) can never overwrite a newer list. An older page
-  // ("Load more") is likewise dropped if any first-page request started after it.
+  // Pagination model (all refs, so checks are synchronous):
+  //   listRequest  numbers first-page requests at START; only the newest may apply (a slow older one never overwrites).
+  //   listToken    changes whenever a first-page load STARTS or APPLIES. An older page ("Load more") is kept only if
+  //                the token is unchanged from when it started, so it can only ever extend the list it was asked for.
+  //   moreOwner    the one in-flight Load more (0 = none). A first-page load releases it, so a stale or stalled older
+  //                request can never keep the button disabled, and its late completion cannot clear a newer one's flag.
+  // Load more is also disabled while a reload is pending, so it cannot start against a list about to be replaced.
   const listRequest = useRef(0);
-  const moreInFlight = useRef(false); // synchronous guard: a double click must not request the same page twice
+  const listToken = useRef(0);
+  const moreOwner = useRef(0);
+  const moreSeq = useRef(0);
   const apply = useCallback((r: Awaited<ReturnType<MissionApi["list"]>>) => {
+    listToken.current += 1;
     if (r.ok) { setMissions(r.data.missions); setNextBefore(r.data.nextBefore); setError(null); setMoreError(null); } else { setError(r.message); }
   }, []);
-  // First page: replaces the list (used on mount and after a create).
+  // First page after a create: replaces the list.
   const load = useCallback(async () => {
     const mine = ++listRequest.current;
+    listToken.current += 1;
+    moreOwner.current = 0;
+    setLoadingMore(false);
+    setReloading(true);
     const r = await api.list();
-    if (mine === listRequest.current) apply(r);
+    if (mine !== listRequest.current) return;
+    apply(r);
+    setReloading(false);
   }, [api, apply]);
   // Older pages: appended without duplicates; a failure keeps everything already loaded.
   async function loadMore() {
-    if (nextBefore === null || moreInFlight.current) return;
-    moreInFlight.current = true;
-    const startedFor = listRequest.current;
+    if (nextBefore === null || moreOwner.current !== 0 || reloading) return;
+    const me = ++moreSeq.current;
+    moreOwner.current = me;
+    const token = listToken.current;
     setLoadingMore(true); setMoreError(null);
     const r = await api.list(nextBefore);
-    moreInFlight.current = false;
-    setLoadingMore(false);
-    if (startedFor !== listRequest.current) return; // the list was reloaded meanwhile: this page belongs to an old list
+    if (moreOwner.current === me) { moreOwner.current = 0; setLoadingMore(false); }
+    if (token !== listToken.current) return; // the list was reloaded meanwhile: this page belongs to an old list
     if (!r.ok) { setMoreError(r.message); return; }
     setMissions((cur) => mergeMissionPages(cur ?? [], r.data.missions));
     setNextBefore(r.data.nextBefore);
   }
+  // First page on mount.
   useEffect(() => {
     let alive = true;
     const mine = ++listRequest.current;
+    listToken.current += 1;
     api.list().then((r) => { if (alive && mine === listRequest.current) apply(r); });
     return () => { alive = false; };
   }, [api, apply]);
@@ -160,7 +176,7 @@ export function MissionListView({ api = httpMissionApi, initialObjective, fromSy
       )}
       {missions !== null && missions.length > 0 && (
         <div style={{ ...row, marginTop: 16 }}>
-          {nextBefore !== null && <Btn onClick={() => void loadMore()} disabled={loadingMore}>{loadingMore ? "Loading…" : "Load more"}</Btn>}
+          {nextBefore !== null && <Btn onClick={() => void loadMore()} disabled={loadingMore || reloading}>{loadingMore ? "Loading…" : "Load more"}</Btn>}
           <ErrorLine text={moreError} />
         </div>
       )}
@@ -363,7 +379,7 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
       </div>
 
       <LinksPanel m={m} links={d.links} busy={busy} showRemoved={showRemoved} setShowRemoved={setShowRemoved}
-        onAdd={(body) => void act(() => api.addLink(m.id, body))} onRemove={(l) => void act(() => api.removeLink(m.id, l.id))} />
+        onAdd={(body) => act(() => api.addLink(m.id, body))} onRemove={(l) => void act(() => api.removeLink(m.id, l.id))} />
 
       {canReassign(m.state) && <ReassignPanel m={m} busy={busy} onSave={(b) => act(() => api.reassign(m.id, b))} />}
 
@@ -383,7 +399,7 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
 
 function LinksPanel({ m, links, busy, showRemoved, setShowRemoved, onAdd, onRemove }: {
   m: MissionRow; links: LinkRow[]; busy: boolean; showRemoved: boolean; setShowRemoved: (v: boolean) => void;
-  onAdd: (body: Record<string, unknown>) => void; onRemove: (l: LinkRow) => void;
+  onAdd: (body: Record<string, unknown>) => Promise<boolean>; onRemove: (l: LinkRow) => void;
 }) {
   const editable = canEditLinks(m.state);
   const [type, setType] = useState<TargetType>("url");
@@ -397,8 +413,9 @@ function LinksPanel({ m, links, busy, showRemoved, setShowRemoved, onAdd, onRemo
   function add(e: React.FormEvent) {
     e.preventDefault();
     if (!target.trim()) return;
-    onAdd({ targetType: type, targetId: target.trim(), relation: effectiveRelation, ...(effectiveRelation === "evidence" ? { criterionId } : {}) });
-    setTarget("");
+    const body = { targetType: type, targetId: target.trim(), relation: effectiveRelation, ...(effectiveRelation === "evidence" ? { criterionId } : {}) };
+    // Keep what the founder typed until the server accepts it, so a refused link can be corrected and retried.
+    void onAdd(body).then((ok) => { if (ok) setTarget(""); });
   }
 
   return (
