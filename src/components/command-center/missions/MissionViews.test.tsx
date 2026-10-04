@@ -393,6 +393,41 @@ describe("pagination", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  it("an older page that arrives after the list was reloaded (a create) is dropped, so no mission is skipped", async () => {
+    let releaseStale!: (v: unknown) => void;
+    const stale = new Promise((r) => (releaseStale = r));
+    const list = vi.fn()
+      .mockResolvedValueOnce({ ok: true, data: { missions: page([200, 199]), nextBefore: 199 } })      // first page
+      .mockImplementationOnce(() => stale)                                                            // Load more, held
+      .mockResolvedValueOnce({ ok: true, data: { missions: page([201, 200]), nextBefore: 200 } });    // reload after create
+    render(<MissionListView api={fakeApi({ list })} />);
+    await screen.findAllByTestId("mission-card");
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    fireEvent.click(screen.getByRole("button", { name: /new mission/i }));
+    fireEvent.change(screen.getByPlaceholderText(/what outcome/i), { target: { value: "new one" } });
+    fireEvent.change(screen.getAllByRole("textbox")[1], { target: { value: "c" } });
+    fireEvent.click(screen.getByRole("button", { name: /create mission/i }));
+    await waitFor(() => expect(shown()).toEqual(["M-201", "M-200"]));
+    releaseStale({ ok: true, data: { missions: page([198, 197]), nextBefore: null } });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(shown()).toEqual(["M-201", "M-200"]);                                  // stale page not merged
+    expect(screen.getByRole("button", { name: "Load more" })).toBeTruthy();       // cursor still 200, nothing lost
+  });
+
+  it("a double click requests the next page once", async () => {
+    let release!: (v: unknown) => void;
+    const list = vi.fn()
+      .mockResolvedValueOnce({ ok: true, data: { missions: page([5, 4]), nextBefore: 4 } })
+      .mockImplementationOnce(() => new Promise((r) => (release = r)));
+    render(<MissionListView api={fakeApi({ list })} />);
+    await screen.findAllByTestId("mission-card");
+    const more = screen.getByRole("button", { name: "Load more" });
+    fireEvent.click(more); fireEvent.click(more);
+    expect(list).toHaveBeenCalledTimes(2);
+    release({ ok: true, data: { missions: page([3]), nextBefore: null } });
+    await waitFor(() => expect(shown()).toEqual(["M-5", "M-4", "M-3"]));
+  });
+
   it("the client sends the cursor as before=", async () => {
     const cockpit = vi.fn(async () => new Response(JSON.stringify({ data: { missions: [], nextBefore: null }, error: null }), { status: 200 }));
     vi.doMock("@/lib/cockpit-fetch", () => ({ cockpitFetch: cockpit }));

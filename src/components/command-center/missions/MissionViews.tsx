@@ -7,7 +7,7 @@
  * Every action calls one M2 route through `api` (default: cockpitFetch). The server decides; these views only offer
  * what M1 allows next, and "verified" is reachable only through the separate Verify button (/verify).
  */
-import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import { Panel } from "@/components/command-center/po/Instrument";
 import { httpMissionApi, type MissionApi, type MissionDetail } from "@/lib/missions/client";
@@ -81,16 +81,25 @@ export function MissionListView({ api = httpMissionApi, initialObjective, fromSy
   const [loadingMore, setLoadingMore] = useState(false);
   const [creating, setCreating] = useState(Boolean(initialObjective || fromSynthesis));
 
+  // Every first-page load starts a new list generation. An older page fetched for a previous generation is dropped
+  // on arrival: merging it into a newer first page would leave a gap and skip a mission for good.
+  const generation = useRef(0);
+  const moreInFlight = useRef(false); // synchronous guard: a double click must not request the same page twice
   // First page: replaces the list (used on mount and after a create).
   const apply = useCallback((r: Awaited<ReturnType<MissionApi["list"]>>) => {
+    generation.current += 1;
     if (r.ok) { setMissions(r.data.missions); setNextBefore(r.data.nextBefore); setError(null); setMoreError(null); } else { setError(r.message); }
   }, []);
   // Older pages: appended without duplicates; a failure keeps everything already loaded.
   async function loadMore() {
-    if (nextBefore === null || loadingMore) return;
+    if (nextBefore === null || moreInFlight.current) return;
+    moreInFlight.current = true;
+    const gen = generation.current;
     setLoadingMore(true); setMoreError(null);
     const r = await api.list(nextBefore);
+    moreInFlight.current = false;
     setLoadingMore(false);
+    if (gen !== generation.current) return; // the list was reloaded meanwhile: this page belongs to an old list
     if (!r.ok) { setMoreError(r.message); return; }
     setMissions((cur) => mergeMissionPages(cur ?? [], r.data.missions));
     setNextBefore(r.data.nextBefore);
