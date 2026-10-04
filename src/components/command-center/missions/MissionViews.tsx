@@ -294,6 +294,10 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
   const [error, setError] = useState<string | null>(null);         // why the last ACTION was refused
   const [readError, setReadError] = useState<string | null>(null); // why the last READ failed (clears on a good read)
   const [busy, setBusy] = useState(false);
+  // A mutation succeeded but its refresh failed: the screen shows the pre-mutation snapshot, so every control stays
+  // locked until a fresh read applies (Retry refresh). The mutation is never repeated automatically.
+  const [needsRefresh, setNeedsRefresh] = useState(false);
+  const locked = busy || needsRefresh;
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [showRemoved, setShowRemoved] = useState(false);
 
@@ -305,10 +309,13 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
   // Reads are numbered when they START; only the newest may apply, so a slow earlier read (e.g. the "show removed"
   // toggle) can never revert the view to its state before an action that has since reloaded it.
   const readRequest = useRef(0);
-  const load = useCallback(async () => {
+  /** true when this read (or a newer one that superseded it) is the one on screen and it succeeded */
+  const load = useCallback(async (): Promise<boolean> => {
     const mine = ++readRequest.current;
     const r = await api.get(id, showRemoved);
-    if (mine === readRequest.current) apply(r);
+    if (mine !== readRequest.current) return true;
+    apply(r);
+    return r.ok;
   }, [api, id, showRemoved, apply]);
   useEffect(() => {
     let alive = true;
@@ -322,8 +329,17 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
     const r = await fn();
     if (!r.ok) setError(r.message ?? "That did not work.");
     // Controls stay disabled until the refreshed mission arrives, so nothing is offered against a stale snapshot.
-    try { await load(); } finally { setBusy(false); }
+    let fresh = false;
+    try { fresh = await load(); } finally {
+      if (!fresh) setNeedsRefresh(true);
+      setBusy(false);
+    }
     return r.ok;
+  }
+
+  async function retryRefresh() {
+    setBusy(true);
+    try { if (await load()) setNeedsRefresh(false); } finally { setBusy(false); }
   }
 
   if (!d) return <>{readError ? <ErrorLine text={readError} /> : <p style={muted}>Loading mission…</p>}</>;
@@ -343,19 +359,28 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
         <p data-testid="next-hint" style={{ fontSize: 15, margin: "0 0 14px", color: "var(--accent)" }}>{nextHint(m, evidence)}</p>
         <ErrorLine text={error} />
         <ErrorLine text={readError} />
+        {needsRefresh && (
+          <div role="status" style={{ ...row, marginBottom: 12 }}>
+            <span style={{ fontSize: 14, color: "var(--t-hi)" }}>
+              {error ? "Refreshing the mission failed, so this view may be out of date." : "Your change was saved, but refreshing the mission failed, so this view is out of date."}
+              {" "}Controls are locked until it refreshes.
+            </span>
+            <Btn tone="primary" disabled={busy} onClick={() => void retryRefresh()}>Retry refresh</Btn>
+          </div>
+        )}
         <div style={row} data-testid="lifecycle-actions">
           {forwardSteps(m.state, m.success_criteria.length).map((s) => (
-            <Btn key={s.to} tone="primary" disabled={busy} onClick={() => act(() => api.transition(m.id, s.to, m.state))}>{s.label}</Btn>
+            <Btn key={s.to} tone="primary" disabled={locked} onClick={() => act(() => api.transition(m.id, s.to, m.state))}>{s.label}</Btn>
           ))}
           {canVerify(m.state) && (
-            <Btn tone="primary" disabled={busy || missing.length > 0} label="Verify mission"
+            <Btn tone="primary" disabled={locked || missing.length > 0} label="Verify mission"
               onClick={() => act(() => api.verify(m.id))}>Verify</Btn>
           )}
-          {canCancel(m.state) && !confirmCancel && <Btn tone="danger" disabled={busy} onClick={() => setConfirmCancel(true)}>Cancel mission</Btn>}
+          {canCancel(m.state) && !confirmCancel && <Btn tone="danger" disabled={locked} onClick={() => setConfirmCancel(true)}>Cancel mission</Btn>}
           {confirmCancel && (
             <>
               <span style={muted}>Cancelling is final.</span>
-              <Btn tone="danger" disabled={busy} onClick={() => void act(() => api.transition(m.id, "cancelled", m.state))}>Confirm cancel</Btn>
+              <Btn tone="danger" disabled={locked} onClick={() => void act(() => api.transition(m.id, "cancelled", m.state))}>Confirm cancel</Btn>
               <Btn onClick={() => setConfirmCancel(false)}>Keep it</Btn>
             </>
           )}
@@ -380,10 +405,10 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
         </Panel>
       </div>
 
-      <LinksPanel m={m} links={d.links} busy={busy} showRemoved={showRemoved} setShowRemoved={setShowRemoved}
+      <LinksPanel m={m} links={d.links} busy={locked} showRemoved={showRemoved} setShowRemoved={setShowRemoved}
         onAdd={(body) => act(() => api.addLink(m.id, body))} onRemove={(l) => void act(() => api.removeLink(m.id, l.id))} />
 
-      {canReassign(m.state) && <ReassignPanel m={m} busy={busy} onSave={(b) => act(() => api.reassign(m.id, b))} />}
+      {canReassign(m.state) && <ReassignPanel m={m} busy={locked} onSave={(b) => act(() => api.reassign(m.id, b))} />}
 
       <Panel title="History" icon="pulse" badge={d.eventsTruncated ? "latest 200" : undefined}>
         <ol style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 6 }} data-testid="history">
@@ -440,24 +465,26 @@ function LinksPanel({ m, links, busy, showRemoved, setShowRemoved, onAdd, onRemo
         ))}
       </ul>
       <label style={{ ...row, ...muted, marginTop: 10 }}>
-        <input type="checkbox" checked={showRemoved} onChange={(e) => setShowRemoved(e.target.checked)} /> Show removed links
+        {/* Disabled during an action and its refresh, so the reload always uses the view state shown here. */}
+        <input type="checkbox" checked={showRemoved} disabled={busy} onChange={(e) => setShowRemoved(e.target.checked)} /> Show removed links
       </label>
       {editable ? (
         <form onSubmit={add} aria-label="Add link" style={{ display: "grid", gap: 10, marginTop: 14 }}>
           <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))" }}>
-            <select aria-label="Link type" value={type} onChange={(e) => setType(e.target.value as TargetType)} style={field}>
+            <select aria-label="Link type" value={type} disabled={busy} onChange={(e) => setType(e.target.value as TargetType)} style={field}>
               {LINK_TARGETS.map((t) => <option key={t.type} value={t.type}>{t.label}</option>)}
             </select>
-            <select aria-label="Relation" value={effectiveRelation} onChange={(e) => setRelation(e.target.value as Relation)} style={field}>
+            <select aria-label="Relation" value={effectiveRelation} disabled={busy} onChange={(e) => setRelation(e.target.value as Relation)} style={field}>
               {relations.map((r) => <option key={r} value={r}>{RELATION_LABEL[r]}</option>)}
             </select>
             {effectiveRelation === "evidence" && (
-              <select aria-label="Criterion" value={criterionId} onChange={(e) => setCriterionId(e.target.value)} style={field}>
+              <select aria-label="Criterion" value={criterionId} disabled={busy} onChange={(e) => setCriterionId(e.target.value)} style={field}>
                 {m.success_criteria.map((c) => <option key={c.id} value={c.id}>{c.id}: {c.text.slice(0, 40)}</option>)}
               </select>
             )}
           </div>
-          <input aria-label="Link target" value={target} onChange={(e) => setTarget(e.target.value)} style={field}
+          {/* Locked for the whole add (request + refresh): nothing typed meanwhile can be lost when the field clears. */}
+          <input aria-label="Link target" value={target} disabled={busy} onChange={(e) => setTarget(e.target.value)} style={field}
             placeholder={LINK_TARGETS.find((t) => t.type === type)?.placeholder} />
           {!canBeEvidence && <p style={{ ...muted, margin: 0 }}>{targetLabel(type)} links can be context or source, not evidence: the server cannot look them up yet.</p>}
           <div style={row}><Btn type="submit" disabled={busy || !target.trim()}>Add link</Btn></div>

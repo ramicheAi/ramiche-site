@@ -246,7 +246,9 @@ describe("lifecycle controls", () => {
 });
 
 describe("stale detail reads", () => {
-  it("an action's reload that lands after a newer read cannot overwrite it", async () => {
+  // Defense in depth: the UI now disables the toggle during an action (see "final pass" tests), but the read-ordering
+  // guard must still hold if a newer read is ever started (jsdom lets this click through a disabled checkbox).
+  it("read-ordering guard: an action's reload that lands after a newer read cannot overwrite it", async () => {
     let releaseActionReload!: (v: unknown) => void;
     const base = { mission: mission({ state: "intent" }), links: [], events: [], eventsTruncated: false };
     const get = vi.fn()
@@ -701,5 +703,88 @@ describe("plan text with surrogates", () => {
   it("a Decisions card with a lone surrogate renders without crashing", () => {
     render(<a href={planPrefillHref("00000000-0000-4000-8000-0000000000cc", "plan \uD800 text")}>Create Mission from this plan</a>);
     expect(screen.getByText("Create Mission from this plan").getAttribute("href")).toContain("objective=plan%20%EF%BF%BD%20text");
+  });
+});
+
+describe("final pass: no stale actionability", () => {
+  const base = { mission: mission({ state: "intent" }), links: [evidenceLink({ relation: "context", criterion_id: null })], events: [], eventsTruncated: false };
+  const isDisabled = (el: HTMLElement) => (el as HTMLButtonElement | HTMLInputElement | HTMLSelectElement).disabled;
+
+  it("mutation succeeds, refresh fails: controls stay locked until Retry refresh applies fresh data; the mutation is not repeated", async () => {
+    const get = vi.fn()
+      .mockResolvedValueOnce({ ok: true, data: base })                                                        // mount
+      .mockResolvedValueOnce({ ok: false, status: 502, message: "mission storage call failed" })              // post-action refresh fails
+      .mockResolvedValueOnce({ ok: false, status: 502, message: "mission storage call failed" })              // first retry fails
+      .mockResolvedValueOnce({ ok: true, data: { ...base, mission: mission({ state: "plan" }) } });           // second retry succeeds
+    const api = fakeApi({ get });
+    render(<MissionDetailView id={M_ID} api={api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Move to plan" }));
+    const status = await screen.findByRole("status");
+    expect(status.textContent).toMatch(/change was saved, but refreshing the mission failed/i);
+    expect(screen.getAllByRole("alert").some((a) => /mission storage call failed/.test(a.textContent ?? ""))).toBe(true);
+    // the stale snapshot still says "intent", and every control acting on it is locked
+    for (const el of [screen.getByRole("button", { name: "Move to plan" }), screen.getByRole("button", { name: "Cancel mission" }),
+      screen.getByRole("button", { name: /remove link/i }), screen.getByLabelText("Link target"), screen.getByLabelText("Link type"),
+      screen.getByRole("checkbox"), screen.getByRole("button", { name: /change owner or team/i })]) {
+      if ((el as HTMLButtonElement).textContent === "Change owner or team") continue; // opens a panel only; its Save is locked below
+      expect(isDisabled(el), el.textContent || el.getAttribute("aria-label") || "control").toBe(true);
+    }
+    fireEvent.click(screen.getByRole("button", { name: /change owner or team/i }));
+    expect(isDisabled(screen.getByRole("button", { name: "Save" }))).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Retry refresh" }));
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(3));
+    expect(screen.getByRole("status")).toBeTruthy();                                       // still locked after a failed retry
+    expect(isDisabled(screen.getByRole("button", { name: "Move to plan" }))).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Retry refresh" }));
+    const approve = await screen.findByRole("button", { name: "Approve" });              // fresh data applied
+    expect(isDisabled(approve)).toBe(false);                                              // unlocked only now
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(api.transition).toHaveBeenCalledTimes(1);                                      // never repeated
+  });
+
+  it("link fields are disabled for the whole add; success clears the submitted value", async () => {
+    let releaseAdd!: (v: unknown) => void;
+    const addLink = vi.fn(() => new Promise((r) => (releaseAdd = r)));
+    render(<MissionDetailView id={M_ID} api={fakeApi({ addLink: addLink as unknown as MissionApi["addLink"] }, { ...base, mission: mission({ state: "executing" }) })} />);
+    fireEvent.change(await screen.findByLabelText("Link target"), { target: { value: "https://docs.example.com/a" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add link" }));
+    await waitFor(() => expect(addLink).toHaveBeenCalledTimes(1));
+    for (const label of ["Link target", "Link type", "Relation"]) expect(isDisabled(screen.getByLabelText(label)), label).toBe(true);
+    expect(isDisabled(screen.getByRole("button", { name: "Add link" }))).toBe(true);
+    expect(isDisabled(screen.getByRole("checkbox"))).toBe(true);
+    releaseAdd({ ok: true, data: { link: evidenceLink(), resolution: "format_only" } });
+    await waitFor(() => expect((screen.getByLabelText("Link target") as HTMLInputElement).value).toBe(""));
+    expect(isDisabled(screen.getByLabelText("Link target"))).toBe(false);
+  });
+
+  it("a refused add keeps the submitted value and re-enables the fields", async () => {
+    let releaseAdd!: (v: unknown) => void;
+    const addLink = vi.fn(() => new Promise((r) => (releaseAdd = r)));
+    render(<MissionDetailView id={M_ID} api={fakeApi({ addLink: addLink as unknown as MissionApi["addLink"] }, { ...base, mission: mission({ state: "executing" }) })} />);
+    fireEvent.change(await screen.findByLabelText("Link target"), { target: { value: "http://imac/x" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add link" }));
+    await waitFor(() => expect(isDisabled(screen.getByLabelText("Link target"))).toBe(true));
+    releaseAdd({ ok: false, status: 422, message: "url host must be public" });
+    await waitFor(() => expect(isDisabled(screen.getByLabelText("Link target"))).toBe(false));
+    expect((screen.getByLabelText("Link target") as HTMLInputElement).value).toBe("http://imac/x");
+  });
+
+  it("the Show removed toggle is disabled through an action and its refresh, then usable again", async () => {
+    let releaseRefresh!: (v: unknown) => void;
+    const get = vi.fn()
+      .mockResolvedValueOnce({ ok: true, data: base })
+      .mockImplementationOnce(() => new Promise((r) => (releaseRefresh = r)));
+    let releaseAction!: (v: unknown) => void;
+    const transition = vi.fn(() => new Promise((r) => (releaseAction = r)));
+    render(<MissionDetailView id={M_ID} api={fakeApi({ get, transition: transition as unknown as MissionApi["transition"] })} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Move to plan" }));
+    expect(isDisabled(screen.getByRole("checkbox"))).toBe(true);                 // during the mutation
+    releaseAction({ ok: true, data: mission({ state: "plan" }) });
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    expect(isDisabled(screen.getByRole("checkbox"))).toBe(true);                 // during the refresh
+    releaseRefresh({ ok: true, data: { ...base, mission: mission({ state: "plan" }) } });
+    await screen.findByRole("button", { name: "Approve" });
+    expect(isDisabled(screen.getByRole("checkbox"))).toBe(false);                // usable again
+    expect(get.mock.calls[1]).toEqual([M_ID, false]);                            // the reload used the state shown
   });
 });
