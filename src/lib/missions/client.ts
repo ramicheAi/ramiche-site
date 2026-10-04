@@ -4,6 +4,7 @@
  * from the session and re-checks everything.
  */
 import { cockpitFetch } from "@/lib/cockpit-fetch";
+import type { MissionCosts } from "./costs";
 import type { EventRow, LinkRow, MissionRow, MissionState } from "./types";
 import { errorText } from "./ui";
 
@@ -20,6 +21,7 @@ export interface MissionApi {
   reassign(id: string, body: { owner: string; ownerKind: "human" | "agent"; agentIds: string[] }): Promise<ApiResult<MissionRow>>;
   addLink(id: string, body: Record<string, unknown>): Promise<ApiResult<{ link: LinkRow; resolution: string }>>;
   removeLink(id: string, linkId: string): Promise<ApiResult<LinkRow>>;
+  costs(id: string): Promise<ApiResult<MissionCosts>>;
 }
 
 const BASE = "/api/command-center/missions";
@@ -48,4 +50,5 @@ export const httpMissionApi: MissionApi = {
   reassign: (id, body) => call(`${BASE}/${enc(id)}/reassign`, post(body)),
   addLink: (id, body) => call(`${BASE}/${enc(id)}/links`, post(body)),
   removeLink: (id, linkId) => call(`${BASE}/${enc(id)}/links/${enc(linkId)}`, { method: "DELETE" }),
+  costs: (id) => call(`${BASE}/${enc(id)}/costs`),
 };

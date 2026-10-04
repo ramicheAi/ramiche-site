@@ -7,6 +7,7 @@
  * which calls the dedicated /verify route.
  */
 import { AGENT_CORE } from "@/lib/agent-registry-core";
+import type { CountSum, MissionCosts } from "./costs";
 import type { Item, LinkRow, MissionRow, MissionState, Relation, TargetType } from "./types";
 
 export const FOUNDER = "ramon";
@@ -205,4 +206,33 @@ export function errorText(body: unknown, fallback = "Something went wrong."): st
   if (e === "denied") return "Your session is not authorized. Sign in again.";
   if (e && typeof e === "object" && typeof (e as { message?: unknown }).message === "string") return (e as { message: string }).message;
   return fallback;
+}
+
+/* ── cost & usage (M3) ───────────────────────────────────────────────────────────────────────────────── */
+
+/** "0.01230000" -> "$0.0123". Exact: the server's decimal string is only trimmed, never parsed into a float. */
+export function formatUsd(v: string): string {
+  const [whole, frac = ""] = v.split(".");
+  const f = frac.replace(/0+$/, "").padEnd(2, "0");
+  return `$${whole}.${f}`;
+}
+
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** Actual marginal cost in one honest line. Never "$0.00" for something that was not recorded. */
+export function actualCostText(a: MissionCosts["actualCost"]): string {
+  switch (a.status) {
+    case "no_events": return "No usage attributed to this mission yet.";
+    case "none_recorded": return "No actual marginal cost recorded (subscription or local calls only).";
+    case "unknown": return `No actual marginal cost recorded. Cost unknown for ${plural(a.unknownEvents, "call")}.`;
+    case "partial": return `${formatUsd(a.knownUsd ?? "0")} recorded across ${plural(a.knownEvents, "call")}. Partial: cost unknown for ${plural(a.unknownEvents, "call")}.`;
+    case "complete": return `${formatUsd(a.knownUsd ?? "0")} recorded across ${plural(a.knownEvents, "call")}.`;
+  }
+}
+
+/** A token count where some events may not report it: the known sum plus how many are unknown, never a fake zero. */
+export function tokenText(c: CountSum): string {
+  if (c.sum === null) return c.unknownEvents ? `unknown (${plural(c.unknownEvents, "call")})` : "none";
+  const n = c.sum.toLocaleString("en-US");
+  return c.unknownEvents ? `${n} known, unknown for ${plural(c.unknownEvents, "call")}` : n;
 }

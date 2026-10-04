@@ -5,7 +5,7 @@
  * Never point this at a remote database: the harness refuses any host that is not a local socket directory.
  */
 import { spawn } from "node:child_process";
-import type { MissionStore } from "./store";
+import { COST_EVENT_COLS, type MissionStore } from "./store";
 import type { StoreResult } from "./types";
 
 export type PgConn = { bin: string; host: string; port: string; db: string };
@@ -43,6 +43,9 @@ async function one<T>(c: PgConn, sql: string): Promise<StoreResult<T>> {
   return { ok: true, data: (r.data ? JSON.parse(r.data) : null) as T };
 }
 
+/** The same columns the production adapter selects (COST_EVENT_COLS), as a jsonb object per row. */
+const COST_JSON = COST_EVENT_COLS.split(", ").map((col) => `'${col}', e.${col}`).join(", ");
+
 export function pgMissionStore(c: PgConn): MissionStore {
   return {
     insertMission: (row) => one(c, `with r as (insert into public.missions (tenant_id, objective, owner, owner_kind, agent_ids, success_criteria, deliverables, created_by, created_by_kind)
@@ -65,6 +68,10 @@ export function pgMissionStore(c: PgConn): MissionStore {
       where id = ${lit(a.linkId)} and mission_id = ${lit(a.missionId)} and removed_at is null returning *) select to_jsonb(r) from r;`),
     dependencyEdges: (ids) => ids.length === 0 ? Promise.resolve({ ok: true, data: [] }) : one(c, `select coalesce(jsonb_agg(jsonb_build_object('mission_id', mission_id, 'target_id', target_id)), '[]')
       from public.mission_links where mission_id = any(${arrLit(ids)}::uuid[]) and relation = 'dependency' and target_type = 'mission' and removed_at is null;`),
+    eventsForMission: (missionId) => one(c, `select coalesce(jsonb_agg(jsonb_build_object(${COST_JSON}) order by e.id), '[]')
+      from public.execution_events_with_shadow_cost e where e.mission_id = ${lit(missionId)};`),
+    eventsForCorrelation: (type, ids) => ids.length === 0 ? Promise.resolve({ ok: true, data: [] }) : one(c, `select coalesce(jsonb_agg(jsonb_build_object(${COST_JSON}) order by e.id), '[]')
+      from public.execution_events_with_shadow_cost e where e.correlation_type = ${lit(type)} and e.correlation_id = any(${arrLit(ids)});`),
     liveMissionIds: (tenantId, ids) => ids.length === 0 ? Promise.resolve({ ok: true, data: [] }) : one(c, `select coalesce(jsonb_agg(id), '[]') from public.missions
       where tenant_id = ${lit(tenantId)} and id = any(${arrLit(ids)}::uuid[]) and state not in ('verified','cancelled');`),
     // The production adapter reads these tables as service_role (which bypasses RLS); the harness grants the same reads.

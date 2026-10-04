@@ -9,7 +9,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { issueCsrfToken } from "@/lib/server/csrf";
-import { pgConnFromEnv, pgMissionStore, runSql, type PgConn } from "./pg-store.test-helper";
+import { lit, pgConnFromEnv, pgMissionStore, runSql, type PgConn } from "./pg-store.test-helper";
 import { FOUNDER, type Principal } from "./principal";
 import * as svc from "./service";
 import type { MissionStore } from "./store";
@@ -426,6 +426,146 @@ describe.skipIf(!conn)("M2 Mission layer on real M1", () => {
   });
 });
 
+// ── M3: cost attribution over the real Packet 3 table and shadow view ──
+describe.skipIf(!conn)("M3 Mission cost attribution on real Packet 3 telemetry", () => {
+  const c = conn as PgConn;
+  let store: MissionStore;
+  const ctx = (principal: Principal) => ({ store, tenantId: TENANT, principal });
+  beforeAll(() => { store = pgMissionStore(c); });
+  let n = 0;
+  const uuid = (prefix: string) => `${prefix}${String(++n).padStart(30, "0")}`.replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, "$1-$2-$3-$4-$5");
+  const sql = async (q: string) => { const r = await runSql(c, q, "postgres"); if (!r.ok) throw new Error(r.error.message); return r.data; };
+  const mk = async (objective = "costed work") => {
+    const r = await svc.createMission(ctx(FOUNDER), { objective, owner: "ramon", ownerKind: "human", successCriteria: CRIT });
+    if (!r.ok) throw new Error(r.message); return r.data;
+  };
+  const link = async (m: MissionRow, targetType: string, targetId: string, relation = "context") => {
+    const r = await svc.addLink(ctx(FOUNDER), m.id, { targetType, targetId, relation });
+    if (!r.ok) throw new Error(`${targetType} ${relation}: ${r.message}`); return r.data.link;
+  };
+  /** Test fixture only: rows are inserted directly as the table owner. The app writer is never touched. */
+  type Ev = { id: string; provider: string; billing: string; mission?: string; corr?: [string, string]; inTok?: number | null; outTok?: number | null;
+    totTok?: number | null; quality?: string; cost?: string | null; model?: string | null; reported?: string | null };
+  const ev = (e: Ev) => sql(`insert into public.execution_events (id, started_at, provider, model_requested, model_reported, purpose, outcome,
+      input_tokens, output_tokens, total_tokens, usage_quality, direct_cost_usd, billing_mode, correlation_type, correlation_id, mission_id)
+    values (${lit(e.id)}, '2026-10-01T12:00:00Z', ${lit(e.provider)}, ${lit(e.model ?? null)}, ${lit(e.reported ?? null)}, 'job', 'ok',
+      ${e.inTok ?? "null"}, ${e.outTok ?? "null"}, ${e.totTok ?? "null"}, ${lit(e.quality ?? "not_reported")}, ${e.cost ?? "null"}, ${lit(e.billing)},
+      ${lit(e.corr?.[0] ?? null)}, ${lit(e.corr?.[1] ?? null)}, ${lit(e.mission ?? null)})`);
+  const records = async () => {
+    const job = uuid("a1"), job2 = uuid("a1"), msg = uuid("c1"), lead = uuid("e1");
+    await sql(`insert into public.jobs (id, tenant_id, title) values (${lit(job)}, ${lit(TENANT)}, 'costed job'), (${lit(job2)}, ${lit(TENANT)}, 'removed job');
+      insert into public.messages (id, tenant_id, channel_id, content, metadata) values (${lit(msg)}, ${lit(TENANT)}, ${lit(CHANNEL)}, 'costed', '{}');
+      insert into public.pipeline_leads (id, tenant_id) values (${lit(lead)}, ${lit(TENANT)});`);
+    return { job, job2, msg, lead };
+  };
+  const costs = async (id: string) => { const r = await svc.missionCosts(ctx(FOUNDER), id); if (!r.ok) throw new Error(r.message); return r.data; };
+
+  it("attributes direct and live-linked events once each, ignores tombstoned and unsupported links, keeps unknowns unknown", async () => {
+    const m = await mk();
+    const other = await mk("someone else's work");
+    const { job, job2, msg, lead } = await records();
+    const linkCtx = await link(m, "job", job, "context");
+    const linkTask = await link(m, "job", job, "task");                   // a second live link to the same job
+    const linkMsg = await link(m, "chat_message", msg);
+    const linkLead = await link(m, "pipeline_lead", lead, "source");
+    const gone = await link(m, "job", job2);
+    expect((await svc.removeLink(ctx(FOUNDER), m.id, gone.id)).ok).toBe(true); // tombstoned: must never attribute
+    await link(m, "synthesis", SYNTH);                                      // unsupported for cost
+    await link(m, "url", "https://example.com/report");                     // unsupported for cost
+
+    const E = Array.from({ length: 10 }, () => uuid("9e"));
+    // e0 direct, Claude Max subscription, priced in the real shadow view: (1000*3 + 500*15) / 1e6 = 0.0105
+    await ev({ id: E[0], provider: "claude-max", billing: "subscription", mission: m.id, inTok: 1000, outTok: 500, quality: "partial", model: "claude-sonnet-4-6", reported: "claude-sonnet-4" });
+    // e1 via the job (two live links), known actual cost
+    await ev({ id: E[1], provider: "openrouter", billing: "unknown", corr: ["job", job], inTok: 100, outTok: 50, totTok: 150, quality: "provider_reported", cost: "0.01230000", model: "x/model-a" });
+    // e2 via the chat message, local: no marginal cost, no tokens
+    await ev({ id: E[2], provider: "lm-studio", billing: "local", corr: ["chat_message", msg] });
+    // e3 via the lead (pipeline_lead -> lead), cost not recorded: unknown
+    await ev({ id: E[3], provider: "gemini", billing: "unknown", corr: ["lead", lead], model: "gemini-x" });
+    // e4 direct AND via the job: counted once
+    await ev({ id: E[4], provider: "deepseek", billing: "unknown", mission: m.id, corr: ["job", job], inTok: 1, outTok: 1, totTok: 2, quality: "provider_reported", cost: "0.00000001", model: "deepseek-chat" });
+    // never attributed:
+    await ev({ id: E[5], provider: "openrouter", billing: "unknown", corr: ["job", job2], cost: "5.00000000" });          // tombstoned link
+    await ev({ id: E[6], provider: "openrouter", billing: "unknown", corr: ["chat_message", SYNTH], cost: "6.00000000" }); // linked only as synthesis
+    await ev({ id: E[7], provider: "openrouter", billing: "unknown", corr: ["lead", job], cost: "7.00000000" });          // right id, wrong type
+    await ev({ id: E[8], provider: "openrouter", billing: "unknown", mission: other.id, cost: "8.00000000" });             // another mission
+    await ev({ id: E[9], provider: "openrouter", billing: "unknown", corr: ["job", uuid("a1")], cost: "9.00000000" });     // job not linked
+
+    const r = await costs(m.id);
+    expect(r.missionId).toBe(m.id);
+    expect(r.events).toEqual({ total: 5, direct: 2, linked: 4, both: 1 });
+    expect(r.attribution.map((a) => a.eventId).sort()).toEqual([E[0], E[1], E[2], E[3], E[4]].sort());
+    const src = (id: string) => r.attribution.find((a) => a.eventId === id)!.sources;
+    expect(src(E[0])).toEqual([{ kind: "direct" }]);
+    expect(src(E[1]).map((s) => s.kind === "link" && s.linkId).sort()).toEqual([linkCtx.id, linkTask.id].sort());
+    expect(src(E[2])).toEqual([{ kind: "link", linkId: linkMsg.id, targetType: "chat_message", correlationType: "chat_message", correlationId: msg }]);
+    expect(src(E[3])).toEqual([{ kind: "link", linkId: linkLead.id, targetType: "pipeline_lead", correlationType: "lead", correlationId: lead }]);
+    expect(src(E[4]).map((s) => s.kind)).toEqual(["direct", "link", "link"]);
+
+    expect(r.actualCost).toEqual({ status: "partial", knownUsd: "0.01230001", knownEvents: 2, unknownEvents: 1, notApplicableEvents: 2 });
+    expect(r.shadowCost).toEqual({ label: "list_price_equivalent_not_actual_spend", basis: "list_price_equivalent_lower_bound_excludes_cache_tokens",
+      usd: "0.01050000", pricedEvents: 1, unpricedEvents: 4 });
+    expect(r.usage.input).toEqual({ sum: 1101, knownEvents: 3, unknownEvents: 2 });
+    expect(r.usage.output).toEqual({ sum: 551, knownEvents: 3, unknownEvents: 2 });
+    expect(r.usage.total).toEqual({ sum: 152, knownEvents: 2, unknownEvents: 3 });
+    expect(r.usage.byQuality).toEqual({ partial: 1, provider_reported: 2, not_reported: 2 });
+    const cm = r.breakdown.find((b) => b.provider === "claude-max")!;
+    expect(cm).toMatchObject({ modelRequested: "claude-sonnet-4-6", modelReported: "claude-sonnet-4", billingMode: "subscription", events: 1, actualKnownUsd: null, shadowUsd: "0.01050000" });
+    expect(r.breakdown.find((b) => b.provider === "gemini")).toMatchObject({ billingMode: "unknown", actualKnownUsd: null, inputTokens: { sum: null, knownEvents: 0, unknownEvents: 1 } });
+    expect(r.breakdown.reduce((s, b) => s + b.events, 0)).toBe(5);
+
+    // Reading never writes: no event gained a mission_id, nothing was copied into the mission tables.
+    expect(await sql(`select count(*) from public.execution_events where mission_id = ${lit(m.id)}`)).toBe("2");
+    const again = await costs(m.id);
+    expect(again).toEqual(r);
+  });
+
+  it("an event stored with an upper-case correlation id is still attributed through its lower-case link", async () => {
+    const m = await mk();
+    const { lead } = await records();
+    await link(m, "pipeline_lead", lead.toUpperCase());                     // stored canonical (lower-case) by M2
+    await ev({ id: uuid("9f"), provider: "openrouter", billing: "unknown", corr: ["lead", lead.toUpperCase()], cost: "0.50000000" });
+    const r = await costs(m.id);
+    expect([r.events.total, r.actualCost.knownUsd]).toEqual([1, "0.50000000"]);
+  });
+
+  it("a mission with no telemetry is an honest zero; all-null cost is never $0", async () => {
+    const empty = await costs((await mk()).id);
+    expect(empty.events).toEqual({ total: 0, direct: 0, linked: 0, both: 0 });
+    expect(empty.actualCost).toEqual({ status: "no_events", knownUsd: null, knownEvents: 0, unknownEvents: 0, notApplicableEvents: 0 });
+    expect(empty.usage.input).toEqual({ sum: null, knownEvents: 0, unknownEvents: 0 });
+    expect(empty.shadowCost.usd).toBeNull();
+
+    const sub = await mk();
+    await ev({ id: uuid("9f"), provider: "claude-max", billing: "subscription", mission: sub.id, quality: "ambiguous_proxy_zero", model: "claude-opus-4-6" });
+    const s = await costs(sub.id);
+    expect(s.actualCost).toMatchObject({ status: "none_recorded", knownUsd: null, notApplicableEvents: 1, unknownEvents: 0 });
+    expect(s.shadowCost).toMatchObject({ usd: null, pricedEvents: 0, unpricedEvents: 1 });     // proxy zero is never priced
+    expect(s.usage.input).toEqual({ sum: null, knownEvents: 0, unknownEvents: 1 });
+
+    const unk = await mk();
+    await ev({ id: uuid("9f"), provider: "openclaw", billing: "unknown", mission: unk.id });
+    expect((await costs(unk.id)).actualCost).toMatchObject({ status: "unknown", knownUsd: null, unknownEvents: 1 });
+  });
+
+  it("another tenant's mission does not exist for cost reads, and non-founders are refused before any read", async () => {
+    const r = await svc.missionCosts(ctx(FOUNDER), OTHER_TENANT_MISSION);
+    expect(!r.ok && r.status).toBe(404);
+    const m = await mk();
+    const spy = vi.spyOn(store, "eventsForMission");
+    for (const p of NOT_FOUNDER) {
+      const d = await svc.missionCosts(ctx(p), m.id);
+      expect(!d.ok && d.status).toBe(403);
+    }
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+    // A cross-tenant record cannot be linked, so its telemetry can never be attributed.
+    expect((await svc.addLink(ctx(FOUNDER), m.id, { targetType: "job", targetId: OTHER_TENANT_JOB, relation: "context" })).ok).toBe(false);
+    await ev({ id: uuid("9f"), provider: "openrouter", billing: "unknown", corr: ["job", OTHER_TENANT_JOB], cost: "1.00000000" });
+    expect((await costs(m.id)).events.total).toBe(0);
+  });
+});
+
 // ── the real route handlers, real guards, same database ──
 describe.skipIf(!conn)("M2 routes on real M1 with real guards", () => {
   const OWNER = "owner_fixture_only";
@@ -501,6 +641,12 @@ describe.skipIf(!conn)("M2 routes on real M1 with real guards", () => {
     const last = d.json.data.events[d.json.data.events.length - 1];
     expect([last.to_state, last.actor, last.actor_kind, last.detail.authority]).toEqual(["verified", "ramon", "human", "founder_session"]);
 
+    const k = await call("/[id]/costs", "GET", `/${m.id}/costs`, founderHeaders(), undefined, { id: m.id });
+    expect([k.status, k.json.data.missionId, k.json.data.actualCost.status, k.cache]).toEqual([200, m.id, "no_events", "no-store"]);
+    const foreign = await call("/[id]/costs", "GET", `/${OTHER_TENANT_MISSION}/costs`, founderHeaders(), undefined, { id: OTHER_TENANT_MISSION });
+    expect(foreign.status).toBe(404);
+    expect(JSON.stringify(foreign.json)).not.toContain("other tenant");
+
     const r = await create({ objective: "reassign + cancel", owner: "ramon", ownerKind: "human" });
     const ra = await call("/[id]/reassign", "POST", `/${r.id}/reassign`, founderHeaders(), { owner: "nova", ownerKind: "agent", agentIds: ["nova", "archivist"] }, { id: r.id });
     expect([ra.status, ra.json.data.owner, ra.json.data.agent_ids]).toEqual([200, "nova", ["nova", "archivist"]]);
@@ -519,6 +665,7 @@ describe.skipIf(!conn)("M2 routes on real M1 with real guards", () => {
     const ENDPOINTS: [string, string, string, string, unknown, Record<string, string>][] = [
       ["global list", "", "GET", "", undefined, {}],
       ["read by claimed identity", "/[id]", "GET", `/${plan.id}`, undefined, { id: plan.id }],
+      ["cost read", "/[id]/costs", "GET", `/${done.id}/costs`, undefined, { id: done.id }],
       ["resolve", "/resolve", "GET", `/resolve?targetType=job&targetId=${JOB}`, undefined, {}],
       ["create", "", "POST", "", { objective: "x", owner: "triage", ownerKind: "agent", agentIds: ["triage"] }, {}],
       ["transition", "/[id]/transition", "POST", `/${done.id}/transition`, { to: "cancelled" }, { id: done.id }],
@@ -586,6 +733,9 @@ describe.skipIf(!conn)("M2 routes on real M1 with real guards", () => {
       if (!["missing CSRF", "invalid CSRF", "CSRF from another session", "foreign Origin", "missing Origin"].includes(name)) {
         const g = await call("/[id]", "GET", `/${m.id}`, headers(), undefined, { id: m.id });
         expect([401, 403], `read: ${name}`).toContain(g.status);
+        const k = await call("/[id]/costs", "GET", `/${m.id}/costs`, headers(), undefined, { id: m.id });
+        expect([401, 403], `cost read: ${name}`).toContain(k.status);
+        expect(k.json, `cost read: ${name}`).toMatchObject({ error: "denied" });
       }
     }
     sessionVerifier.mockResolvedValue({ uid: OWNER, signInProvider: "password" });
