@@ -5,7 +5,7 @@ import { cockpitFetch } from '@/lib/cockpit-fetch';
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { InstrumentPage, Panel, PgBtn } from "@/components/command-center/po/Instrument";
-import { planPrefillHref } from "@/lib/missions/ui";
+import { planMissionShortcut } from "@/lib/missions/ui";
 
 /* ══════════════════════════════════════════════════════════════════════════
    DECISIONS — Cross-channel synthesis ledger
@@ -445,9 +445,9 @@ export default function DecisionsPage() {
                     </div>
                   )}
 
-                  {d.plan && (
+                  {planMissionShortcut(d) && (
                     <Link
-                      href={planPrefillHref(d.synthesisId, d.plan.decision)}
+                      href={planMissionShortcut(d) as string}
                       style={{ display: "inline-block", fontSize: 13, color: COLORS.accent.purpleSoft, marginBottom: 12 }}
                     >
                       Create Mission from this plan →

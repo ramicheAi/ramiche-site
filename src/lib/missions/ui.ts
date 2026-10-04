@@ -96,6 +96,17 @@ export function planPrefillHref(synthesisId: string, decision: string): string {
   return `/command-center/missions?fromSynthesis=${encodeURIComponent(toWellFormed(synthesisId))}&objective=${encodeURIComponent(objective)}`;
 }
 
+/**
+ * Decisions -> "Create Mission from this plan", or null when the shortcut must not be offered.
+ * Offered only for an UNAPPROVED plan: approving a legacy synthesis immediately dispatches and executes its actions
+ * (cc-approve-synthesis), so a Mission must be established before that, never created for work already under way.
+ * Transitional until planning and execution are integrated with Mission identity.
+ */
+export function planMissionShortcut(d: { synthesisId: string; approvedAt: string | null; plan: { decision: string } | null | undefined }): string | null {
+  if (!d.plan || d.approvedAt) return null;
+  return planPrefillHref(d.synthesisId, d.plan.decision);
+}
+
 /** Older pages appended to newer ones: no duplicate ids, newest (highest ref) first. */
 export function mergeMissionPages(current: MissionRow[], page: MissionRow[]): MissionRow[] {
   const byId = new Map<string, MissionRow>();

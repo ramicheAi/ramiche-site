@@ -16,7 +16,7 @@ vi.mock("next/link", () => ({
 import { CreateMissionForm, MissionDetailView, MissionListView } from "./MissionViews";
 import type { MissionApi, MissionDetail } from "@/lib/missions/client";
 import type { LinkRow, MissionRow, MissionState } from "@/lib/missions/types";
-import { forwardSteps, canVerify, EVIDENCE_TARGETS, planPrefillHref, toWellFormed } from "@/lib/missions/ui";
+import { forwardSteps, canVerify, EVIDENCE_TARGETS, planMissionShortcut, planPrefillHref, toWellFormed } from "@/lib/missions/ui";
 import { EVIDENCE_TYPES } from "@/lib/missions/targets";
 import { MISSION_STATES } from "@/lib/missions/types";
 
@@ -362,12 +362,6 @@ describe("links", () => {
     render(<MissionDetailView id={M_ID} api={fakeApi({}, { mission: mission({ state: "executing", success_criteria: [] }) })} />);
     fireEvent.change(await screen.findByLabelText("Link type"), { target: { value: "job" } });
     expect([...(screen.getByLabelText("Relation") as HTMLSelectElement).options].map((o) => o.value)).not.toContain("evidence");
-  });
-
-  it("the Decisions shortcut builds its link with planPrefillHref", () => {
-    const src = readFileSync(join(process.cwd(), "src/app/command-center/decisions/page.tsx"), "utf8");
-    expect(src).toContain("href={planPrefillHref(d.synthesisId, d.plan.decision)}");
-    expect(src).not.toMatch(/encodeURIComponent\(\[\.\.\.d\.plan/);
   });
 
   it("the UI's evidence set is exactly the server's", () => {
@@ -914,5 +908,84 @@ describe("New Mission form while submitting", () => {
     expect(screen.getByRole("link", { name: /open M-42/i })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
     expect(created).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("plan conversion is offered only before legacy approval", () => {
+  const SYN = "00000000-0000-4000-8000-0000000000cc";
+  it("unapproved plan: shortcut shown; approved plan: absent; no plan: absent", () => {
+    expect(planMissionShortcut({ synthesisId: SYN, approvedAt: null, plan: { decision: "Do the thing" } })).toBe(planPrefillHref(SYN, "Do the thing"));
+    expect(planMissionShortcut({ synthesisId: SYN, approvedAt: "2026-10-04T00:00:00Z", plan: { decision: "Do the thing" } })).toBeNull();
+    expect(planMissionShortcut({ synthesisId: SYN, approvedAt: null, plan: null })).toBeNull();
+    expect(planMissionShortcut({ synthesisId: SYN, approvedAt: "2026-10-04T00:00:00Z", plan: null })).toBeNull();
+  });
+  it("Decisions renders the shortcut only through planMissionShortcut", () => {
+    const src = readFileSync(join(process.cwd(), "src/app/command-center/decisions/page.tsx"), "utf8");
+    expect(src).toContain("{planMissionShortcut(d) && (");
+    expect(src).not.toContain("planPrefillHref(");
+  });
+});
+
+describe("the plan prefill is consumed the moment a mission exists", () => {
+  const SYN = "00000000-0000-4000-8000-0000000000cc";
+  let search = "";
+  const order: string[] = [];
+  const replace = vi.fn((url: string) => { order.push(`replace ${url}`); search = ""; });
+
+  async function renderPage(apiOver: Partial<MissionApi>) {
+    vi.resetModules();
+    vi.doMock("next/navigation", () => ({ useRouter: () => ({ replace }), useSearchParams: () => new URLSearchParams(search) }));
+    const api = fakeApi(apiOver);
+    vi.doMock("@/lib/missions/client", async (orig) => ({ ...(await orig<object>()), httpMissionApi: api }));
+    const { default: MissionsPage } = await import("@/app/command-center/missions/page");
+    const view = render(<MissionsPage />);
+    return { api, MissionsPage, view };
+  }
+  async function submitPrefilled() {
+    fireEvent.change(screen.getAllByRole("textbox")[1], { target: { value: "Plan executed" } });
+    fireEvent.click(screen.getByRole("button", { name: /create mission/i }));
+  }
+  afterEach(() => { vi.doUnmock("next/navigation"); vi.doUnmock("@/lib/missions/client"); order.length = 0; replace.mockClear(); });
+
+  it("create + link succeed: the query is consumed right after create, before the link, then the normal close", async () => {
+    search = `fromSynthesis=${SYN}&objective=Plan%20text`;
+    const { api } = await renderPage({
+      addLink: vi.fn((_id, b) => { order.push("addLink"); return Promise.resolve({ ok: true as const, data: { link: evidenceLink(), resolution: "resolved" } }); }) as unknown as MissionApi["addLink"],
+    });
+    await screen.findByPlaceholderText(/what outcome/i);
+    await submitPrefilled();
+    await waitFor(() => expect(screen.queryByPlaceholderText(/what outcome/i)).toBeNull());
+    expect(api.create).toHaveBeenCalledTimes(1);
+    expect(order[0]).toBe("replace /command-center/missions");
+    expect(order.indexOf("addLink")).toBeGreaterThan(order.indexOf("replace /command-center/missions"));
+  });
+
+  it("create succeeds, link fails: query consumed, recovery screen survives the re-render, and refresh/Back cannot rebuild the form", async () => {
+    search = `fromSynthesis=${SYN}&objective=Plan%20text`;
+    const { api, MissionsPage, view } = await renderPage({ addLink: vi.fn(() => Promise.resolve({ ok: false as const, status: 404, message: "synthesis not found" })) });
+    await screen.findByPlaceholderText(/what outcome/i);
+    await submitPrefilled();
+    expect((await screen.findByRole("alert")).textContent).toMatch(/M-42 was created, but linking the plan failed/);
+    expect(replace).toHaveBeenCalledWith("/command-center/missions");
+    expect(search).toBe("");                                                          // URL no longer carries the prefill
+    view.rerender(<MissionsPage />);                                                  // the page re-renders with the cleared query
+    expect(screen.getByRole("link", { name: /open M-42/i }).getAttribute("href")).toBe(`/command-center/missions/${M_ID}`);
+    expect(screen.getByRole("button", { name: "Done" })).toBeTruthy();                // recovery UI preserved
+    expect(api.create).toHaveBeenCalledTimes(1);                                      // never retried
+    cleanup();
+    // refresh / Back to the (replaced) history entry: no prefill, no form, no automatic create
+    await renderPage({});
+    expect(await screen.findByRole("button", { name: /new mission/i })).toBeTruthy();
+    expect(screen.queryByPlaceholderText(/what outcome/i)).toBeNull();
+  });
+
+  it("a failed create does NOT consume the prefill (no mission exists)", async () => {
+    search = `fromSynthesis=${SYN}&objective=Plan%20text`;
+    await renderPage({ create: vi.fn(() => Promise.resolve({ ok: false as const, status: 422, message: "owner is not a registered active agent" })) });
+    await screen.findByPlaceholderText(/what outcome/i);
+    await submitPrefilled();
+    expect((await screen.findByRole("alert")).textContent).toContain("registered active agent");
+    expect(replace).not.toHaveBeenCalled();
+    expect(search).toContain("fromSynthesis");
   });
 });

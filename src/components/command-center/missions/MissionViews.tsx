@@ -137,6 +137,7 @@ export function MissionListView({ api = httpMissionApi, initialObjective, fromSy
       {creating ? (
         <CreateMissionForm api={api} initialObjective={initialObjective} fromSynthesis={fromSynthesis}
           onCancel={() => { setCreating(false); onPrefillDone?.(); }}
+          onCreatedIrreversibly={() => onPrefillDone?.()}
           onCreated={(m) => { setCreating(false); void load(); onCreated?.(m); onPrefillDone?.(); }} />
       ) : (
         <div style={{ ...row, marginBottom: 16 }}>
@@ -186,8 +187,10 @@ export function MissionListView({ api = httpMissionApi, initialObjective, fromSy
 
 /* ── create ─────────────────────────────────────────────────────────────────────────────────────────── */
 
-export function CreateMissionForm({ api = httpMissionApi, onCreated, onCancel, initialObjective, fromSynthesis }: {
+export function CreateMissionForm({ api = httpMissionApi, onCreated, onCancel, initialObjective, fromSynthesis, onCreatedIrreversibly }: {
   api?: MissionApi; onCreated: (m: MissionRow) => void; onCancel: () => void; initialObjective?: string; fromSynthesis?: string;
+  /** Fired the moment the mission exists (before the plan link): the page consumes the prefill so it cannot be reused. */
+  onCreatedIrreversibly?: () => void;
 }) {
   const [form, setForm] = useState<CreateForm>(() => emptyCreateForm(initialObjective ?? ""));
   const [errors, setErrors] = useState<ReturnType<typeof validateCreate>>({});
@@ -204,7 +207,10 @@ export function CreateMissionForm({ api = httpMissionApi, onCreated, onCancel, i
     if (Object.keys(v).length) return;
     setBusy(true); setServerError(null);
     const r = await api.create(createBody(form));
-    if (!r.ok) { setBusy(false); setServerError(r.message); return; }
+    if (!r.ok) { setBusy(false); setServerError(r.message); return; } // nothing was created: keep the prefill
+    // The mission now exists. Consume the prefill immediately, before the plan link, so a refresh or Back can never
+    // rebuild a fresh form for the same plan and create a duplicate.
+    onCreatedIrreversibly?.();
     if (fromSynthesis) {
       // Keep the plan where it lives; the mission only points at it.
       const l = await api.addLink(r.data.id, { targetType: "synthesis", targetId: fromSynthesis, relation: "source" });

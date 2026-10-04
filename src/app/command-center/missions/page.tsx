@@ -15,9 +15,11 @@ function MissionsWithParams() {
   const router = useRouter();
   const fromSynthesis = q.get("fromSynthesis") ?? undefined;
   const objective = q.get("objective") ?? undefined;
-  // Once a prefilled form is created OR cancelled, drop the prefill query: "New Mission" then starts clean, a refresh
-  // does not reopen it, and the cancelled plan cannot be attached by accident.
-  return <MissionListView key={`${fromSynthesis ?? ""}|${objective ?? ""}`} fromSynthesis={fromSynthesis} initialObjective={objective}
+  // The prefill query is consumed (replaced, not pushed, so Back cannot return to it) as soon as a mission is created
+  // from it, or the form is cancelled: a refresh or Back never rebuilds a creation form for the same plan. No key on
+  // the list: clearing the query must not remount it, or the partial-success recovery screen would be lost. Arriving
+  // from Decisions mounts this page fresh anyway.
+  return <MissionListView fromSynthesis={fromSynthesis} initialObjective={objective}
     onPrefillDone={() => { if (fromSynthesis || objective) router.replace("/command-center/missions"); }} />;
 }
 
