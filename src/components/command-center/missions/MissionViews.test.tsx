@@ -788,3 +788,59 @@ describe("final pass: no stale actionability", () => {
     expect(get.mock.calls[1]).toEqual([M_ID, false]);                            // the reload used the state shown
   });
 });
+
+describe("reassignment editor while saving", () => {
+  const isDisabled = (el: HTMLElement) => (el as HTMLButtonElement | HTMLSelectElement).disabled;
+  const base = { mission: mission({ state: "executing", owner: "ramon", owner_kind: "human", agent_ids: ["nova"] }), links: [], events: [], eventsTruncated: false };
+
+  it("locks owner and team during save and refresh, closes only after fresh data, and keeps the selection on failure", async () => {
+    // success path
+    let releaseSave!: (v: unknown) => void; let releaseRefresh!: (v: unknown) => void;
+    const reassign = vi.fn(() => new Promise((r) => (releaseSave = r)));
+    const get = vi.fn()
+      .mockResolvedValueOnce({ ok: true, data: base })
+      .mockImplementationOnce(() => new Promise((r) => (releaseRefresh = r)));
+    const api = fakeApi({ get, reassign: reassign as unknown as MissionApi["reassign"] });
+    render(<MissionDetailView id={M_ID} api={api} />);
+    fireEvent.click(await screen.findByRole("button", { name: /change owner or team/i }));
+    fireEvent.change(screen.getByLabelText("New owner"), { target: { value: "atlas" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    const chips = () => screen.getAllByRole("button", { pressed: true }).concat(screen.getAllByRole("button", { pressed: false }));
+    for (const phase of ["request", "refresh"]) {
+      expect(isDisabled(screen.getByLabelText("New owner")), `owner during ${phase}`).toBe(true);
+      expect(chips().every(isDisabled), `team chips during ${phase}`).toBe(true);
+      expect(isDisabled(screen.getByRole("button", { name: "Save" })), `save during ${phase}`).toBe(true);
+      expect(screen.getByRole("heading", { name: "Owner and team" })).toBeTruthy();         // editor stays open and stable
+      if (phase === "request") { releaseSave({ ok: true, data: mission({ owner: "atlas", owner_kind: "agent" }) }); await waitFor(() => expect(get).toHaveBeenCalledTimes(2)); }
+    }
+    expect(reassign).toHaveBeenCalledWith(M_ID, { owner: "atlas", ownerKind: "agent", agentIds: ["nova"] });
+    releaseRefresh({ ok: true, data: { ...base, mission: mission({ state: "executing", owner: "atlas", owner_kind: "agent", agent_ids: ["nova"] }) } });
+    await waitFor(() => expect(screen.queryByRole("heading", { name: "Owner and team" })).toBeNull()); // closed after fresh data
+    cleanup();
+
+    // failure path: the server refuses; the panel stays open with the chosen owner/team, editable again
+    const refused = fakeApi({ get: vi.fn().mockResolvedValue({ ok: true, data: base }),
+      reassign: vi.fn(() => Promise.resolve({ ok: false as const, status: 422, message: "invalid owner or team" })) });
+    render(<MissionDetailView id={M_ID} api={refused} />);
+    fireEvent.click(await screen.findByRole("button", { name: /change owner or team/i }));
+    fireEvent.change(screen.getByLabelText("New owner"), { target: { value: "atlas" } });
+    fireEvent.click(screen.getByRole("button", { name: "Triage" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("invalid owner or team");
+    await waitFor(() => expect(isDisabled(screen.getByLabelText("New owner"))).toBe(false));
+    expect((screen.getByLabelText("New owner") as HTMLSelectElement).value).toBe("atlas");
+    expect(screen.getByRole("button", { name: "Triage" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Nova" }).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("a save whose refresh fails keeps the panel open (locked) instead of closing on stale data", async () => {
+    const api = fakeApi({ get: vi.fn().mockResolvedValueOnce({ ok: true, data: base }).mockResolvedValue({ ok: false, status: 502, message: "mission storage call failed" }) });
+    render(<MissionDetailView id={M_ID} api={api} />);
+    fireEvent.click(await screen.findByRole("button", { name: /change owner or team/i }));
+    fireEvent.change(screen.getByLabelText("New owner"), { target: { value: "atlas" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByRole("status");
+    expect(screen.getByRole("heading", { name: "Owner and team" })).toBeTruthy();
+    expect((screen.getByLabelText("New owner") as HTMLSelectElement).value).toBe("atlas");
+  });
+});

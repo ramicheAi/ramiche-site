@@ -324,7 +324,8 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
     return () => { alive = false; };
   }, [api, id, showRemoved, apply]);
 
-  async function act(fn: () => Promise<{ ok: boolean; message?: string }>): Promise<boolean> {
+  /** ok: the mutation succeeded; fresh: the follow-up read applied (the screen now shows the result). */
+  async function act(fn: () => Promise<{ ok: boolean; message?: string }>): Promise<{ ok: boolean; fresh: boolean }> {
     setBusy(true); setError(null); setConfirmCancel(false);
     const r = await fn();
     if (!r.ok) setError(r.message ?? "That did not work.");
@@ -334,7 +335,7 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
       if (!fresh) setNeedsRefresh(true);
       setBusy(false);
     }
-    return r.ok;
+    return { ok: r.ok, fresh };
   }
 
   async function retryRefresh() {
@@ -406,9 +407,9 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
       </div>
 
       <LinksPanel m={m} links={d.links} busy={locked} showRemoved={showRemoved} setShowRemoved={setShowRemoved}
-        onAdd={(body) => act(() => api.addLink(m.id, body))} onRemove={(l) => void act(() => api.removeLink(m.id, l.id))} />
+        onAdd={(body) => act(() => api.addLink(m.id, body)).then((x) => x.ok)} onRemove={(l) => void act(() => api.removeLink(m.id, l.id))} />
 
-      {canReassign(m.state) && <ReassignPanel m={m} busy={locked} onSave={(b) => act(() => api.reassign(m.id, b))} />}
+      {canReassign(m.state) && <ReassignPanel m={m} busy={locked} onSave={(b) => act(() => api.reassign(m.id, b)).then((x) => x.ok && x.fresh)} />}
 
       <Panel title="History" icon="pulse" badge={d.eventsTruncated ? "latest 200" : undefined}>
         <ol style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 6 }} data-testid="history">
@@ -508,21 +509,23 @@ function ReassignPanel({ m, busy, onSave }: { m: MissionRow; busy: boolean; onSa
   return (
     <Panel title="Owner and team" icon="agents">
       <div style={{ display: "grid", gap: 12 }}>
-        <select aria-label="New owner" value={owner} onChange={(e) => setOwner(e.target.value)} style={field}>
+        {/* The whole editor is locked while saving: what is shown is exactly what is being saved. */}
+        <select aria-label="New owner" value={owner} disabled={busy} onChange={(e) => setOwner(e.target.value)} style={field}>
           <option value={FOUNDER}>Ramon (you)</option>
           {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
         <div style={row}>
           {agents.map((a) => {
             const on = team.includes(a.id);
-            return <button key={a.id} type="button" aria-pressed={on} onClick={() => setTeam(on ? team.filter((x) => x !== a.id) : [...team, a.id])}
-              style={{ minHeight: 40, padding: "6px 12px", borderRadius: 999, fontSize: 13, cursor: "pointer", border: `1px solid ${on ? "var(--accent)" : "var(--line)"}`,
+            return <button key={a.id} type="button" aria-pressed={on} disabled={busy} onClick={() => setTeam(on ? team.filter((x) => x !== a.id) : [...team, a.id])}
+              style={{ minHeight: 40, padding: "6px 12px", borderRadius: 999, fontSize: 13, cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1, border: `1px solid ${on ? "var(--accent)" : "var(--line)"}`,
                 background: on ? "var(--accent)" : "var(--ink-2)", color: on ? "var(--ink-0)" : "var(--t-hi)" }}>{a.name}</button>;
           })}
         </div>
         <div style={row}>
+          {/* Closes only once the save succeeded AND the fresh read applied; otherwise the selections stay for a retry. */}
           <Btn tone="primary" disabled={busy} onClick={async () => { if (await onSave({ owner, ownerKind: owner === FOUNDER ? "human" : "agent", agentIds: team })) setOpen(false); }}>Save</Btn>
-          <Btn onClick={() => setOpen(false)}>Cancel</Btn>
+          <Btn disabled={busy} onClick={() => setOpen(false)}>Cancel</Btn>
         </div>
       </div>
     </Panel>
