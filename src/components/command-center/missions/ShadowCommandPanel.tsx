@@ -40,9 +40,11 @@ export function handlerText(d: ShadowRecord["decision"]): string {
   return HANDLER_META[d.handler].label;
 }
 
-export function ShadowCommandPanel({ id, api = httpCommandApi, missions = httpMissionApi, onReroute, onDismiss, onCreated }: {
+export function ShadowCommandPanel({ id, api = httpCommandApi, missions = httpMissionApi, onReroute, onDismiss, onCreated, startCreating = false }: {
   id: string; api?: CommandApi; missions?: MissionApi;
   onReroute: (newId: string) => void; onDismiss: () => void; onCreated: (m: MissionRow) => void;
+  /** The founder chose Create Mission in the palette (M5C): open the creation form once, only if Create is offered. */
+  startCreating?: boolean;
 }) {
   const [rec, setRec] = useState<ShadowRecord | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -87,6 +89,14 @@ export function ShadowCommandPanel({ id, api = httpCommandApi, missions = httpMi
     })();
     return () => { alive = false; };
   }, [missions]);
+
+  // Opens the form once, when the record first arrives; the mission is created only when the founder submits it,
+  // exactly as from the Create button. Adjusted during render (no effect).
+  const [autoCreateDone, setAutoCreateDone] = useState(false);
+  if (startCreating && rec && !autoCreateDone) {
+    setAutoCreateDone(true);
+    if (!rec.missionContext && rec.linkedMissions.length === 0) setCreating(true);
+  }
 
   if (!rec) {
     return (

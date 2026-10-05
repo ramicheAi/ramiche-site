@@ -13,6 +13,8 @@ vi.mock("@/lib/cockpit-fetch", () => ({ cockpitFetch: fetchSpy }));
 vi.mock("@/hooks/useGlobalSearch", () => ({ useGlobalSearch: () => ({ results: [], loading: false, unavailable: false }) }));
 
 import { CommandPalette } from "./CommandPalette";
+import { routeCommand } from "@/lib/command/router";
+import type { ShadowRecord } from "@/lib/command/types";
 
 Element.prototype.scrollIntoView = function scrollIntoView() {};   // jsdom has no layout
 
@@ -20,6 +22,13 @@ afterEach(() => { cleanup(); fetchSpy.mockReset(); nav.push.mockReset(); nav.pat
 const json = (status: number, body: unknown) => Promise.resolve(new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }));
 const ID = "9e000000-0000-4000-8000-000000000001";
 const MID = "00000000-0000-4000-8000-0000000000ab";
+/** The record the shadow route returns: the real router's decision for the text, persisted with an id. */
+const rec = (text: string, id = ID): ShadowRecord => ({
+  id, command: text, routedAt: "2026-10-05T14:00:00Z", routerVersion: "m5-rules-1", shadow: true, executed: false, supersedes: null, missionContext: null,
+  decision: routeCommand({ text }), linkedMissions: [],
+});
+const ok = (text: string, id = ID) => json(201, { data: rec(text, id), error: null });
+const okResponse = (text: string, id = ID) => new Response(JSON.stringify({ data: rec(text, id), error: null }), { status: 201 });
 
 function open(text: string) {
   const onClose = vi.fn();
@@ -29,22 +38,23 @@ function open(text: string) {
 }
 
 describe("Universal Command entry in the command palette", () => {
-  it("records a shadow route and opens it on the Missions page; the jobs route is never called", async () => {
-    fetchSpy.mockImplementation(() => json(201, { data: { id: ID }, error: null }));
+  it("records a shadow route and shows the result in the palette; nothing navigates and the jobs route is never called", async () => {
+    fetchSpy.mockImplementation(() => ok("Claude Code, fix Mettle. Codex reviews."));
     const onClose = open("Claude Code, fix Mettle. Codex reviews.");
     fireEvent.click(screen.getByRole("button", { name: /shadow-route/i }));
-    await waitFor(() => expect(nav.push).toHaveBeenCalledWith(`/command-center/missions?command=${ID}`));
+    await screen.findByTestId("shadow-result");
+    expect(nav.push).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0];
     expect(url).toBe("/api/command-center/command/shadow");
     expect(JSON.parse(init.body)).toEqual({ text: "Claude Code, fix Mettle. Codex reviews.", missionId: null });
     expect(fetchSpy.mock.calls.some(([u]) => String(u).includes("/jobs"))).toBe(false);
-    expect(onClose).toHaveBeenCalled();
   });
 
   it("inside a mission, the mission travels as context", async () => {
     nav.path = `/command-center/missions/${MID}`;
-    fetchSpy.mockImplementation(() => json(201, { data: { id: ID }, error: null }));
+    fetchSpy.mockImplementation(() => ok("Claude Code, fix it"));
     open("Claude Code, fix it");
     fireEvent.click(screen.getByRole("button", { name: /shadow-route/i }));
     await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
@@ -62,14 +72,15 @@ describe("Universal Command entry in the command palette", () => {
 
   it("after a failed shadow route, editing the command and pressing Enter retries the SHADOW route, never Run as Job", async () => {
     fetchSpy.mockImplementationOnce(() => json(502, { data: null, error: { code: "storage_error", message: "command storage call failed" } }))
-      .mockImplementationOnce(() => json(201, { data: { id: ID }, error: null }));
+      .mockImplementationOnce(() => ok("Claude Code, fix it"));
     open("fix it");
     fireEvent.click(screen.getByRole("button", { name: /shadow-route/i }));
     await screen.findByRole("alert");
     fireEvent.change(screen.getByPlaceholderText(/type intent/i), { target: { value: "Claude Code, fix it" } });
     expect(screen.queryByRole("alert")).toBeNull();
     fireEvent.keyDown(window, { key: "Enter" });
-    await waitFor(() => expect(nav.push).toHaveBeenCalledWith(`/command-center/missions?command=${ID}`));
+    await screen.findByTestId("shadow-result");
+    expect(nav.push).not.toHaveBeenCalled();
     expect(fetchSpy.mock.calls.map(([u]) => u)).toEqual(["/api/command-center/command/shadow", "/api/command-center/command/shadow"]);
     expect(JSON.parse(fetchSpy.mock.calls[1][1].body).text).toBe("Claude Code, fix it");
   });
@@ -83,12 +94,13 @@ describe("Universal Command entry in the command palette", () => {
     fireEvent.click(screen.getByRole("button", { name: /run as job/i }));
     fireEvent.keyDown(window, { key: "Enter" });
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    release(new Response(JSON.stringify({ data: { id: ID }, error: null }), { status: 201 }));
-    await waitFor(() => expect(nav.push).toHaveBeenCalledTimes(1));
+    release(okResponse("fix it"));
+    await screen.findByTestId("shadow-result");
+    expect(nav.push).not.toHaveBeenCalled();
     expect(fetchSpy.mock.calls.some(([u]) => String(u).includes("/jobs"))).toBe(false);
   });
 
-  it("closing the palette while the route is pending does not navigate afterwards", async () => {
+  it("closing the palette while the route is pending neither navigates nor shows the late result", async () => {
     let release!: (v: Response) => void;
     fetchSpy.mockImplementationOnce(() => new Promise<Response>((r) => (release = r)));
     const onClose = vi.fn();
@@ -96,14 +108,16 @@ describe("Universal Command entry in the command palette", () => {
     fireEvent.change(screen.getByPlaceholderText(/type intent/i), { target: { value: "fix it" } });
     fireEvent.click(screen.getByRole("button", { name: /shadow-route/i }));
     rerender(<CommandPalette open={false} onClose={onClose} />);
-    release(new Response(JSON.stringify({ data: { id: ID }, error: null }), { status: 201 }));
+    release(okResponse("fix it"));
     await new Promise((r) => setTimeout(r, 20));
     expect(nav.push).not.toHaveBeenCalled();
+    rerender(<CommandPalette open onClose={onClose} />);
+    expect(screen.queryByTestId("shadow-result")).toBeNull();
   });
 
   it("a request still pending when the palette closes does not lock it after reopening", async () => {
     fetchSpy.mockImplementationOnce(() => new Promise<Response>(() => {}))                // never resolves
-      .mockImplementationOnce(() => json(201, { data: { id: ID }, error: null }));
+      .mockImplementationOnce(() => ok("fix it"));
     const onClose = vi.fn();
     const { rerender } = render(<CommandPalette open onClose={onClose} />);
     fireEvent.change(screen.getByPlaceholderText(/type intent/i), { target: { value: "fix it" } });
@@ -112,10 +126,10 @@ describe("Universal Command entry in the command palette", () => {
     rerender(<CommandPalette open onClose={onClose} />);
     expect(screen.queryByRole("status")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /shadow-route/i }));
-    await waitFor(() => expect(nav.push).toHaveBeenCalledWith(`/command-center/missions?command=${ID}`));
+    await screen.findByTestId("shadow-result");
   });
 
-  it("a result from an attempt abandoned by closing never navigates, even after reopening", async () => {
+  it("a result from an attempt abandoned by closing is never shown and never navigates, even after reopening", async () => {
     let releaseOld!: (v: Response) => void;
     fetchSpy.mockImplementationOnce(() => new Promise<Response>((r) => (releaseOld = r)));
     const onClose = vi.fn();
@@ -124,10 +138,11 @@ describe("Universal Command entry in the command palette", () => {
     fireEvent.click(screen.getByRole("button", { name: /shadow-route/i }));
     rerender(<CommandPalette open={false} onClose={onClose} />);
     rerender(<CommandPalette open onClose={onClose} />);
-    releaseOld(new Response(JSON.stringify({ data: { id: "9e000000-0000-4000-8000-0000000000ff" }, error: null }), { status: 201 }));
+    releaseOld(okResponse("first", "9e000000-0000-4000-8000-0000000000ff"));
     await new Promise((r) => setTimeout(r, 20));
     expect(nav.push).not.toHaveBeenCalled();
     expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByTestId("shadow-result")).toBeNull();
   });
 
   it("with typed text, Shadow-route is row 0 and Run as Job row 1", () => {
@@ -140,10 +155,11 @@ describe("Universal Command entry in the command palette", () => {
   });
 
   it("a plain Enter on a typed command shadow-routes it and never calls /jobs", async () => {
-    fetchSpy.mockImplementation(() => json(201, { data: { id: ID }, error: null }));
+    fetchSpy.mockImplementation(() => ok("Claude Code, fix Mettle"));
     open("Claude Code, fix Mettle");
     fireEvent.keyDown(window, { key: "Enter" });
-    await waitFor(() => expect(nav.push).toHaveBeenCalledWith(`/command-center/missions?command=${ID}`));
+    await screen.findByTestId("shadow-result");
+    expect(nav.push).not.toHaveBeenCalled();
     expect(fetchSpy.mock.calls.map(([u]) => u)).toEqual(["/api/command-center/command/shadow"]);
   });
 
@@ -190,5 +206,73 @@ describe("Run as Job reads as an executing action (M5A)", () => {
     expect(runTag.style.color).toContain("--c-amber");
     expect(within(rows[1]).getByText(/Executes now/).style.color).toContain("--c-amber");
     expect(within(rows[0]).getByText(/Nothing is executed/).style.color).not.toContain("--c-amber");
+  });
+});
+
+describe("Least effort: the shadow result stays in the palette (P06 M5C)", () => {
+  const route = async (text: string) => {
+    fetchSpy.mockImplementation(() => ok(text));
+    const onClose = open(text);
+    fireEvent.keyDown(window, { key: "Enter" });
+    return { onClose, result: await screen.findByTestId("shadow-result") };
+  };
+
+  it("shows NOTHING EXECUTED, the would-route-to handler, rules only and founder involvement, without navigating", async () => {
+    const { onClose, result } = await route("Claude Code, review the Mission UI spacing");
+    expect(result.textContent).toContain("SHADOW · NOTHING EXECUTED");
+    expect(result.textContent).toContain("Claude Code");
+    expect(result.textContent).toContain("Rules only");
+    expect(result.textContent).toContain("No founder approval required");
+    expect(nav.push).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(fetchSpy.mock.calls.map(([u]) => u)).toEqual(["/api/command-center/command/shadow"]);   // no jobs, no model
+  });
+
+  it("a founder-authority command says a founder decision is required; an ambiguous one asks for a handler", async () => {
+    expect((await route("deploy this to production")).result.textContent).toContain("Founder decision required");
+    cleanup(); fetchSpy.mockReset();
+    expect((await route("Mettle onboarding")).result.textContent).toMatch(/Undecided[\s\S]*Needs your choice of handler/);
+  });
+
+  it("the input is cleared for the next command; typing hides the result and Enter shadow-routes the new text", async () => {
+    const { result } = await route("Claude Code, fix it");
+    const input = screen.getByPlaceholderText(/type intent/i) as HTMLInputElement;
+    expect(input.value).toBe("");
+    expect(result.isConnected).toBe(true);
+    fetchSpy.mockImplementation(() => ok("Research competitor pricing", "9e000000-0000-4000-8000-000000000002"));
+    fireEvent.change(input, { target: { value: "Research competitor pricing" } });
+    expect(screen.queryByTestId("shadow-result")).toBeNull();
+    fireEvent.keyDown(window, { key: "Enter" });
+    await screen.findByTestId("shadow-result");
+    expect(JSON.parse(fetchSpy.mock.calls[1][1].body).text).toBe("Research competitor pricing");
+    expect(nav.push).not.toHaveBeenCalled();
+  });
+
+  it("Enter with the result shown and an empty input does nothing (no reflex page jump)", async () => {
+    await route("Claude Code, fix it");
+    fireEvent.keyDown(window, { key: "Enter" });
+    fireEvent.keyDown(window, { key: "Enter" });
+    expect(nav.push).not.toHaveBeenCalled();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("Escape closes with no other work", async () => {
+    const { onClose } = await route("Claude Code, fix it");
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(nav.push).not.toHaveBeenCalled();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("Create Mission and Details are explicit and open the Missions flow only when clicked", async () => {
+    const { onClose, result } = await route("Claude Code, fix it");
+    fireEvent.click(within(result).getByRole("button", { name: "Create Mission" }));
+    expect(nav.push).toHaveBeenCalledWith(`/command-center/missions?command=${ID}&create=1`);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    cleanup(); nav.push.mockReset(); fetchSpy.mockReset();
+    const second = await route("Claude Code, fix it");
+    fireEvent.click(within(second.result).getByRole("button", { name: "Details" }));
+    expect(nav.push).toHaveBeenCalledWith(`/command-center/missions?command=${ID}`);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);   // neither button writes anything
   });
 });

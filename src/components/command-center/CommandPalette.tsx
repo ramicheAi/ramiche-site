@@ -5,6 +5,8 @@ import { cockpitFetch } from '@/lib/cockpit-fetch';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { httpCommandApi, missionIdFromPath } from "@/lib/command/client";
+import type { ShadowRecord } from "@/lib/command/types";
+import { handlerText } from "@/components/command-center/missions/ShadowCommandPanel";
 import { AGENT_UI, AGENT_ORBIT_IDS, type OrbitAgentId } from "@/app/command-center/dashboard-agents";
 import { useGlobalSearch, type GlobalSearchResult } from "@/hooks/useGlobalSearch";
 import { Icon } from "@/components/command-center/po/Brand";
@@ -157,9 +159,22 @@ function fuzzyScore(haystack: string, needle: string): number {
   return 1;
 }
 
-/** attempt: which shadow attempt this state belongs to; a result for an abandoned attempt is ignored. */
-type ShadowState = { busy: boolean; error: string | null; doneId: string | null; attempt: number };
-const IDLE: ShadowState = { busy: false, error: null, doneId: null, attempt: 0 };
+/** attempt: which shadow attempt this state belongs to; a result for an abandoned attempt is ignored. done: the
+ *  recorded decision, shown compactly in the palette (P06 M5C: the founder stays where he is; nothing navigates). */
+type ShadowState = { busy: boolean; error: string | null; done: ShadowRecord | null; attempt: number };
+const IDLE: ShadowState = { busy: false, error: null, done: null, attempt: 0 };
+
+/** What the compact result says about founder involvement. Display only; the decision itself is unchanged. */
+function founderLine(d: ShadowRecord["decision"]): string {
+  if (d.handler === "human") return "Founder decision required";
+  if (d.handler === null) return "Needs your choice of handler (Details)";
+  return "No founder approval required";
+}
+
+const resultBtn = {
+  minHeight: 44, padding: "0 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer",
+  background: "rgba(255,255,255,0.04)", color: "var(--t-hi)", border: "1px solid var(--line, #1e1e1e)",
+} as const;
 
 export interface CommandPaletteProps {
   open: boolean;
@@ -229,8 +244,9 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
   // Dispatch the typed instruction to the fleet as a tracked Job, then jump to
   // the live Jobs feed to watch it run. This is what turns the command bar from
   // a launcher into a control surface.
-  // P06 M5 Universal Command: record a SHADOW routing decision for the typed command (nothing is executed), then
-  // open it on the Missions page. Issued from inside a mission, the mission travels along as context.
+  // P06 M5 Universal Command: record a SHADOW routing decision for the typed command (nothing is executed) and show
+  // it compactly right here (M5C, least effort): Missions opens only when the founder picks Create Mission or Details.
+  // Issued from inside a mission, the mission travels along as context.
   const pathname = usePathname();
   const [shadowState, setShadowState] = useState<ShadowState>(IDLE);
   // Every attempt gets a number; closing the palette moves past it, so a late result from an abandoned attempt can
@@ -242,28 +258,37 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
       if (!text) return;
       const mine = attempt + 1;
       setAttempt(mine);
-      setShadowState({ busy: true, error: null, doneId: null, attempt: mine });
+      setShadowState({ busy: true, error: null, done: null, attempt: mine });
       const r = await httpCommandApi.route({ text, missionId: missionIdFromPath(pathname) });
       setShadowState((cur) => (cur.attempt !== mine ? cur
-        : r.ok ? { busy: false, error: null, doneId: r.data.id, attempt: mine }
-          : { busy: false, error: `Shadow routing failed: ${r.message}`, doneId: null, attempt: mine }));
+        : r.ok ? { busy: false, error: null, done: r.data, attempt: mine }
+          : { busy: false, error: `Shadow routing failed: ${r.message}`, done: null, attempt: mine }));
     },
     [pathname, attempt]
   );
-  // Open the recorded decision only if the palette is still open. Closed meanwhile (Escape): the record exists, but
-  // the founder left, so nothing navigates and no stale message waits for the next open.
+  // Closing abandons a pending route (a hung request can never lock the palette) and clears a shown result: a late
+  // result or error from an abandoned attempt never appears when the palette is opened again.
   useEffect(() => {
-    if (open && shadowState.doneId) {
-      const id = shadowState.doneId;
-      setShadowState({ ...IDLE, attempt: shadowState.attempt });
-      onClose();
-      router.push(`/command-center/missions?command=${encodeURIComponent(id)}`);
-    } else if (!open && (shadowState.busy || shadowState.doneId || shadowState.error)) {
-      // Closing abandons a pending route (a hung request can never lock the palette); a late result is discarded
-      // by the open check above, and a late error only appears if it arrives while the palette is open again.
+    if (!open && (shadowState.busy || shadowState.done || shadowState.error)) {
       setShadowState({ ...IDLE, attempt: -1 });   // matches no attempt: anything still in flight is ignored
     }
-  }, [open, shadowState, onClose, router]);
+  }, [open, shadowState]);
+  // A new result is shown: clear the input, ready for the next command (typing then hides the result). Adjusted
+  // during render, so the cleared input and the result appear together.
+  const doneId = shadowState.done?.id ?? null;
+  const [clearedFor, setClearedFor] = useState<string | null>(null);
+  if (doneId !== clearedFor) {
+    setClearedFor(doneId);
+    if (doneId) setQuery("");
+  }
+  // The founder's explicit next steps from a shown result. Neither happens unless clicked.
+  const openShadow = useCallback(
+    (id: string, create: boolean) => {
+      onClose();
+      router.push(`/command-center/missions?command=${encodeURIComponent(id)}${create ? "&create=1" : ""}`);
+    },
+    [onClose, router]
+  );
 
   const dispatchJob = useCallback(
     (instruction: string) => {
@@ -390,6 +415,8 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
         return;
       }
       if (e.key === "Enter") {
+        // A shown result with an empty input: Enter does nothing (no page jump from a reflex keypress).
+        if (shadowState.done && !query.trim()) { e.preventDefault(); return; }
         const entry = results[activeIdx];
         if (!entry) return;
         e.preventDefault();
@@ -398,7 +425,7 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, results, activeIdx, execute, onClose]);
+  }, [open, results, activeIdx, execute, onClose, shadowState.done, query]);
 
   useEffect(() => {
     if (!open) return;
@@ -440,7 +467,7 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
           <input
             ref={inputRef}
             value={query}
-            onChange={(e) => { setQuery(e.target.value); if (shadowState.error) setShadowState({ ...IDLE, attempt: shadowState.attempt }); }}
+            onChange={(e) => { setQuery(e.target.value); if (shadowState.error || shadowState.done) setShadowState({ ...IDLE, attempt: shadowState.attempt }); }}
             placeholder="Type intent — jump to anything · ask ATLAS · run a command…"
             spellCheck={false}
             autoComplete="off"
@@ -464,6 +491,21 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
               {shadowState.error ?? "Recording the shadow route. Nothing is executed."}
             </div>
           )}
+          {shadowState.done && (() => {
+            const rec = shadowState.done;
+            return (
+              <div role="status" data-testid="shadow-result" className="po-pal-head"
+                style={{ display: "grid", gap: 6, padding: "12px 14px", borderBottom: "1px solid var(--line, #1e1e1e)", overflowWrap: "anywhere" }}>
+                <div className="eyebrow" style={{ color: "var(--accent)", fontSize: 11 }}>SHADOW · NOTHING EXECUTED</div>
+                <div style={{ color: "var(--t-hi)", fontSize: 15, fontWeight: 600 }}>{handlerText(rec.decision)}</div>
+                <div style={{ color: "var(--t-mid)", fontSize: 12 }}>Rules only · {founderLine(rec.decision)}</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
+                  <button type="button" className="po-pal-btn" style={resultBtn} onClick={() => openShadow(rec.id, true)}>Create Mission</button>
+                  <button type="button" className="po-pal-btn" style={resultBtn} onClick={() => openShadow(rec.id, false)}>Details</button>
+                </div>
+              </div>
+            );
+          })()}
           {results.length === 0 ? (
             <div style={{ padding: 22, textAlign: "center", color: "var(--t-lo)" }}>
               {global.loading
