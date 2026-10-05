@@ -34,7 +34,7 @@ Note: some migration headers still say "NOT APPLIED ANYWHERE" (Packet 3, DM conv
 - **M5 Universal Command shadow router + Mission hooks:** PR #42, not merged, not deployed.
   - Shadow-only.
   - Rules-only router with no classifier.
-  - Hardened authority rules (415-entry adversarial corpus, mutation-tested).
+  - Hardened authority rules (519-entry adversarial corpus, mutation-tested).
   - Command records cannot be Mission evidence.
   - Chat leakage closed.
   - Re-route duplicate protection.

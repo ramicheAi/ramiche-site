@@ -1,3 +1,9 @@
+> **SUPERSEDED on 2026-10-05** by the M5 merge-gate pass (PR #42 head 6970333) and `docs/p06/P06-MASTER-AUDIT-MATRIX.md`. The two BLOCKED_FOR_RAMON items below are resolved:
+> - **Anon lockdown:** previously verified in production, with no new contrary evidence.
+> - **Exit criteria:** a concrete default gate is now proposed in runbook section 6.
+>
+> Phases 8 to 10 are done in the matrix and in `docs/p06/M2B-NEED-ASSESSMENT.md`. Phase 6 (browser validation) remains pending.
+
 # PARALLAX OS OVERNIGHT RUN: STOPPED EARLY (usage limit)
 
 The run hit the session usage limit partway through. Phases 6 and 8 to 10 were NOT done. This file is the honest state.
