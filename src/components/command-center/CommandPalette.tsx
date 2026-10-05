@@ -3,7 +3,8 @@ import { cockpitFetch } from '@/lib/cockpit-fetch';
 
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { httpCommandApi, missionIdFromPath } from "@/lib/command/client";
 import { AGENT_UI, AGENT_ORBIT_IDS, type OrbitAgentId } from "@/app/command-center/dashboard-agents";
 import { useGlobalSearch, type GlobalSearchResult } from "@/hooks/useGlobalSearch";
 import { Icon } from "@/components/command-center/po/Brand";
@@ -60,6 +61,8 @@ interface AgentEntry extends BaseEntry {
 interface ActionEntry extends BaseEntry {
   kind: "action";
   action: () => void;
+  /** the palette stays open (the action reports its own outcome) */
+  keepOpen?: boolean;
 }
 
 interface GlobalEntry extends BaseEntry {
@@ -222,6 +225,24 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
   // Dispatch the typed instruction to the fleet as a tracked Job, then jump to
   // the live Jobs feed to watch it run. This is what turns the command bar from
   // a launcher into a control surface.
+  // P06 M5 Universal Command: record a SHADOW routing decision for the typed command (nothing is executed), then
+  // open it on the Missions page. Issued from inside a mission, the mission travels along as context.
+  const pathname = usePathname();
+  const [shadowState, setShadowState] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
+  const shadowRoute = useCallback(
+    async (instruction: string) => {
+      const text = instruction.trim();
+      if (!text) return;
+      setShadowState({ busy: true, error: null });
+      const r = await httpCommandApi.route({ text, missionId: missionIdFromPath(pathname) });
+      if (!r.ok) { setShadowState({ busy: false, error: `Shadow routing failed: ${r.message}` }); return; }
+      setShadowState({ busy: false, error: null });
+      onClose();
+      router.push(`/command-center/missions?command=${encodeURIComponent(r.data.id)}`);
+    },
+    [onClose, pathname, router]
+  );
+
   const dispatchJob = useCallback(
     (instruction: string) => {
       const title = instruction.trim();
@@ -280,11 +301,24 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
       accent: TOKENS.gold,
       action: () => dispatchJob(q),
     };
-    return [dispatch, ...localTop, ...globalEntries];
-  }, [allEntries, actions, globalEntries, query, dispatchJob]);
+    const shadow: ActionEntry = {
+      kind: "action",
+      id: "action:shadow-route",
+      label: `Shadow-route: "${q.length > 48 ? q.slice(0, 48) + "…" : q}"`,
+      hint: "Universal Command: show who would handle it. Nothing is executed.",
+      icon: "◇",
+      accent: TOKENS.purpleSoft,
+      keywords: "universal command shadow route",
+      keepOpen: true,
+      action: () => void shadowRoute(q),
+    };
+    return [dispatch, shadow, ...localTop, ...globalEntries];
+  }, [allEntries, actions, globalEntries, query, dispatchJob, shadowRoute]);
 
   const execute = useCallback(
     (entry: PaletteEntry) => {
+      // A shadow route keeps the palette open until its record exists, so a failure is shown, never swallowed.
+      if (entry.kind === "action" && entry.keepOpen) { if (!shadowState.busy) entry.action(); return; }
       onClose();
       if (entry.kind === "route") {
         router.push(entry.href);
@@ -296,7 +330,7 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
         entry.action();
       }
     },
-    [onClose, router]
+    [onClose, router, shadowState.busy]
   );
 
   useEffect(() => {
@@ -380,7 +414,7 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
           <input
             ref={inputRef}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => { setQuery(e.target.value); if (shadowState.error) setShadowState({ busy: false, error: null }); }}
             placeholder="Type intent — jump to anything · ask ATLAS · run a command…"
             spellCheck={false}
             autoComplete="off"
@@ -397,6 +431,11 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
           {global.unavailable && (
             <div className="po-pal-head" style={{ color: "var(--t-dim)", fontFamily: "var(--f-mono)", fontSize: 10 }}>
               Message search disabled — set SUPABASE_SERVICE_ROLE_KEY on the server.
+            </div>
+          )}
+          {(shadowState.busy || shadowState.error) && (
+            <div role={shadowState.error ? "alert" : "status"} className="po-pal-head" style={{ color: shadowState.error ? "#ef4444" : "var(--c-purple-l)", fontSize: 12 }}>
+              {shadowState.error ?? "Recording the shadow route. Nothing is executed."}
             </div>
           )}
           {results.length === 0 ? (

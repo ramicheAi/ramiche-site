@@ -8,7 +8,7 @@ vi.mock('@/lib/firebase-admin', async (importOriginal) => ({ ...(await importOri
 // Minimal chainable fake of the service-role supabase-js client that records every call.
 function fakeClient(result: { data: unknown; error: unknown }) {
   const q: Record<string, unknown> = {};
-  for (const m of ['select', 'eq', 'order', 'limit', 'in', 'not', 'insert', 'single']) {
+  for (const m of ['select', 'eq', 'neq', 'order', 'limit', 'in', 'not', 'insert', 'single']) {
     q[m] = (...args: unknown[]) => { admin.calls.push([m, ...args]); return q; };
   }
   (q as { then: unknown }).then = (res: (v: unknown) => void) => res(result);

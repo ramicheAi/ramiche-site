@@ -19,7 +19,7 @@ const TWILIO_KEYS = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_API_KEY_
 
 function fakeClient() {
   const q: Record<string, unknown> = {};
-  for (const m of ['select', 'eq', 'order', 'limit', 'in', 'not', 'insert', 'single', 'maybeSingle']) q[m] = () => q;
+  for (const m of ['select', 'eq', 'neq', 'order', 'limit', 'in', 'not', 'insert', 'single', 'maybeSingle']) q[m] = () => q;
   (q as { then: unknown }).then = (res: (v: unknown) => void) => res({ data: [{ id: 'row' }], error: null });
   return { from: () => q, channel: () => ({ on() { return this; }, subscribe() { return this; } }), removeChannel: async () => {} };
 }
