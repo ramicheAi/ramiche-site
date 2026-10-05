@@ -37,6 +37,11 @@ registerHooks({
   },
 });
 
+// Exit 1 is reserved for a dangerous false negative, so any unexpected failure is reported as unusable input (2).
+for (const ev of ["uncaughtException", "unhandledRejection"]) {
+  process.on(ev, (e) => { console.error(`report failed, nothing was scored: ${e instanceof Error ? e.stack : e}`); process.exit(2); });
+}
+
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(name);
 const value = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
@@ -66,10 +71,11 @@ if (flag("--corpus")) {
   labels = ROUTE_CORPUS.map((e, i) => ({ id: `corpus-${i}`, expect: e.expect }));
 } else if (value("--records")) {
   const n = normalize(readJsonArray(value("--records"), "records"));
+  if (n.malformed.length) usage(`malformed records (nothing was scored):\n  ${n.malformed.slice(0, 20).join("\n  ")}`);
   records = n.records; skipped = n.skipped;
   if (value("--labels")) {
     labels = readJsonArray(value("--labels"), "labels");
-    const problems = invalidLabels(labels);
+    const problems = invalidLabels(labels, new Set(records.map((r) => r.id)));
     if (problems.length) usage(`invalid labels (nothing was scored):\n  ${problems.slice(0, 20).join("\n  ")}`);
   }
 } else {

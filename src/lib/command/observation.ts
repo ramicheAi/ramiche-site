@@ -26,14 +26,19 @@ export type FounderLabel = { id: string; expect: Handler | null; note?: string }
 /**
  * Founder labels are hand-written safety evidence, so a malformed one must stop the run, never be scored: a typo such
  * as "Human" would otherwise turn a dangerous false negative into an ordinary mismatch. Returns the problems (empty
- * when every label is an object with a string id and an expect of a known handler or null).
+ * when every label is an object with a string id and an expect of a known handler or null, no id appears twice, and,
+ * when `recordIds` is given, every id is an exported record, superseded rows included). Ids are compared exactly.
  */
-export function invalidLabels(input: unknown[]): string[] {
+export function invalidLabels(input: unknown[], recordIds?: ReadonlySet<string>): string[] {
   const known = new Set<unknown>([...HANDLERS, null]);
   const problems: string[] = [];
+  const seen = new Set<string>();
   input.forEach((l, i) => {
-    if (!isObject(l) || typeof l.id !== "string" || !l.id) problems.push(`label ${i}: needs a string id`);
-    else if (!("expect" in l) || !known.has(l.expect)) problems.push(`label ${i} (${l.id}): expect must be one of ${HANDLERS.join(", ")} or null, got ${JSON.stringify(l.expect)}`);
+    if (!isObject(l) || typeof l.id !== "string" || !l.id) { problems.push(`label ${i}: needs a string id`); return; }
+    if (!("expect" in l) || !known.has(l.expect)) problems.push(`label ${i} (${l.id}): expect must be one of ${HANDLERS.join(", ")} or null, got ${JSON.stringify(l.expect)}`);
+    if (seen.has(l.id)) problems.push(`label ${i} (${l.id}): duplicate id; each command may be labelled once`);
+    seen.add(l.id);
+    if (recordIds && !recordIds.has(l.id)) problems.push(`label ${i} (${l.id}): no exported record has this id`);
   });
   return problems;
 }
@@ -43,15 +48,24 @@ export const ACTING_HANDLERS: ReadonlySet<Handler> = new Set<Handler>(["claude_c
 
 const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 
-/** Accepts ShadowRecord objects or raw messages rows; anything that is not a shadow record is skipped and counted. */
-export function normalize(input: unknown[]): { records: ObservedCommand[]; skipped: number } {
+const validReasons = (d: Record<string, unknown>) => Array.isArray(d.reasons) && d.reasons.every((x) => typeof x === "string");
+
+/**
+ * Accepts ShadowRecord objects or raw messages rows; anything that is not a shadow record is skipped and counted. A
+ * shadow record whose decision has no valid `reasons` list (an array of strings) is malformed: it is reported in
+ * `malformed` and never scored.
+ */
+export function normalize(input: unknown[]): { records: ObservedCommand[]; skipped: number; malformed: string[] } {
   const records: ObservedCommand[] = [];
+  const malformed: string[] = [];
   let skipped = 0;
+  const bad = (id: unknown) => malformed.push(`record ${String(id)}: decision.reasons must be an array of strings`);
   for (const row of input) {
     if (!isObject(row)) { skipped++; continue; }
     const meta = isObject(row.metadata) ? row.metadata : null;
     if (meta) {
       if (meta.kind !== SHADOW_KIND || !isObject(meta.decision)) { skipped++; continue; }
+      if (!validReasons(meta.decision)) { bad(row.id); continue; }
       records.push({
         id: String(row.id), command: String(row.content ?? ""), routedAt: String(meta.routedAt ?? row.created_at ?? ""),
         supersedes: typeof meta.supersedes === "string" ? meta.supersedes : null,
@@ -60,6 +74,7 @@ export function normalize(input: unknown[]): { records: ObservedCommand[]; skipp
         linkedMissions: Array.isArray(row.linkedMissions) ? (row.linkedMissions as { relation: string }[]) : [],
       });
     } else if (isObject(row.decision) && typeof row.command === "string") {
+      if (!validReasons(row.decision)) { bad(row.id); continue; }
       records.push({
         id: String(row.id), command: row.command, routedAt: String(row.routedAt ?? ""),
         supersedes: typeof row.supersedes === "string" ? row.supersedes : null,
@@ -69,7 +84,7 @@ export function normalize(input: unknown[]): { records: ObservedCommand[]; skipp
       });
     } else skipped++;
   }
-  return { records, skipped };
+  return { records, skipped, malformed };
 }
 
 const count = <K extends string>(keys: readonly K[]): Record<K, number> => Object.fromEntries(keys.map((k) => [k, 0])) as Record<K, number>;

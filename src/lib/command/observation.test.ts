@@ -73,6 +73,15 @@ describe("shadow observation summary", () => {
     expect(bad[0]).toMatch(/label 0 \(a\): expect must be one of .* or null, got "Human"/);
   });
 
+  it("labels must map one-to-one onto exported records: duplicates and unknown ids are malformed", () => {
+    const ids = new Set(["a", "b-final"]);
+    expect(invalidLabels([{ id: "a", expect: "human" }, { id: "a", expect: "claude_code" }], ids)).toEqual(["label 1 (a): duplicate id; each command may be labelled once"]);
+    expect(invalidLabels([{ id: "a", expect: "human" }, { id: "a", expect: "human" }], ids)).toHaveLength(1);   // identical duplicates still fail
+    expect(invalidLabels([{ id: "zzz", expect: "human" }], ids)).toEqual(["label 0 (zzz): no exported record has this id"]);
+    expect(invalidLabels([{ id: "A", expect: "human" }], ids)).toEqual(["label 0 (A): no exported record has this id"]);   // ids are exact
+    expect(invalidLabels([{ id: "a", expect: "human" }, { id: "b-final", expect: null }], ids)).toEqual([]);   // superseded row a, final row b-final
+  });
+
   it("founder-edited records are not reported as replay drift", () => {
     const edited = rec("e", "Mettle onboarding", { supersedes: "o", decision: routeCommand({ text: "Mettle onboarding", handlerHint: "claude_code" }) });
     expect(summarize([edited]).replayDrift).toEqual([]);
@@ -94,6 +103,20 @@ describe("shadow observation summary", () => {
     expect(records.map((r) => r.id)).toEqual(["r1", "r2"]);
     expect(records[1].linkedMissions).toEqual([{ relation: "source" }]);
     expect(skipped).toBe(3);
+  });
+
+  it("a shadow record without a valid reasons list is malformed, not scored", () => {
+    const decision = routeCommand({ text: "Merge PR 41" });
+    const without = (over: Record<string, unknown>) => ({ ...decision, ...over });
+    const { records, malformed } = normalize([
+      { id: "m1", content: "x", metadata: { kind: "universal_command_shadow", decision: without({ reasons: undefined }) } },
+      { id: "m2", command: "x", decision: without({ reasons: null }) },
+      { id: "m3", command: "x", decision: without({ reasons: "founder_edited_routing" }) },
+      { id: "m4", command: "x", decision: without({ reasons: ["ok", 7] }) },
+      { id: "ok", command: "Merge PR 41", decision },
+    ]);
+    expect(records.map((r) => r.id)).toEqual(["ok"]);
+    expect(malformed.map((m) => m.split(":")[0])).toEqual(["record m1", "record m2", "record m3", "record m4"]);
   });
 
   it("the report has no composite score and states when correctness is unlabelled", () => {
@@ -137,12 +160,25 @@ describe("offline report CLI (scripts/command-shadow-report.mjs)", () => {
     expect(run(["--corpus"]).status).toBe(0);
   });
 
+  it.skipIf(!canStripTypes)("a label on an older superseded row present in the export is accepted", () => {
+    const edited = { ...row("b", "Fix the login bug"), metadata: { ...row("b", "Fix the login bug").metadata, supersedes: "a" } };
+    const recs = write("chain.json", [row("a", "Fix the login bug"), edited]);
+    expect(run(["--records", recs, "--labels", write("chain-labels.json", [{ id: "a", expect: "claude_code" }, { id: "b", expect: "claude_code" }])]).status).toBe(0);
+  });
+
   it.skipIf(!canStripTypes)("exits 1 when any dangerous false negative is found", () => {
     const recs = write("bad.json", [row("a", "Claude Code, fix Mettle")]);
     const labels = write("bad-labels.json", [{ id: "a", expect: "human" }]);
     const r = run(["--records", recs, "--labels", labels]);
     expect(r.status).toBe(1);
     expect(r.stdout).toMatch(/DANGEROUS false negatives \(founder authority routed to a handler\): 1 a/);
+  });
+
+  it("exit 1 is set in exactly one place (a dangerous false negative); unexpected failures exit 2", () => {
+    const src = readFileSync(join(process.cwd(), "scripts/command-shadow-report.mjs"), "utf8");
+    expect(src.match(/exit\(1\)|exitCode = 1/g)).toEqual(["exitCode = 1"]);
+    expect(src).toMatch(/dangerousFalseNegatives\.length > 0\) process\.exitCode = 1;/);
+    expect(src).toMatch(/\["uncaughtException", "unhandledRejection"\]\) \{\n\s+process\.on\(ev, \(e\) => \{[^\n]*process\.exit\(2\); \}\);/);
   });
 
   it("the CLI contains no network or database access and writes nothing", () => {
@@ -157,6 +193,20 @@ describe("offline report CLI (scripts/command-shadow-report.mjs)", () => {
     const typo = run(["--records", write("typo.json", [row("a", "Claude Code, fix Mettle")]), "--labels", write("typo-labels.json", [{ id: "a", expect: "Human" }])]);
     expect(typo.status).toBe(2);
     expect(typo.stdout).toBe("");
+    const one = write("one.json", [row("a", "Claude Code, fix Mettle")]);
+    for (const [name, labels] of [
+      ["dup", [{ id: "a", expect: "human" }, { id: "a", expect: "claude_code" }]],
+      ["dup-same", [{ id: "a", expect: "human" }, { id: "a", expect: "human" }]],
+      ["unknown", [{ id: "A", expect: "human" }]],
+    ] as const) {
+      const r = run(["--records", one, "--labels", write(`${name}.json`, labels)]);
+      expect([name, r.status, r.stdout]).toEqual([name, 2, ""]);
+    }
+    const reasonless = (reasons: unknown) => ({ ...row("a", "Merge PR 41"), metadata: { ...row("a", "Merge PR 41").metadata, decision: { ...routeCommand({ text: "Merge PR 41" }), reasons } } });
+    for (const reasons of [undefined, null, "x", [1]]) {
+      const r = run(["--records", write("reasonless.json", [reasonless(reasons)])]);
+      expect([JSON.stringify(reasons) ?? "missing", r.status, r.stdout]).toEqual([JSON.stringify(reasons) ?? "missing", 2, ""]);
+    }
     const recs = write("ok.json", [row("a", "Merge PR 41")]);
     expect(run(["--records", recs, "--labels", write("badlabels.json", { a: "human" })]).status).toBe(2);
     expect(run(["--records", recs, "--labels", write("badlabels2.json", [{ expect: "human" }])]).status).toBe(2);
