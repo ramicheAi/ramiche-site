@@ -222,10 +222,32 @@ describe("Least effort: the shadow result stays in the palette (P06 M5C)", () =>
     expect(result.textContent).toContain("SHADOW · NOTHING EXECUTED");
     expect(result.textContent).toContain("Claude Code");
     expect(result.textContent).toContain("Rules only");
-    expect(result.textContent).toContain("No founder approval required");
+    expect(result.textContent).toContain("Founder approval required");   // the router requires it for Claude Code
     expect(nav.push).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
     expect(fetchSpy.mock.calls.map(([u]) => u)).toEqual(["/api/command-center/command/shadow"]);   // no jobs, no model
+  });
+
+  it("founder approval is read from the recorded decision, never assumed (Codex P2, PR #45)", async () => {
+    const research = await route("Research competitor pricing");
+    expect(routeCommand({ text: "Research competitor pricing" }).founderApprovalRequired).toBe(false);
+    expect(research.result.textContent).toContain("No founder approval required");
+    cleanup(); fetchSpy.mockReset();
+    const code = await route("Claude Code, review the Mission UI spacing");
+    expect(routeCommand({ text: "Claude Code, review the Mission UI spacing" }).founderApprovalRequired).toBe(true);
+    expect(code.result.textContent).not.toContain("No founder approval required");
+  });
+
+  it("Create Mission is not offered inside a mission or when the command is already linked; Details still is (Codex P2, PR #45)", async () => {
+    for (const over of [{ missionContext: MID }, { linkedMissions: [{ id: MID, ref: 7, state: "intent", relation: "source" }] }]) {
+      fetchSpy.mockImplementation(() => json(201, { data: { ...rec("Claude Code, fix it"), ...over }, error: null }));
+      open("Claude Code, fix it");
+      fireEvent.keyDown(window, { key: "Enter" });
+      const result = await screen.findByTestId("shadow-result");
+      expect(within(result).queryByRole("button", { name: "Create Mission" })).toBeNull();
+      expect(within(result).getByRole("button", { name: "Details" })).toBeTruthy();
+      cleanup(); fetchSpy.mockReset();
+    }
   });
 
   it("a founder-authority command says a founder decision is required; an ambiguous one asks for a handler", async () => {

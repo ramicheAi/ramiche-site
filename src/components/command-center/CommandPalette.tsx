@@ -164,12 +164,15 @@ function fuzzyScore(haystack: string, needle: string): number {
 type ShadowState = { busy: boolean; error: string | null; done: ShadowRecord | null; sent: string; attempt: number };
 const IDLE: ShadowState = { busy: false, error: null, done: null, sent: "", attempt: 0 };
 
-/** What the compact result says about founder involvement. Display only; the decision itself is unchanged. */
+/** What the compact result says about founder involvement, read from the recorded decision (the same
+ *  founderApprovalRequired the detailed panel shows). Display only; the decision itself is unchanged. */
 function founderLine(d: ShadowRecord["decision"]): string {
   if (d.handler === "human") return "Founder decision required";
   if (d.handler === null) return "Needs your choice of handler (Details)";
-  return "No founder approval required";
+  return d.founderApprovalRequired ? "Founder approval required" : "No founder approval required";
 }
+/** Create is offered exactly when the Missions panel offers it: not inside a mission, not when already linked. */
+const createOffered = (rec: ShadowRecord) => !rec.missionContext && rec.linkedMissions.length === 0;
 
 const resultBtn = {
   minHeight: 44, padding: "0 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer",
@@ -500,7 +503,7 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
                 <div style={{ color: "var(--t-hi)", fontSize: 15, fontWeight: 600 }}>{handlerText(rec.decision)}</div>
                 <div style={{ color: "var(--t-mid)", fontSize: 12 }}>Rules only · {founderLine(rec.decision)}</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
-                  <button type="button" className="po-pal-btn" style={resultBtn} onClick={() => openShadow(rec.id, true)}>Create Mission</button>
+                  {createOffered(rec) && <button type="button" className="po-pal-btn" style={resultBtn} onClick={() => openShadow(rec.id, true)}>Create Mission</button>}
                   <button type="button" className="po-pal-btn" style={resultBtn} onClick={() => openShadow(rec.id, false)}>Details</button>
                 </div>
               </div>
