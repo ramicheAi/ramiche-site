@@ -8,8 +8,10 @@
  *              key" is never delegated. An authority verb counts when it is used as a verb: followed by an object or
  *              the end of its clause ("merge PR 41", "deploy it", "publish the post", "then deploy"), not a noun use
  *              ("the deploy script", "refund logic", "sign-up flow"), and not negated ("don't merge without me").
- *              If the command names a handler or @agent, such a verb ANYWHERE routes to the founder ("have Claude
- *              Code merge PR 41"); otherwise it must start a clause, after any handler name or filler word.
+ *              If the command names a handler or @agent, any such verb ANYWHERE routes to the founder ("have Claude
+ *              Code merge PR 41", "Claude Code, deploy prod"), whatever follows it, unless directly negated or a
+ *              noun use; otherwise it must start a clause, after any handler name or filler word. This deliberately
+ *              over-blocks some coding phrasings ("Claude Code, delete the unused imports"): safe in shadow mode.
  *   2. EXPLICIT  the founder named a handler: an edit of the routing, or a name in the text (Claude Code, Codex,
  *              ChatGPT, Perplexity, OpenClaw, Claude, @agent from the canonical registry).
  *   3. DETERMINISTIC  fixed keyword rules: job reference, review-only, current-web research, repository work, chatter.
@@ -32,11 +34,12 @@ const ACTIVE_AGENTS = new Map(AGENT_CORE.filter((a) => a.status === "active").fl
 /* ── safety: never delegated, never classified ──────────────────────────────────────────────────────────── */
 // A founder-decision verb, used as a verb: followed by the end of the text, a clause break, or an object word.
 // "verify" counts only for a mission ("verify M-12", "verify the mission"); verifying tests is ordinary work.
-const VERB = "(?:approve|reject|merge|deploy|release|publish|cancel|delete|pay|refund|sign|accept|ship|(?:force[ -])?push(?: it)? to (?:main|master|prod|production)|verify(?= (?:m-\\d|(?:the |this )?mission\\b)))";
-const OBJECT = "(?=\\s*$|\\s*[.;!?\\n,:]|\\s+(?:and|then|it|this|that|them|these|those|the|a|an|my|our|its|pr|prs|pull|to|now|everything|all|mission|m-\\d+|#?\\d+)\\b)";
+const VERB = "(?:approve|reject|merge|deploy|release|publish|cancel|delete|pay|refund|sign(?: off)?|accept|ship|roll ?out|(?:force[ -])?push(?: it)? to (?:main|master|prod|production)|verify(?= (?:m-\\d|(?:the |this )?mission\\b)))";
+const OBJECT = "(?=\\s*$|\\s*[.;!?\\n,:]|\\s+(?:and|then|it|this|that|them|these|those|the|a|an|my|our|its|pr\\d*|prs|pull|to|on|into|prod|production|staging|live|v\\d[\\w.]*|now|everything|all|mission|m-\\d+|#?\\d+)\\b)";
 const AUTHORITY_AT_START = new RegExp(`^${VERB}(?![-\\w])${OBJECT}`);
-const AUTHORITY_ANYWHERE = new RegExp(`\\b${VERB}(?![-\\w])${OBJECT}`, "g");
-const NEGATED = /(?:\bdon'?t|\bdo not|\bnever|\bnot|\bno|\bwithout)\s+(?:\w+\s+)?$/;
+const AUTHORITY_ANYWHERE = new RegExp(`\\b${VERB}(?![-\\w])`, "g");
+// Negation directly before the verb only ("don't merge", "do not merge", "never merge"); "no wait merge it" is not.
+const NEGATED = /(?:\bdon'?t|\bdo not|\bnever|\bnot)\s+$/;
 const NOUN_USE = /\b(?:the|a|an|this|that|our|my|your|its)\s+$/;
 // What may precede the verb inside a clause: a handler name, a registry @agent, or filler.
 const LEAD = /^(?:(?:claude[ -]?code|claude|codex|chat ?gpt|gpt-?\d[\w.]*|openai|perplexity|open ?claw|@[a-z][a-z0-9_-]*|please|pls|kindly|ok|okay|go ahead(?: and)?|go|now|also|just|then|and|so|can you|could you|you|hey|i|we|let's|lets)\b[\s,:]*)+/;

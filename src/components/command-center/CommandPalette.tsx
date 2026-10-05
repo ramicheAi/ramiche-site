@@ -157,8 +157,9 @@ function fuzzyScore(haystack: string, needle: string): number {
   return 1;
 }
 
-type ShadowState = { busy: boolean; error: string | null; doneId: string | null };
-const IDLE: ShadowState = { busy: false, error: null, doneId: null };
+/** attempt: which shadow attempt this state belongs to; a result for an abandoned attempt is ignored. */
+type ShadowState = { busy: boolean; error: string | null; doneId: string | null; attempt: number };
+const IDLE: ShadowState = { busy: false, error: null, doneId: null, attempt: 0 };
 
 export interface CommandPaletteProps {
   open: boolean;
@@ -235,29 +236,36 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
   // After a shadow attempt the highlight stays on the Shadow-route row, so Enter after editing a failed command
   // retries the SHADOW route and can never fall through to "Run as Job" (which executes).
   const [shadowSticky, setShadowSticky] = useState(false);
+  // Every attempt gets a number; closing the palette moves past it, so a late result from an abandoned attempt can
+  // neither navigate nor show an error, even after the palette is reopened.
+  const [attempt, setAttempt] = useState(0);
   const shadowRoute = useCallback(
     async (instruction: string) => {
       const text = instruction.trim();
       if (!text) return;
+      const mine = attempt + 1;
+      setAttempt(mine);
       setShadowSticky(true);
-      setShadowState({ busy: true, error: null, doneId: null });
+      setShadowState({ busy: true, error: null, doneId: null, attempt: mine });
       const r = await httpCommandApi.route({ text, missionId: missionIdFromPath(pathname) });
-      setShadowState(r.ok ? { busy: false, error: null, doneId: r.data.id } : { busy: false, error: `Shadow routing failed: ${r.message}`, doneId: null });
+      setShadowState((cur) => (cur.attempt !== mine ? cur
+        : r.ok ? { busy: false, error: null, doneId: r.data.id, attempt: mine }
+          : { busy: false, error: `Shadow routing failed: ${r.message}`, doneId: null, attempt: mine }));
     },
-    [pathname]
+    [pathname, attempt]
   );
   // Open the recorded decision only if the palette is still open. Closed meanwhile (Escape): the record exists, but
   // the founder left, so nothing navigates and no stale message waits for the next open.
   useEffect(() => {
     if (open && shadowState.doneId) {
       const id = shadowState.doneId;
-      setShadowState({ busy: false, error: null, doneId: null });
+      setShadowState({ ...IDLE, attempt: shadowState.attempt });
       onClose();
       router.push(`/command-center/missions?command=${encodeURIComponent(id)}`);
     } else if (!open && (shadowState.busy || shadowState.doneId || shadowState.error || shadowSticky)) {
       // Closing abandons a pending route (a hung request can never lock the palette); a late result is discarded
       // by the open check above, and a late error only appears if it arrives while the palette is open again.
-      setShadowState(IDLE);
+      setShadowState({ ...IDLE, attempt: -1 });   // matches no attempt: anything still in flight is ignored
       setShadowSticky(false);
     }
   }, [open, shadowState, shadowSticky, onClose, router]);
@@ -435,7 +443,7 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
           <input
             ref={inputRef}
             value={query}
-            onChange={(e) => { setQuery(e.target.value); if (shadowState.error) setShadowState({ busy: false, error: null, doneId: null }); }}
+            onChange={(e) => { setQuery(e.target.value); if (shadowState.error) setShadowState({ ...IDLE, attempt: shadowState.attempt }); }}
             placeholder="Type intent — jump to anything · ask ATLAS · run a command…"
             spellCheck={false}
             autoComplete="off"

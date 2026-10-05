@@ -115,6 +115,21 @@ describe("Universal Command entry in the command palette", () => {
     await waitFor(() => expect(nav.push).toHaveBeenCalledWith(`/command-center/missions?command=${ID}`));
   });
 
+  it("a result from an attempt abandoned by closing never navigates, even after reopening", async () => {
+    let releaseOld!: (v: Response) => void;
+    fetchSpy.mockImplementationOnce(() => new Promise<Response>((r) => (releaseOld = r)));
+    const onClose = vi.fn();
+    const { rerender } = render(<CommandPalette open onClose={onClose} />);
+    fireEvent.change(screen.getByPlaceholderText(/type intent/i), { target: { value: "first" } });
+    fireEvent.click(screen.getByRole("button", { name: /shadow-route/i }));
+    rerender(<CommandPalette open={false} onClose={onClose} />);
+    rerender(<CommandPalette open onClose={onClose} />);
+    releaseOld(new Response(JSON.stringify({ data: { id: "9e000000-0000-4000-8000-0000000000ff" }, error: null }), { status: 201 }));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(nav.push).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("the existing Run as Job entry is unchanged and still first", () => {
     open("fix it");
     const items = screen.getAllByRole("button").map((b) => b.textContent ?? "");

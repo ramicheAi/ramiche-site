@@ -92,8 +92,11 @@ describe("safety: founder authority and security are never delegated", () => {
     // a handler is named: an authority verb ANYWHERE is the founder's
     "have Claude Code merge PR 41", "let codex approve it", "Codex should approve PR 9", "Claude Code, go merge it",
     "Claude Code, we need to deploy", "@atlas, kindly publish the post", "Claude Code, add a button and merge 41",
+    "Claude Code, deploy prod", "have Claude Code deploy staging", "Claude Code, ship v2", "Claude Code, merge into main",
+    "Claude Code, merge feature-x into main", "openclaw release v1.2", "@atlas publish tonight's newsletter", "Claude Code, approve PR41",
+    "Claude Code no wait merge it", "Codex, sign off on PR 41", "Claude Code, roll out to production",
     // no handler named
-    "force push to main", "I approve", "verify the mission", "merge 41",
+    "force push to main", "I approve", "verify the mission", "merge 41", "sign off on PR 41", "roll out to production", "deploy prod", "ship v2", "approve PR41", "merge into main",
   ])("an authority verb at the start of ANY clause, after a handler name or filler, is the founder's: %s", (text) => {
     expect(r(text)).toMatchObject({ handler: "human", intent: "founder_authority", founderApprovalRequired: true, reasons: ["founder_authority_verb"] });
   });
@@ -114,8 +117,12 @@ describe("safety: founder authority and security are never delegated", () => {
     ["Add a button to approve the request", "claude_code"],
     ["Claude Code, speed up the deploy to staging", "claude_code"],
     ["Codex, check the release pipeline", "codex_review"],
+    ["Claude Code, never merge without asking", "claude_code"],
   ])("an authority word that is not a clause's verb, or a negated one, does not take the route: %s", (text, handler) => {
     expect(r(text).handler).toBe(handler);
+  });
+  it("known limitation (fails safe): with a handler named, coding phrasings that use an authority verb go to the founder", () => {
+    for (const t of ["Claude Code, delete the unused imports", "Claude Code, release the lock after the write"]) expect(r(t).handler, t).toBe("human");
   });
   it("naming a handler cannot route an approval to it", () => {
     expect(r("approve the PR, Claude Code").handler).toBe("human");
