@@ -215,4 +215,36 @@ describe("M5A browser-acceptance fixes", () => {
     expect(screen.getByTestId("shadow-command").style.gridTemplateColumns).toBe("minmax(0, 1fr)");
     for (const s of screen.getAllByRole("combobox")) expect([(s as HTMLElement).style.minWidth, (s as HTMLElement).style.maxWidth]).toEqual(["0px", "100%"]);
   });
+
+  it("Create Mission chosen in the palette (startCreating) opens the form, and submitting it creates the mission in Intent with the command as source (M5C)", async () => {
+    const { command, m } = apis(record());
+    const h = handlers();
+    render(<ShadowCommandPanel id={CMD} api={command} missions={m} {...h} startCreating />);
+    expect((await screen.findByLabelText(/objective/i) as HTMLTextAreaElement).value).toBe("Claude Code, fix Mettle. Codex reviews. Don't merge without me.");
+    expect(m.create).not.toHaveBeenCalled();   // opening the form creates nothing
+    fireEvent.change(screen.getByLabelText(/success criteria/i), { target: { value: "Mettle onboarding works" } });
+    fireEvent.click(screen.getByRole("button", { name: /^create mission$/i }));
+    await waitFor(() => expect(h.onCreated).toHaveBeenCalled());
+    expect(m.create).toHaveBeenCalledTimes(1);
+    expect(m.addLink).toHaveBeenCalledWith("00000000-0000-4000-8000-0000000000ee", { targetType: "chat_message", targetId: CMD, relation: "source" });
+    for (const f of ["transition", "verify", "reassign"] as const) expect(m[f]).not.toHaveBeenCalled();
+    expect(command.route).not.toHaveBeenCalled();
+  });
+
+  it("without startCreating the form stays closed; with it, a command already linked or issued inside a mission still does not open it (M5C)", async () => {
+    const plain = apis(record());
+    render(<ShadowCommandPanel id={CMD} api={plain.command} missions={plain.m} {...handlers()} />);
+    await screen.findByRole("button", { name: "Create Mission" });
+    expect(screen.queryByLabelText(/objective/i)).toBeNull();
+    cleanup();
+    const linked = apis(record({ linkedMissions: [{ id: MID, ref: 7, state: "intent", relation: "source" }] }));
+    render(<ShadowCommandPanel id={CMD} api={linked.command} missions={linked.m} {...handlers()} startCreating />);
+    await screen.findByTestId("shadow-linked");
+    expect(screen.queryByLabelText(/objective/i)).toBeNull();
+    cleanup();
+    const inside = apis(record({ missionContext: MID }));
+    render(<ShadowCommandPanel id={CMD} api={inside.command} missions={inside.m} {...handlers()} startCreating />);
+    await screen.findByRole("button", { name: /attach/i });
+    expect(screen.queryByLabelText(/objective/i)).toBeNull();
+  });
 });
