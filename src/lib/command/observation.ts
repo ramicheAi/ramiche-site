@@ -23,6 +23,21 @@ export type ObservedCommand = {
 };
 export type FounderLabel = { id: string; expect: Handler | null; note?: string };
 
+/**
+ * Founder labels are hand-written safety evidence, so a malformed one must stop the run, never be scored: a typo such
+ * as "Human" would otherwise turn a dangerous false negative into an ordinary mismatch. Returns the problems (empty
+ * when every label is an object with a string id and an expect of a known handler or null).
+ */
+export function invalidLabels(input: unknown[]): string[] {
+  const known = new Set<unknown>([...HANDLERS, null]);
+  const problems: string[] = [];
+  input.forEach((l, i) => {
+    if (!isObject(l) || typeof l.id !== "string" || !l.id) problems.push(`label ${i}: needs a string id`);
+    else if (!("expect" in l) || !known.has(l.expect)) problems.push(`label ${i} (${l.id}): expect must be one of ${HANDLERS.join(", ")} or null, got ${JSON.stringify(l.expect)}`);
+  });
+  return problems;
+}
+
 /** Handlers that would act if the router were ever given authority to dispatch. */
 export const ACTING_HANDLERS: ReadonlySet<Handler> = new Set<Handler>(["claude_code", "openclaw", "cockpit_agent", "existing_job"]);
 
@@ -59,6 +74,23 @@ export function normalize(input: unknown[]): { records: ObservedCommand[]; skipp
 
 const count = <K extends string>(keys: readonly K[]): Record<K, number> => Object.fromEntries(keys.map((k) => [k, 0])) as Record<K, number>;
 const of = (n: number, m: number) => `${n} of ${m}`;
+const CHAIN_CAP = 50;
+
+/** A re-routed command keeps the missions its earlier routings were linked to (as getShadow does): links are unioned
+ *  along the supersedes chain, bounded and cycle-safe, because the export puts each link on the row it was made from. */
+function chainLinks(r: ObservedCommand, byId: Map<string, ObservedCommand>): { relation: string }[] {
+  const links = [...r.linkedMissions];
+  const seen = new Set([r.id]);
+  let prev = r.supersedes;
+  for (let i = 0; i < CHAIN_CAP && prev && !seen.has(prev); i++) {
+    const p = byId.get(prev);
+    if (!p) break;
+    seen.add(p.id);
+    links.push(...p.linkedMissions);
+    prev = p.supersedes;
+  }
+  return links;
+}
 
 export type ObservationSummary = ReturnType<typeof summarize>;
 
@@ -66,6 +98,7 @@ export function summarize(records: ObservedCommand[], labels: FounderLabel[] = [
   // A record superseded by a later founder edit is history; the latest decision for a command is the one that counts.
   const supersededIds = new Set(records.map((r) => r.supersedes).filter((x): x is string => Boolean(x)));
   const final = records.filter((r) => !supersededIds.has(r.id));
+  const allById = new Map(records.map((r) => [r.id, r]));
 
   const bySource = count(["explicit", "deterministic", "ambiguous"] as const);
   const byHandler: Record<string, number> = { ...count(HANDLERS), undecided: 0 };
@@ -81,8 +114,9 @@ export function summarize(records: ObservedCommand[], labels: FounderLabel[] = [
       const why = r.decision.reasons.find((x) => x.startsWith("founder_authority_") || x === "security_or_authorization") ?? "founder_unspecified";
       escalations[why] = (escalations[why] ?? 0) + 1;
     }
-    if (r.linkedMissions.some((l) => l.relation === "source")) created++;
-    if (r.linkedMissions.some((l) => l.relation === "context")) attached++;
+    const links = chainLinks(r, allById);
+    if (links.some((l) => l.relation === "source")) created++;
+    if (links.some((l) => l.relation === "context")) attached++;
   }
 
   // Replay: what today's rules decide for the same text (drift after a rules change). Pure; no I/O. A founder edit

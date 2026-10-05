@@ -53,7 +53,7 @@ function readJsonArray(p, what) {
 }
 
 const load = (rel) => import("@/" + rel);   // through the hook, so the entry files get the TypeScript format too
-const { normalize, summarize, formatReport } = await load("lib/command/observation");
+const { normalize, summarize, formatReport, invalidLabels } = await load("lib/command/observation");
 
 let records, labels = [], skipped = 0;
 if (flag("--corpus")) {
@@ -69,7 +69,8 @@ if (flag("--corpus")) {
   records = n.records; skipped = n.skipped;
   if (value("--labels")) {
     labels = readJsonArray(value("--labels"), "labels");
-    if (!labels.every((l) => l && typeof l === "object" && typeof l.id === "string")) usage("each label must be an object with a string id");
+    const problems = invalidLabels(labels);
+    if (problems.length) usage(`invalid labels (nothing was scored):\n  ${problems.slice(0, 20).join("\n  ")}`);
   }
 } else {
   usage("no input");

@@ -7,7 +7,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { formatReport, normalize, summarize, type ObservedCommand } from "./observation";
+import { formatReport, invalidLabels, normalize, summarize, type ObservedCommand } from "./observation";
 import { routeCommand } from "./router";
 import { ROUTE_CORPUS } from "./fixtures/route-corpus";
 
@@ -55,6 +55,22 @@ describe("shadow observation summary", () => {
     const s = summarize([rec("q", "Mettle onboarding")], [{ id: "q", expect: "human" }]);
     expect(s.labels !== "not labelled" && [s.labels.dangerousFalseNegatives, s.labels.askedInsteadOfEscalating]).toEqual([[], ["q"]]);
     expect(formatReport(s)).toContain("founder authority answered with a question (nothing would act; review the rule): 1 q");
+  });
+
+  it("a re-routed command keeps the mission links made on its earlier routings (the supersedes chain)", () => {
+    const a = rec("a", "Mettle onboarding", { linkedMissions: [{ relation: "source" }] });
+    const b = rec("b", "Mettle onboarding", { supersedes: "a" });
+    const c = rec("c", "Mettle onboarding", { supersedes: "b", linkedMissions: [{ relation: "context" }] });
+    expect(summarize([a, b, c]).missions).toMatchObject({ created: "1 of 1", attached: "1 of 1" });
+    const loop = [rec("x", "Merge PR 41", { supersedes: "y" }), rec("y", "Merge PR 41", { supersedes: "x", linkedMissions: [{ relation: "source" }] })];
+    expect(() => summarize(loop)).not.toThrow();
+  });
+
+  it("malformed founder labels are rejected before anything is scored", () => {
+    expect(invalidLabels([{ id: "a", expect: "human" }, { id: "b", expect: null }, { id: "c", expect: "claude_code" }])).toEqual([]);
+    const bad = invalidLabels([{ id: "a", expect: "Human" }, { id: "b" }, { expect: "human" }, "x", { id: "", expect: null }]);
+    expect(bad).toHaveLength(5);
+    expect(bad[0]).toMatch(/label 0 \(a\): expect must be one of .* or null, got "Human"/);
   });
 
   it("founder-edited records are not reported as replay drift", () => {
@@ -138,6 +154,9 @@ describe("offline report CLI (scripts/command-shadow-report.mjs)", () => {
     expect(run(["--bogus"]).status).toBe(2);
     expect(run(["--records", join(tmp, "missing.json")]).status).toBe(2);
     expect(run(["--records", write("obj.json", { data: [] })]).status).toBe(2);
+    const typo = run(["--records", write("typo.json", [row("a", "Claude Code, fix Mettle")]), "--labels", write("typo-labels.json", [{ id: "a", expect: "Human" }])]);
+    expect(typo.status).toBe(2);
+    expect(typo.stdout).toBe("");
     const recs = write("ok.json", [row("a", "Merge PR 41")]);
     expect(run(["--records", recs, "--labels", write("badlabels.json", { a: "human" })]).status).toBe(2);
     expect(run(["--records", recs, "--labels", write("badlabels2.json", [{ expect: "human" }])]).status).toBe(2);
