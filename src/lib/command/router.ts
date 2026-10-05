@@ -19,6 +19,7 @@
  *   5. AMBIGUOUS  otherwise no handler is chosen and a question is returned. There is no classifier in M5.
  */
 import { AGENT_CORE } from "@/lib/agent-registry-core";
+import { authorityFinding } from "./authority";
 import { HANDLER_META, HANDLERS, type Handler, type ShadowDecision } from "./types";
 
 export type RouteInput = {
@@ -31,31 +32,7 @@ export type RouteInput = {
 
 const ACTIVE_AGENTS = new Map(AGENT_CORE.filter((a) => a.status === "active").flatMap((a) => [[a.id, a.id], ...a.aliases.map((x) => [x, a.id])] as [string, string][]));
 
-/* ── safety: never delegated, never classified ──────────────────────────────────────────────────────────── */
-// A founder-decision verb, used as a verb: followed by the end of the text, a clause break, or an object word.
-// "verify" counts only for a mission ("verify M-12", "verify the mission"); verifying tests is ordinary work.
-const VERB = "(?:approve|reject|merge|deploy|release|publish|cancel|delete|pay|refund|sign(?: off)?|accept|ship|roll ?out|(?:force[ -])?push(?: it)? to (?:main|master|prod|production)|verify(?= (?:m-\\d|(?:the |this )?mission\\b)))";
-const OBJECT = "(?=\\s*$|\\s*[.;!?\\n,:]|\\s+(?:and|then|it|this|that|them|these|those|the|a|an|my|our|its|pr\\d*|prs|pull|to|on|into|prod|production|staging|live|v\\d[\\w.]*|now|everything|all|mission|m-\\d+|#?\\d+)\\b)";
-const AUTHORITY_AT_START = new RegExp(`^${VERB}(?![-\\w])${OBJECT}`);
-const AUTHORITY_ANYWHERE = new RegExp(`\\b${VERB}(?![-\\w])`, "g");
-// Negation directly before the verb only ("don't merge", "do not merge", "never merge"); "no wait merge it" is not.
-const NEGATED = /(?:\bdon'?t|\bdo not|\bnever|\bnot)\s+$/;
-const NOUN_USE = /\b(?:the|a|an|this|that|our|my|your|its)\s+$/;
-// What may precede the verb inside a clause: a handler name, a registry @agent, or filler.
-const LEAD = /^(?:(?:claude[ -]?code|claude|codex|chat ?gpt|gpt-?\d[\w.]*|openai|perplexity|open ?claw|@[a-z][a-z0-9_-]*|please|pls|kindly|ok|okay|go ahead(?: and)?|go|now|also|just|then|and|so|can you|could you|you|hey|i|we|let's|lets)\b[\s,:]*)+/;
-const CLAUSES = /[.;!?\n,:]|\band\b|\bthen\b/;
-function authorityClause(t: string, handlerNamed: boolean): boolean {
-  if (t.split(CLAUSES).some((c) => AUTHORITY_AT_START.test(c.trim().replace(LEAD, "").trim()))) return true;
-  if (!handlerNamed) return false;
-  for (const m of t.matchAll(AUTHORITY_ANYWHERE)) {
-    const before = t.slice(0, m.index ?? 0);
-    if (!NEGATED.test(before) && !NOUN_USE.test(before)) return true;
-  }
-  return false;
-}
-// A security or authorization decision anywhere in the command.
-const SECURITY = /\b(grant|revoke|rotate|reset)\b[^.!?\n]{0,40}\b(access|permission|permissions|role|roles|admin|authority|key|keys|secret|secrets|token|tokens|credential|credentials|password|passwords)\b|\b(api key|secret key|access token|service[_ -]role|credentials?|password)\b/;
-
+/* ── safety: never delegated, never classified (rules in ./authority) ───────────────────────────────── */
 /* ── explicit names ─────────────────────────────────────────────────────────────────────────────────────── */
 const NAMED: { handler: Handler; re: RegExp }[] = [
   { handler: "claude_code", re: /\bclaude[ -]?code\b/g },
@@ -133,8 +110,13 @@ export function routeCommand(input: RouteInput): ShadowDecision {
 
   // 1. safety
   const named = namedHandlers(t);
-  if (authorityClause(t, named.length > 0)) return decide({ intent: "founder_authority", handler: "human", source: "deterministic", reasons: ["founder_authority_verb"] }, t, inMission);
-  if (SECURITY.test(t)) return decide({ intent: "security_decision", handler: "human", source: "deterministic", reasons: ["security_or_authorization"] }, t, inMission);
+  const authority = authorityFinding(t, named.length > 0);
+  if (authority) {
+    return decide({
+      intent: authority.kind, handler: "human", source: "deterministic",
+      reasons: authority.kind === "security_decision" ? ["security_or_authorization"] : [`founder_authority_${authority.category}`, `rule_${authority.rule}`],
+    }, t, inMission);
+  }
 
   // 2. explicit
   if (input.handlerHint) {

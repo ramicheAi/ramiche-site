@@ -98,7 +98,8 @@ describe("safety: founder authority and security are never delegated", () => {
     // no handler named
     "force push to main", "I approve", "verify the mission", "merge 41", "sign off on PR 41", "roll out to production", "deploy prod", "ship v2", "approve PR41", "merge into main",
   ])("an authority verb at the start of ANY clause, after a handler name or filler, is the founder's: %s", (text) => {
-    expect(r(text)).toMatchObject({ handler: "human", intent: "founder_authority", founderApprovalRequired: true, reasons: ["founder_authority_verb"] });
+    expect(r(text)).toMatchObject({ handler: "human", intent: "founder_authority", founderApprovalRequired: true, });
+    expect(r(text).reasons[0]).toMatch(/^founder_authority_/);
   });
   it.each([
     ["Claude Code, fix Mettle. Codex reviews. Don't merge without me.", "claude_code"],
@@ -121,8 +122,8 @@ describe("safety: founder authority and security are never delegated", () => {
   ])("an authority word that is not a clause's verb, or a negated one, does not take the route: %s", (text, handler) => {
     expect(r(text).handler).toBe(handler);
   });
-  it("known limitation (fails safe): with a handler named, coding phrasings that use an authority verb go to the founder", () => {
-    for (const t of ["Claude Code, delete the unused imports", "Claude Code, release the lock after the write"]) expect(r(t).handler, t).toBe("human");
+  it("an authority verb aimed at a code object stays with the named handler", () => {
+    for (const t of ["Claude Code, delete the unused imports", "Claude Code, release the lock after the write"]) expect(r(t).handler, t).toBe("claude_code");
   });
   it("naming a handler cannot route an approval to it", () => {
     expect(r("approve the PR, Claude Code").handler).toBe("human");
@@ -163,10 +164,10 @@ describe("purity", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
   it("the router and its types import no executor, provider call, job, telemetry writer or database", () => {
-    for (const f of ["router.ts", "types.ts"]) {
+    for (const f of ["router.ts", "types.ts", "authority.ts"]) {
       const src = readFileSync(join(process.cwd(), "src/lib/command", f), "utf8");
       const runtimeImports = [...src.matchAll(/^import (?!type )[^;]*from "([^"]+)"/gm)].map((m) => m[1]);
-      expect(runtimeImports.filter((p) => !["@/lib/agent-registry-core", "./types"].includes(p)), f).toEqual([]);
+      expect(runtimeImports.filter((p) => !["@/lib/agent-registry-core", "./types", "./authority"].includes(p)), f).toEqual([]);
     }
   });
 });
