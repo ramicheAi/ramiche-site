@@ -40,15 +40,13 @@ const CODE_NOUNS = String.raw`(?:pages?|components?|filters?|views?|ui|screens?|
 const CODE_AFTER = new RegExp(String.raw`^\s*(?:\w+\s+)?` + CODE_NOUNS + String.raw`\b`);
 // UI nouns, directly after the matched words: the only exemption for destructive, messaging and money rules.
 const UI_DIRECT = /^\s+(?:pages?|components?|views?|screens?|modals?|buttons?|tabs?|filters?|ui|forms?|cards?|panels?|widgets?|menus?|sections?|columns?|calculations?|logic|layout|copy|dropdown|picker|selector)\b/;
-// Security acts led by a verb (share, rotate, log, ...): only these code nouns, directly after, exempt them.
-const SECURITY_CODE_DIRECT = /^\s+(?:counters?|parser|parsing|refresh|expiry|count|length|bugs?|logic|tests?|types?|limit|budget|usage|estimate)\b/;
 // A named recipient means disclosure, never code: "... with the vendor", "... to the partner".
 const RECIPIENT = /\b(?:with|to)\s+(?:the\s+|our\s+|my\s+|a\s+|an\s+)?(?:vendor|vendors|partner|partners|client|clients|customer|customers|contractor|contractors|team|them|him|her|someone|everyone|agency|freelancer|investor|investors|coach|coaches|support|[a-z]+@)\b/;
 // Infrastructure words that make a prod/live switch consequential whatever follows.
-const INFRA = /\b(?:live|cluster|db|database|domain|dns|traffic|server|servers|region|project|deployment|vercel|cloudflare|supabase|firebase|prod\s+data)\b/;
+const INFRA = /\b(?:live|cluster|db|database|domain|dns|traffic|server|servers|region|project|deployment|vercel|cloudflare|supabase|firebase|prod\s+data|stripe|account|accounts|bucket|buckets|storage|endpoint|endpoints|api|keys?|payments?|billing|cdn|queue|webhooks?)\b/;
 const DESTROY_CORE = /\b(?:prod|production|database|databases|db|tables?|backups?|storage|buckets?|firestore|supabase)\b/;
-const MESSAGE_RULES = new Set(["notify_people", "send_it"]);
-const MONEY_RULES = new Set(["money_broad"]);
+const DESTROY_EXEMPTIBLE_VERB = /^(?:remove|delete|clear|reset)\b/;
+const DATA_AFTER = /^\s+\w+\s+(?:data|entries|records|rows|items|users|accounts|history|contents)\b/;
 
 const blocked = (before: string) => NEGATED.test(before) || NOUN_USE.test(before) || FEATURE_DESCRIPTION.test(before);
 const clauseRest = (t: string, from: number) => t.slice(from).split(/[.;!?\n]/)[0];
@@ -56,9 +54,10 @@ const clauseRest = (t: string, from: number) => t.slice(from).split(/[.;!?\n]/)[
 /** Whether a strong-rule match may be exempted as code. The consequential core never is. */
 function strongExempt(rule: string, t: string, at: number, text: string): boolean {
   const after = t.slice(at + text.length);
-  if (rule === "destroy_broad") return !DESTROY_CORE.test(text) && UI_DIRECT.test(after);
-  if (MESSAGE_RULES.has(rule)) return UI_DIRECT.test(after) && /\S/.test(after.replace(UI_DIRECT, "").split(/[.;!?\n]/)[0]);
-  if (MONEY_RULES.has(rule)) return UI_DIRECT.test(after);
+  // Only a plain remove/delete/clear/reset of a UI part, with nothing data-like after it, is code. Never purge, wipe,
+  // drop, truncate, erase, nuke, kill or destroy, and never a prod / database / table / backup / storage target.
+  if (rule === "destroy_broad") return DESTROY_EXEMPTIBLE_VERB.test(text) && !DESTROY_CORE.test(text) && UI_DIRECT.test(after) && !DATA_AFTER.test(after);
+  // Messages to people and money are never exempt.
   if (rule === "live_switch") return !/^point\b/.test(text) && !INFRA.test(clauseRest(t, at).replace(/^.*?\bswitch\s+(?:prod|production)\b/, "").replace(/^\S+\s+live\b/, "")) && CODE_AFTER.test(after);
   return false;
 }
@@ -74,7 +73,7 @@ function* matchesFrom(re: RegExp, t: string): Generator<RegExpExecArray> {
   }
 }
 
-/* 1. security. verbLed: an act on a credential (only SECURITY_CODE_DIRECT exempts it); otherwise a bare mention of a
+/* 1. security. verbLed: an act on a credential (never exempt); otherwise a bare mention of a
  *    credential noun, which a code noun may exempt unless a recipient is named. Spans never cross a comma. */
 const S = "[^.,;!?\\n]";
 const SECURITY_RULES: { re: RegExp; verbLed: boolean }[] = [
@@ -85,11 +84,12 @@ const SECURITY_RULES: { re: RegExp; verbLed: boolean }[] = [
   { verbLed: false, re: /\b(?:api|access|auth|bearer|github|vercel|stripe|supabase|openai|anthropic|personal\s+access|deploy|service)\s+tokens?\b/ },
   // access and role grants: "make sid an admin", "add them as owner", "make ramon admin", "give the contractor admin access"
   { verbLed: true, re: new RegExp(String.raw`\b(?:make|give|add|grant|set|promote|invite)\b${S}{0,30}\b(?:an?|as|to)\s+(?:\w+\s+)?(?:owner|admin|maintainer|collaborator|member)s?\b(?!\s+(?:list|component|page|view|card|badge|avatar|count|table|row|field|ui|screen|modal))`) },
-  { verbLed: true, re: /\bmake\s+(?!(?:the|a|an|it|this|that|sure|admin|owner)\s)\w+\s+(?:an?\s+)?(?:owner|admin|maintainer)\b/ },
+  { verbLed: true, re: /\bmake\s+(?!(?:the|a|an|it|this|that|sure|admin|owner)\s)\w+\s+(?:an?\s+|the\s+)?(?:owner|admin|maintainer)\b/ },
+  { verbLed: true, re: /\bgive\s+(?!(?:the|a|an|it|this|that)\s)\w+\s+(?:owner|admin|maintainer|write|push|merge)\s+(?:rights|access|role|permissions?|privileges)\b|\btransfer\s+(?:the\s+)?ownership\b/ },
   { verbLed: true, re: /\bbranch\s+protection\b|\b(?:turn\s+off|disable|remove)\s+(?:the\s+)?(?:protection|auth|authentication|rls|row\s+level\s+security|firewall|cors)\b/ },
   { verbLed: true, re: new RegExp(String.raw`\b(?:rules?|bucket|storage|database|db|firestore|supabase|repo|repository)\b${S}{0,30}\bpublic\b|\bmake\b${S}{0,30}\bpublic\b`) },
   // secret config edits: each .env mention on its own (".env.example" alone is documentation, not a secret)
-  { verbLed: true, re: new RegExp(String.raw`\b(?:add|set|paste|put|change|update|copy)\b[^;!?\n]{0,80}(?:\.env(?!\.(?:example|sample|template|defaults?)\b)\b|\benv\s+vars?\b(?![^.;!?\n]*\.env\.(?:example|sample|template|defaults?)\b)|\benvironment\s+variables?\b(?![^.;!?\n]*\.env\.(?:example|sample|template|defaults?)\b))`) },
+  { verbLed: true, re: new RegExp(String.raw`\b(?:add|set|paste|put|change|update|copy)\b[^;!?\n]{0,80}(?:\.env(?!\.(?:example|sample|template|defaults?)\b)\b|\benv\s+vars?\b(?!\s+(?:in|to|into)\s+(?:the\s+)?\.env\.(?:example|sample|template|defaults?)\b(?!\s+(?:and|&|plus)\b))|\benvironment\s+variables?\b(?!\s+(?:in|to|into)\s+(?:the\s+)?\.env\.(?:example|sample|template|defaults?)\b(?!\s+(?:and|&|plus)\b)))`) },
 ];
 
 /* 2. strong phrases. Each is [category, rule name, pattern]. */
@@ -103,7 +103,7 @@ const STRONG: [AuthorityCategory, string, RegExp][] = [
   ["git_release", "ship", /\bship(?:s|ped|ping)?\s+(?:it|this|that|v\d|the\s+(?:release|build|update|feature|fix|change|changes|site|app)\b|to\s+(?:prod|production|users|customers)\b)/],
   ["git_release", "release", /\b(?:cut|tag|publish|draft|create|ship|do)\s+(?:a\s+|the\s+|new\s+|another\s+)*release\b(?!\s+notes|-)|\brelease(?:s|d)?\s+(?:v\d|version\b|it\b|this\b|the\s+(?:build|app|update|version|site|feature|new\s+version)\b|to\s+(?:prod|production|users|customers|the\s+public)\b)/],
   ["git_release", "promote", new RegExp(`\\bpromot(?:e|es|ed|ing)\\s+${W}{0,30}?\\bto\\s+(?:prod|production|live|main)\\b|\\bpromot(?:e|es|ed|ing)\\s+(?:it|this|the\\s+(?:build|release|deploy|deployment|preview))\\b`)],
-  ["git_release", "go_live", /\b(?:go(?:es|ing)?|went|gone)\s+live\b|\b(?:take|put|make|push)\s+(?:it|this|that|the\s+\w+)\s+live(?!-(?:update|updates|updating|reload|reloading|preview|region|search|data|chat|typing)\b|\w)|\blaunch(?:es|ed|ing)?\s+(?:it|this|the\s+(?:site|app|product|campaign|store|drop|feature))\b/],
+  ["git_release", "go_live", /\b(?:go(?:es|ing)?|went|gone)\s+live\b|\b(?:take|put|make|push)\s+(?:it|this|that|the\s+\w+)\s+live(?!-(?:update|updates|updating|reload|reloading|region|search|chat|typing)\b|\w)|\blaunch(?:es|ed|ing)?\s+(?:it|this|the\s+(?:site|app|product|campaign|store|drop|feature))\b/],
   ["git_release", "roll_out", /\broll(?:s|ed|ing)?[ -]?out\s+(?:to|it|this|the)\b|\broll\s+(?:it|this|them|that|everything)\s+out\b|\broll(?:\s+it)?\s*back\s+(?:prod|production|the\s+deploy|the\s+release)\b/],
   ["git_release", "github_write", /\b(?:close|reopen)\s+(?:the\s+|this\s+)?(?:pr|pull request|issue)\b|\bclose\s+pr\s*#?\d+/],
   // external communication
@@ -119,7 +119,7 @@ const STRONG: [AuthorityCategory, string, RegExp][] = [
   // command-line forms of consequential acts
   ["git_release", "cli", /\b(?:git|gh)\s+(?:push|merge|tag|rebase|release)\b|\bgit\s+reset\s+--hard\b|\bgh\s+pr\s+(?:merge|close)\b|\bvercel\b[^.;!?\n]*--prod\b|\bvercel\s+(?:deploy|promote|alias)\b|\b(?:npm|pnpm|yarn)\s+publish\b|\b(?:firebase|wrangler|supabase|fly|netlify)\s+(?:deploy|publish|db\s+push|db\s+reset)\b|\brm\s+-rf?\b/],
   ["git_release", "automerge", /\bauto[- ]?merge\b|\bpush\s+(?:the\s+)?tags\b|\btag\s+(?:a\s+|the\s+)?v?\d+\.\d+|\bfinali[sz]e\s+(?:the\s+)?release\b/],
-  ["git_release", "live_switch", /\b(?:push|flip|switch|take|put|make|turn|set|send)\s+(?:it\s+|this\s+|that\s+|everything\s+|the\s+\w+\s+)?live(?!-(?:update|updates|updating|reload|reloading|preview|region|search|data|chat|typing)\b|\w)|\bswitch\s+(?:prod|production)(?:\s+traffic)?\b|\bpoint\s+(?:the\s+)?(?:domain|dns|prod|production)\b|\bcut\s*over\b/],
+  ["git_release", "live_switch", /\b(?:push|flip|switch|take|put|make|turn|set|send)\s+(?:it\s+|this\s+|that\s+|everything\s+|the\s+\w+\s+)?live(?!-(?:update|updates|updating|reload|reloading|region|search|chat|typing)\b|\w)|\bswitch\s+(?:prod|production)(?:\s+traffic)?\b|\bpoint\s+(?:the\s+)?(?:domain|dns|prod|production)\b|\bcut\s*over\b/],
   ["git_release", "act_conditionally", /\b(?:merge|deploy|ship|release|publish|launch|push)\s+(?:it\s+|this\s+|them\s+)?(?:if|once|when|after|as\s+soon\s+as)\b/],
   // the act must be a verb: not a noun use ("after THE merge"), and not the code terms "merge sort" / "merge conflicts"
   ["git_release", "conditional_act", new RegExp(`\\b(?:if|once|when|after|as\\s+soon\\s+as)\\b${W}{0,60}?(?<!\\b(?:the|a|an|this|that|our|my|its)\\s)\\b(?:merge|deploy|ship|release|publish|launch|push)\\b(?![-\\w])(?!\\s+(?:sort|sorting|conflicts?|step|function|helper|logic|script|button)\\b)`)],
@@ -127,7 +127,7 @@ const STRONG: [AuthorityCategory, string, RegExp][] = [
   ["external_comms", "send_it", /\bsend\s+(?:it|them|this|that|these|those)(?=\s*$|\s*[.;!?,]|\s+(?:out|off|to\b|now|today|tonight|over|along))|\bfire\s+(?:it|them|this)\s+off\b|\bblast(?:s|ed|ing)?\b(?!\s+radius)|\bmass[- ]?(?:email|text|dm|message)/],
   ["external_comms", "notify_people", /\b(?:notify|notifies|notified|notifying|email|e-mail|emailing|text|texting|dm|message|ping|contact|invite)\s+(?:all\s+(?:of\s+)?(?:the\s+|our\s+)?|every\s+|the\s+|our\s+|my\s+)?(?:\d+\s+)?(?:customers?|clients?|leads?|users?|parents?|coach(?:es)?|subscribers?|prospects?|athletes?|swimmers?|everyone|everybody|investors?|partners?|vendors?|dispensar(?:y|ies)|members?)\b|\b(?:notify|email|e-mail|text|dm|message|ping|contact)\s+(?:the|our|my|whole|entire|mailing|email)\s+(?:mailing\s+|email\s+)?list\b|\breach(?:es|ing)?\s+out\s+to\b|\btweet(?:s|ed|ing)?\b|\bpost(?:s|ed|ing)?\s+(?:the|a|this|that|it|our|my)\s+(?:reel|video|post|story|announcement|photo|update|thread|tweet|carousel|teaser|drop)\b|\bsend\b[^.;!?\n]{0,40}\bto\s+(?:all\s+|the\s+|every\s+|our\s+)?(?:customers?|clients?|leads?|users|parents|coaches|subscribers?|prospects?|list|everyone|investors)\b/],
   // broad money
-  ["financial", "money_broad", /\bwire\s+(?:the\s+)?(?:money|funds|payment|cash|\$|\d)|\bsettle\s+(?:up\b|(?:the\s+|that\s+|this\s+)?(?:invoice|bill|balance|debt|tab|account))|\bcharge\s+(?:them|him|her|the\s+customer|the\s+client|\$|\d)|\b(?:issue|process|send|make|approve)\s+(?:a\s+|the\s+)?(?:refund|payout|payment|transfer|deposit)s?\b|\bpay\s*out\b|\b(?:venmo|zelle|cash\s?app|paypal)\s+(?:\w+\s+){0,3}?(?:\$|\d|them|him|her|me|us|the\s+money)|\b(?:send|pay|transfer)\b[^.;!?\n]{0,40}\b(?:via|on|through|with|over)\s+(?:venmo|zelle|cash\s?app|paypal)\b|\b(?:invoice|bill)\s+(?:them|him|her|the\s+client|the\s+customer)\b/],
+  ["financial", "money_broad", /\bwire\s+(?:the\s+)?(?:money|funds|payment|cash|\$|\d)|\bsettle\s+(?:up\b|(?:the\s+|that\s+|this\s+)?(?:invoice|bill|balance|debt|tab|account))|\bcharge\s+(?:them|him|her|the\s+customer|the\s+client|\$|\d)|\b(?:issue|process|send|make|approve)\s+(?:a\s+|the\s+)?(?:refund|payout|payment|transfer|deposit)s?\b|\bpay\s*out\b|\b(?:venmo|zelle|cash\s?app|paypal)\s+(?:\w+\s+){0,6}?(?:\$|\d|them|him|her|me|us|the\s+money)|\b(?:send|pay|transfer)\b[^.;!?\n]{0,40}\b(?:via|on|through|with|over)\s+(?:venmo|zelle|cash\s?app|paypal)\b|\b(?:invoice|bill)\s+(?:them|him|her|the\s+client|the\s+customer)\b/],
   // broad destruction of real data
   ["destructive_data", "destroy_broad", /\b(?:kill|wipe|reset|remove|delete|drop|truncate|purge|erase|nuke|destroy|clear)\b\s+(?:\w+\s+){0,3}?(?:database|databases|db|firestore|supabase|prod|production|backups?|records|customer\s+data|user\s+data|users|customers|leads|bucket|buckets|storage|tables?|collections?|accounts?)\b/],
   ["mission_lifecycle", "close_out", /\bclose\s+out\s+(?:the\s+|this\s+)?mission\b/],
@@ -189,7 +189,8 @@ export function authorityFinding(t: string, handlerNamed: boolean): AuthorityFin
       const at = m.index;
       if (NEGATED.test(t.slice(0, at))) continue;
       const after = t.slice(at + m[0].length);
-      if (verbLed ? SECURITY_CODE_DIRECT.test(after) : (CODE_AFTER.test(after) && !RECIPIENT.test(clauseRest(t, at)))) continue;
+      // A verb-led act on a credential is never exempt; a bare credential mention may name code unless it is disclosed.
+      if (!verbLed && CODE_AFTER.test(after) && !RECIPIENT.test(clauseRest(t, at))) continue;
       return { kind: "security_decision", category: "security", rule: "security_or_authorization" };
     }
   }
