@@ -179,16 +179,16 @@ describe("Universal Command entry in the command palette", () => {
   });
 
   it("hovering Run as Job does not select it, so Enter after a stray mouse move still shadow-routes", async () => {
-    fetchSpy.mockImplementation(() => json(201, { data: { id: ID }, error: null }));
+    fetchSpy.mockImplementation(() => ok("fix it"));
     open("fix it");
     fireEvent.mouseEnter(screen.getByRole("button", { name: /run as job/i }));
     fireEvent.keyDown(window, { key: "Enter" });
-    await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
+    await screen.findByTestId("shadow-result");
     expect(fetchSpy.mock.calls.map(([u]) => u)).toEqual(["/api/command-center/command/shadow"]);
   });
 
   it("editing the text after arrowing to Run as Job moves the highlight back to Shadow-route", async () => {
-    fetchSpy.mockImplementation(() => json(201, { data: { id: ID }, error: null }));
+    fetchSpy.mockImplementation(() => ok("first, edited"));
     open("first");
     fireEvent.keyDown(window, { key: "ArrowDown" });
     fireEvent.change(screen.getByPlaceholderText(/type intent/i), { target: { value: "first, edited" } });
@@ -262,6 +262,27 @@ describe("Least effort: the shadow result stays in the palette (P06 M5C)", () =>
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(nav.push).not.toHaveBeenCalled();
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("text typed while the route is pending is kept when the result arrives (M5C review)", async () => {
+    let release!: (v: Response) => void;
+    fetchSpy.mockImplementationOnce(() => new Promise<Response>((r) => (release = r)));
+    open("Claude Code, fix it");
+    fireEvent.keyDown(window, { key: "Enter" });
+    await screen.findByRole("status");
+    const input = screen.getByPlaceholderText(/type intent/i) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Research pricing" } });
+    release(okResponse("Claude Code, fix it"));
+    await screen.findByTestId("shadow-result");
+    expect(input.value).toBe("Research pricing");
+  });
+
+  it("a success response without a readable decision is shown as a failure, never a crash or a fake result", async () => {
+    fetchSpy.mockImplementation(() => json(201, { data: { id: ID }, error: null }));
+    open("Claude Code, fix it");
+    fireEvent.keyDown(window, { key: "Enter" });
+    expect((await screen.findByRole("alert")).textContent).toContain("Shadow routing failed");
+    expect(screen.queryByTestId("shadow-result")).toBeNull();
   });
 
   it("Create Mission and Details are explicit and open the Missions flow only when clicked", async () => {

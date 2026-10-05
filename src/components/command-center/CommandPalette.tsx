@@ -161,8 +161,8 @@ function fuzzyScore(haystack: string, needle: string): number {
 
 /** attempt: which shadow attempt this state belongs to; a result for an abandoned attempt is ignored. done: the
  *  recorded decision, shown compactly in the palette (P06 M5C: the founder stays where he is; nothing navigates). */
-type ShadowState = { busy: boolean; error: string | null; done: ShadowRecord | null; attempt: number };
-const IDLE: ShadowState = { busy: false, error: null, done: null, attempt: 0 };
+type ShadowState = { busy: boolean; error: string | null; done: ShadowRecord | null; sent: string; attempt: number };
+const IDLE: ShadowState = { busy: false, error: null, done: null, sent: "", attempt: 0 };
 
 /** What the compact result says about founder involvement. Display only; the decision itself is unchanged. */
 function founderLine(d: ShadowRecord["decision"]): string {
@@ -258,11 +258,11 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
       if (!text) return;
       const mine = attempt + 1;
       setAttempt(mine);
-      setShadowState({ busy: true, error: null, done: null, attempt: mine });
+      setShadowState({ busy: true, error: null, done: null, sent: text, attempt: mine });
       const r = await httpCommandApi.route({ text, missionId: missionIdFromPath(pathname) });
       setShadowState((cur) => (cur.attempt !== mine ? cur
-        : r.ok ? { busy: false, error: null, done: r.data, attempt: mine }
-          : { busy: false, error: `Shadow routing failed: ${r.message}`, done: null, attempt: mine }));
+        : r.ok && r.data?.decision && typeof r.data.id === "string" ? { busy: false, error: null, done: r.data, sent: text, attempt: mine }
+          : { busy: false, error: `Shadow routing failed: ${r.ok ? "the recorded decision could not be read" : r.message}`, done: null, sent: text, attempt: mine }));
     },
     [pathname, attempt]
   );
@@ -273,13 +273,13 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
       setShadowState({ ...IDLE, attempt: -1 });   // matches no attempt: anything still in flight is ignored
     }
   }, [open, shadowState]);
-  // A new result is shown: clear the input, ready for the next command (typing then hides the result). Adjusted
-  // during render, so the cleared input and the result appear together.
+  // A new result is shown: clear the input, ready for the next command (typing then hides the result), unless the
+  // founder already typed something else while it was pending. Adjusted during render, so both appear together.
   const doneId = shadowState.done?.id ?? null;
   const [clearedFor, setClearedFor] = useState<string | null>(null);
   if (doneId !== clearedFor) {
     setClearedFor(doneId);
-    if (doneId) setQuery("");
+    if (doneId && query.trim() === shadowState.sent) setQuery("");
   }
   // The founder's explicit next steps from a shown result. Neither happens unless clicked.
   const openShadow = useCallback(
