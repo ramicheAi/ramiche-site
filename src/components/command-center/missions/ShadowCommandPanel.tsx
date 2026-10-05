@@ -26,6 +26,11 @@ const SOURCE_TEXT: Record<ShadowRecord["decision"]["source"], string> = {
  * route needs the job id in it, so neither can be chosen by editing.
  */
 const EDITABLE: Handler[] = HANDLERS.filter((h) => h !== "cockpit_agent" && h !== "existing_job");
+/**
+ * Missions a command may be attached to: open work only. Verified and cancelled missions cannot take links (M1 MI022),
+ * and a completed mission is finished work awaiting verification: a new instruction belongs in a new mission.
+ */
+const attachable = (m: MissionRow) => !isTerminal(m.state) && m.state !== "completed";
 /** Attach picker: follow the list cursor, bounded (a mission beyond the bound is reported, never silently missing). */
 const PICKER_PAGES = 10;
 
@@ -74,10 +79,10 @@ export function ShadowCommandPanel({ id, api = httpCommandApi, missions = httpMi
         if (!alive) return;
         if (!r.ok) { setPickerNote(`Missions could not be loaded for attaching: ${r.message}`); setOpen([]); return; }
         for (const m of r.data.missions) if (!all.some((x) => x.id === m.id)) all.push(m);   // pages may overlap
-        if (r.data.nextBefore === null) { setOpen(all.filter((m) => !isTerminal(m.state))); return; }
+        if (r.data.nextBefore === null) { setOpen(all.filter(attachable)); return; }
         before = r.data.nextBefore;
       }
-      setOpen(all.filter((m) => !isTerminal(m.state)));
+      setOpen(all.filter(attachable));
       setPickerNote(`Only the newest ${all.length} missions are listed for attaching; open an older mission and attach from there.`);
     })();
     return () => { alive = false; };
@@ -123,7 +128,7 @@ export function ShadowCommandPanel({ id, api = httpCommandApi, missions = httpMi
       fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", padding: "3px 10px", borderRadius: 6, whiteSpace: "nowrap",
       color: "var(--ink-0)", background: "var(--c-amber, #f59e0b)",
     }}>SHADOW</span>}>
-      <div data-testid="shadow-command" style={{ display: "grid", gap: 12 }}>
+      <div data-testid="shadow-command" style={{ display: "grid", gap: 12, gridTemplateColumns: "minmax(0, 1fr)" }}>
         <p data-testid="shadow-label" role="status" style={{ margin: 0, fontWeight: 700, letterSpacing: "0.04em", color: "var(--c-amber, #f59e0b)" }}>
           SHADOW: NOTHING HAS BEEN EXECUTED
         </p>
@@ -167,7 +172,7 @@ export function ShadowCommandPanel({ id, api = httpCommandApi, missions = httpMi
             onCancel={() => setCreating(false)}
             onCreated={(m) => { setCreating(false); void load(); onCreated(m); }} />
         ) : (
-          <div style={{ display: "grid", gap: 12 }}>
+          <div style={{ display: "grid", gap: 12, gridTemplateColumns: "minmax(0, 1fr)" }}>
             <div style={row}>
               {(createOffered || showCreateAnyway) && <Btn tone="primary" disabled={busy} onClick={() => setCreating(true)}>Create Mission</Btn>}
               {!createOffered && !showCreateAnyway && (
@@ -176,14 +181,14 @@ export function ShadowCommandPanel({ id, api = httpCommandApi, missions = httpMi
               <Btn disabled={busy} onClick={onDismiss}>Dismiss</Btn>
             </div>
             <div style={row}>
-              <select aria-label="Mission to attach to" value={target} disabled={busy || open === null} onChange={(e) => setAttachTo(e.target.value)} style={{ ...field, flex: "1 1 220px", width: "auto" }}>
+              <select aria-label="Mission to attach to" value={target} disabled={busy || open === null} onChange={(e) => setAttachTo(e.target.value)} style={{ ...field, flex: "1 1 220px", width: "auto", minWidth: 0, maxWidth: "100%" }}>
                 <option value="">{open === null ? "Loading missions…" : "Attach to a mission…"}</option>
                 {(open ?? []).map((m) => <option key={m.id} value={m.id}>{formatRef(m.ref)} · {m.objective.slice(0, 60)}</option>)}
               </select>
               <Btn tone={rec.missionContext ? "primary" : "default"} disabled={busy || !target} onClick={() => void attach()}>Attach to Mission</Btn>
             </div>
             <div style={row}>
-              <select aria-label="Edit routing" value={editHandler} disabled={busy} onChange={(e) => setEditHandler(e.target.value as Handler)} style={{ ...field, flex: "1 1 220px", width: "auto" }}>
+              <select aria-label="Edit routing" value={editHandler} disabled={busy} onChange={(e) => setEditHandler(e.target.value as Handler)} style={{ ...field, flex: "1 1 220px", width: "auto", minWidth: 0, maxWidth: "100%" }}>
                 {EDITABLE.map((h) => <option key={h} value={h}>{HANDLER_META[h].label}</option>)}
               </select>
               <Btn disabled={busy} onClick={() => void reroute()}>Edit routing</Btn>

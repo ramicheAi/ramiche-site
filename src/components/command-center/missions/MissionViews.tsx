@@ -31,6 +31,8 @@ export const field: CSSProperties = {
   border: "1px solid var(--line)", background: "var(--ink-2)", color: "var(--t-hi)", fontSize: 15,
 };
 export const row: CSSProperties = { display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" };
+/** A navigation link with a full touch target (44px), for phone use. */
+const backLink: CSSProperties = { ...muted, textDecoration: "none", display: "inline-flex", alignItems: "center", minHeight: 44, alignSelf: "start" };
 
 export function StateBadge({ state }: { state: MissionState }) {
   const c = STATE_COLOR[state];
@@ -425,7 +427,7 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
     <div style={row}>
       <ErrorLine text={`This mission could not be loaded. ${readError}`} />
       <Btn onClick={() => void load()}>Try again</Btn>
-      <Link href="/command-center/missions" style={{ ...muted, textDecoration: "none" }}>← All missions</Link>
+      <Link href="/command-center/missions" style={backLink}>← All missions</Link>
     </div>
   ) : <p style={muted}>Loading mission…</p>;
   const m = d.mission;
@@ -436,8 +438,9 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
   const coverage = coverageText(m.success_criteria, evidence);
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
-      <Link href="/command-center/missions" style={{ ...muted, textDecoration: "none" }}>← All missions</Link>
+    // minmax(0, 1fr): a card can never grow past the viewport to fit its content (phones)
+    <div style={{ display: "grid", gap: 16, gridTemplateColumns: "minmax(0, 1fr)" }}>
+      <Link href="/command-center/missions" style={backLink}>← All missions</Link>
       <Panel title={formatRef(m.ref)} icon="bolt" badge={<span style={row}><CueBadge cue={attentionCue(m, evidence)} /><StateBadge state={m.state} /></span>}>
         <p style={{ color: "var(--t-hi)", fontSize: 18, fontWeight: 600, lineHeight: 1.45, margin: "0 0 10px", overflowWrap: "anywhere" }}>{m.objective}</p>
         <p style={{ ...muted, margin: "0 0 12px" }}>
@@ -619,9 +622,9 @@ function LinksPanel({ m, links, busy, showRemoved, setShowRemoved, onAdd, onRemo
           </li>
         ))}
       </ul>
-      <label style={{ ...row, ...muted, marginTop: 10 }}>
+      <label style={{ ...row, ...muted, marginTop: 10, minHeight: 44, cursor: "pointer" }}>
         {/* Disabled during an action and its refresh, so the reload always uses the view state shown here. */}
-        <input type="checkbox" checked={showRemoved} disabled={busy} onChange={(e) => setShowRemoved(e.target.checked)} /> Show removed links
+        <input type="checkbox" checked={showRemoved} disabled={busy} onChange={(e) => setShowRemoved(e.target.checked)} style={{ width: 20, height: 20 }} /> Show removed links
       </label>
       {editable ? (
         <form onSubmit={add} aria-label="Add link" style={{ display: "grid", gap: 10, marginTop: 14 }}>

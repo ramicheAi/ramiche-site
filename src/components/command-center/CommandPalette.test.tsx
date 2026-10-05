@@ -4,7 +4,7 @@
  * (which executes), and inside a mission it sends that mission as context.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 const nav = vi.hoisted(() => ({ push: vi.fn(), path: "/command-center" }));
 const fetchSpy = vi.hoisted(() => vi.fn());
@@ -179,5 +179,16 @@ describe("Universal Command entry in the command palette", () => {
     fireEvent.keyDown(window, { key: "Enter" });
     await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
     expect(fetchSpy.mock.calls.map(([u]) => u)).toEqual(["/api/command-center/command/shadow"]);
+  });
+});
+
+describe("Run as Job reads as an executing action (M5A)", () => {
+  it("its tag and hint use the warning colour; the shadow row's do not", () => {
+    open("fix it");
+    const rows = screen.getAllByRole("button");
+    const runTag = within(rows[1]).getByText("runs now");
+    expect(runTag.style.color).toContain("--c-amber");
+    expect(within(rows[1]).getByText(/Executes now/).style.color).toContain("--c-amber");
+    expect(within(rows[0]).getByText(/Nothing is executed/).style.color).not.toContain("--c-amber");
   });
 });
