@@ -101,6 +101,20 @@ describe("Universal Command entry in the command palette", () => {
     expect(nav.push).not.toHaveBeenCalled();
   });
 
+  it("a request still pending when the palette closes does not lock it after reopening", async () => {
+    fetchSpy.mockImplementationOnce(() => new Promise<Response>(() => {}))                // never resolves
+      .mockImplementationOnce(() => json(201, { data: { id: ID }, error: null }));
+    const onClose = vi.fn();
+    const { rerender } = render(<CommandPalette open onClose={onClose} />);
+    fireEvent.change(screen.getByPlaceholderText(/type intent/i), { target: { value: "fix it" } });
+    fireEvent.click(screen.getByRole("button", { name: /shadow-route/i }));
+    rerender(<CommandPalette open={false} onClose={onClose} />);
+    rerender(<CommandPalette open onClose={onClose} />);
+    expect(screen.queryByRole("status")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /shadow-route/i }));
+    await waitFor(() => expect(nav.push).toHaveBeenCalledWith(`/command-center/missions?command=${ID}`));
+  });
+
   it("the existing Run as Job entry is unchanged and still first", () => {
     open("fix it");
     const items = screen.getAllByRole("button").map((b) => b.textContent ?? "");

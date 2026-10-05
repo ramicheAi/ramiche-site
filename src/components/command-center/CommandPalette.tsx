@@ -157,6 +157,9 @@ function fuzzyScore(haystack: string, needle: string): number {
   return 1;
 }
 
+type ShadowState = { busy: boolean; error: string | null; doneId: string | null };
+const IDLE: ShadowState = { busy: false, error: null, doneId: null };
+
 export interface CommandPaletteProps {
   open: boolean;
   onClose: () => void;
@@ -228,8 +231,6 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
   // P06 M5 Universal Command: record a SHADOW routing decision for the typed command (nothing is executed), then
   // open it on the Missions page. Issued from inside a mission, the mission travels along as context.
   const pathname = usePathname();
-  type ShadowState = { busy: boolean; error: string | null; doneId: string | null };
-  const IDLE: ShadowState = { busy: false, error: null, doneId: null };
   const [shadowState, setShadowState] = useState<ShadowState>(IDLE);
   // After a shadow attempt the highlight stays on the Shadow-route row, so Enter after editing a failed command
   // retries the SHADOW route and can never fall through to "Run as Job" (which executes).
@@ -253,8 +254,10 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
       setShadowState({ busy: false, error: null, doneId: null });
       onClose();
       router.push(`/command-center/missions?command=${encodeURIComponent(id)}`);
-    } else if (!open && (shadowState.doneId || shadowState.error || shadowSticky)) {
-      setShadowState({ busy: shadowState.busy, error: null, doneId: null });
+    } else if (!open && (shadowState.busy || shadowState.doneId || shadowState.error || shadowSticky)) {
+      // Closing abandons a pending route (a hung request can never lock the palette); a late result is discarded
+      // by the open check above, and a late error only appears if it arrives while the palette is open again.
+      setShadowState(IDLE);
       setShadowSticky(false);
     }
   }, [open, shadowState, shadowSticky, onClose, router]);
