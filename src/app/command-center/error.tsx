@@ -86,7 +86,7 @@ export default function CommandCenterError({
             Try Again
           </button>
           <Link
-            href="/"
+            href="/command-center"
             style={{
               background: "rgba(255,255,255,0.04)",
               color: "#888888",

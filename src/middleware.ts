@@ -53,12 +53,30 @@ async function firebaseSessionValid(req: NextRequest): Promise<boolean> {
   catch { return false; }
 }
 
+const COMMAND_HOST = "command.parallaxvinc.com";
+
+/**
+ * The host the client asked for. Under `next start -H 127.0.0.1` (the launchd cockpit) Next builds nextUrl from the
+ * bound address, so nextUrl.hostname is always 127.0.0.1 there; the Cloudflare tunnel forwards the real Host header.
+ */
+function requestHost(req: NextRequest): string {
+  return (req.headers.get("host") ?? req.nextUrl.host).trim().toLowerCase().replace(/:\d+$/, "").replace(/\.$/, "");
+}
+
+/** The launchd cockpit release is built and run with NEXT_DIST_DIR=.next-cc (see next.config.ts); Vercel never sets it. */
+const isCockpitDeployment = () => process.env.NEXT_DIST_DIR === ".next-cc";
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Hostname only selects a landing page; it never establishes authority.
-  if (pathname === '/' && req.nextUrl.hostname === 'command.parallaxvinc.com') {
-    return NextResponse.redirect(new URL('/command-center', req.url));
+  // Parallax OS never shows the public marketing homepage: on the command host, and anywhere on the cockpit
+  // deployment, "/" goes straight into the owner flow. Host only selects the landing page; it never establishes
+  // authority, which is the same full owner check as /command-login.
+  if (pathname === '/' && (isCockpitDeployment() || requestHost(req) === COMMAND_HOST)) {
+    const identity = await requireOwnerIdentity(req);
+    const response = NextResponse.redirect(new URL(identity.ok ? '/command-center' : '/command-login', req.url));
+    response.headers.set('cache-control', 'private, no-store');
+    return response;
   }
   // An already-verified owner never needs the login form: the SAME full owner check as the
   // cockpit (verified session + exact PARALLAX_OWNER_UID) must pass before redirecting.
