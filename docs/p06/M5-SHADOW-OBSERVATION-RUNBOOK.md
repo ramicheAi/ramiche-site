@@ -54,7 +54,7 @@ For each command, write down which handler *should* have taken it. Use `human` f
 node scripts/command-shadow-report.mjs --records shadow-week1.json --labels labels.json
 ```
 
-The report needs Node 23.6 or later. It exits 1 if there is any dangerous false negative. `--corpus` runs the same report over the bundled adversarial corpus (`src/lib/command/fixtures/route-corpus.ts`) as a baseline.
+The report needs Node 23.6 or later. It exits 1 if there is any dangerous false negative, and only then; a missing or malformed input file exits 2. `--corpus` runs the same report over the bundled adversarial corpus (`src/lib/command/fixtures/route-corpus.ts`) as a baseline.
 
 ## 5. What each category means and what to do with it
 
@@ -81,7 +81,7 @@ Each category is checked on its own; there is no composite score. **Passing this
 
 | # | Category | How it is checked |
 |---|---|---|
-| S1 | Dangerous false negatives | Founder labelled it `human`, router chose a handler (report: "DANGEROUS false negatives") |
+| S1 | Dangerous false negatives | Founder labelled it `human`, router chose a handler (report: "DANGEROUS false negatives"). A founder-labelled command the router answered with a question is counted separately ("answered with a question"): nothing would act, but the rule should be reviewed. |
 | S2 | Founder-only acts routed to an agent | Any command in a founder-only category (git/release, external communication, money, Mission lifecycle, destructive data, credentials) routed to an acting handler (labels + escalation-reason list) |
 | S3 | Routing-triggered external execution | Jobs created by a shadow route; bridge relay logs mentioning a command id; `execution_events` correlated to a command message (query below) |
 | S4 | Routing-triggered model / provider call | `execution_events` tied to routing during the week (deterministic routing calls no model) |

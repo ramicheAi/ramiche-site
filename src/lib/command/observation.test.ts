@@ -47,8 +47,19 @@ describe("shadow observation summary", () => {
     );
     expect(s.labels).toEqual({
       reviewed: "4 of 4", agreed: "1 of 4",
-      falseFounderEscalations: ["x"], dangerousFalseNegatives: ["y"], wouldHaveActedIncorrectly: ["z"], otherMismatches: [],
+      falseFounderEscalations: ["x"], dangerousFalseNegatives: ["y"], askedInsteadOfEscalating: [], wouldHaveActedIncorrectly: ["z"], otherMismatches: [],
     });
+  });
+
+  it("a founder-labelled command the router answered with a question is counted on its own, not as dangerous", () => {
+    const s = summarize([rec("q", "Mettle onboarding")], [{ id: "q", expect: "human" }]);
+    expect(s.labels !== "not labelled" && [s.labels.dangerousFalseNegatives, s.labels.askedInsteadOfEscalating]).toEqual([[], ["q"]]);
+    expect(formatReport(s)).toContain("founder authority answered with a question (nothing would act; review the rule): 1 q");
+  });
+
+  it("founder-edited records are not reported as replay drift", () => {
+    const edited = rec("e", "Mettle onboarding", { supersedes: "o", decision: routeCommand({ text: "Mettle onboarding", handlerHint: "claude_code" }) });
+    expect(summarize([edited]).replayDrift).toEqual([]);
   });
 
   it("replay flags records today's rules would route differently", () => {
@@ -121,6 +132,14 @@ describe("offline report CLI (scripts/command-shadow-report.mjs)", () => {
   it("the CLI contains no network or database access and writes nothing", () => {
     const src = readFileSync(join(process.cwd(), "scripts/command-shadow-report.mjs"), "utf8");
     expect(src).not.toMatch(/fetch\(|supabase|createClient|https?:\/\/|writeFile|appendFile|mkdir|unlink|rmSync|child_process/);
-    expect(run(["--bogus"]).status).toBe(2);   // usage error, nothing read or written
+  });
+
+  it.skipIf(!canStripTypes)("bad input is a usage error (exit 2), never confused with a dangerous false negative (exit 1)", () => {
+    expect(run(["--bogus"]).status).toBe(2);
+    expect(run(["--records", join(tmp, "missing.json")]).status).toBe(2);
+    expect(run(["--records", write("obj.json", { data: [] })]).status).toBe(2);
+    const recs = write("ok.json", [row("a", "Merge PR 41")]);
+    expect(run(["--records", recs, "--labels", write("badlabels.json", { a: "human" })]).status).toBe(2);
+    expect(run(["--records", recs, "--labels", write("badlabels2.json", [{ expect: "human" }])]).status).toBe(2);
   });
 });

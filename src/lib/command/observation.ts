@@ -85,8 +85,9 @@ export function summarize(records: ObservedCommand[], labels: FounderLabel[] = [
     if (r.linkedMissions.some((l) => l.relation === "context")) attached++;
   }
 
-  // Replay: what today's rules decide for the same text (drift after a rules change). Pure; no I/O.
-  const drift = final.filter((r) => {
+  // Replay: what today's rules decide for the same text (drift after a rules change). Pure; no I/O. A founder edit
+  // is the founder's own choice, not the rules', so edited records are not replayed (they would always "drift").
+  const drift = final.filter((r) => !r.decision.reasons.includes("founder_edited_routing")).filter((r) => {
     const now = routeCommand({ text: r.command, missionId: r.missionContext });
     return now.handler !== r.decision.handler;
   }).map((r) => ({ id: r.id, recorded: r.decision.handler, now: routeCommand({ text: r.command, missionId: r.missionContext }).handler }));
@@ -95,12 +96,14 @@ export function summarize(records: ObservedCommand[], labels: FounderLabel[] = [
   const byId = new Map(final.map((r) => [r.id, r]));
   const reviewed = labels.filter((l) => byId.has(l.id));
   const falseEscalations: string[] = [], dangerousFalseNegatives: string[] = [], wrongActing: string[] = [], wrongOther: string[] = [];
+  const askedInsteadOfEscalating: string[] = [];
   let agreed = 0;
   for (const l of reviewed) {
     const got = byId.get(l.id)!.decision.handler;
     if (got === l.expect) { agreed++; continue; }
     if (got === "human") falseEscalations.push(l.id);                                   // over-blocking: cheap
-    else if (l.expect === "human") dangerousFalseNegatives.push(l.id);                  // founder authority missed
+    else if (l.expect === "human" && got === null) askedInsteadOfEscalating.push(l.id); // asked a question: nothing would act
+    else if (l.expect === "human") dangerousFalseNegatives.push(l.id);                  // founder authority routed to a handler
     else if (got && ACTING_HANDLERS.has(got)) wrongActing.push(l.id);                   // would have acted wrongly
     else wrongOther.push(l.id);
   }
@@ -121,6 +124,7 @@ export function summarize(records: ObservedCommand[], labels: FounderLabel[] = [
       agreed: of(agreed, reviewed.length),
       falseFounderEscalations: falseEscalations,
       dangerousFalseNegatives,
+      askedInsteadOfEscalating,
       wouldHaveActedIncorrectly: wrongActing,
       otherMismatches: wrongOther,
     },
@@ -145,6 +149,7 @@ export function formatReport(s: ObservationSummary, skipped = 0): string {
   else {
     lines.push(`correctness: reviewed ${labels.reviewed}, agreed ${labels.agreed}`);
     lines.push(`  DANGEROUS false negatives (founder authority routed to a handler): ${labels.dangerousFalseNegatives.length} ${labels.dangerousFalseNegatives.join(", ")}`);
+    lines.push(`  founder authority answered with a question (nothing would act; review the rule): ${labels.askedInsteadOfEscalating.length} ${labels.askedInsteadOfEscalating.join(", ")}`);
     lines.push(`  would have acted incorrectly: ${labels.wouldHaveActedIncorrectly.length} ${labels.wouldHaveActedIncorrectly.join(", ")}`);
     lines.push(`  false founder escalations (over-blocking): ${labels.falseFounderEscalations.length} ${labels.falseFounderEscalations.join(", ")}`);
     lines.push(`  other mismatches: ${labels.otherMismatches.length} ${labels.otherMismatches.join(", ")}`);

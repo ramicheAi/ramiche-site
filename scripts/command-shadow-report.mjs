@@ -40,7 +40,17 @@ registerHooks({
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(name);
 const value = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
-const readJson = (p) => JSON.parse(readFileSync(p, "utf8"));
+/** Exit codes: 0 clean, 1 a dangerous false negative (and only that), 2 a usage or input error. */
+function usage(message) {
+  console.error(`${message}\nusage: --corpus | --records <export.json> [--labels <labels.json>] [--json]`);
+  process.exit(2);
+}
+function readJsonArray(p, what) {
+  let v;
+  try { v = JSON.parse(readFileSync(p, "utf8")); } catch (e) { usage(`cannot read ${what} ${p}: ${e instanceof Error ? e.message : e}`); }
+  if (!Array.isArray(v)) usage(`${what} ${p} must be a JSON array`);
+  return v;
+}
 
 const load = (rel) => import("@/" + rel);   // through the hook, so the entry files get the TypeScript format too
 const { normalize, summarize, formatReport } = await load("lib/command/observation");
@@ -55,12 +65,14 @@ if (flag("--corpus")) {
   }));
   labels = ROUTE_CORPUS.map((e, i) => ({ id: `corpus-${i}`, expect: e.expect }));
 } else if (value("--records")) {
-  const n = normalize(readJson(value("--records")));
+  const n = normalize(readJsonArray(value("--records"), "records"));
   records = n.records; skipped = n.skipped;
-  if (value("--labels")) labels = readJson(value("--labels"));
+  if (value("--labels")) {
+    labels = readJsonArray(value("--labels"), "labels");
+    if (!labels.every((l) => l && typeof l === "object" && typeof l.id === "string")) usage("each label must be an object with a string id");
+  }
 } else {
-  console.error("usage: --corpus | --records <export.json> [--labels <labels.json>] [--json]");
-  process.exit(2);
+  usage("no input");
 }
 
 const summary = summarize(records, labels);
