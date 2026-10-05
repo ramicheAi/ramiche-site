@@ -43,10 +43,21 @@ const UI_DIRECT = /^\s+(?:pages?|components?|views?|screens?|modals?|buttons?|ta
 // A named recipient means disclosure, never code: "... with the vendor", "... to the partner".
 const RECIPIENT = /\b(?:with|to)\s+(?:the\s+|our\s+|my\s+|a\s+|an\s+)?(?:vendor|vendors|partner|partners|client|clients|customer|customers|contractor|contractors|team|them|him|her|someone|everyone|agency|freelancer|investor|investors|coach|coaches|support|[a-z]+@)\b/;
 // Infrastructure words that make a prod/live switch consequential whatever follows.
-const INFRA = /\b(?:live|cluster|db|database|domain|dns|traffic|server|servers|region|project|deployment|vercel|cloudflare|supabase|firebase|prod\s+data|stripe|account|accounts|bucket|buckets|storage|endpoint|endpoints|api|keys?|payments?|billing|cdn|queue|webhooks?)\b/;
+const INFRA = /\b(?:live|cluster|db|database|domain|dns|traffic|server|servers|region|project|deployment|vercel|cloudflare|supabase|firebase|prod\s+data|stripe|account|accounts|bucket|buckets|storage|endpoint|endpoints|api|keys?|payments?|billing|cdn|queue|webhooks?|env|environment|backend|routes?|flags?|users|traffic|canary|channel|channels|team|teams|off)\b/;
 const DESTROY_CORE = /\b(?:prod|production|database|databases|db|tables?|backups?|storage|buckets?|firestore|supabase)\b/;
 const DESTROY_EXEMPTIBLE_VERB = /^(?:remove|delete|clear|reset)\b/;
-const DATA_AFTER = /^\s+\w+\s+(?:data|entries|records|rows|items|users|accounts|history|contents)\b/;
+// People, money or data anywhere in the rest of the clause: the act reaches the world, not just the code.
+const PEOPLE_DATA = /\b(?:customers?|clients?|users|everyone|everybody|accounts?|subscriptions?|subscribers?|billing|payments?|invoices?|data|records|history|submissions|values|balances|entries|rows|prod|production|database|db|leads|members|coaches|parents|athletes|swimmers|investors|vendors?|partners?)\b/;
+// Production or external infrastructure anywhere in the clause: no code exemption of any kind applies.
+const CONSEQUENTIAL_CONTEXT = /\b(?:prod|production|db|database|databases|tables?|buckets?|servers?|redis|npm|customers?|firestore|supabase|stripe|vercel|cloudflare|live|webhooks?|cron|repo|repository|plans?|subscriptions?|billing|dns|domain)\b/;
+// Verbs that are consequential whatever their object: they never take a code exemption.
+const NEVER_CODE_VERB = /^(?:deploy|launch|ship|land|promote|approve|reject|accept|sign|pay|refund|verify|roll ?out|(?:force[ -])?push)/;
+// "publish" is code only for an in-process event or a message on an internal bus.
+const PUBLISH_CODE_OBJECT = /^\s+(?:an?\s+|the\s+)?(?:internal\s+|local\s+|domain\s+|in-process\s+)?(?:events?|signals?)\b(?![^.;!?\n]*\b(?:to|on)\s+(?:the\s+)?(?:site|web|npm|blog|public|social|instagram|twitter|x|linkedin|users|customers)\b)/;
+// "release" is code only for runtime resources.
+const RELEASE_CODE_OBJECT = /^\s+(?:(?:the|a|an|all|any|every|unused|old|stale|idle|open)\s+)*(?:lock|locks|mutex|semaphore|resources?|memory|handles?|connections?|sockets?|listeners?|timers?|buffers?|streams?|file\s+handles?|references?|refs?)\b/;
+// A credential mentioned while being placed, published or disclosed is never "code".
+const CREDENTIAL_DISCLOSURE = /\b(?:put|hardcode|hard-code|commit|upload|dump|paste|push|public|gist|slack|discord|share|email|post|send|log|print|expose|leak|tweet|screenshot|in\s+code|into\s+code|repo|github|bake|frontend|front-end|client|clients|bundle|url|urls|browser|query\s+string)\b/;
 
 const blocked = (before: string) => NEGATED.test(before) || NOUN_USE.test(before) || FEATURE_DESCRIPTION.test(before);
 const clauseRest = (t: string, from: number) => t.slice(from).split(/[.;!?\n]/)[0];
@@ -56,9 +67,10 @@ function strongExempt(rule: string, t: string, at: number, text: string): boolea
   const after = t.slice(at + text.length);
   // Only a plain remove/delete/clear/reset of a UI part, with nothing data-like after it, is code. Never purge, wipe,
   // drop, truncate, erase, nuke, kill or destroy, and never a prod / database / table / backup / storage target.
-  if (rule === "destroy_broad") return DESTROY_EXEMPTIBLE_VERB.test(text) && !DESTROY_CORE.test(text) && UI_DIRECT.test(after) && !DATA_AFTER.test(after);
+  if (rule === "destroy_broad") return DESTROY_EXEMPTIBLE_VERB.test(text) && !DESTROY_CORE.test(text) && UI_DIRECT.test(after) && !PEOPLE_DATA.test(after.replace(UI_DIRECT, "").split(/[.;!?\n]/)[0]) && !CONSEQUENTIAL_CONTEXT.test(after.split(/[.;!?\n]/)[0]);
   // Messages to people and money are never exempt.
-  if (rule === "live_switch") return !/^point\b/.test(text) && !INFRA.test(clauseRest(t, at).replace(/^.*?\bswitch\s+(?:prod|production)\b/, "").replace(/^\S+\s+live\b/, "")) && CODE_AFTER.test(after);
+  // Only "switch prod" directly before a build tool is code ("switch prod build to use swc"); never with infrastructure.
+  if (rule === "live_switch") return /^switch\s+(?:prod|production)$/.test(text) && /^\s+(?:build|builds|bundler|compiler)\b/.test(after) && !INFRA.test(after.split(/[.;!?\n]/)[0]);
   return false;
 }
 
@@ -97,7 +109,7 @@ const W = "[^.;!?\\n]";                       // a character inside the same cla
 const STRONG: [AuthorityCategory, string, RegExp][] = [
   // git / release
   ["git_release", "merge", new RegExp(`\\bmerg(?:e|es|ed|ing)\\s+(?:it|this|that|pr\\b|prs\\b|pr\\s*#?\\d+|#\\d+|the\\s+(?:pr|pull request|branch|change|changes|fix|feature)\\b|pull request|${W}{0,40}?\\binto\\s+(?:main|master|prod|production|release)(?![.\\w-]))`)],
-  ["git_release", "push_protected", new RegExp(`\\bforce[ -]?push|\\bpush(?:es|ed|ing)?\\s+(?:--force|-f)\\b|\\bpush(?:es|ed|ing)?\\s+(?:it\\s+|this\\s+|that\\s+|everything\\s+|the\\s+\\w+\\s+)?(?:up\\s+)?(?:to\\s+)?(?:the\\s+)?(?:origin\\s+|upstream\\s+)?(?:main|master|prod|production)(?:\\s+branch)?(?![.\\w-])`)],
+  ["git_release", "push_protected", new RegExp(`\\bforce[ -]?push|\\bpush(?:es|ed|ing)?\\s+(?:--force|-f)\\b|\\bpush(?:es|ed|ing)?\\s+(?:it\\s+|this\\s+|that\\s+|everything\\s+|(?:the\\s+)?(?:[\\w-]+\\s+){1,4}?)?(?:up\\s+)?(?:to\\s+)?(?:the\\s+)?(?:origin\\s+|upstream\\s+)?(?:main|master|prod|production)(?:\\s+branch)?(?![.\\w-])`)],
   ["git_release", "land", /\bland(?:s|ed|ing)?\s+(?:it|this|that|the\s+(?:pr|pull request|branch|change|changes|fix|feature)\b|pr\b|pr\s*#?\d+|#\d+|pull request)/],
   ["git_release", "deploy", /\b(?:re)?deploy(?:s|ed|ing)?(?![-\w])(?:\s+(?:it|this|that|everything)\b|\s+the\s+(?:site|app|cockpit|build|fix|change|changes|release|update|branch|website)\b|\s+(?:it\s+|this\s+)?(?:to\s+)?(?:prod|production|live|staging|vercel)\b)/],
   ["git_release", "ship", /\bship(?:s|ped|ping)?\s+(?:it|this|that|v\d|the\s+(?:release|build|update|feature|fix|change|changes|site|app)\b|to\s+(?:prod|production|users|customers)\b)/],
@@ -122,7 +134,7 @@ const STRONG: [AuthorityCategory, string, RegExp][] = [
   ["git_release", "live_switch", /\b(?:push|flip|switch|take|put|make|turn|set|send)\s+(?:it\s+|this\s+|that\s+|everything\s+|the\s+\w+\s+)?live(?!-(?:update|updates|updating|reload|reloading|region|search|chat|typing)\b|\w)|\bswitch\s+(?:prod|production)(?:\s+traffic)?\b|\bpoint\s+(?:the\s+)?(?:domain|dns|prod|production)\b|\bcut\s*over\b/],
   ["git_release", "act_conditionally", /\b(?:merge|deploy|ship|release|publish|launch|push)\s+(?:it\s+|this\s+|them\s+)?(?:if|once|when|after|as\s+soon\s+as)\b/],
   // the act must be a verb: not a noun use ("after THE merge"), and not the code terms "merge sort" / "merge conflicts"
-  ["git_release", "conditional_act", new RegExp(`\\b(?:if|once|when|after|as\\s+soon\\s+as)\\b${W}{0,60}?(?<!\\b(?:the|a|an|this|that|our|my|its)\\s)\\b(?:merge|deploy|ship|release|publish|launch|push)\\b(?![-\\w])(?!\\s+(?:sort|sorting|conflicts?|step|function|helper|logic|script|button)\\b)`)],
+  ["git_release", "conditional_act", new RegExp(`\\b(?:if|once|when|after|as\\s+soon\\s+as)\\b${W}{0,60}?(?<!\\b(?:the|a|an|this|that|our|my|its)\\s)\\b(?:merge|deploy|ship|release|publish|launch|push)\\b(?![-\\w])(?!\\s+(?:sort|sorting|conflicts?)\\b)`)],
   // bare or broad communication to people
   ["external_comms", "send_it", /\bsend\s+(?:it|them|this|that|these|those)(?=\s*$|\s*[.;!?,]|\s+(?:out|off|to\b|now|today|tonight|over|along))|\bfire\s+(?:it|them|this)\s+off\b|\bblast(?:s|ed|ing)?\b(?!\s+radius)|\bmass[- ]?(?:email|text|dm|message)/],
   ["external_comms", "notify_people", /\b(?:notify|notifies|notified|notifying|email|e-mail|emailing|text|texting|dm|message|ping|contact|invite)\s+(?:all\s+(?:of\s+)?(?:the\s+|our\s+)?|every\s+|the\s+|our\s+|my\s+)?(?:\d+\s+)?(?:customers?|clients?|leads?|users?|parents?|coach(?:es)?|subscribers?|prospects?|athletes?|swimmers?|everyone|everybody|investors?|partners?|vendors?|dispensar(?:y|ies)|members?)\b|\b(?:notify|email|e-mail|text|dm|message|ping|contact)\s+(?:the|our|my|whole|entire|mailing|email)\s+(?:mailing\s+|email\s+)?list\b|\breach(?:es|ing)?\s+out\s+to\b|\btweet(?:s|ed|ing)?\b|\bpost(?:s|ed|ing)?\s+(?:the|a|this|that|it|our|my)\s+(?:reel|video|post|story|announcement|photo|update|thread|tweet|carousel|teaser|drop)\b|\bsend\b[^.;!?\n]{0,40}\bto\s+(?:all\s+|the\s+|every\s+|our\s+)?(?:customers?|clients?|leads?|users|parents|coaches|subscribers?|prospects?|list|everyone|investors)\b/],
@@ -144,15 +156,28 @@ const VERB = "(?:approve|reject|merge|deploy|release|publish|cancel|delete|pay|r
 const OBJECT = "(?=\\s*$|\\s*[.;!?\\n,:]|\\s+(?:and|then|it|this|that|them|these|those|the|a|an|my|our|its|pr\\d*|prs|pull|to|on|into|prod|production|staging|live|v\\d[\\w.]*|now|everything|all|mission|m-\\d+|#?\\d+)\\b)";
 const AT_START = new RegExp(`^${VERB}(?![-\\w])${OBJECT}`);
 const ANYWHERE = new RegExp(`\\b${VERB}(?![-\\w])`, "g");
-const CODE_OBJECT = /^\s+(?:(?:the|a|an|all|any|every|unused|old|stale|dead|duplicate|internal|local|two|both|each|those|these)\s+)*(?:lock|locks|mutex|semaphore|arrays?|lists?|objects?|maps?|dicts?|imports?|timers?|timeouts?|intervals?|listeners?|handlers?|functions?|methods?|resources?|memory|handles?|connections?|sockets?|variables?|vars?|props?|state|cache|caches|buffers?|streams?|promises?|events?|event\s+listeners?|branches?\s+locally|script|scripts|buttons?|flow|logic|pages?|endpoints?|modals?|steps?|workflows?|components?|tests?|configs?|hooks?|queues?|workers?|types?|interfaces?|code|lines?|comments?|todos?|files?|folders?|directories|dependencies|deps|readme|docs?|css|styles?|classes|class|fields?|columns?|rows?|keys\s+in|entries|items|nodes|edges|requests?|jobs?\s+in\s+the\s+queue|commits?\s+locally|stash|logs?|dialog|toast|spinner|subscription\s+(?:in|on)|effect)\b/;
+const CODE_OBJECT = /^\s+(?:(?:the|a|an|all|any|every|unused|old|stale|dead|duplicate|internal|local|two|both|each|those|these)\s+)*(?:lock|locks|mutex|semaphore|arrays?|lists?|objects?|maps?|dicts?|imports?|timers?|timeouts?|intervals?|listeners?|handlers?|functions?|methods?|resources?|memory|handles?|connections?|sockets?|variables?|vars?|props?|state|cache|caches|buffers?|streams?|promises?|events?|event\s+listeners?|branches?\s+locally|script|scripts|buttons?|flow|logic|pages?|endpoints?|modals?|steps?|workflows?|components?|tests?|configs?|hooks?|queues?|workers?|types?|interfaces?|code|lines?|comments?|todos?|files?|folders?|directories|dependencies|deps|sort|sorting|css|styles?|classes|class|fields?|columns?|rows?|keys\s+in|entries|items|nodes|edges|requests?|jobs?\s+in\s+the\s+queue|commits?\s+locally|stash|logs?|dialog|toast|spinner|subscription\s+(?:in|on)|effect)\b/;
 const LEAD = /^(?:(?:claude[ -]?code|claude|codex|chat ?gpt|gpt-?\d[\w.]*|openai|perplexity|open ?claw|@[a-z][a-z0-9_-]*|please|pls|kindly|ok|okay|go ahead(?: and)?|go|now|also|just|then|and|so|can you|could you|you|hey|i|we|let's|lets)\b[\s,:]*)+/;
 const CLAUSES = /[.;!?\n,:]|\band\b|\bthen\b/;
 
 /** A code noun within the verb's object ("delete the leads FILTER COMPONENT"): at most two words before it. */
 const CODE_IN_OBJECT = new RegExp(String.raw`^\s+(?:(?:the|a|an|this|that|old|new|unused|stale)\s+)?(?:[\w-]+\s+){0,2}?` + CODE_NOUNS + String.raw`\b`);
-function verbAimedAtCode(t: string, verbEnd: number): boolean {
+/**
+ * A verb aimed at a code object. Every verb accepts the strict CODE_OBJECT list ("release the lock", "merge the
+ * arrays"). Only delete and cancel also accept a code noun up to two words in ("delete the leads filter component"),
+ * and only when the clause names no people, money or data. Merge, deploy, ship, release, land, publish and the rest
+ * never take that wider allowance ("deploy the new pricing page to prod" stays the founder's).
+ */
+function verbAimedAtCode(t: string, verbStart: number, verbEnd: number): boolean {
   const rest = t.slice(verbEnd);
-  return CODE_OBJECT.test(rest) || CODE_IN_OBJECT.test(rest);
+  const verb = t.slice(verbStart, verbEnd);
+  if (NEVER_CODE_VERB.test(verb)) return false;
+  if (CONSEQUENTIAL_CONTEXT.test(rest.split(/[.;!?\n]/)[0])) return false;
+  if (verb === "release") return RELEASE_CODE_OBJECT.test(rest);
+  if (verb === "publish") return PUBLISH_CODE_OBJECT.test(rest);
+  if (CODE_OBJECT.test(rest)) return true;
+  const obj = CODE_IN_OBJECT.exec(rest);
+  return /^(?:delete|cancel)$/.test(verb) && !!obj && !PEOPLE_DATA.test(rest.slice(obj[0].length).split(/[.;!?\n]/)[0]);
 }
 
 /** Characters that look like Latin letters (Cyrillic, Greek), mapped so look-alike spellings cannot dodge the rules. */
@@ -190,7 +215,7 @@ export function authorityFinding(t: string, handlerNamed: boolean): AuthorityFin
       if (NEGATED.test(t.slice(0, at))) continue;
       const after = t.slice(at + m[0].length);
       // A verb-led act on a credential is never exempt; a bare credential mention may name code unless it is disclosed.
-      if (!verbLed && CODE_AFTER.test(after) && !RECIPIENT.test(clauseRest(t, at))) continue;
+      if (!verbLed && CODE_AFTER.test(after) && !RECIPIENT.test(clauseRest(t, at)) && !CREDENTIAL_DISCLOSURE.test(t.split(/[.;!?\n]/).find((c) => c.includes(m[0])) ?? t)) continue;
       return { kind: "security_decision", category: "security", rule: "security_or_authorization" };
     }
   }
@@ -206,13 +231,13 @@ export function authorityFinding(t: string, handlerNamed: boolean): AuthorityFin
   for (const clause of t.split(CLAUSES)) {
     const c = clause.trim().replace(LEAD, "").trim();
     const m = AT_START.exec(c);
-    if (m && !verbAimedAtCode(c, m[0].length)) return { kind: "founder_authority", category: "authority_verb", rule: "clause_verb" };
+    if (m && !verbAimedAtCode(c, 0, m[0].length)) return { kind: "founder_authority", category: "authority_verb", rule: "clause_verb" };
   }
 
   if (handlerNamed) {
     for (const m of t.matchAll(ANYWHERE)) {
       const at = m.index ?? 0;
-      if (!blocked(t.slice(0, at)) && !verbAimedAtCode(t, at + m[0].length)) {
+      if (!blocked(t.slice(0, at)) && !verbAimedAtCode(t, at, at + m[0].length)) {
         return { kind: "founder_authority", category: "authority_verb", rule: "named_handler_verb" };
       }
     }
