@@ -14,7 +14,8 @@ import type { TargetType } from "./types";
 import { cleanUrl, gitBranch, isUuid } from "./validate";
 
 export type Resolution = "resolved" | "format_only";
-export type ResolvedTarget = { targetType: TargetType; targetId: string; targetIndex: number | null; resolution: Resolution };
+/** notEvidence: the record exists but can never prove a criterion (a Universal Command shadow record or its channel). */
+export type ResolvedTarget = { targetType: TargetType; targetId: string; targetIndex: number | null; resolution: Resolution; notEvidence?: boolean };
 export type ResolveResult =
   | { ok: true; target: ResolvedTarget }
   | { ok: false; status: 404 | 422 | 502; code: string; message: string };
@@ -66,7 +67,8 @@ export async function resolveTarget(
     if (type === "synthesis_action" && found.data.type === "synthesis" && (index as number) >= found.data.actionCount) {
       return missing(`synthesis ${canonical} has no action ${index}`);
     }
-    return { ok: true, target: { targetType: type, targetId: canonical, targetIndex: index, resolution: "resolved" } };
+    const notEvidence = "notEvidence" in found.data && found.data.notEvidence === true;
+    return { ok: true, target: { targetType: type, targetId: canonical, targetIndex: index, resolution: "resolved", ...(notEvidence ? { notEvidence } : {}) } };
   }
 
   switch (type) {

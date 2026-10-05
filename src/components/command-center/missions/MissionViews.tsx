@@ -256,7 +256,7 @@ export function CreateMissionForm({ api = httpMissionApi, onCreated, onCancel, i
   /** A canonical source record the new mission should point at (M5: the Universal Command message). */
   sourceLink?: { targetType: TargetType; targetId: string; noun: string; title: string };
   /** Fired the moment the mission exists (before the plan link): the page consumes the prefill so it cannot be reused. */
-  onCreatedIrreversibly?: () => void;
+  onCreatedIrreversibly?: (m: MissionRow) => void;
 }) {
   const [form, setForm] = useState<CreateForm>(() => emptyCreateForm(initialObjective ?? ""));
   const [errors, setErrors] = useState<ReturnType<typeof validateCreate>>({});
@@ -276,7 +276,7 @@ export function CreateMissionForm({ api = httpMissionApi, onCreated, onCancel, i
     if (!r.ok) { setBusy(false); setServerError(r.message); return; } // nothing was created: keep the prefill
     // The mission now exists. Consume the prefill immediately, before the plan link, so a refresh or Back can never
     // rebuild a fresh form for the same plan and create a duplicate.
-    onCreatedIrreversibly?.();
+    onCreatedIrreversibly?.(r.data);
     const source = fromSynthesis ? { targetType: "synthesis" as TargetType, targetId: fromSynthesis, noun: "plan" } : sourceLink;
     if (source) {
       // Keep the source where it lives; the mission only points at it.

@@ -49,6 +49,8 @@ export function ShadowCommandPanel({ id, api = httpCommandApi, missions = httpMi
   const [attachTo, setAttachTo] = useState("");
   const [editHandler, setEditHandler] = useState<Handler>("claude_code");
   const [attached, setAttached] = useState<string | null>(null);
+  // A mission created from this command in this panel, even if its source link then failed: never offer Create again.
+  const [createdHere, setCreatedHere] = useState<MissionRow | null>(null);
 
   const load = useCallback(async () => {
     const r = await api.get(id);
@@ -93,7 +95,7 @@ export function ShadowCommandPanel({ id, api = httpCommandApi, missions = httpMi
   const d = rec.decision;
   const linked = rec.linkedMissions;
   // No duplicate mission by default: inside a mission, or once a mission links this command, Create is tucked away.
-  const createOffered = !rec.missionContext && linked.length === 0;
+  const createOffered = !rec.missionContext && linked.length === 0 && !createdHere;
   // Issued inside a mission: that mission is the default attach target until the founder picks another.
   // Only an open mission that is actually offered can be the default; a terminal context mission cannot take links.
   const contextOpen = rec.missionContext && open?.some((m) => m.id === rec.missionContext) ? rec.missionContext : "";
@@ -149,6 +151,11 @@ export function ShadowCommandPanel({ id, api = httpCommandApi, missions = httpMi
             ))}
           </p>
         )}
+        {createdHere && !linked.some((l) => l.id === createdHere.id) && (
+          <p data-testid="created-unlinked" role="status" style={{ margin: 0, fontSize: 14 }}>
+            <Link href={`/command-center/missions/${createdHere.id}`} style={{ color: "var(--accent)" }}>{formatRef(createdHere.ref)}</Link> was created from this command but is not linked to it yet.
+          </p>
+        )}
         {pickerNote && <p style={{ ...muted, margin: 0 }}>{pickerNote}</p>}
         {attached && <p role="status" style={{ ...muted, margin: 0 }}>Attached. Nothing was started; the mission keeps its state.</p>}
         <ErrorLine text={error} />
@@ -156,6 +163,7 @@ export function ShadowCommandPanel({ id, api = httpCommandApi, missions = httpMi
         {creating ? (
           <CreateMissionForm api={missions} initialObjective={rec.command}
             sourceLink={{ targetType: "chat_message", targetId: rec.id, noun: "command", title: "New Mission from command" }}
+            onCreatedIrreversibly={(m) => setCreatedHere(m)}
             onCancel={() => setCreating(false)}
             onCreated={(m) => { setCreating(false); void load(); onCreated(m); }} />
         ) : (

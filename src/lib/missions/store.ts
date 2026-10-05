@@ -7,6 +7,8 @@
  * Errors keep the Postgres SQLSTATE so service.ts can map M1's MIxxx codes precisely.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { commandChannelId } from "@/lib/command/channel";
+import { SHADOW_KIND } from "@/lib/command/types";
 import type {
   ActorKind, EventRow, Item, LinkRow, MissionRow, MissionState, Relation, StoreResult, TargetType,
 } from "./types";
@@ -66,8 +68,9 @@ export type TargetRecord =
   | { type: "synthesis"; id: string; actionCount: number }
   | { type: "pipeline_gate"; id: string }
   | { type: "pipeline_lead"; id: string }
-  | { type: "chat_channel"; id: string }
-  | { type: "chat_message"; id: string }
+  /** notEvidence: a Universal Command shadow record (or its channel). A founder's instruction proves nothing. */
+  | { type: "chat_channel"; id: string; notEvidence: boolean }
+  | { type: "chat_message"; id: string; notEvidence: boolean }
   | { type: "mission"; id: string };
 
 export type DbTargetType = TargetRecord["type"];
@@ -315,11 +318,13 @@ export function supabaseMissionStore(svc: SupabaseClient): MissionStore {
         }
         case "chat_channel": {
           const { data, error } = await svc.from("channels").select("id").eq("tenant_id", tenantId).eq("id", id).maybeSingle();
-          return wrap(data ? { type, id } : null, error);
+          return wrap(data ? { type, id, notEvidence: id === commandChannelId(tenantId) } : null, error);
         }
         case "chat_message": {
-          const { data, error } = await svc.from("messages").select("id").eq("tenant_id", tenantId).eq("id", id).maybeSingle();
-          return wrap(data ? { type, id } : null, error);
+          const { data, error } = await svc.from("messages").select("id, channel_id, metadata").eq("tenant_id", tenantId).eq("id", id).maybeSingle();
+          const row = data as { channel_id?: string; metadata?: { kind?: unknown } | null } | null;
+          const notEvidence = !!row && (row.channel_id === commandChannelId(tenantId) || row.metadata?.kind === SHADOW_KIND);
+          return wrap(data ? { type, id, notEvidence } : null, error);
         }
         case "mission": {
           const { data, error } = await svc.from("missions").select("id").eq("tenant_id", tenantId).eq("id", id).maybeSingle();

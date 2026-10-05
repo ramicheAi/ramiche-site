@@ -64,6 +64,20 @@ describe("Universal Command shadow panel", () => {
     expect(command.route).not.toHaveBeenCalled();
   });
 
+  it("after a create whose source link failed, the panel never offers Create again (M5 audit)", async () => {
+    const { command, m } = apis(record());
+    (m.addLink as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: false, status: 502, message: "link failed" });
+    render(<ShadowCommandPanel id={CMD} api={command} missions={m} {...handlers()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Create Mission" }));
+    fireEvent.change(screen.getByLabelText(/success criteria/i), { target: { value: "works" } });
+    fireEvent.click(screen.getByRole("button", { name: /^create mission$/i }));
+    expect((await screen.findByRole("alert")).textContent).toContain("linking the command failed");
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect((await screen.findByTestId("created-unlinked")).textContent).toContain("M-8 was created from this command but is not linked to it yet");
+    expect(screen.queryByRole("button", { name: "Create Mission" })).toBeNull();
+    expect(m.create).toHaveBeenCalledTimes(1);
+  });
+
   it("issued inside a mission: attach to that mission is the default, and no duplicate mission is offered by default", async () => {
     const { command, m } = apis(record({ missionContext: MID }));
     render(<ShadowCommandPanel id={CMD} api={command} missions={m} {...handlers()} />);

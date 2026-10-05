@@ -241,3 +241,22 @@ describe("supabaseMissionStore cost reads (M3)", () => {
     expect((await supabaseMissionStore(viewClient(many, 1).client).eventsForMission("m")).ok).toBe(false);
   });
 });
+
+describe("command records are never evidence (M5 audit)", () => {
+  it("marks a message in the command channel, or with the shadow kind, and the command channel itself, as notEvidence", async () => {
+    const { commandChannelId } = await import("@/lib/command/channel");
+    const CH = commandChannelId("T");
+    const answer = (data: unknown) => ({
+      from: () => {
+        const api: Record<string, unknown> = new Proxy({}, { get(_t, prop: string) { return prop === "maybeSingle" ? () => Promise.resolve({ data, error: null }) : () => api; } });
+        return api;
+      },
+    }) as unknown as SupabaseClient;
+    const look = (data: unknown, type: "chat_message" | "chat_channel", id = "m1") => supabaseMissionStore(answer(data)).lookupTarget("T", type, id);
+    expect(await look({ id: "m1", channel_id: CH, metadata: {} }, "chat_message")).toEqual({ ok: true, data: { type: "chat_message", id: "m1", notEvidence: true } });
+    expect(await look({ id: "m1", channel_id: "other", metadata: { kind: "universal_command_shadow" } }, "chat_message")).toEqual({ ok: true, data: { type: "chat_message", id: "m1", notEvidence: true } });
+    expect(await look({ id: "m1", channel_id: "other", metadata: { kind: "synthesis" } }, "chat_message")).toEqual({ ok: true, data: { type: "chat_message", id: "m1", notEvidence: false } });
+    expect(await look({ id: CH }, "chat_channel", CH)).toEqual({ ok: true, data: { type: "chat_channel", id: CH, notEvidence: true } });
+    expect(await look({ id: "c2" }, "chat_channel", "c2")).toEqual({ ok: true, data: { type: "chat_channel", id: "c2", notEvidence: false } });
+  });
+});

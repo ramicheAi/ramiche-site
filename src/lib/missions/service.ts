@@ -305,6 +305,10 @@ export async function addLink(ctx: Ctx, id: unknown, body: Record<string, unknow
   const t = await resolveTarget(ctx.store, ctx.tenantId, targetType, body.targetId, body.targetIndex);
   if (!t.ok) return fail(t.status, t.code, t.message);
   const target = t.target;
+  // A Universal Command record is the founder's instruction, not an outcome: it may be a source or context, never proof.
+  if (relation === "evidence" && target.notEvidence) {
+    return fail(422, "command_not_evidence", "a Universal Command record is an instruction, not evidence; link what the work produced");
+  }
 
   // A mission never links to itself under any relation: self-evidence would prove nothing (M1 also refuses, MI025).
   if (target.targetType === "mission" && target.targetId === m.id) {

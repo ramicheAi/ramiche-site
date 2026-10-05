@@ -19,6 +19,7 @@ import { execFile } from "node:child_process";
 import { readFileSync, writeFileSync, renameSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isShadowCommand } from "./lib/shadow-guard.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -223,6 +224,10 @@ async function handleNewMessage(payload) {
     || msg.sender_type === "user"
     || msg.sender_agent_id === RAMON_UUID;
   if (!isUserMessage) return;
+
+  // P06 M5: Universal Command shadow records are founder commands that must NEVER execute. They are user rows in
+  // the dedicated universal-command channel, marked metadata.kind = "universal_command_shadow". Never relay them.
+  if (isShadowCommand(msg, channelCache.get(msg.channel_id))) return;
 
   // Skip if already processed
   if (processed.has(msg.id)) return;

@@ -21,13 +21,14 @@ export interface CommandStore {
   commandChannel(tenantId: string): Promise<StoreResult<string>>;
   insertCommand(a: { tenantId: string; channelId: string; content: string; metadata: Record<string, unknown> }): Promise<StoreResult<CommandRow>>;
   getCommand(tenantId: string, id: string): Promise<StoreResult<CommandRow | null>>;
-  /** Missions of this tenant with a LIVE link to this command message. */
-  linkedMissions(tenantId: string, commandId: string): Promise<StoreResult<LinkedMission[]>>;
+  /** Missions of this tenant with a LIVE link to any of these command messages (a command and its earlier routings). */
+  linkedMissions(tenantId: string, commandIds: string[]): Promise<StoreResult<LinkedMission[]>>;
 }
 
 type PgErr = { code?: string; message?: string } | null;
 const fail = (e: PgErr): { ok: false; error: { code?: string; message: string } } => ({ ok: false, error: { code: e?.code, message: e?.message ?? "database error" } });
 const COLS = "id, channel_id, content, metadata, created_at";
+export const LINK_CAP = 200;
 
 export function supabaseCommandStore(svc: SupabaseClient): CommandStore {
   const findChannel = async (tenantId: string) =>
@@ -63,11 +64,14 @@ export function supabaseCommandStore(svc: SupabaseClient): CommandStore {
       const { data, error } = await svc.from("messages").select(COLS).eq("tenant_id", tenantId).eq("id", id).maybeSingle();
       return error ? fail(error) : { ok: true, data: (data as CommandRow | null) ?? null };
     },
-    async linkedMissions(tenantId, commandId) {
-      const links = await svc.from("mission_links").select("mission_id, relation")
-        .eq("target_type", "chat_message").eq("target_id", commandId).is("removed_at", null).limit(200);
+    async linkedMissions(tenantId, commandIds) {
+      if (commandIds.length === 0) return { ok: true, data: [] };
+      // Bounded and explicit: more than LINK_CAP live links to one command is refused, never silently truncated.
+      const links = await svc.from("mission_links").select("id, mission_id, relation")
+        .eq("target_type", "chat_message").in("target_id", commandIds).is("removed_at", null).order("id", { ascending: true }).limit(LINK_CAP + 1);
       if (links.error) return fail(links.error);
       const rows = (links.data ?? []) as { mission_id: string; relation: string }[];
+      if (rows.length > LINK_CAP) return fail({ message: `more than ${LINK_CAP} missions link this command` });
       if (rows.length === 0) return { ok: true, data: [] };
       const ms = await svc.from("missions").select("id, ref, state").eq("tenant_id", tenantId).in("id", [...new Set(rows.map((r) => r.mission_id))]);
       if (ms.error) return fail(ms.error);

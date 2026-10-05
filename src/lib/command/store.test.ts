@@ -63,9 +63,17 @@ describe("supabaseCommandStore", () => {
       mission_links: [{ data: [{ mission_id: "a", relation: "source" }, { mission_id: "b", relation: "context" }], error: null }],
       missions: [{ data: [{ id: "a", ref: 3, state: "intent" }], error: null }],
     });
-    const r = await supabaseCommandStore(client).linkedMissions("T", "m1");
+    const r = await supabaseCommandStore(client).linkedMissions("T", ["m1", "m0"]);
     expect(r).toEqual({ ok: true, data: [{ id: "a", ref: 3, state: "intent", relation: "source" }] });   // b is not in this tenant
-    expect(has(calls[0], "eq", "target_type", "chat_message") && has(calls[0], "eq", "target_id", "m1") && has(calls[0], "is", "removed_at", null)).toBe(true);
+    expect(has(calls[0], "eq", "target_type", "chat_message") && has(calls[0], "in", "target_id", ["m1", "m0"]) && has(calls[0], "is", "removed_at", null)).toBe(true);
+    expect(has(calls[0], "order", "id")).toBe(true);
     expect(has(calls[1], "eq", "tenant_id", "T")).toBe(true);
+  });
+
+  it("linked missions fail loud past the cap instead of returning an arbitrary subset", async () => {
+    const many = Array.from({ length: 201 }, (_, i) => ({ mission_id: `m${i}`, relation: "context" }));
+    const { client } = recorder({ mission_links: [{ data: many, error: null }] });
+    expect((await supabaseCommandStore(client).linkedMissions("T", ["m1"])).ok).toBe(false);
+    expect(await supabaseCommandStore(recorder().client).linkedMissions("T", [])).toEqual({ ok: true, data: [] });
   });
 });

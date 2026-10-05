@@ -68,6 +68,16 @@ describe("Universal Command records stay out of chat", () => {
     for (const q of qs) expect(q).toContainEqual(["neq", ["channel_id", CMD]]);
   });
 
+  it("the chat health sample and the gallery scan exclude command records", async () => {
+    const health = await import("@/app/api/command-center/chat/health/route");
+    await health.GET(req("/api/command-center/chat/health"));
+    expect(messageQueries().some((q) => q.some(([op, a]) => op === "limit" && a[0] === 5) && q.some(([op, a]) => op === "neq" && a[0] === "channel_id" && a[1] === CMD))).toBe(true);
+    ops.length = 0;
+    const gallery = await import("@/app/api/command-center/gallery/outputs/route");
+    await gallery.GET(req("/api/command-center/gallery/outputs"));
+    expect(messageQueries()[0]).toContainEqual(["neq", ["channel_id", CMD]]);
+  });
+
   it("the Decisions scan excludes command records, so they cannot crowd out syntheses", async () => {
     const { GET } = await import("@/app/api/command-center/chat/decisions/route");
     await GET(req("/api/command-center/chat/decisions"));

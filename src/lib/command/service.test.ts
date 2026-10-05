@@ -101,6 +101,31 @@ describe("shadowRoute", () => {
   });
 });
 
+describe("re-routing never hides an existing mission (M5 audit)", () => {
+  it("a re-routed record shows the missions linked to its earlier routings", async () => {
+    const first = await shadowRoute(ctx(), { text: "Mettle onboarding" });
+    if (!first.ok) throw new Error("first");
+    const second = await shadowRoute(ctx(), { text: "Mettle onboarding", handlerHint: "claude_code", supersedes: first.data.id });
+    if (!second.ok) throw new Error("second");
+    const asked: string[][] = [];
+    cs.store.linkedMissions = async (_t, ids) => { asked.push(ids); return { ok: true, data: ids.includes(first.data.id) ? [{ id: MID, ref: 7, state: "intent", relation: "source" }] : [] }; };
+    const g = await getShadow(ctx(), second.data.id);
+    expect(asked).toEqual([[second.data.id, first.data.id]]);
+    expect(g.ok && g.data.linkedMissions).toEqual([{ id: MID, ref: 7, state: "intent", relation: "source" }]);
+  });
+  it("a mission context is checked with one tenant-scoped row read", async () => {
+    let detailReads = 0;
+    const c = ctx();
+    const base = c.mission.store;
+    c.mission.store = { ...base, listLinks: async () => { detailReads++; return { ok: true, data: [] }; }, listEvents: async () => { detailReads++; return { ok: true, data: [] }; } } as typeof base;
+    const r = await shadowRoute(c, { text: "Claude Code, fix it", missionId: MID });
+    expect(r.ok).toBe(true);
+    expect(detailReads).toBe(0);
+    const bad = await shadowRoute(c, { text: "Claude Code, fix it", missionId: "not-a-uuid" });
+    expect(!bad.ok && bad.status).toBe(404);
+  });
+});
+
 describe("getShadow", () => {
   it("returns a recorded decision with its linked missions; anything else is not found", async () => {
     const r = await shadowRoute(ctx(), { text: "Research current competitor pricing" });

@@ -6,7 +6,7 @@
 import { routeCommand, isHandler } from "./router";
 import type { CommandRow, CommandStore } from "./store";
 import { ROUTER_VERSION, SHADOW_KIND, type ShadowDecision, type ShadowRecord } from "./types";
-import { getMission, type Ctx as MissionCtx } from "@/lib/missions/service";
+import type { Ctx as MissionCtx } from "@/lib/missions/service";
 import { isFounder } from "@/lib/missions/principal";
 import type { ProviderId } from "@/lib/provider-adapter";
 import type { CommandProvider } from "./types";
@@ -18,6 +18,7 @@ export type CheckedCommandProvider = IsProviderId<CommandProvider>;
 
 export type CommandCtx = { store: CommandStore; mission: MissionCtx };
 
+const CHAIN_CAP = 20;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ok = <T>(data: T, status: 200 | 201 = 200): MissionResult<T> => ({ ok: true, status, data });
 const fail = (status: 400 | 403 | 404 | 422 | 502, code: string, message: string): MissionResult<never> => ({ ok: false, status, code, message });
@@ -59,9 +60,12 @@ export async function shadowRoute(ctx: CommandCtx, body: Record<string, unknown>
   }
   let missionId: string | null = null;
   if (body.missionId !== undefined && body.missionId !== null) {
-    const m = await getMission(ctx.mission, body.missionId);           // tenant-scoped; 404 for anything not ours
-    if (!m.ok) return m;
-    missionId = m.data.mission.id;
+    // Existence only, tenant-scoped (404 for anything not ours): one row, not the full detail read.
+    if (typeof body.missionId !== "string" || !UUID.test(body.missionId)) return fail(404, "not_found", "mission not found");
+    const m = await ctx.mission.store.getMission(ctx.mission.tenantId, body.missionId.toLowerCase());
+    if (!m.ok) return storeFail();
+    if (!m.data) return fail(404, "not_found", "mission not found");
+    missionId = m.data.id;
   }
   let supersedes: string | null = null;
   if (body.supersedes !== undefined && body.supersedes !== null) {
@@ -90,7 +94,20 @@ export async function getShadow(ctx: CommandCtx, id: unknown): Promise<MissionRe
   const row = await ctx.store.getCommand(ctx.mission.tenantId, id.toLowerCase());
   if (!row.ok) return storeFail();
   if (!row.data || !toRecord(row.data, [])) return fail(404, "not_found", "no such command");
-  const linked = await ctx.store.linkedMissions(ctx.mission.tenantId, row.data.id);
+  // A re-routed command keeps the missions its earlier routings created or were attached to: walk the supersedes chain
+  // (bounded) so a re-route never hides an existing mission and invites a duplicate.
+  const chain = [row.data.id];
+  let prev = (row.data.metadata ?? {}).supersedes;
+  for (let i = 0; i < CHAIN_CAP && typeof prev === "string" && !chain.includes(prev); i++) {
+    const p = await ctx.store.getCommand(ctx.mission.tenantId, prev);
+    if (!p.ok) return storeFail();
+    if (!p.data || !toRecord(p.data, [])) break;
+    chain.push(p.data.id);
+    prev = (p.data.metadata ?? {}).supersedes;
+  }
+  const linked = await ctx.store.linkedMissions(ctx.mission.tenantId, chain);
   if (!linked.ok) return storeFail();
-  return ok(toRecord(row.data, linked.data) as ShadowRecord);
+  const seen = new Set<string>();
+  const unique = linked.data.filter((l) => { const k = `${l.id}|${l.relation}`; if (seen.has(k)) return false; seen.add(k); return true; });
+  return ok(toRecord(row.data, unique) as ShadowRecord);
 }
