@@ -60,6 +60,47 @@ describe("Universal Command entry in the command palette", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it("after a failed shadow route, editing the command and pressing Enter retries the SHADOW route, never Run as Job", async () => {
+    fetchSpy.mockImplementationOnce(() => json(502, { data: null, error: { code: "storage_error", message: "command storage call failed" } }))
+      .mockImplementationOnce(() => json(201, { data: { id: ID }, error: null }));
+    open("fix it");
+    fireEvent.click(screen.getByRole("button", { name: /shadow-route/i }));
+    await screen.findByRole("alert");
+    fireEvent.change(screen.getByPlaceholderText(/type intent/i), { target: { value: "Claude Code, fix it" } });
+    expect(screen.queryByRole("alert")).toBeNull();
+    fireEvent.keyDown(window, { key: "Enter" });
+    await waitFor(() => expect(nav.push).toHaveBeenCalledWith(`/command-center/missions?command=${ID}`));
+    expect(fetchSpy.mock.calls.map(([u]) => u)).toEqual(["/api/command-center/command/shadow", "/api/command-center/command/shadow"]);
+    expect(JSON.parse(fetchSpy.mock.calls[1][1].body).text).toBe("Claude Code, fix it");
+  });
+
+  it("while a shadow route is being recorded, Enter and clicks run nothing else", async () => {
+    let release!: (v: Response) => void;
+    fetchSpy.mockImplementationOnce(() => new Promise<Response>((r) => (release = r)));
+    open("fix it");
+    fireEvent.click(screen.getByRole("button", { name: /shadow-route/i }));
+    await screen.findByRole("status");
+    fireEvent.click(screen.getByRole("button", { name: /run as job/i }));
+    fireEvent.keyDown(window, { key: "Enter" });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    release(new Response(JSON.stringify({ data: { id: ID }, error: null }), { status: 201 }));
+    await waitFor(() => expect(nav.push).toHaveBeenCalledTimes(1));
+    expect(fetchSpy.mock.calls.some(([u]) => String(u).includes("/jobs"))).toBe(false);
+  });
+
+  it("closing the palette while the route is pending does not navigate afterwards", async () => {
+    let release!: (v: Response) => void;
+    fetchSpy.mockImplementationOnce(() => new Promise<Response>((r) => (release = r)));
+    const onClose = vi.fn();
+    const { rerender } = render(<CommandPalette open onClose={onClose} />);
+    fireEvent.change(screen.getByPlaceholderText(/type intent/i), { target: { value: "fix it" } });
+    fireEvent.click(screen.getByRole("button", { name: /shadow-route/i }));
+    rerender(<CommandPalette open={false} onClose={onClose} />);
+    release(new Response(JSON.stringify({ data: { id: ID }, error: null }), { status: 201 }));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(nav.push).not.toHaveBeenCalled();
+  });
+
   it("the existing Run as Job entry is unchanged and still first", () => {
     open("fix it");
     const items = screen.getAllByRole("button").map((b) => b.textContent ?? "");

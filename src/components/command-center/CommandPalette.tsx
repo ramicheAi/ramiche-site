@@ -228,20 +228,36 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
   // P06 M5 Universal Command: record a SHADOW routing decision for the typed command (nothing is executed), then
   // open it on the Missions page. Issued from inside a mission, the mission travels along as context.
   const pathname = usePathname();
-  const [shadowState, setShadowState] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
+  type ShadowState = { busy: boolean; error: string | null; doneId: string | null };
+  const IDLE: ShadowState = { busy: false, error: null, doneId: null };
+  const [shadowState, setShadowState] = useState<ShadowState>(IDLE);
+  // After a shadow attempt the highlight stays on the Shadow-route row, so Enter after editing a failed command
+  // retries the SHADOW route and can never fall through to "Run as Job" (which executes).
+  const [shadowSticky, setShadowSticky] = useState(false);
   const shadowRoute = useCallback(
     async (instruction: string) => {
       const text = instruction.trim();
       if (!text) return;
-      setShadowState({ busy: true, error: null });
+      setShadowSticky(true);
+      setShadowState({ busy: true, error: null, doneId: null });
       const r = await httpCommandApi.route({ text, missionId: missionIdFromPath(pathname) });
-      if (!r.ok) { setShadowState({ busy: false, error: `Shadow routing failed: ${r.message}` }); return; }
-      setShadowState({ busy: false, error: null });
-      onClose();
-      router.push(`/command-center/missions?command=${encodeURIComponent(r.data.id)}`);
+      setShadowState(r.ok ? { busy: false, error: null, doneId: r.data.id } : { busy: false, error: `Shadow routing failed: ${r.message}`, doneId: null });
     },
-    [onClose, pathname, router]
+    [pathname]
   );
+  // Open the recorded decision only if the palette is still open. Closed meanwhile (Escape): the record exists, but
+  // the founder left, so nothing navigates and no stale message waits for the next open.
+  useEffect(() => {
+    if (open && shadowState.doneId) {
+      const id = shadowState.doneId;
+      setShadowState({ busy: false, error: null, doneId: null });
+      onClose();
+      router.push(`/command-center/missions?command=${encodeURIComponent(id)}`);
+    } else if (!open && (shadowState.doneId || shadowState.error || shadowSticky)) {
+      setShadowState({ busy: shadowState.busy, error: null, doneId: null });
+      setShadowSticky(false);
+    }
+  }, [open, shadowState, shadowSticky, onClose, router]);
 
   const dispatchJob = useCallback(
     (instruction: string) => {
@@ -317,8 +333,10 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
 
   const execute = useCallback(
     (entry: PaletteEntry) => {
+      // While a shadow route is being recorded nothing else runs (no accidental job dispatch).
+      if (shadowState.busy) return;
       // A shadow route keeps the palette open until its record exists, so a failure is shown, never swallowed.
-      if (entry.kind === "action" && entry.keepOpen) { if (!shadowState.busy) entry.action(); return; }
+      if (entry.kind === "action" && entry.keepOpen) { entry.action(); return; }
       onClose();
       if (entry.kind === "route") {
         router.push(entry.href);
@@ -334,8 +352,8 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
   );
 
   useEffect(() => {
-    setActiveIdx(0);
-  }, [query, open]);
+    setActiveIdx(open && shadowSticky && query.trim() ? 1 : 0);
+  }, [query, open, shadowSticky]);
 
   useEffect(() => {
     if (!open) return;
@@ -414,7 +432,7 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
           <input
             ref={inputRef}
             value={query}
-            onChange={(e) => { setQuery(e.target.value); if (shadowState.error) setShadowState({ busy: false, error: null }); }}
+            onChange={(e) => { setQuery(e.target.value); if (shadowState.error) setShadowState({ busy: false, error: null, doneId: null }); }}
             placeholder="Type intent — jump to anything · ask ATLAS · run a command…"
             spellCheck={false}
             autoComplete="off"

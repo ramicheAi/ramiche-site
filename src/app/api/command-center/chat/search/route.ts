@@ -2,6 +2,7 @@ import { guardPrivateRead } from "@/lib/server/protected-mutation";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { AGENT_DM_UUID, AGENT_UUID_TO_SHORT_ID } from "@/lib/cc-agent-dm-uuids";
+import { commandChannelId } from "@/lib/command/channel";
 
 export const dynamic = "force-dynamic";
 
@@ -80,6 +81,7 @@ export async function GET(req: NextRequest) {
       .from("messages")
       .select("id, channel_id, content, created_at, sender_type, sender_agent_id")
       .eq("tenant_id", TENANT_ID)
+      .neq("channel_id", commandChannelId(TENANT_ID))   // P06 M5: shadow command records are not chat
       .is("thread_parent_id", null);
 
     if (hasText) {

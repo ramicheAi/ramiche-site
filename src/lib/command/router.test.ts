@@ -84,6 +84,25 @@ describe("safety: founder authority and security are never delegated", () => {
   ])("%s -> founder even though a handler is named", (text) => {
     expect(r(text)).toMatchObject({ handler: "human", intent: "security_decision", reasons: ["security_or_authorization"] });
   });
+  it.each([
+    "Claude Code, merge PR 41", "Claude Code please merge PR 41", "Claude Code: push to main and deploy", "Codex approve it",
+    "codex, approve and merge PR 12", "openclaw deploy to prod", "@atlas publish the post", "chatgpt: approve the refund",
+    "fix the bug and deploy", "go ahead, merge", "ok, merge", "pls merge", "Review and merge PR 12", "then deploy it",
+    "Perplexity, research it and then publish the summary", "Claude, can you approve this",
+  ])("an authority verb at the start of ANY clause, after a handler name or filler, is the founder's: %s", (text) => {
+    expect(r(text)).toMatchObject({ handler: "human", intent: "founder_authority", founderApprovalRequired: true, reasons: ["founder_authority_verb"] });
+  });
+  it.each([
+    ["Claude Code, fix Mettle. Codex reviews. Don't merge without me.", "claude_code"],
+    ["Claude Code fix the build, do not merge", "claude_code"],
+    ["Add a publish button to the post editor", "claude_code"],
+    ["Fix the cancel flow on checkout", "claude_code"],
+    ["Implement the approve button", "claude_code"],
+    ["Claude Code, write the deploy script", "claude_code"],
+    ["Codex, review the release notes", "codex_review"],
+  ])("an authority word that is not a clause's verb, or a negated one, does not take the route: %s", (text, handler) => {
+    expect(r(text).handler).toBe(handler);
+  });
   it("naming a handler cannot route an approval to it", () => {
     expect(r("approve the PR, Claude Code").handler).toBe("human");
     expect(r("Approve this", { handlerHint: "claude_code" }).handler).toBe("human");

@@ -4,7 +4,9 @@
  *
  * Order (first match decides the handler):
  *   1. SAFETY  a founder-authority or security decision is always the founder's (handler "human"). This outranks an
- *              explicit handler, so "Claude Code, approve the PR" or "Codex, rotate the API key" is never delegated.
+ *              explicit handler, so "Claude Code, approve the PR", "fix the bug and deploy" or "Codex, rotate the API
+ *              key" is never delegated. Authority verbs are checked at the start of EVERY clause, after any leading
+ *              handler name, @agent or filler word; a negated clause ("don't merge without me") is a constraint.
  *   2. EXPLICIT  the founder named a handler: an edit of the routing, or a name in the text (Claude Code, Codex,
  *              ChatGPT, Perplexity, OpenClaw, Claude, @agent from the canonical registry).
  *   3. DETERMINISTIC  fixed keyword rules: job reference, review-only, current-web research, repository work, chatter.
@@ -25,8 +27,12 @@ export type RouteInput = {
 const ACTIVE_AGENTS = new Map(AGENT_CORE.filter((a) => a.status === "active").flatMap((a) => [[a.id, a.id], ...a.aliases.map((x) => [x, a.id])] as [string, string][]));
 
 /* ── safety: never delegated, never classified ──────────────────────────────────────────────────────────── */
-// A command whose leading verb is a founder decision. Negated constraints ("don't merge without me") are not leading.
-const AUTHORITY_VERB = /^(?:(?:please|ok|okay|go ahead and|now)\s+)*(approve|reject|merge|deploy|release|publish|verify|cancel|delete|remove|pay|refund|sign|accept|ship)\b/;
+// A clause whose leading verb is a founder decision. A negated clause ("don't merge") does not start with the verb.
+const AUTHORITY_VERB = /^(approve|reject|merge|deploy|release|publish|verify|cancel|delete|pay|refund|sign|accept|ship|push (?:it )?to (?:main|master|prod|production))\b/;
+// What may precede the verb inside a clause: a handler name, a registry @agent, or filler.
+const LEAD = /^(?:(?:claude[ -]?code|claude|codex|chat ?gpt|gpt-?\d[\w.]*|openai|perplexity|open ?claw|@[a-z][a-z0-9_-]*|please|pls|ok|okay|go ahead(?: and)?|now|also|just|then|and|so|can you|could you|you|hey)\b[\s,:]*)+/;
+const CLAUSES = /[.;!?\n,:]|\band\b|\bthen\b/;
+const authorityClause = (t: string) => t.split(CLAUSES).some((c) => AUTHORITY_VERB.test(c.trim().replace(LEAD, "").trim()));
 // A security or authorization decision anywhere in the command.
 const SECURITY = /\b(grant|revoke|rotate|reset)\b[^.!?\n]{0,40}\b(access|permission|permissions|role|roles|admin|authority|key|keys|secret|secrets|token|tokens|credential|credentials|password|passwords)\b|\b(api key|secret key|access token|service[_ -]role|credentials?|password)\b/;
 
@@ -106,7 +112,7 @@ export function routeCommand(input: RouteInput): ShadowDecision {
   const inMission = Boolean(input.missionId);
 
   // 1. safety
-  if (AUTHORITY_VERB.test(t)) return decide({ intent: "founder_authority", handler: "human", source: "deterministic", reasons: ["founder_authority_verb"] }, t, inMission);
+  if (authorityClause(t)) return decide({ intent: "founder_authority", handler: "human", source: "deterministic", reasons: ["founder_authority_verb"] }, t, inMission);
   if (SECURITY.test(t)) return decide({ intent: "security_decision", handler: "human", source: "deterministic", reasons: ["security_or_authorization"] }, t, inMission);
 
   // 2. explicit

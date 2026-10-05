@@ -11,6 +11,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { CC_USER_ID } from "@/lib/server/cockpit-chat-data";
 import type { StoreResult } from "@/lib/missions/types";
 import { COMMAND_CHANNEL_SLUG } from "./types";
+import { commandChannelId } from "./channel";
 
 export type CommandRow = { id: string; channel_id: string; content: string; metadata: Record<string, unknown>; created_at: string };
 export type LinkedMission = { id: string; ref: number; state: string; relation: string };
@@ -31,21 +32,25 @@ const COLS = "id, channel_id, content, metadata, created_at";
 export function supabaseCommandStore(svc: SupabaseClient): CommandStore {
   const findChannel = async (tenantId: string) =>
     svc.from("channels").select("id").eq("tenant_id", tenantId).eq("slug", COMMAND_CHANNEL_SLUG).maybeSingle();
+  // The id is deterministic (channel.ts) so chat surfaces can exclude command records by id. A channel that holds the
+  // slug under any other id is refused rather than written into, because those surfaces would not exclude it.
+  const expected = (tenantId: string, id: string): StoreResult<string> =>
+    id === commandChannelId(tenantId) ? { ok: true, data: id } : fail({ message: "the universal-command channel exists under an unexpected id" });
   return {
     async commandChannel(tenantId) {
       const found = await findChannel(tenantId);
       if (found.error) return fail(found.error);
-      if (found.data) return { ok: true, data: (found.data as { id: string }).id };
+      if (found.data) return expected(tenantId, (found.data as { id: string }).id);
       const made = await svc.from("channels").insert({
-        tenant_id: tenantId, name: "Universal Command (shadow)", slug: COMMAND_CHANNEL_SLUG, type: "channel", is_private: true,
+        id: commandChannelId(tenantId), tenant_id: tenantId, name: "Universal Command (shadow)", slug: COMMAND_CHANNEL_SLUG, type: "channel", is_private: true,
         description: "Founder commands and their shadow routing decisions. Nothing here is executed.",
       }).select("id").single();
-      if (!made.error) return { ok: true, data: (made.data as { id: string }).id };
+      if (!made.error) return expected(tenantId, (made.data as { id: string }).id);
       if (made.error.code !== "23505") return fail(made.error);
       // Created concurrently: (tenant_id, slug) is unique, so read the winner.
       const again = await findChannel(tenantId);
       if (again.error || !again.data) return fail(again.error ?? { message: "command channel not found after conflict" });
-      return { ok: true, data: (again.data as { id: string }).id };
+      return expected(tenantId, (again.data as { id: string }).id);
     },
     async insertCommand(a) {
       const { data, error } = await svc.from("messages").insert({

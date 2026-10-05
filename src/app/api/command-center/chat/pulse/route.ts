@@ -1,11 +1,14 @@
 import { guardPrivateRead } from "@/lib/server/protected-mutation";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { commandChannelId } from "@/lib/command/channel";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const TENANT_ID = "11111111-1111-1111-1111-111111111111";
+/** P06 M5: shadow command records are not chat; they never count as recent, pinned or unread. */
+const COMMAND_CHANNEL = commandChannelId(TENANT_ID);
 
 function getSupabaseService() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -58,6 +61,7 @@ export async function GET(req: NextRequest) {
         "id, channel_id, content, sender_type, sender_agent_id, created_at, pinned"
       )
       .eq("tenant_id", TENANT_ID)
+      .neq("channel_id", COMMAND_CHANNEL)
       .is("thread_parent_id", null)
       .order("created_at", { ascending: false })
       .limit(8);
@@ -66,6 +70,7 @@ export async function GET(req: NextRequest) {
       .from("messages")
       .select("id, channel_id, content, sender_type, sender_agent_id, created_at, pinned")
       .eq("tenant_id", TENANT_ID)
+      .neq("channel_id", COMMAND_CHANNEL)
       .eq("pinned", true)
       .order("created_at", { ascending: false })
       .limit(6);
@@ -75,6 +80,7 @@ export async function GET(req: NextRequest) {
           .from("messages")
           .select("*", { count: "exact", head: true })
           .eq("tenant_id", TENANT_ID)
+          .neq("channel_id", COMMAND_CHANNEL)
           .is("thread_parent_id", null)
           .gt("created_at", sinceIso)
       : null;

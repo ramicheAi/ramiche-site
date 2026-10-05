@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseCommandStore } from "./store";
+import { commandChannelId } from "./channel";
 
 type Call = { table: string; ops: [string, unknown[]][] };
 function recorder(answers: Record<string, unknown[]> = {}) {
@@ -29,13 +30,18 @@ const has = (c: Call, op: string, ...args: unknown[]) => c.ops.some(([o, a]) => 
 
 describe("supabaseCommandStore", () => {
   it("finds the tenant's command channel by slug, creating it once as a private channel; a concurrent create re-reads", async () => {
-    const { client, calls } = recorder({ channels: [{ data: null, error: null }, { data: null, error: { code: "23505", message: "dup" } }, { data: { id: "ch1" }, error: null }] });
+    const ID = commandChannelId("T");
+    const { client, calls } = recorder({ channels: [{ data: null, error: null }, { data: null, error: { code: "23505", message: "dup" } }, { data: { id: ID }, error: null }] });
     const r = await supabaseCommandStore(client).commandChannel("T");
-    expect(r).toEqual({ ok: true, data: "ch1" });
+    expect(r).toEqual({ ok: true, data: ID });
     expect(calls.map((c) => c.table)).toEqual(["channels", "channels", "channels"]);
     expect(has(calls[0], "eq", "tenant_id", "T") && has(calls[0], "eq", "slug", "universal-command")).toBe(true);
     const ins = calls[1].ops.find(([o]) => o === "insert")?.[1][0] as Record<string, unknown>;
-    expect(ins).toMatchObject({ tenant_id: "T", slug: "universal-command", type: "channel", is_private: true });
+    expect(ins).toMatchObject({ id: ID, tenant_id: "T", slug: "universal-command", type: "channel", is_private: true });
+    // a channel holding the slug under another id is refused: chat surfaces exclude command records by the fixed id
+    const squatter = recorder({ channels: [{ data: { id: "00000000-0000-4000-8000-0000000000ff" }, error: null }] });
+    const sq = await supabaseCommandStore(squatter.client).commandChannel("T");
+    expect(sq.ok).toBe(false);
     const other = recorder({ channels: [{ data: null, error: null }, { data: null, error: { code: "42501", message: "denied" } }] });
     expect((await supabaseCommandStore(other.client).commandChannel("T")).ok).toBe(false);
   });
