@@ -43,6 +43,15 @@ describe("explicit routing", () => {
     expect(r("Claude Code, fix it").provider).toBeNull();
     for (const h of HANDLERS) expect([null, "claude-max", "openclaw"]).toContain(HANDLER_META[h].provider);
   });
+  it("editing the routing can never bypass the authority scan (Codex P1, PR #42)", () => {
+    expect(r("we need to deploy", { handlerHint: "claude_code" }).handler).toBe("human");
+    expect(r("it should be merged soon", { handlerHint: "openclaw" }).handler).toBe("human");
+    expect(r("we need to deploy production", { handlerHint: "claude_code" }).handler).toBe("human");
+    expect(r("Mettle onboarding", { handlerHint: "claude_code" }).handler).toBe("claude_code");
+  });
+  it("an edit to existing_job carries the job id from the text (Codex P2, PR #42)", () => {
+    expect(r("check on job 0a000000-0000-4000-8000-000000000001", { handlerHint: "existing_job" })).toMatchObject({ handler: "existing_job", jobId: "0a000000-0000-4000-8000-000000000001" });
+  });
   it("a founder edit of the routing wins over the text, and keeps a named reviewer", () => {
     expect(r("Claude Code, fix Mettle. Codex reviews.", { handlerHint: "openclaw" })).toMatchObject({ handler: "openclaw", reviewer: "codex_review", source: "explicit", reasons: ["founder_edited_routing"] });
   });

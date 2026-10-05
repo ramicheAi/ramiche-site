@@ -26,7 +26,7 @@ export type AuthorityCategory =
 
 export type AuthorityFinding = { kind: "founder_authority" | "security_decision"; category: AuthorityCategory; rule: string };
 
-const NEGATED = /(?:\bdon'?t|\bdo not|\bnever|\bnot|\bwithout)\s+$/;
+const NEGATED = /(?:\bdon'?t|\bdo not|\bnever|\bnot|\bwithout|\bshouldn'?t|\bmustn'?t|\bcan'?t|\bwon'?t)\s+(?:to\s+|be\s+|get\s+)?$/;
 const NOUN_USE = /\b(?:the|a|an|this|that|our|my|your|its)\s+$/;
 // Describing a feature, not commanding the act: "a button to approve", "a script that deploys", "let users publish".
 const FEATURE_DESCRIPTION = /\b(?:button|link|option|endpoint|api|action|ability|way|feature|route|toggle|command|function|method|hook|job|script|tool|form|modal|screen|page|cli|flag)s?\s+(?:that\s+(?:can\s+|will\s+|would\s+)?|which\s+(?:can\s+|will\s+)?|to\s+|for\s+)$|\b(?:let|lets|allow|allows|enable|enables|help|helps)\s+(?:users?|people|the\s+founder|ramon|admins?|coaches|parents|customers|clients|them|someone)\s+(?:to\s+)?$/;
@@ -61,6 +61,10 @@ const STRONG: [AuthorityCategory, string, RegExp][] = [
   ["mission_lifecycle", "mission_transition", new RegExp(`\\b(?:approve|verify|cancel|complete|close|reopen|reject)\\s+(?:the\\s+|this\\s+|that\\s+)?(?:mission|plan|synthesis)\\b|\\b(?:approve|verify|cancel|complete|reject)\\s+m-\\d+|\\bmark\\s+${W}{0,30}?\\b(?:complete|completed|done|verified|approved)\\b|\\bm-\\d+\\s+(?:is\\s+)?(?:approved|verified|done|complete)\\b`)],
   // destructive data
   ["destructive_data", "destroy_data", /\b(?:delete|drop|wipe|truncate|purge|erase|nuke)\s+(?:all\s+(?:the\s+|of\s+the\s+)?|the\s+|our\s+|every\s+|old\s+|the\s+old\s+)?(?:production|prod|database|db|table|tables|users|customers|customer\s+data|leads|records|accounts|data|backups?|bucket|storage|history|missions|mailing\s+list)\b/],
+  // passive or future forms of a consequential act ("it should be merged", "get it deployed", "have it published")
+  ["git_release", "passive_act", /\b(?:be|been|get|gets|getting|got|have\s+it|has\s+it|have\s+this)\s+(?:it\s+)?(?:merged|deployed|released|shipped|launched|promoted|pushed\s+to\s+(?:origin\s+)?(?:main|master|prod|production))\b/],
+  ["external_comms", "passive_send", /\b(?:be|been|get|gets|getting|got|have\s+it|has\s+it|have\s+them)\s+(?:it\s+|them\s+)?(?:sent|posted|published|emailed)\b/],
+  ["financial", "passive_money", /\b(?:be|been|get|gets|getting|got|have\s+it|has\s+it)\s+(?:it\s+)?(?:paid|refunded|charged|purchased)\b/],
   // approval in any verb form
   ["approval", "approve_forms", /\b(?:approv(?:e|es|ed|ing)|green[- ]?light(?:s|ed|ing)?)\b(?!\s+(?:button|flow|logic|page|endpoint|modal|state|status|queue|step|workflow|component|handler|api|tests?|function|screen|ui|view|banner|template|reviewers?|count|badge|column|field|icon|check|checks))|\bsign(?:s|ed|ing)?\s+off(?:\s+on)?\b|^lgtm\b|\blgtm[.! ]*$|\b(?:give|has|have|you\s+have)\s+(?:it\s+)?(?:my\s+)?approval\b|\bmy\s+approval\s+(?:for|to|on)\b/],
 ];

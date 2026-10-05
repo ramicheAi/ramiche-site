@@ -45,6 +45,12 @@ export const ROUTE_CORPUS: CorpusEntry[] = [
   { group: "git", text: "launch the store", expect: H },
   { group: "git", text: "fix the bug and deploy", expect: H },
   { group: "git", text: "Claude Code: implement it, then push to main", expect: H },
+  // passive and future forms
+  { group: "git", text: "it should be merged soon", expect: H },
+  { group: "git", text: "Claude Code, get it deployed tonight", expect: H },
+  { group: "comms", text: "the follow-ups need to be sent today", expect: H },
+  { group: "money", text: "make sure the refund gets paid", expect: H },
+  { group: "negation", text: "Claude Code, fix the copy. It shouldn't be merged yet.", expect: CC },
   // mid-sentence: only the strong phrase rules can catch these
   { group: "git", text: "the plan is to land PR 42 tonight", expect: H },
   { group: "git", text: "the goal is to ship v2 before the meet", expect: H },

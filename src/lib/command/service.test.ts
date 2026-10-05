@@ -73,6 +73,7 @@ describe("shadowRoute", () => {
     const bad: [Record<string, unknown>, number][] = [
       [{}, 422], [{ text: "   " }, 422], [{ text: "x".repeat(2001) }, 422], [{ text: "go", handlerHint: "root" }, 422],
       [{ text: "go", handlerHint: "cockpit_agent" }, 422], [{ text: "go", supersedes: "nope" }, 422],
+      [{ text: "check the old run", handlerHint: "existing_job" }, 422],     // no job id to route to
       [{ text: "go", actor: "ramon" }, 400], [{ text: "go", execute: true }, 400], [{ text: "go", agentId: "triage" }, 400],
     ];
     for (const [body, status] of bad) { const r = await shadowRoute(ctx(), body); expect(!r.ok && r.status, JSON.stringify(body)).toBe(status); }

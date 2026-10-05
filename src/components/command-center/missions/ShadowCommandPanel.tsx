@@ -21,8 +21,13 @@ const SOURCE_TEXT: Record<ShadowRecord["decision"]["source"], string> = {
   deterministic: "Deterministic: a fixed rule matched",
   ambiguous: "Ambiguous: no rule decided it",
 };
-/** Handlers the founder can pick by hand. An @agent route needs the agent named in the command itself. */
-const EDITABLE: Handler[] = HANDLERS.filter((h) => h !== "cockpit_agent");
+/**
+ * Handlers the founder can pick by hand. An @agent route needs the agent named in the command, and an existing-job
+ * route needs the job id in it, so neither can be chosen by editing.
+ */
+const EDITABLE: Handler[] = HANDLERS.filter((h) => h !== "cockpit_agent" && h !== "existing_job");
+/** Attach picker: follow the list cursor, bounded (a mission beyond the bound is reported, never silently missing). */
+const PICKER_PAGES = 10;
 
 export function handlerText(d: ShadowRecord["decision"]): string {
   if (!d.handler) return "Undecided";
@@ -54,10 +59,25 @@ export function ShadowCommandPanel({ id, api = httpCommandApi, missions = httpMi
     api.get(id).then((r) => { if (!alive) return; if (r.ok) { setRec(r.data); setLoadError(null); } else { setRec(null); setLoadError(r.message); } });
     return () => { alive = false; };
   }, [api, id]);
-  // One list read for the attach picker; terminal missions cannot take new links (M1 MI022).
+  // The attach picker reads every page (bounded), so an older open mission is never silently unavailable. Terminal
+  // missions cannot take new links (M1 MI022), so they are not offered.
+  const [pickerNote, setPickerNote] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
-    missions.list().then((r) => { if (alive && r.ok) setOpen(r.data.missions.filter((m) => !isTerminal(m.state))); });
+    (async () => {
+      const all: MissionRow[] = [];
+      let before: number | undefined;
+      for (let page = 0; page < PICKER_PAGES; page++) {
+        const r = await missions.list(before);
+        if (!alive) return;
+        if (!r.ok) { setPickerNote(`Missions could not be loaded for attaching: ${r.message}`); setOpen([]); return; }
+        all.push(...r.data.missions);
+        if (r.data.nextBefore === null) { setOpen(all.filter((m) => !isTerminal(m.state))); return; }
+        before = r.data.nextBefore;
+      }
+      setOpen(all.filter((m) => !isTerminal(m.state)));
+      setPickerNote(`Only the newest ${all.length} missions are listed for attaching; open an older mission and attach from there.`);
+    })();
     return () => { alive = false; };
   }, [missions]);
 
@@ -75,7 +95,9 @@ export function ShadowCommandPanel({ id, api = httpCommandApi, missions = httpMi
   // No duplicate mission by default: inside a mission, or once a mission links this command, Create is tucked away.
   const createOffered = !rec.missionContext && linked.length === 0;
   // Issued inside a mission: that mission is the default attach target until the founder picks another.
-  const target = attachTo || rec.missionContext || "";
+  // Only an open mission that is actually offered can be the default; a terminal context mission cannot take links.
+  const contextOpen = rec.missionContext && open?.some((m) => m.id === rec.missionContext) ? rec.missionContext : "";
+  const target = attachTo || contextOpen;
 
   async function attach() {
     if (!target || !rec) return;
@@ -127,6 +149,7 @@ export function ShadowCommandPanel({ id, api = httpCommandApi, missions = httpMi
             ))}
           </p>
         )}
+        {pickerNote && <p style={{ ...muted, margin: 0 }}>{pickerNote}</p>}
         {attached && <p role="status" style={{ ...muted, margin: 0 }}>Attached. Nothing was started; the mission keeps its state.</p>}
         <ErrorLine text={error} />
 

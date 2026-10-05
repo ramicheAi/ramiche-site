@@ -110,7 +110,8 @@ export function routeCommand(input: RouteInput): ShadowDecision {
 
   // 1. safety
   const named = namedHandlers(t);
-  const authority = authorityFinding(t, named.length > 0);
+  // A founder edit of the routing is a named handler too: editing can never bypass the authority scan.
+  const authority = authorityFinding(t, named.length > 0 || Boolean(input.handlerHint));
   if (authority) {
     return decide({
       intent: authority.kind, handler: "human", source: "deterministic",
@@ -121,7 +122,8 @@ export function routeCommand(input: RouteInput): ShadowDecision {
   // 2. explicit
   if (input.handlerHint) {
     const reviewer = named.find((n) => n.reviewer && n.handler !== input.handlerHint)?.handler ?? null;
-    return decide({ intent: intentOf(input.handlerHint), handler: input.handlerHint, reviewer, source: "explicit", reasons: ["founder_edited_routing"] }, t, inMission);
+    const jobId = input.handlerHint === "existing_job" ? JOB_REF.exec(t)?.[1] ?? null : null;
+    return decide({ intent: intentOf(input.handlerHint), handler: input.handlerHint, reviewer, jobId, source: "explicit", reasons: ["founder_edited_routing"] }, t, inMission);
   }
   if (named.length) {
     const doer = named.find((n) => !n.reviewer);

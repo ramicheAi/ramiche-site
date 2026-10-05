@@ -85,6 +85,45 @@ describe("Universal Command shadow panel", () => {
     expect(screen.queryByRole("button", { name: "Create Mission" })).toBeNull();
   });
 
+  it("a terminal context mission is never the attach default, so Attach is not offered against it (Codex P2, PR #42)", async () => {
+    const done = mission({ id: MID, state: "verified" });
+    const { command, m } = apis(record({ missionContext: MID }), [done]);
+    render(<ShadowCommandPanel id={CMD} api={command} missions={m} {...handlers()} />);
+    await screen.findByTestId("shadow-label");
+    await waitFor(() => expect((screen.getByLabelText("Mission to attach to") as HTMLSelectElement).disabled).toBe(false));
+    expect((screen.getByLabelText("Mission to attach to") as HTMLSelectElement).value).toBe("");
+    expect((screen.getByRole("button", { name: "Attach to Mission" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("the attach picker follows the list cursor, so an older open mission is offered (Codex P2, PR #42)", async () => {
+    const old = mission({ id: "00000000-0000-4000-8000-000000000003", ref: 3, objective: "Old open work" });
+    const { command, m } = apis(record());
+    (m.list as ReturnType<typeof vi.fn>).mockReset()
+      .mockResolvedValueOnce({ ok: true, data: { missions: [mission()], nextBefore: 7 } })
+      .mockResolvedValueOnce({ ok: true, data: { missions: [old], nextBefore: null } });
+    render(<ShadowCommandPanel id={CMD} api={command} missions={m} {...handlers()} />);
+    await waitFor(() => expect(within(screen.getByLabelText("Mission to attach to")).getAllByRole("option").map((o) => o.textContent)).toContain("M-3 · Old open work"));
+    expect(m.list).toHaveBeenNthCalledWith(2, 7);
+  });
+
+  it("the picker is bounded and says so when more missions exist than it lists", async () => {
+    const { command, m } = apis(record());
+    let n = 100;
+    (m.list as ReturnType<typeof vi.fn>).mockReset().mockImplementation(() => { n -= 1; return Promise.resolve({ ok: true, data: { missions: [mission({ id: `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`, ref: n })], nextBefore: n } }); });
+    render(<ShadowCommandPanel id={CMD} api={command} missions={m} {...handlers()} />);
+    expect(await screen.findByText(/Only the newest 10 missions are listed for attaching/)).toBeTruthy();
+    expect(m.list).toHaveBeenCalledTimes(10);
+  });
+
+  it("Edit routing never offers the identifier-bound handlers", async () => {
+    const { command, m } = apis(record());
+    render(<ShadowCommandPanel id={CMD} api={command} missions={m} {...handlers()} />);
+    await screen.findByTestId("shadow-label");
+    const opts = [...(screen.getByLabelText("Edit routing") as HTMLSelectElement).options].map((o) => o.value);
+    expect(opts).not.toContain("existing_job");
+    expect(opts).not.toContain("cockpit_agent");
+  });
+
   it("terminal missions are not offered for attach", async () => {
     const { command, m } = apis(record(), [mission(), mission({ id: "00000000-0000-4000-8000-000000000009", ref: 9, state: "verified" })]);
     render(<ShadowCommandPanel id={CMD} api={command} missions={m} {...handlers()} />);

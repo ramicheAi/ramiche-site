@@ -49,8 +49,12 @@ export async function shadowRoute(ctx: CommandCtx, body: Record<string, unknown>
   if ([...text].length > 2000) return fail(422, "invalid_text", "keep a command to at most 2,000 characters");
   let handlerHint: import("./types").Handler | null = null;
   if (body.handlerHint !== undefined && body.handlerHint !== null) {
-    // An @agent route needs an agent name in the text; editing the routing cannot pick an unnamed agent.
+    // An @agent route needs an agent name in the text, and an existing-job route needs the job id in the text;
+    // editing the routing cannot pick either without its identifier.
     if (!isHandler(body.handlerHint) || body.handlerHint === "cockpit_agent") return fail(422, "invalid_handler", "unknown handler");
+    if (body.handlerHint === "existing_job" && !/\bjob\s+[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/i.test(text)) {
+      return fail(422, "invalid_handler", "an existing-job route needs the job id in the command");
+    }
     handlerHint = body.handlerHint;
   }
   let missionId: string | null = null;
