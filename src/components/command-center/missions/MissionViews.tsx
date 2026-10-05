@@ -25,12 +25,12 @@ const STATE_COLOR: Record<MissionState, string> = {
   intent: "var(--t-mid)", plan: "var(--c-violet, #a855f7)", approved: "var(--accent)", executing: "var(--c-amber, #f59e0b)",
   reviewing: "var(--c-amber, #f59e0b)", completed: "var(--c-green, #22c55e)", verified: "var(--c-green, #22c55e)", cancelled: "var(--c-red, #ef4444)",
 };
-const muted: CSSProperties = { color: "var(--t-mid)", fontSize: 13 };
-const field: CSSProperties = {
+export const muted: CSSProperties = { color: "var(--t-mid)", fontSize: 13 };
+export const field: CSSProperties = {
   width: "100%", boxSizing: "border-box", padding: "10px 12px", minHeight: 44, borderRadius: "var(--r-sm, 8px)",
   border: "1px solid var(--line)", background: "var(--ink-2)", color: "var(--t-hi)", fontSize: 15,
 };
-const row: CSSProperties = { display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" };
+export const row: CSSProperties = { display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" };
 
 export function StateBadge({ state }: { state: MissionState }) {
   const c = STATE_COLOR[state];
@@ -57,7 +57,7 @@ function CueBadge({ cue }: { cue: Cue }) {
   );
 }
 
-function Btn({ children, onClick, disabled, tone = "default", type = "button", label }: {
+export function Btn({ children, onClick, disabled, tone = "default", type = "button", label }: {
   children: ReactNode; onClick?: () => void; disabled?: boolean; tone?: "default" | "primary" | "danger"; type?: "button" | "submit"; label?: string;
 }) {
   const color = tone === "primary" ? "var(--ink-0)" : tone === "danger" ? "var(--c-red, #ef4444)" : "var(--t-hi)";
@@ -71,7 +71,7 @@ function Btn({ children, onClick, disabled, tone = "default", type = "button", l
   );
 }
 
-function ErrorLine({ text }: { text: string | null }) {
+export function ErrorLine({ text }: { text: string | null }) {
   return text ? <p role="alert" style={{ color: "var(--c-red, #ef4444)", fontSize: 14, margin: "8px 0" }}>{text}</p> : null;
 }
 
@@ -251,10 +251,12 @@ function MissionCard({ m, quiet }: { m: MissionRow; quiet: boolean }) {
 
 /* ── create ─────────────────────────────────────────────────────────────────────────────────────────── */
 
-export function CreateMissionForm({ api = httpMissionApi, onCreated, onCancel, initialObjective, fromSynthesis, onCreatedIrreversibly }: {
+export function CreateMissionForm({ api = httpMissionApi, onCreated, onCancel, initialObjective, fromSynthesis, sourceLink, onCreatedIrreversibly }: {
   api?: MissionApi; onCreated: (m: MissionRow) => void; onCancel: () => void; initialObjective?: string; fromSynthesis?: string;
+  /** A canonical source record the new mission should point at (M5: the Universal Command message). */
+  sourceLink?: { targetType: TargetType; targetId: string; noun: string; title: string };
   /** Fired the moment the mission exists (before the plan link): the page consumes the prefill so it cannot be reused. */
-  onCreatedIrreversibly?: () => void;
+  onCreatedIrreversibly?: (m: MissionRow) => void;
 }) {
   const [form, setForm] = useState<CreateForm>(() => emptyCreateForm(initialObjective ?? ""));
   const [errors, setErrors] = useState<ReturnType<typeof validateCreate>>({});
@@ -274,14 +276,15 @@ export function CreateMissionForm({ api = httpMissionApi, onCreated, onCancel, i
     if (!r.ok) { setBusy(false); setServerError(r.message); return; } // nothing was created: keep the prefill
     // The mission now exists. Consume the prefill immediately, before the plan link, so a refresh or Back can never
     // rebuild a fresh form for the same plan and create a duplicate.
-    onCreatedIrreversibly?.();
-    if (fromSynthesis) {
-      // Keep the plan where it lives; the mission only points at it.
-      const l = await api.addLink(r.data.id, { targetType: "synthesis", targetId: fromSynthesis, relation: "source" });
+    onCreatedIrreversibly?.(r.data);
+    const source = fromSynthesis ? { targetType: "synthesis" as TargetType, targetId: fromSynthesis, noun: "plan" } : sourceLink;
+    if (source) {
+      // Keep the source where it lives; the mission only points at it.
+      const l = await api.addLink(r.data.id, { targetType: source.targetType, targetId: source.targetId, relation: "source" });
       if (!l.ok) {
-        // Stay open: the founder must see that the mission exists but the plan link does not.
+        // Stay open: the founder must see that the mission exists but the source link does not.
         setBusy(false); setUnlinked(r.data);
-        setServerError(`Mission ${formatRef(r.data.ref)} was created, but linking the plan failed: ${l.message}`);
+        setServerError(`Mission ${formatRef(r.data.ref)} was created, but linking the ${source.noun} failed: ${l.message}`);
         return;
       }
     }
@@ -294,7 +297,7 @@ export function CreateMissionForm({ api = httpMissionApi, onCreated, onCancel, i
   const fieldsLocked = busy || unlinked !== null;
 
   return (
-    <Panel title={fromSynthesis ? "New Mission from plan" : "New Mission"} icon="bolt">
+    <Panel title={fromSynthesis ? "New Mission from plan" : sourceLink ? sourceLink.title : "New Mission"} icon="bolt">
       <form onSubmit={submit} aria-label="New Mission" style={{ display: "grid", gap: 14 }}>
         <label style={{ display: "grid", gap: 6 }}>
           <span style={{ fontWeight: 600 }}>Objective</span>
@@ -339,7 +342,7 @@ export function CreateMissionForm({ api = httpMissionApi, onCreated, onCancel, i
         <ErrorLine text={serverError} />
         {unlinked ? (
           <div style={row}>
-            <Link href={`/command-center/missions/${unlinked.id}`} style={{ color: "var(--accent)", fontWeight: 600 }}>Open {formatRef(unlinked.ref)} to link the plan by hand</Link>
+            <Link href={`/command-center/missions/${unlinked.id}`} style={{ color: "var(--accent)", fontWeight: 600 }}>Open {formatRef(unlinked.ref)} to link the {fromSynthesis ? "plan" : sourceLink?.noun ?? "source"} by hand</Link>
             <Btn onClick={() => onCreated(unlinked)}>Done</Btn>
           </div>
         ) : (

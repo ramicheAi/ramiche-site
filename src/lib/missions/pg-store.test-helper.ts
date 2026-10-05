@@ -7,6 +7,7 @@
 import { spawn } from "node:child_process";
 import { COST_EVENT_COLS, type MissionStore } from "./store";
 import type { StoreResult } from "./types";
+import { commandChannelId } from "@/lib/command/channel";
 
 export type PgConn = { bin: string; host: string; port: string; db: string };
 
@@ -81,8 +82,8 @@ export function pgMissionStore(c: PgConn): MissionStore {
         synthesis: `select case when metadata->>'kind' = 'synthesis' then jsonb_build_object('type','synthesis','id',id,'actionCount', coalesce(jsonb_array_length(case when jsonb_typeof(metadata->'plan'->'actions') = 'array' then metadata->'plan'->'actions' end), 0)) end from public.messages where tenant_id = ${lit(tenantId)} and id = ${lit(id)}`,
         pipeline_gate: `select jsonb_build_object('type','pipeline_gate','id',id) from public.pipeline_gate where id = ${lit(id)}`,
         pipeline_lead: `select jsonb_build_object('type','pipeline_lead','id',id) from public.pipeline_leads where tenant_id = ${lit(tenantId)} and id = ${lit(id)}`,
-        chat_channel: `select jsonb_build_object('type','chat_channel','id',id) from public.channels where tenant_id = ${lit(tenantId)} and id = ${lit(id)}`,
-        chat_message: `select jsonb_build_object('type','chat_message','id',id) from public.messages where tenant_id = ${lit(tenantId)} and id = ${lit(id)}`,
+        chat_channel: `select jsonb_build_object('type','chat_channel','id',id,'notEvidence',id::text = ${lit(commandChannelId(tenantId))}) from public.channels where tenant_id = ${lit(tenantId)} and id = ${lit(id)}`,
+        chat_message: `select jsonb_build_object('type','chat_message','id',id,'notEvidence',(channel_id::text = ${lit(commandChannelId(tenantId))} or coalesce(metadata->>'kind','') = 'universal_command_shadow')) from public.messages where tenant_id = ${lit(tenantId)} and id = ${lit(id)}`,
         mission: `select jsonb_build_object('type','mission','id',id) from public.missions where tenant_id = ${lit(tenantId)} and id = ${lit(id)}`,
       };
       return one(c, q[type] + ";");

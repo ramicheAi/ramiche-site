@@ -3,7 +3,8 @@ import { cockpitFetch } from '@/lib/cockpit-fetch';
 
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { httpCommandApi, missionIdFromPath } from "@/lib/command/client";
 import { AGENT_UI, AGENT_ORBIT_IDS, type OrbitAgentId } from "@/app/command-center/dashboard-agents";
 import { useGlobalSearch, type GlobalSearchResult } from "@/hooks/useGlobalSearch";
 import { Icon } from "@/components/command-center/po/Brand";
@@ -60,6 +61,8 @@ interface AgentEntry extends BaseEntry {
 interface ActionEntry extends BaseEntry {
   kind: "action";
   action: () => void;
+  /** the palette stays open (the action reports its own outcome) */
+  keepOpen?: boolean;
 }
 
 interface GlobalEntry extends BaseEntry {
@@ -154,6 +157,10 @@ function fuzzyScore(haystack: string, needle: string): number {
   return 1;
 }
 
+/** attempt: which shadow attempt this state belongs to; a result for an abandoned attempt is ignored. */
+type ShadowState = { busy: boolean; error: string | null; doneId: string | null; attempt: number };
+const IDLE: ShadowState = { busy: false, error: null, doneId: null, attempt: 0 };
+
 export interface CommandPaletteProps {
   open: boolean;
   onClose: () => void;
@@ -222,6 +229,42 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
   // Dispatch the typed instruction to the fleet as a tracked Job, then jump to
   // the live Jobs feed to watch it run. This is what turns the command bar from
   // a launcher into a control surface.
+  // P06 M5 Universal Command: record a SHADOW routing decision for the typed command (nothing is executed), then
+  // open it on the Missions page. Issued from inside a mission, the mission travels along as context.
+  const pathname = usePathname();
+  const [shadowState, setShadowState] = useState<ShadowState>(IDLE);
+  // Every attempt gets a number; closing the palette moves past it, so a late result from an abandoned attempt can
+  // neither navigate nor show an error, even after the palette is reopened.
+  const [attempt, setAttempt] = useState(0);
+  const shadowRoute = useCallback(
+    async (instruction: string) => {
+      const text = instruction.trim();
+      if (!text) return;
+      const mine = attempt + 1;
+      setAttempt(mine);
+      setShadowState({ busy: true, error: null, doneId: null, attempt: mine });
+      const r = await httpCommandApi.route({ text, missionId: missionIdFromPath(pathname) });
+      setShadowState((cur) => (cur.attempt !== mine ? cur
+        : r.ok ? { busy: false, error: null, doneId: r.data.id, attempt: mine }
+          : { busy: false, error: `Shadow routing failed: ${r.message}`, doneId: null, attempt: mine }));
+    },
+    [pathname, attempt]
+  );
+  // Open the recorded decision only if the palette is still open. Closed meanwhile (Escape): the record exists, but
+  // the founder left, so nothing navigates and no stale message waits for the next open.
+  useEffect(() => {
+    if (open && shadowState.doneId) {
+      const id = shadowState.doneId;
+      setShadowState({ ...IDLE, attempt: shadowState.attempt });
+      onClose();
+      router.push(`/command-center/missions?command=${encodeURIComponent(id)}`);
+    } else if (!open && (shadowState.busy || shadowState.doneId || shadowState.error)) {
+      // Closing abandons a pending route (a hung request can never lock the palette); a late result is discarded
+      // by the open check above, and a late error only appears if it arrives while the palette is open again.
+      setShadowState({ ...IDLE, attempt: -1 });   // matches no attempt: anything still in flight is ignored
+    }
+  }, [open, shadowState, onClose, router]);
+
   const dispatchJob = useCallback(
     (instruction: string) => {
       const title = instruction.trim();
@@ -270,21 +313,38 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
       .sort((a, b) => b.s - a.s || a.e.label.localeCompare(b.e.label))
       .slice(0, 16)
       .map((r) => r.e);
-    // Top entry: dispatch the typed instruction to the fleet as a Job.
+    // P06 M5 shadow phase: the DEFAULT for typed text is the Universal Command shadow route (row 0, so a plain Enter
+    // records a decision and executes nothing). Running it as a Job stays available as row 1, only by deliberate
+    // selection (arrow down or click); editing the text moves the highlight back to the shadow route.
     const dispatch: ActionEntry = {
       kind: "action",
       id: "action:dispatch",
       label: `Run as Job: "${q.length > 48 ? q.slice(0, 48) + "…" : q}"`,
-      hint: "Dispatch to the fleet → watch it run",
+      hint: "Executes now: dispatches to the fleet. Select deliberately.",
       icon: "⚡",
       accent: TOKENS.gold,
       action: () => dispatchJob(q),
     };
-    return [dispatch, ...localTop, ...globalEntries];
-  }, [allEntries, actions, globalEntries, query, dispatchJob]);
+    const shadow: ActionEntry = {
+      kind: "action",
+      id: "action:shadow-route",
+      label: `Shadow-route: "${q.length > 48 ? q.slice(0, 48) + "…" : q}"`,
+      hint: "Universal Command: show who would handle it. Nothing is executed.",
+      icon: "◇",
+      accent: TOKENS.purpleSoft,
+      keywords: "universal command shadow route",
+      keepOpen: true,
+      action: () => void shadowRoute(q),
+    };
+    return [shadow, dispatch, ...localTop, ...globalEntries];
+  }, [allEntries, actions, globalEntries, query, dispatchJob, shadowRoute]);
 
   const execute = useCallback(
     (entry: PaletteEntry) => {
+      // While a shadow route is being recorded nothing else runs (no accidental job dispatch).
+      if (shadowState.busy) return;
+      // A shadow route keeps the palette open until its record exists, so a failure is shown, never swallowed.
+      if (entry.kind === "action" && entry.keepOpen) { entry.action(); return; }
       onClose();
       if (entry.kind === "route") {
         router.push(entry.href);
@@ -296,11 +356,11 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
         entry.action();
       }
     },
-    [onClose, router]
+    [onClose, router, shadowState.busy]
   );
 
   useEffect(() => {
-    setActiveIdx(0);
+    setActiveIdx(0);   // with typed text, row 0 is always the shadow route
   }, [query, open]);
 
   useEffect(() => {
@@ -380,7 +440,7 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
           <input
             ref={inputRef}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => { setQuery(e.target.value); if (shadowState.error) setShadowState({ ...IDLE, attempt: shadowState.attempt }); }}
             placeholder="Type intent — jump to anything · ask ATLAS · run a command…"
             spellCheck={false}
             autoComplete="off"
@@ -399,25 +459,32 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
               Message search disabled — set SUPABASE_SERVICE_ROLE_KEY on the server.
             </div>
           )}
+          {(shadowState.busy || shadowState.error) && (
+            <div role={shadowState.error ? "alert" : "status"} className="po-pal-head" style={{ color: shadowState.error ? "#ef4444" : "var(--c-purple-l)", fontSize: 12 }}>
+              {shadowState.error ?? "Recording the shadow route. Nothing is executed."}
+            </div>
+          )}
           {results.length === 0 ? (
             <div style={{ padding: 22, textAlign: "center", color: "var(--t-lo)" }}>
               {global.loading
                 ? "Looking across the system…"
                 : query.trim()
-                  ? `Press ↵ to run “${query.trim()}” as a job.`
+                  ? `Press ↵ to shadow-route “${query.trim()}”. Nothing is executed.`
                   : "Try an agent name, a page, or “refresh”."}
             </div>
           ) : (
             results.map((entry, idx) => {
               const active = idx === activeIdx;
               const isRun = entry.kind === "action" && entry.id === "action:dispatch";
+              const isShadow = entry.kind === "action" && entry.id === "action:shadow-route";
               return (
                 <button
                   key={entry.id}
                   data-idx={idx}
                   type="button"
-                  className={`po-pal-item${active ? " on" : ""}${isRun ? " run" : ""}`}
-                  onMouseEnter={() => setActiveIdx(idx)}
+                  className={`po-pal-item${active ? " on" : ""}${isShadow ? " run" : ""}`}
+                  // Hover never selects Run as Job: a stray mouse move followed by Enter must not dispatch a job.
+                  onMouseEnter={() => { if (!isRun) setActiveIdx(idx); }}
                   onClick={() => execute(entry)}
                 >
                   <span
@@ -426,7 +493,7 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
                       display: "grid",
                       placeItems: "center",
                       width: 18,
-                      color: isRun ? "var(--accent)" : entry.accent ?? "var(--t-mid)",
+                      color: isShadow ? "var(--accent)" : entry.accent ?? "var(--t-mid)",
                     }}
                   >
                     <Icon name={iconNameFor(entry)} size={16} />
@@ -437,7 +504,7 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
                       minWidth: 0,
                       textAlign: "left",
                       fontSize: 14,
-                      color: isRun ? "var(--accent)" : "var(--t-hi)",
+                      color: isShadow ? "var(--accent)" : "var(--t-hi)",
                     }}
                   >
                     <span
@@ -456,8 +523,10 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
                       </span>
                     )}
                   </span>
-                  {isRun ? (
-                    <span className="kbd">↵ dispatch</span>
+                  {isShadow ? (
+                    <span className="kbd">↵ shadow</span>
+                  ) : isRun ? (
+                    <span className="kbd">runs now</span>
                   ) : (
                     <span className="po-pal-grp">{kindLabelFor(entry)}</span>
                   )}

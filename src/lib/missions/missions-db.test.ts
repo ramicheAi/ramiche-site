@@ -10,6 +10,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { NextRequest } from "next/server";
 import { issueCsrfToken } from "@/lib/server/csrf";
 import { lit, pgConnFromEnv, pgMissionStore, runSql, type PgConn } from "./pg-store.test-helper";
+import { commandChannelId } from "@/lib/command/channel";
 import { FOUNDER, type Principal } from "./principal";
 import * as svc from "./service";
 import type { MissionStore } from "./store";
@@ -548,6 +549,22 @@ describe.skipIf(!conn)("M3 Mission cost attribution on real Packet 3 telemetry",
     expect(r.actualCost).toMatchObject({ status: "complete", knownUsd: "1.00000000", knownEvents: 4 });
     for (const id of [E[0], E[1], E[2]]) expect(r.attribution.find((a) => a.eventId === id)!.sources).toEqual([{ kind: "link", linkId: l.id, targetType: "pipeline_lead", correlationType: "lead", correlationId: L }]);
     expect(r.attribution.find((a) => a.eventId === E[3])!.sources.map((s) => s.kind)).toEqual(["direct", "link"]);
+  });
+
+  it("a Universal Command record can be a mission's source or context, never its evidence", async () => {
+    const m = await mk();
+    const ch = commandChannelId(TENANT);
+    const cmd = uuid("cc");
+    await sql(`insert into public.channels (id, tenant_id, name, slug, type, is_private) values (${lit(ch)}, ${lit(TENANT)}, 'Universal Command (shadow)', 'universal-command', 'channel', true) on conflict do nothing;
+      insert into public.messages (id, tenant_id, channel_id, content, sender_type, metadata) values (${lit(cmd)}, ${lit(TENANT)}, ${lit(ch)}, 'Claude Code, fix Mettle', 'user', '{"kind":"universal_command_shadow","executed":false}');`);
+    expect((await svc.addLink(ctx(FOUNDER), m.id, { targetType: "chat_message", targetId: cmd, relation: "source" })).ok).toBe(true);
+    expect((await svc.addLink(ctx(FOUNDER), m.id, { targetType: "chat_message", targetId: cmd, relation: "context" })).ok).toBe(true);
+    const ev = await svc.addLink(ctx(FOUNDER), m.id, { targetType: "chat_message", targetId: cmd, relation: "evidence", criterionId: "c1" });
+    expect(!ev.ok && [ev.status, ev.code]).toEqual([422, "command_not_evidence"]);
+    const evCh = await svc.addLink(ctx(FOUNDER), m.id, { targetType: "chat_channel", targetId: ch, relation: "evidence", criterionId: "c1" });
+    expect(!evCh.ok && [evCh.status, evCh.code]).toEqual([422, "command_not_evidence"]);
+    // an ordinary chat message is still acceptable evidence
+    expect((await svc.addLink(ctx(FOUNDER), m.id, { targetType: "chat_message", targetId: PLAIN_MSG, relation: "evidence", criterionId: "c1" })).ok).toBe(true);
   });
 
   it("a mission with no telemetry is an honest zero; all-null cost is never $0", async () => {

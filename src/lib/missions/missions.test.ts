@@ -318,3 +318,25 @@ describe("missionCosts failure handling (M3)", () => {
     expect(seen).toEqual([["0000000a-0000-4000-8000-0000000000aa"]]);
   });
 });
+
+describe("a Universal Command record is never evidence (M5 audit)", () => {
+  const MID = "00000000-0000-4000-8000-000000000001";
+  const CMD = "9e000000-0000-4000-8000-000000000001";
+  const inserted: unknown[] = [];
+  const store = {
+    getMission: async () => ({ ok: true, data: { id: MID, tenant_id: "t", state: "completed", success_criteria: [{ id: "c1", text: "x" }] } }),
+    lookupTarget: async (_t: string, type: string, id: string) => ({ ok: true, data: { type, id, notEvidence: true } }),
+    insertLink: async (row: unknown) => { inserted.push(row); return { ok: true, data: { id: "l1", ...(row as object) } }; },
+  } as unknown as MissionStore;
+  const add = (relation: string, extra: Record<string, unknown> = {}) =>
+    svc.addLink({ store, tenantId: "t", principal: FOUNDER }, MID, { targetType: "chat_message", targetId: CMD, relation, ...extra });
+  it("refuses it as evidence, and nothing is written", async () => {
+    const r = await add("evidence", { criterionId: "c1" });
+    expect(!r.ok && [r.status, r.code]).toEqual([422, "command_not_evidence"]);
+    expect(inserted).toEqual([]);
+  });
+  it("still allows it as a source or context", async () => {
+    expect((await add("source")).ok).toBe(true);
+    expect((await add("context")).ok).toBe(true);
+  });
+});

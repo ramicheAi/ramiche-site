@@ -18,6 +18,8 @@ import { guardPrivateRead } from "@/lib/server/protected-mutation";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { AGENT_UUID_TO_SHORT_ID } from "@/lib/cc-agent-dm-uuids";
+import { commandChannelId } from "@/lib/command/channel";
+import { CC_TENANT_ID } from "@/lib/server/cockpit-chat-data";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -60,6 +62,7 @@ export async function GET(req: NextRequest) {
   const { data: candidates, error: synthErr } = await svc
     .from("messages")
     .select("id, channel_id, content, metadata, created_at, sender_agent_id")
+    .neq("channel_id", commandChannelId(CC_TENANT_ID))   // P06 M5: commands never crowd out syntheses
     .order("created_at", { ascending: false })
     .limit(limit * 6);
   if (synthErr) {

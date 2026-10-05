@@ -1,6 +1,7 @@
 import { guardPrivateRead } from "@/lib/server/protected-mutation";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { clampInt, noStoreJson } from "@/lib/server/cockpit-chat-data";
+import { CC_TENANT_ID, clampInt, noStoreJson } from "@/lib/server/cockpit-chat-data";
+import { commandChannelId } from "@/lib/command/channel";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -21,6 +22,7 @@ export async function GET(req: Request) {
       .from("messages")
       .select("id, channel_id, sender_agent_id, sender_type, content, attachments, created_at, metadata")
       .not("attachments", "is", null)
+      .neq("channel_id", commandChannelId(CC_TENANT_ID))   // P06 M5: shadow command records are never gallery output
       .order("created_at", { ascending: false })
       .limit(limit),
     svc.from("channels").select("id, name, slug"),
