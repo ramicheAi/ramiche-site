@@ -43,13 +43,21 @@ const UI_DIRECT = /^\s+(?:pages?|components?|views?|screens?|modals?|buttons?|ta
 // A named recipient means disclosure, never code: "... with the vendor", "... to the partner".
 const RECIPIENT = /\b(?:with|to)\s+(?:the\s+|our\s+|my\s+|a\s+|an\s+)?(?:vendor|vendors|partner|partners|client|clients|customer|customers|contractor|contractors|team|them|him|her|someone|everyone|agency|freelancer|investor|investors|coach|coaches|support|[a-z]+@)\b/;
 // Infrastructure words that make a prod/live switch consequential whatever follows.
-const INFRA = /\b(?:live|cluster|db|database|domain|dns|traffic|server|servers|region|project|deployment|vercel|cloudflare|supabase|firebase|prod\s+data|stripe|account|accounts|bucket|buckets|storage|endpoint|endpoints|api|keys?|payments?|billing|cdn|queue|webhooks?|env|environment|backend|routes?|flags?|users|traffic)\b/;
+const INFRA = /\b(?:live|cluster|db|database|domain|dns|traffic|server|servers|region|project|deployment|vercel|cloudflare|supabase|firebase|prod\s+data|stripe|account|accounts|bucket|buckets|storage|endpoint|endpoints|api|keys?|payments?|billing|cdn|queue|webhooks?|env|environment|backend|routes?|flags?|users|traffic|canary|channel|channels|team|teams|off)\b/;
 const DESTROY_CORE = /\b(?:prod|production|database|databases|db|tables?|backups?|storage|buckets?|firestore|supabase)\b/;
 const DESTROY_EXEMPTIBLE_VERB = /^(?:remove|delete|clear|reset)\b/;
 // People, money or data anywhere in the rest of the clause: the act reaches the world, not just the code.
 const PEOPLE_DATA = /\b(?:customers?|clients?|users|everyone|everybody|accounts?|subscriptions?|subscribers?|billing|payments?|invoices?|data|records|history|submissions|values|balances|entries|rows|prod|production|database|db|leads|members|coaches|parents|athletes|swimmers|investors|vendors?|partners?)\b/;
+// Production or external infrastructure anywhere in the clause: no code exemption of any kind applies.
+const CONSEQUENTIAL_CONTEXT = /\b(?:prod|production|db|database|databases|tables?|buckets?|servers?|redis|npm|customers?|firestore|supabase|stripe|vercel|cloudflare|live|webhooks?|cron|repo|repository|plans?|subscriptions?|billing|dns|domain)\b/;
+// Verbs that are consequential whatever their object: they never take a code exemption.
+const NEVER_CODE_VERB = /^(?:deploy|launch|ship|land|promote|approve|reject|accept|sign|pay|refund|verify|roll ?out|(?:force[ -])?push)/;
+// "publish" is code only for an in-process event or a message on an internal bus.
+const PUBLISH_CODE_OBJECT = /^\s+(?:an?\s+|the\s+)?(?:internal\s+|local\s+|domain\s+|in-process\s+)?(?:events?|signals?)\b(?![^.;!?\n]*\b(?:to|on)\s+(?:the\s+)?(?:site|web|npm|blog|public|social|instagram|twitter|x|linkedin|users|customers)\b)/;
+// "release" is code only for runtime resources.
+const RELEASE_CODE_OBJECT = /^\s+(?:(?:the|a|an|all|any|every|unused|old|stale|idle|open)\s+)*(?:lock|locks|mutex|semaphore|resources?|memory|handles?|connections?|sockets?|listeners?|timers?|buffers?|streams?|file\s+handles?|references?|refs?)\b/;
 // A credential mentioned while being placed, published or disclosed is never "code".
-const CREDENTIAL_DISCLOSURE = /\b(?:put|hardcode|hard-code|commit|upload|dump|paste|push|public|gist|slack|discord|share|email|post|send|log|print|expose|leak|tweet|screenshot|in\s+code|into\s+code|repo|github)\b/;
+const CREDENTIAL_DISCLOSURE = /\b(?:put|hardcode|hard-code|commit|upload|dump|paste|push|public|gist|slack|discord|share|email|post|send|log|print|expose|leak|tweet|screenshot|in\s+code|into\s+code|repo|github|bake|frontend|front-end|client|clients|bundle|url|urls|browser|query\s+string)\b/;
 
 const blocked = (before: string) => NEGATED.test(before) || NOUN_USE.test(before) || FEATURE_DESCRIPTION.test(before);
 const clauseRest = (t: string, from: number) => t.slice(from).split(/[.;!?\n]/)[0];
@@ -59,7 +67,7 @@ function strongExempt(rule: string, t: string, at: number, text: string): boolea
   const after = t.slice(at + text.length);
   // Only a plain remove/delete/clear/reset of a UI part, with nothing data-like after it, is code. Never purge, wipe,
   // drop, truncate, erase, nuke, kill or destroy, and never a prod / database / table / backup / storage target.
-  if (rule === "destroy_broad") return DESTROY_EXEMPTIBLE_VERB.test(text) && !DESTROY_CORE.test(text) && UI_DIRECT.test(after) && !PEOPLE_DATA.test(after.replace(UI_DIRECT, "").split(/[.;!?\n]/)[0]);
+  if (rule === "destroy_broad") return DESTROY_EXEMPTIBLE_VERB.test(text) && !DESTROY_CORE.test(text) && UI_DIRECT.test(after) && !PEOPLE_DATA.test(after.replace(UI_DIRECT, "").split(/[.;!?\n]/)[0]) && !CONSEQUENTIAL_CONTEXT.test(after.split(/[.;!?\n]/)[0]);
   // Messages to people and money are never exempt.
   // Only "switch prod" directly before a build tool is code ("switch prod build to use swc"); never with infrastructure.
   if (rule === "live_switch") return /^switch\s+(?:prod|production)$/.test(text) && /^\s+(?:build|builds|bundler|compiler)\b/.test(after) && !INFRA.test(after.split(/[.;!?\n]/)[0]);
@@ -162,8 +170,12 @@ const CODE_IN_OBJECT = new RegExp(String.raw`^\s+(?:(?:the|a|an|this|that|old|ne
  */
 function verbAimedAtCode(t: string, verbStart: number, verbEnd: number): boolean {
   const rest = t.slice(verbEnd);
-  if (CODE_OBJECT.test(rest)) return true;
   const verb = t.slice(verbStart, verbEnd);
+  if (NEVER_CODE_VERB.test(verb)) return false;
+  if (CONSEQUENTIAL_CONTEXT.test(rest.split(/[.;!?\n]/)[0])) return false;
+  if (verb === "release") return RELEASE_CODE_OBJECT.test(rest);
+  if (verb === "publish") return PUBLISH_CODE_OBJECT.test(rest);
+  if (CODE_OBJECT.test(rest)) return true;
   const obj = CODE_IN_OBJECT.exec(rest);
   return /^(?:delete|cancel)$/.test(verb) && !!obj && !PEOPLE_DATA.test(rest.slice(obj[0].length).split(/[.;!?\n]/)[0]);
 }
