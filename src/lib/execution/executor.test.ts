@@ -65,7 +65,9 @@ function request(over: Partial<ExecutionRequest> & { plan?: unknown; capability?
 function deps(over: Partial<ExecutionDeps> = {}): ExecutionDeps {
   return {
     surface: "harness", ownerUid: OWNER, approvalKey: KEY, roots: [checkouts], execRoot: join(root, "exec"), store: new MemoryExecutionStore(),
-    claudeBin: FAKE, registry, telemetry: vi.fn(async () => {}), extraEnv: { FAKE_CLAUDE_RECORD: rec }, ...over,
+    claudeBin: FAKE, registry, telemetry: vi.fn(async () => {}), extraEnv: { FAKE_CLAUDE_RECORD: rec },
+    remoteTip: async (_repo, branch) => { try { return g(bare, "rev-parse", "--verify", `refs/heads/${branch}`); } catch { return null; } },   // the remote itself
+    ...over,
   };
 }
 const run = (r: ExecutionRequest, d: ExecutionDeps = deps()) => runExecution(r, approve(r, OWNER, KEY), d);
@@ -84,7 +86,7 @@ describe("M6 executor: the happy path stays inside its boundary", () => {
     expect(res.branch).toBe(execBranch(r.executionId));
     expect(res.filesChanged).toEqual(["src/validate.ts"]);
     expect(res.resultingHead).toBeNull();
-    expect(res.nextStep).toEqual({ action: "Run the tests", capability: "L3", consequential: null });
+    expect(res.nextStep).toBeNull();   // L3 (tests) is not executable in M6: the founder reviews the change instead
     const call = recorded();
     expect(call.cwd.endsWith(r.executionId)).toBe(true);
     const a = call.argv;
@@ -107,13 +109,13 @@ describe("M6 executor: the happy path stays inside its boundary", () => {
     expect(res.usage).toEqual({ inputTokens: 1200, outputTokens: 80, billing: "subscription", reportedCostEstimateUsd: 0.0123 });
   }, 30_000);
 
-  it("L4 may commit on its own branch only; the next step is a pull request, which no capability grants", async () => {
-    const res = await run(request({ capability: "L4", plan: { actions: [{ write: "a.txt" }, { bash: "git add -A && git -c user.email=t@t -c user.name=t commit -qm change" }] } }));
-    expect(res.status).toBe("succeeded");
-    expect(res.resultingHead).toMatch(/^[0-9a-f]{40}$/);
-    expect(res.nextStep).toEqual({ action: "Open a pull request", capability: null, consequential: "pull_request" });
-    expect(g(bare, "rev-parse", "main")).toBe(head);
-  }, 30_000);
+  it("L3 and L4 run repository code and are refused until an OS sandbox exists; nothing runs (PR #47 review P1)", async () => {
+    for (const capability of ["L3", "L4"] as const) {
+      const res = await run(request({ capability, plan: { actions: [{ write: "a.txt" }] } }));
+      expect(res.failure?.code).toBe("capability_unavailable");
+    }
+    expect(existsSync(rec)).toBe(false);
+  });
 });
 
 describe("M6 executor: red team, a model that ignores its permissions is caught by git state", () => {
@@ -132,7 +134,7 @@ describe("M6 executor: red team, a model that ignores its permissions is caught 
 
   it("pushes fail by every route (remote name, explicit path, URL) and the origin is unchanged", async () => {
     const res = await run(request({
-      capability: "L4", plan: {
+      capability: "L2", plan: {
         actions: [{ write: "a.txt" }, { bash: "git add -A && git -c user.email=t@t -c user.name=t commit -qm c" },
           { bash: "git push origin HEAD:refs/heads/main" }, { bash: `git push ${bare} HEAD:refs/heads/main` },
           { bash: `git push file://${bare} HEAD:refs/heads/main` }, { bash: "git push https://github.com/test-owner/proj-a.git HEAD:main" }],
@@ -144,13 +146,13 @@ describe("M6 executor: red team, a model that ignores its permissions is caught 
   }, 30_000);
 
   it("switching branches or committing elsewhere is a violation", async () => {
-    const res = await run(request({ capability: "L4", plan: { actions: [{ bash: "git checkout -q -b other && git -c user.email=t@t -c user.name=t commit -q --allow-empty -m x" }] } }));
+    const res = await run(request({ capability: "L2", plan: { actions: [{ bash: "git checkout -q -b other && git -c user.email=t@t -c user.name=t commit -q --allow-empty -m x" }] } }));
     expect(res.status).toBe("boundary_violation");
     expect(res.failure?.message).toMatch(/left the execution branch|ref changed outside/);
   }, 30_000);
 
   it("moving any other ref (a tag, another branch) while staying on the execution branch is a violation", async () => {
-    const res = await run(request({ capability: "L4", plan: { actions: [{ bash: "git tag sneaky && git branch evil HEAD" }] } }));
+    const res = await run(request({ capability: "L2", plan: { actions: [{ bash: "git tag sneaky && git branch evil HEAD" }] } }));
     expect(res.status).toBe("boundary_violation");
     expect(res.failure?.message).toContain("ref changed outside the execution branch: refs/heads/evil");
     expect(res.failure?.message).toContain("refs/tags/sneaky");
@@ -162,6 +164,20 @@ describe("M6 executor: red team, a model that ignores its permissions is caught 
     expect(res.status).toBe("boundary_violation");
     expect(res.failure?.message).toContain("left the execution branch");
     expect(res.failure?.message).not.toContain("ref changed");
+  }, 30_000);
+
+  it("a planted core.fsmonitor in the shared .git is a violation, and the executor's own checks never execute it (PR #47 review P1)", async () => {
+    const marker = join(root, "PWNED");
+    const res = await run(request({ plan: { actions: [{ bash: `git config --file "$(git rev-parse --git-common-dir)/config" core.fsmonitor "touch ${marker}; false"` }] } }));
+    expect(res.status).toBe("boundary_violation");
+    expect(res.failure?.message).toContain("shared .git directory changed");
+    expect(existsSync(marker)).toBe(false);
+  }, 30_000);
+
+  it("a hook written into the shared .git is a violation", async () => {
+    const res = await run(request({ plan: { actions: [{ bash: `printf '#!/bin/sh\\nexit 0\\n' > "$(git rev-parse --git-common-dir)/hooks/post-checkout"` }] } }));
+    expect(res.status).toBe("boundary_violation");
+    expect(res.failure?.message).toContain("shared .git directory changed");
   }, 30_000);
 
   it("touching the founder's own checkout is a violation", async () => {
@@ -221,13 +237,13 @@ describe("M6 executor: fail closed before anything runs", () => {
     notRun();
   });
 
-  it("a moved branch (stale head) is refused and creates no worktree", async () => {
+  it("a moved branch (stale head) is refused even before any fetch, and creates no worktree (PR #47 review P2)", async () => {
     const r = request();
     const other = join(root, "other");
     g(root, "clone", "-q", bare, other);
     writeFileSync(join(other, "new.txt"), "x\n");
     g(other, "add", "-A"); g(other, "commit", "-qm", "moved"); g(other, "push", "-q", "origin", "main");
-    g(repo, "fetch", "-q", bare, "main:refs/remotes/origin/main");
+    // No fetch into the checkout: its remote-tracking ref still shows the old head. The remote itself has moved.
     const res = await run(r);
     expect(res.failure?.code).toBe("stale_head");
     expect(existsSync(join(root, "exec", "mettle", r.executionId))).toBe(false);
@@ -238,6 +254,7 @@ describe("M6 executor: fail closed before anything runs", () => {
     expect((await run(request({ repository: { origin: "test-owner/proj-b", branch: "main", head } }))).failure?.code).toBe("wrong_project");
     expect((await run(request({ project: { slug: "parallax" } }))).failure?.code).toBe("repository_unsettled");
     expect((await run(request(), deps({ roots: [join(root, "nowhere")] }))).failure?.code).toBe("repository_unresolved");
+    expect((await run(request(), deps({ remoteTip: async () => null }))).failure?.code).toBe("branch_unknown");   // remote unreachable: fail closed
     // A checkout directory with the expected name but another origin is never used.
     expect((await run(request(), deps({ registry: [{ ...registry[0], checkouts: ["proj-b"] }] }))).failure?.code).toBe("repository_unresolved");
     expect((await run(request({ repository: { origin: "test-owner/proj-a", branch: "no-such-branch", head } }))).failure?.code).toBe("branch_unknown");

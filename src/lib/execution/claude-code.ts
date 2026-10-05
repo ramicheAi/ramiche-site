@@ -68,13 +68,21 @@ export function claudeArgs(o: Pick<ClaudeRunOptions, "capability" | "projectName
 }
 
 const KILL_GRACE_MS = 5000;
+const MAX_LOG_BYTES = 8 * 1024 * 1024;
+const MAX_LINE_BYTES = 4 * 1024 * 1024;
 
 export function runClaudeCode(o: ClaudeRunOptions): Promise<ClaudeRunOutcome> {
   const out: ClaudeRunOutcome = {
     exitCode: null, timedOut: false, canceled: false, reportedError: false, resultText: "", modelReported: null, turns: null,
     inputTokens: null, outputTokens: null, costEstimateUsd: null, checks: [], sawResult: false,
   };
-  const log = (line: string) => { try { appendFileSync(o.logPath, line.endsWith("\n") ? line : line + "\n"); } catch { /* logging never stops a run */ } };
+  let logged = 0;
+  const log = (line: string) => {
+    if (logged > MAX_LOG_BYTES) return;
+    const text = (line.endsWith("\n") ? line : line + "\n");
+    logged += text.length;
+    try { appendFileSync(o.logPath, logged > MAX_LOG_BYTES ? JSON.stringify({ type: "parallax", event: "log_truncated" }) + "\n" : text); } catch { /* logging never stops a run */ }
+  };
   const pendingBash = new Map<string, string>();
 
   const onEvent = (m: Record<string, unknown>) => {
@@ -126,6 +134,7 @@ export function runClaudeCode(o: ClaudeRunOptions): Promise<ClaudeRunOutcome> {
 
     child.stdout?.on("data", (d: Buffer) => {
       buf += d.toString("utf8");
+      if (buf.length > MAX_LINE_BYTES && buf.indexOf("\n") < 0) { log(JSON.stringify({ type: "parallax", event: "oversized_line_dropped" })); buf = ""; }
       let i: number;
       while ((i = buf.indexOf("\n")) >= 0) {
         const line = buf.slice(0, i); buf = buf.slice(i + 1);

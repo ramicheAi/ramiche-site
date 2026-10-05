@@ -35,6 +35,14 @@ export type Executor = (typeof EXECUTORS)[number];
 
 export const capabilityRank = (c: Capability) => CAPABILITIES.indexOf(c);
 
+/**
+ * Levels M6 can execute. L3 and L4 run the repository's own code (test scripts, commit hooks), which can do anything
+ * the user account can, including network pushes with the user's credentials and edits to the shared .git directory.
+ * Git-level guards cannot bound that (reproduced in review: `npm test` ran `env -u GIT_CONFIG_COUNT git push`). They
+ * stay unavailable until the executor runs inside an OS sandbox (no network, writes only in the worktree).
+ */
+export const EXECUTABLE_CAPABILITIES: readonly Capability[] = ["L0", "L1", "L2"];
+
 export interface ExecutionRequest {
   executionId: string;
   /** The Universal Command record this came from (a shadow decision id), or null for a harness request. */
@@ -171,7 +179,8 @@ export function bindingHash(r: ExecutionRequest): string {
 export function nextStepAfter(capability: Capability, filesChanged: number, committed: boolean): NextStep | null {
   if (capability === "L4" && committed) return { action: "Open a pull request", capability: null, consequential: "pull_request" };
   if (filesChanged === 0) return null;
-  if (capability === "L2") return { action: "Run the tests", capability: "L3", consequential: null };
-  if (capability === "L3") return { action: "Create commit", capability: "L4", consequential: null };
+  const step = (action: string, c: Capability): NextStep | null => (EXECUTABLE_CAPABILITIES.includes(c) ? { action, capability: c, consequential: null } : null);
+  if (capability === "L2") return step("Run the tests", "L3");
+  if (capability === "L3") return step("Create commit", "L4");
   return null;
 }

@@ -77,6 +77,7 @@ export function executionEnv(base: Env = process.env): Record<string, string> {
   env.TERM = "dumb";
   env.GIT_TERMINAL_PROMPT = "0";
   env.GIT_CONFIG_NOSYSTEM = "1";
+  env.GIT_CONFIG_GLOBAL = "/dev/null";   // no credential helpers, aliases or url rewrites from the user's config
   env.GIT_SSH_COMMAND = "/usr/bin/false";   // no ssh transport at all (keys in HOME stay unusable)
   // Every git command the run executes sees these, whatever the repository's own config says. pushurl alone does not
   // cover `git push <explicit url or path>`, so every URL form is rewritten for push, and credential helpers are off.

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { PROJECTS } from "@/app/command-center/shared-projects";
 import { approvalKey, approve, verifyApproval, APPROVAL_MAX_TTL_MS } from "./approval";
 import { claudeArgs } from "./claude-code";
-import { bindingHash, CAPABILITIES, invalidRequest, nextStepAfter, type ExecutionRequest, type ExecutionResult } from "./contract";
+import { bindingHash, CAPABILITIES, EXECUTABLE_CAPABILITIES, invalidRequest, nextStepAfter, type ExecutionRequest, type ExecutionResult } from "./contract";
 import { missionSuggestion } from "./mission";
 import { cliPolicy, DENIED_BASH, executionEnv, PRODUCTION_DISPATCH_ENABLED, PUSH_DISABLED_URL, surfaceAllowed } from "./policy";
 import { bySlug, originOf, REPO_REGISTRY, resolveProject } from "./projects";
@@ -34,9 +34,10 @@ describe("execution contract", () => {
     expect(bindingHash(req({ executionId: "00000000-0000-4000-8000-0000000000ff", createdAt: "2027-01-01T00:00:00Z" }))).toBe(h);
   });
 
-  it("the next step is one capability up, and after a commit it is consequential (never a capability)", () => {
-    expect(nextStepAfter("L2", 2, false)?.capability).toBe("L3");
-    expect(nextStepAfter("L3", 2, false)).toEqual({ action: "Create commit", capability: "L4", consequential: null });
+  it("the next step is only ever an executable capability, and after a commit it is consequential (never a capability)", () => {
+    expect(EXECUTABLE_CAPABILITIES).toEqual(["L0", "L1", "L2"]);
+    expect(nextStepAfter("L2", 2, false)).toBeNull();   // L3 is not executable until an OS sandbox exists
+    expect(nextStepAfter("L3", 2, false)).toBeNull();
     expect(nextStepAfter("L4", 2, true)).toEqual({ action: "Open a pull request", capability: null, consequential: "pull_request" });
     expect(nextStepAfter("L2", 0, false)).toBeNull();
     expect(CAPABILITIES).toEqual(["L0", "L1", "L2", "L3", "L4"]);   // no level grants push, merge or deploy
@@ -89,6 +90,7 @@ describe("capability policy", () => {
 
   it("the execution environment carries no cockpit secrets and disables every push route", () => {
     const env = executionEnv({ PATH: "/bin", HOME: "/h", USER: "u", PARALLAX_CSRF_SECRET: "x", SUPABASE_SERVICE_ROLE_KEY: "y", VERCEL_TOKEN: "z", GITHUB_TOKEN: "t", ANTHROPIC_API_KEY: "a" });
+    expect(env.GIT_CONFIG_GLOBAL).toBe("/dev/null");
     for (const k of ["PARALLAX_CSRF_SECRET", "SUPABASE_SERVICE_ROLE_KEY", "VERCEL_TOKEN", "GITHUB_TOKEN", "ANTHROPIC_API_KEY"]) expect(env[k]).toBeUndefined();
     const cfg = Array.from({ length: Number(env.GIT_CONFIG_COUNT) }, (_, i) => [env[`GIT_CONFIG_KEY_${i}`], env[`GIT_CONFIG_VALUE_${i}`]]);
     expect(cfg).toContainEqual(["remote.origin.pushurl", PUSH_DISABLED_URL]);
@@ -124,6 +126,7 @@ describe("project and repository resolution", () => {
   it("origins normalise from https, ssh and scp remotes; anything else is not an origin", () => {
     for (const u of ["https://github.com/ramicheAi/mettle.git", "git@github.com:ramicheAi/mettle.git", "ssh://git@github.com/ramicheAi/mettle", "https://github.com/ramicheAi/mettle/"]) expect(originOf(u)).toBe("ramicheAi/mettle");
     expect(originOf("/Users/admin/origin.git")).toBeNull();
+    expect(originOf("https://evil.example/ramicheAi/mettle.git")).toBeNull();   // only github.com is an origin (PR #47 review)
   });
 });
 
@@ -155,9 +158,12 @@ describe("jobs-backed execution store (existing jobs / job_events, no migration)
     expect(["succeeded", "failed", "canceled", "timed_out", "boundary_violation", "rejected"].map((x) => jobStatusFor(x as never))).toEqual(["done", "failed", "canceled", "failed", "failed", "failed"]);
   });
 
-  it("a store that cannot record fails closed (the executor will not run unrecorded work)", async () => {
+  it("a store that cannot record fails closed (the executor will not run unrecorded work), and a lost result is loud", async () => {
     const s = new JobsExecutionStore({ ...fakeDb().db, insertJob: async () => ({ conflict: false, error: "down" }) });
     await expect(s.begin(req(), "h")).rejects.toThrow(/could not be created/);
+    const result = { status: "succeeded", summary: "ok", completedAt: "t", failure: null } as unknown as ExecutionResult;
+    await expect(new JobsExecutionStore({ ...fakeDb().db, updateJob: async () => ({ error: "down" }) }).finish(req(), result)).rejects.toThrow(/could not be saved/);
+    await expect(new JobsExecutionStore({ ...fakeDb().db, updateJob: async () => ({ error: null }), insertEvent: async () => ({ error: "down" }) }).finish(req(), result)).rejects.toThrow(/could not be saved/);
   });
 });
 

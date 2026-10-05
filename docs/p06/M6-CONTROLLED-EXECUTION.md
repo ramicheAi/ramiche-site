@@ -46,8 +46,16 @@ the request), then **executor** (fail-closed checks, isolated worktree, Claude C
 | L0 | observe | Read, Glob, Grep |
 | L1 | analyze, recommend | Read, Glob, Grep |
 | L2 | modify locally (isolated worktree) | + Edit, Write |
-| L3 | run tests/build locally | + Bash, limited to allowlisted test/build and git-read prefixes |
-| L4 | commit locally (execution branch) | + `git add`, `git commit` |
+| L3 | run tests/build locally | + Bash, limited to allowlisted test/build and git-read prefixes. **Not executable in M6.** |
+| L4 | commit locally (execution branch) | + `git add`, `git commit`. **Not executable in M6.** |
+
+**Why L3 and L4 are not executable.** They run the repository's own code (test scripts, commit hooks), and that code
+can do anything the user account can. The PR #47 review reproduced this: `npm test` rewritten to
+`env -u GIT_CONFIG_COUNT git push <origin>` pushed with the user's credentials. A detached child outlived the
+process-group kill and acted after verification. A script planted `core.fsmonitor` in the shared `.git/config`.
+Git-level guards cannot bound this. L3 and L4 stay defined in the contract but are refused (`capability_unavailable`)
+until the executor runs inside an OS sandbox: no network, writes only in the worktree, every process of the run
+reaped. L0 to L2 give the CLI no shell at all.
 
 **Consequential acts are not levels and cannot be granted by any request:**
 - push, pull request, merge, deploy, migration
@@ -75,8 +83,9 @@ It expires after at most 15 minutes. Changing any bound field, widening the capa
      - `core.hooksPath=/dev/null`
      - `GIT_SSH_COMMAND=/usr/bin/false`
    - Its own process group: a timeout or cancel kills everything it started.
-3. **Verification after the run**, from git state alone. Each of these is a `boundary_violation`:
+3. **Verification after the run**, from git state alone, using the executor's own hardened git (system and global config ignored, `core.fsmonitor` and hooks forced off on the command line, so a planted config cannot execute during the checks). Each of these is a `boundary_violation`:
    - any ref outside the execution branch moved
+   - the shared `.git` changed (config, hooks, info, alternates, another worktree's metadata)
    - the worktree left the execution branch
    - the founder's checkout changed (HEAD, branch or working-tree status)
    - a commit below L4, or a rewritten base at L4
@@ -94,7 +103,7 @@ The executor refuses in these cases:
 - wrong project for the repository
 - no checkout with the right origin containing the commit
 - unknown branch
-- stale head (the branch moved since approval)
+- stale head: the branch on the remote itself (`git ls-remote`, not a possibly stale remote-tracking ref) moved since approval; an unreachable remote fails closed
 - the record cannot be written
 
 ## Project resolution (`projects.ts`)
@@ -130,7 +139,14 @@ The executor refuses in these cases:
 - **Tests:**
   - `src/lib/execution/*.test.ts`: real git plus a fake CLI that ignores its permissions, so every claim is checked against git and file state.
   - `ExecutionCards.test.tsx`.
-- **Mutation:** every enforcement point was mutated, and each mutant is caught.
+- **Mutation:** every enforcement point was mutated (36 in total, including the review fixes), and each mutant is caught.
+- **Red-team review (PR #47):** three P1s and two P2s were reproduced and fixed:
+  - L3/L4 are refused
+  - the shared `.git` is verified and the executor's own checks are hardened
+  - store errors throw
+  - the stale check asks the remote
+  - origins are github.com only
+  - logs are capped
 - **Real CLI** (`scripts/m6-execution-proof.mjs`, a throwaway sandbox repo):
   - The real Claude Code CLI started with exactly the granted tools in `dontAsk` mode.
   - Every run failed with the CLI's 401 "OAuth access token has expired". The executor reported `failed` (not succeeded), changed nothing, and pushed nothing.
@@ -138,6 +154,7 @@ The executor refuses in these cases:
 
 ## Before production dispatch can be enabled (each is a founder decision)
 
+0. **Before anything else, prove a real completed run with the real CLI.** Confirm its Write and Edit path scope at L2.
 1. **A working CLI credential on the execution host.**
    - Over SSH the iMac CLI cannot refresh its OAuth session, and launchd jobs cannot read the Keychain (the known claude_call.py lesson).
    - The MacBook's standalone CLI token has expired.
@@ -147,6 +164,6 @@ The executor refuses in these cases:
 4. **Flip the constant**, as a reviewed PR.
 
 **Residual risks to accept or close:**
-- L3 runs the repository's own test scripts with the user's HOME.
-- A push to a bare relative path without `./` or `../` is covered only by the CLI deny rule.
-- Concurrent edits by the founder in the same checkout during a run are reported as a violation (fails safe).
+- **Unverified at L2: the real CLI's Write and Edit path scope.** Whether the Write and Edit tools refuse paths outside the working directory, or follow symlinks committed in a repository, still needs checking. The shared `.git` and the founder's checkout are verified after every run; other directories are not.
+- **Needs an OS sandbox:** L3 and L4 (see above), and anything that runs repository code.
+- **Fails safe:** concurrent edits by the founder in the same checkout during a run, or a background fetch, are reported as a violation.

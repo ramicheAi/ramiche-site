@@ -75,10 +75,12 @@ export class JobsExecutionStore implements ExecutionStore {
   }
   async finish(r: ExecutionRequest, result: ExecutionResult): Promise<void> {
     const id = executionJobId(r.idempotencyKey);
-    await this.db.updateJob(id, {
+    const up = await this.db.updateJob(id, {
       status: jobStatusFor(result.status), result: result.summary.slice(0, 4000), error: result.failure?.message ?? null,
       progress: result.status, finished_at: result.completedAt, updated_at: result.completedAt,
     });
-    await this.db.insertEvent({ job_id: id, kind: "execution_result", detail: result });
+    if (up.error) throw new Error(`execution result could not be saved: ${up.error}`);
+    const ev = await this.db.insertEvent({ job_id: id, kind: "execution_result", detail: result });
+    if (ev.error) throw new Error(`execution result event could not be saved: ${ev.error}`);
   }
 }

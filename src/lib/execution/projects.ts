@@ -67,8 +67,8 @@ export function bySlug(slug: string, registry: readonly RepoEntry[] = REPO_REGIS
   return { ok: true, entry: e as RepoEntry & { origin: string }, name: projectName(slug) };
 }
 
-/** Normalises a git remote URL to owner/repo (https, ssh and scp forms), or null when it is not a GitHub-style remote. */
+/** Normalises a GitHub remote URL to owner/repo (https, ssh and scp forms); any other host is not an origin. */
 export function originOf(remoteUrl: string): string | null {
-  const m = remoteUrl.trim().match(/^(?:https?:\/\/[^/]+\/|ssh:\/\/git@[^/]+\/|git@[^:]+:)([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?\/?$/);
+  const m = remoteUrl.trim().match(/^(?:https:\/\/github\.com\/|ssh:\/\/git@github\.com\/|git@github\.com:)([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?\/?$/i);
   return m ? `${m[1]}/${m[2]}` : null;
 }

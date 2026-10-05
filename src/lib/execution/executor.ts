@@ -11,8 +11,8 @@ import { join } from "node:path";
 import { recordExecution, type ExecutionFacts } from "@/lib/execution-events";
 import { verifyApproval, type Approval } from "./approval";
 import { runClaudeCode, type ClaudeRunOutcome } from "./claude-code";
-import { bindingHash, capabilityRank, invalidRequest, nextStepAfter, type ExecutionRequest, type ExecutionResult, type ExecutionStatus } from "./contract";
-import { branchTip, changedFiles, checkoutSnapshot, git, isAncestor, refsSnapshot, revParse } from "./git";
+import { bindingHash, capabilityRank, EXECUTABLE_CAPABILITIES, invalidRequest, nextStepAfter, type ExecutionRequest, type ExecutionResult, type ExecutionStatus } from "./contract";
+import { changedFiles, checkoutSnapshot, git, gitDirSnapshot, isAncestor, refsSnapshot, remoteBranchTip, revParse } from "./git";
 import { surfaceAllowed, type Surface } from "./policy";
 import { bySlug, originOf, REPO_REGISTRY, type RepoEntry } from "./projects";
 import { executionJobId, type ExecutionStore } from "./store";
@@ -34,6 +34,8 @@ export interface ExecutionDeps {
   telemetry?: (f: ExecutionFacts) => Promise<void>;
   /** Tests only (fake CLI). */
   extraEnv?: Record<string, string>;
+  /** The branch tip on the remote (default: git ls-remote origin). Injectable for tests. */
+  remoteTip?: (repo: string, branch: string) => Promise<string | null>;
 }
 
 export const execBranch = (executionId: string) => `parallax-exec/${executionId}`;
@@ -58,15 +60,19 @@ export interface BoundaryInput {
   baseHead: string;
   refsBefore: Map<string, string>;
   checkoutBefore: Awaited<ReturnType<typeof checkoutSnapshot>>;
+  gitDirBefore: string;
+  worktreeName: string;
 }
 
 /** What the run did outside its capability, judged from git state only. Empty means inside the boundary. */
 export async function verifyBoundary(b: BoundaryInput): Promise<{ violations: string[]; tip: string | null }> {
   const v: string[] = [];
-  const [refsAfter, checkoutAfter, tip, wtBranch] = await Promise.all([
+  const [refsAfter, checkoutAfter, tip, wtBranch, gitDirAfter] = await Promise.all([
     refsSnapshot(b.repo), checkoutSnapshot(b.repo), revParse(b.repo, `refs/heads/${b.branch}`),
     git(b.worktree, ["symbolic-ref", "-q", "HEAD"]).then((r) => (r.ok ? r.out.trim() : null)),
+    gitDirSnapshot(b.repo, b.worktreeName),
   ]);
+  if (gitDirAfter !== b.gitDirBefore) v.push("the shared .git directory changed (config, hooks, info or another worktree)");
   const own = `refs/heads/${b.branch}`;
   for (const ref of new Set([...b.refsBefore.keys(), ...refsAfter.keys()])) {
     if (ref === own) continue;
@@ -111,6 +117,9 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
   if (req.founder.uid !== deps.ownerUid) return reject(req, now(), "not_founder", "Only the founder can request an execution.");
   const ap = verifyApproval(req, approval, deps.approvalKey, now());
   if (!ap.ok) return reject(req, now(), ap.code, ap.message);
+  if (!EXECUTABLE_CAPABILITIES.includes(req.capability)) {
+    return reject(req, now(), "capability_unavailable", `${req.capability} runs the repository's own code and needs an OS sandbox that is not built yet. Nothing was run; approve up to L2 (modify locally).`);
+  }
 
   const hash = bindingHash(req);
   let begun;
@@ -130,10 +139,11 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
   }
   const repo = await findCheckout(resolved.entry, deps.roots, req.repository.head);
   if (!repo) return finishWith(reject(req, now(), "repository_unresolved", `No checkout of ${resolved.entry.origin} containing the approved commit was found on this host.`));
-  const tip = await branchTip(repo, req.repository.branch);
-  if (!tip) return finishWith(reject(req, now(), "branch_unknown", `Branch ${req.repository.branch} was not found in ${resolved.entry.origin}.`));
-  if (tip.sha !== req.repository.head) {
-    return finishWith(reject(req, now(), "stale_head", `${req.repository.branch} moved since you approved (${req.repository.head.slice(0, 7)} is now ${tip.sha.slice(0, 7)}). Approve again on the current commit.`));
+  // Checked against the remote itself, not a possibly stale remote-tracking ref; unreachable fails closed.
+  const tipSha = await (deps.remoteTip ?? remoteBranchTip)(repo, req.repository.branch);
+  if (!tipSha) return finishWith(reject(req, now(), "branch_unknown", `Could not confirm the current ${req.repository.branch} of ${resolved.entry.origin} (branch missing or remote unreachable).`));
+  if (tipSha !== req.repository.head) {
+    return finishWith(reject(req, now(), "stale_head", `${req.repository.branch} moved since you approved (${req.repository.head.slice(0, 7)} is now ${tipSha.slice(0, 7)}). Approve again on the current commit.`));
   }
 
   const dir = join(deps.execRoot, req.project.slug);
@@ -142,6 +152,7 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
   const logPath = join(dir, `${req.executionId}.log.jsonl`);
   const branch = execBranch(req.executionId);
   const [refsBefore, checkoutBefore] = await Promise.all([refsSnapshot(repo), checkoutSnapshot(repo)]);
+  const gitDirBefore = await gitDirSnapshot(repo, req.executionId);
   const add = await git(repo, ["worktree", "add", "-b", branch, worktree, req.repository.head]);
   if (!add.ok) return finishWith(reject(req, now(), "worktree_failed", "The isolated worktree could not be created, so nothing ran."));
   // The worktree add itself created the execution branch; that is the one ref change the run may own.
@@ -160,7 +171,7 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
   }
   const completedMs = now();
 
-  const boundary = await verifyBoundary({ capability: req.capability, repo, worktree, branch, baseHead: req.repository.head, refsBefore, checkoutBefore });
+  const boundary = await verifyBoundary({ capability: req.capability, repo, worktree, branch, baseHead: req.repository.head, refsBefore, checkoutBefore, gitDirBefore, worktreeName: req.executionId });
   const files = await changedFiles(worktree, req.repository.head);
   const committed = !!boundary.tip && boundary.tip !== req.repository.head;
   const status: ExecutionStatus = boundary.violations.length ? "boundary_violation"
