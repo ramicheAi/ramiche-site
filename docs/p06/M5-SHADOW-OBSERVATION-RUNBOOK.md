@@ -2,7 +2,7 @@
 
 **Purpose.** For about one week after M5 ships, the Universal Command records what it *would* route, and executes nothing. This runbook says how to judge whether the routing is good enough to ever be trusted with dispatch. It uses only existing truth: the command records M5 already writes. There is no new schema, no score and no model.
 
-**Status.** Prepared on 2026-10-05, overnight. M5 is not merged or deployed, so no observation has started.
+**Status.** Prepared on 2026-10-05. M5 is not merged or deployed, so no observation has started. Section 6 is a proposed default gate; Ramon remains the final authority.
 
 ---
 
@@ -73,15 +73,47 @@ Every figure in the report is a count or "n of m". There is no composite score.
 | **Missions created / attached** | Commands that became or joined a Mission | Tells you whether the Mission bridge is used. A low count is information, not a failure. |
 | **Replay drift** | Today's rules route a recorded command differently | Expected after a rules change. Check that each drift is an improvement. |
 
-## 6. Exit criteria before any real dispatch (founder decision)
+## 6. Proposed default exit gate for the shadow week (a proposal; Ramon decides)
 
-These are proposed and not decided; they are for Ramon to set. Under any version of them, routing authority stays shadow-only until Ramon approves.
+The gate is a set of independent categories. Each one is checked on its own, and there is no composite score. Thresholds are deliberately conservative.
 
-- Zero dangerous false negatives over at least one full week of real commands, all of them labelled.
-- Zero "would have acted incorrectly" for any handler that would be allowed to act.
-- Every founder edit reviewed, and any recurring pattern turned into a rule plus a corpus entry.
-- The corpus report still shows zero dangerous false negatives after every rules change.
-- **Separately, and not covered by routing quality:** dispatch would need its own authority design (who acts, with which credentials, under which approvals). That is the deferred M2B question, and it gets its own decision.
+**Minimum sample, or the verdict is EXTEND SHADOW.** At least 7 calendar days, at least 40 real commands, and every command labelled by the founder (see sections 3 and 4).
+
+| # | Category | How it is checked | Pass |
+|---|---|---|---|
+| G1 | Dangerous false negatives | Labelled `human`, router chose a handler (report) | **0** |
+| G2 | Founder-only authority reaching an agent | Any command in a founder-only category (git/release, external communication, money, Mission lifecycle, destructive data, credentials) routed to an acting handler. Labels plus the escalation-reason list | **0** |
+| G3 | Route edits auditable | Every founder edit has a superseding record, and each superseded record still exists (report "superseded by founder edit" matches the edit count) | **all** |
+| G4 | No external execution from shadow | `execution_events` rows correlated to a command message id; jobs created by the shadow route; bridge relay logs mentioning a command id | **0** each |
+| G5 | No command accepted as evidence | `mission_links` with `relation = 'evidence'` pointing at a command message or the command channel (one read-only query) | **0** |
+| G6 | Explicit-handler accuracy | Among explicit routes, label = decision | **all**, excluding founder-authority overrides, which are correct by design |
+| G7 | Deterministic-rule accuracy | Among deterministic non-founder routes, label = decision | **at most 2 mismatches**, none in an acting handler |
+| G8 | False founder escalations | Router chose `human`, label says an agent | **measured and reviewed**; does not block, because it is safe; if more than 5, tune with corpus entries |
+| G9 | Ambiguity asks rather than guesses | Every `ambiguous` route has a question and no handler; no labelled-ambiguous command was given a handler | **all** |
+| G10 | No leakage into chat or history | Command text in the chat channel list, search, pulse, Decisions, health or gallery responses, or in agent conversation history (spot-check plus the exclusion tests in CI) | **0** |
+| G11 | No model or cost from routing | `execution_events` rows with a purpose or correlation tied to routing during the week (deterministic routing calls no model) | **0** |
+| G12 | Corpus regression | `node scripts/command-shadow-report.mjs --corpus` after every rules change | **0** dangerous false negatives, exit 0 |
+
+**Verdict rule.**
+- **GO:** every blocking category (G1 to G7, G9 to G12) passes and the minimum sample is met. GO means only that routing quality is proven. It grants no dispatch authority; that needs its own design and decision (see the M2B assessment).
+- **EXTEND SHADOW:** the sample is short, or G7 has 1 or 2 mismatches, or G8 shows a repeated pattern still being tuned. All of G1, G2, G4, G5, G10 and G11 must still be clean.
+- **NO-GO:** any failure in G1, G2, G4, G5, G10 or G11. Fix it, add corpus entries, and restart the week.
+
+G4, G5, G10 and G11 are read-only checks Ramon (or a read-only session) runs; nothing here writes.
+
+```sql
+-- G5: a command accepted as evidence (expect 0 rows; M2 refuses this, so any row is a defect)
+select l.* from public.mission_links l
+ where l.relation = 'evidence' and l.removed_at is null
+   and ((l.target_type = 'chat_message' and l.target_id in (
+          select id::text from public.messages where channel_id = 'af58dead-cb94-51a4-98e5-d353eca43241'))
+     or (l.target_type = 'chat_channel' and l.target_id = 'af58dead-cb94-51a4-98e5-d353eca43241'));
+
+-- G4 / G11: telemetry correlated to a command message (expect 0 rows)
+select e.id, e.provider, e.purpose, e.correlation_type, e.correlation_id from public.execution_events e
+ where e.correlation_type = 'chat_message' and lower(e.correlation_id) in (
+       select id::text from public.messages where channel_id = 'af58dead-cb94-51a4-98e5-d353eca43241');
+```
 
 ## 7. Do not
 
