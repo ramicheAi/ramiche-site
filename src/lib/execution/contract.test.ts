@@ -66,23 +66,37 @@ describe("founder approval", () => {
 
 describe("capability policy", () => {
   it("only L3 and L4 get a shell, and every level denies push, remotes, deploy tools and network fetchers", () => {
-    expect(cliPolicy("L0").tools).toEqual(["Read", "Glob", "Grep"]);
-    expect(cliPolicy("L1").tools).toEqual(["Read", "Glob", "Grep"]);
-    expect(cliPolicy("L2").tools).toEqual(["Read", "Glob", "Grep", "Edit", "Write"]);
-    for (const c of ["L0", "L1", "L2"] as const) expect(cliPolicy(c).tools).not.toContain("Bash");
+    const WT = "/Users/admin/.parallax/executions/mettle/00000000-0000-4000-8000-000000000001";
+    expect(cliPolicy("L0", WT).tools).toEqual(["Read", "Glob", "Grep"]);
+    expect(cliPolicy("L1", WT).tools).toEqual(["Read", "Glob", "Grep"]);
+    expect(cliPolicy("L2", WT).tools).toEqual(["Read", "Glob", "Grep", "Edit", "Write"]);
+    for (const c of ["L0", "L1", "L2"] as const) expect(cliPolicy(c, WT).tools).not.toContain("Bash");
     for (const c of CAPABILITIES) {
-      const p = cliPolicy(c);
+      const p = cliPolicy(c, WT);
       for (const d of ["git push", "gh", "vercel", "supabase", "curl"]) expect(p.disallowedTools).toContain(`Bash(${d}:*)`);
       expect(p.tools).not.toContain("WebFetch");
       expect(p.tools).not.toContain("NotebookEdit");
     }
-    expect(cliPolicy("L3").allowedTools).not.toContain("Bash(git commit:*)");
-    expect(cliPolicy("L4").allowedTools).toContain("Bash(git commit:*)");
+    expect(cliPolicy("L3", WT).allowedTools).not.toContain("Bash(git commit:*)");
+    expect(cliPolicy("L4", WT).allowedTools).toContain("Bash(git commit:*)");
     expect(DENIED_BASH).toContain("git config");
   });
 
+  it("file access is confined to the worktree: no bare Read/Edit/Write allow rule, anchored // rules only (PR #47 Codex P1)", () => {
+    const WT = "/Users/admin/.parallax/executions/mettle/00000000-0000-4000-8000-000000000001";
+    for (const c of CAPABILITIES) {
+      const p = cliPolicy(c, WT);
+      for (const bare of ["Read", "Edit", "Write", "Glob", "Grep"]) expect(p.allowedTools).not.toContain(bare);
+      for (const r of p.allowedTools.filter((x) => /^(Read|Edit|Write)\(/.test(x))) expect(r).toMatch(/^(Read|Edit|Write)\(\/\/Users\/admin\/\.parallax\/executions\/mettle\/[0-9a-f-]+\/\*\*\)$/);
+      expect(p.disallowedTools).toContain(`Edit(/${WT}/.git/**)`);
+    }
+    expect(cliPolicy("L0", WT).allowedTools).toEqual([`Read(/${WT}/**)`]);
+    expect(cliPolicy("L2", WT).allowedTools).toEqual([`Read(/${WT}/**)`, `Edit(/${WT}/**)`, `Write(/${WT}/**)`]);
+    for (const bad of ["relative/path", "/x/*/y", "/x/[a]", "/x/../y", "/x/!y"]) expect(() => cliPolicy("L2", bad)).toThrow();
+  });
+
   it("the CLI arguments never bypass permissions, load settings, MCP or skills", () => {
-    const a = claudeArgs({ capability: "L4", projectName: "METTLE", maxTurns: 10, maxBudgetUsd: 2, model: "sonnet" });
+    const a = claudeArgs({ capability: "L4", cwd: "/w/x", projectName: "METTLE", maxTurns: 10, maxBudgetUsd: 2, model: "sonnet" });
     expect(a.join(" ")).not.toMatch(/dangerously|bypassPermissions|acceptEdits/);
     expect(a).toEqual(expect.arrayContaining(["--permission-mode", "dontAsk", "--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence"]));
     expect(a[a.indexOf("--setting-sources") + 1]).toBe("");

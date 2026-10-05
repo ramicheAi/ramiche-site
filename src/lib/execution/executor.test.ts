@@ -3,7 +3,7 @@
  * (__fixtures__/fake-claude.mjs). Every authority claim is checked against git and file state, not the model's word.
  */
 import { execFileSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -82,7 +82,7 @@ describe("M6 executor: the happy path stays inside its boundary", () => {
     const res = await run(r, deps({ telemetry }));
     expect(res.status).toBe("succeeded");
     expect(res.summary).toBe("Fixed athlete import validation.");
-    expect(res.worktree).toBe(join(root, "exec", "mettle", r.executionId));
+    expect(res.worktree).toBe(realpathSync(join(root, "exec", "mettle", r.executionId)));
     expect(res.branch).toBe(execBranch(r.executionId));
     expect(res.filesChanged).toEqual(["src/validate.ts"]);
     expect(res.resultingHead).toBeNull();
@@ -91,6 +91,8 @@ describe("M6 executor: the happy path stays inside its boundary", () => {
     expect(call.cwd.endsWith(r.executionId)).toBe(true);
     const a = call.argv;
     expect(a[a.indexOf("--tools") + 1]).toBe("Read,Glob,Grep,Edit,Write");
+    const wt = realpathSync(join(root, "exec", "mettle", r.executionId));
+    expect(a.slice(a.indexOf("--allowedTools") + 1, a.indexOf("--disallowedTools"))).toEqual([`Read(/${wt}/**)`, `Edit(/${wt}/**)`, `Write(/${wt}/**)`]);
     expect(a[a.indexOf("--permission-mode") + 1]).toBe("dontAsk");
     expect(a[a.indexOf("--setting-sources") + 1]).toBe("");
     expect(a).toContain("--strict-mcp-config");

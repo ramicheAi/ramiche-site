@@ -49,18 +49,38 @@ const rules = (prefixes: string[]) => prefixes.map((p) => `Bash(${p}:*)`);
 
 export interface CliPolicy { tools: string[]; allowedTools: string[]; disallowedTools: string[] }
 
-export function cliPolicy(c: Capability): CliPolicy {
-  const deny = rules(DENIED_BASH);
+/**
+ * File access is confined to the run's own worktree. A bare `Read`/`Edit`/`Write` allow rule matches every path on the
+ * machine (Claude Code permissions docs, "Match all uses of a tool"), so allow rules are never bare: they are anchored
+ * at the worktree with `//<absolute path>/**`. Outside it, reads and edits would need approval, and dontAsk denies
+ * them. Allow rules match only when both the requested path and its symlink target match, so a symlink out of the
+ * worktree is denied too. Glob and Grep follow Read rules. (PR #47 Codex P1.)
+ */
+export function fileRules(worktree: string): { read: string[]; write: string[]; deny: string[] } {
+  if (!worktree.startsWith("/") || /[*?[\]!\\]|\s$/.test(worktree) || worktree.includes("..")) {
+    throw new Error("worktree path cannot be expressed as an exact permission rule");
+  }
+  const wt = worktree.replace(/\/+$/, "");
+  return {
+    read: [`Read(/${wt}/**)`],
+    write: [`Edit(/${wt}/**)`, `Write(/${wt}/**)`],
+    deny: [`Edit(/${wt}/.git)`, `Write(/${wt}/.git)`, `Edit(/${wt}/.git/**)`, `Write(/${wt}/.git/**)`],
+  };
+}
+
+export function cliPolicy(c: Capability, worktree: string): CliPolicy {
+  const f = fileRules(worktree);
+  const deny = [...rules(DENIED_BASH), ...f.deny];
   switch (c) {
     case "L0":
     case "L1":
-      return { tools: READ, allowedTools: READ, disallowedTools: deny };
+      return { tools: READ, allowedTools: f.read, disallowedTools: deny };
     case "L2":
-      return { tools: [...READ, ...WRITE], allowedTools: [...READ, ...WRITE], disallowedTools: deny };
+      return { tools: [...READ, ...WRITE], allowedTools: [...f.read, ...f.write], disallowedTools: deny };
     case "L3":
-      return { tools: [...READ, ...WRITE, "Bash"], allowedTools: [...READ, ...WRITE, ...rules([...TEST_COMMANDS, ...GIT_READ])], disallowedTools: deny };
+      return { tools: [...READ, ...WRITE, "Bash"], allowedTools: [...f.read, ...f.write, ...rules([...TEST_COMMANDS, ...GIT_READ])], disallowedTools: deny };
     case "L4":
-      return { tools: [...READ, ...WRITE, "Bash"], allowedTools: [...READ, ...WRITE, ...rules([...TEST_COMMANDS, ...GIT_READ, ...GIT_COMMIT])], disallowedTools: deny };
+      return { tools: [...READ, ...WRITE, "Bash"], allowedTools: [...f.read, ...f.write, ...rules([...TEST_COMMANDS, ...GIT_READ, ...GIT_COMMIT])], disallowedTools: deny };
   }
 }
 

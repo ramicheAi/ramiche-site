@@ -52,7 +52,7 @@ export function systemPrompt(capability: Capability, projectName: string): strin
   ].join("\n");
 }
 
-export function claudeArgs(o: Pick<ClaudeRunOptions, "capability" | "projectName" | "maxTurns" | "maxBudgetUsd" | "model">, policy: CliPolicy = cliPolicy(o.capability)): string[] {
+export function claudeArgs(o: Pick<ClaudeRunOptions, "capability" | "cwd" | "projectName" | "maxTurns" | "maxBudgetUsd" | "model">, policy: CliPolicy = cliPolicy(o.capability, o.cwd)): string[] {
   const args = [
     "-p", "--output-format", "stream-json", "--verbose", "--no-session-persistence",
     "--permission-mode", "dontAsk", "--setting-sources", "", "--strict-mcp-config", "--disable-slash-commands",

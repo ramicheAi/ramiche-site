@@ -6,7 +6,7 @@
  * its own branch, and afterwards the boundary is verified from git state alone (verifyBoundary), whatever the model
  * said it did. Telemetry goes to execution_events through the existing recorder (subscription cost semantics kept).
  */
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { recordExecution, type ExecutionFacts } from "@/lib/execution-events";
 import { verifyApproval, type Approval } from "./approval";
@@ -146,8 +146,9 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
     return finishWith(reject(req, now(), "stale_head", `${req.repository.branch} moved since you approved (${req.repository.head.slice(0, 7)} is now ${tipSha.slice(0, 7)}). Approve again on the current commit.`));
   }
 
-  const dir = join(deps.execRoot, req.project.slug);
-  mkdirSync(dir, { recursive: true });
+  mkdirSync(join(deps.execRoot, req.project.slug), { recursive: true });
+  // Canonical path: permission allow rules must match the resolved path too (macOS /var is /private/var).
+  const dir = realpathSync(join(deps.execRoot, req.project.slug));
   const worktree = join(dir, req.executionId);
   const logPath = join(dir, `${req.executionId}.log.jsonl`);
   const branch = execBranch(req.executionId);

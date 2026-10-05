@@ -73,6 +73,10 @@ It expires after at most 15 minutes. Changing any bound field, widening the capa
 
 1. **CLI.**
    - An exact `--tools` set in `--permission-mode dontAsk`, with `--setting-sources ""`, `--strict-mcp-config` and `--disable-slash-commands`. A repository's own `.claude/settings.json` cannot widen it.
+   - **File access is confined to the run's worktree.** No allow rule is ever a bare `Read`, `Edit` or `Write`, because a bare name matches every path on the machine. Allow rules are anchored at the canonical (realpath) worktree as `//<path>/**`, and the worktree's `.git` link is denied. Per the Claude Code permissions docs:
+     - reads outside the working directory and all edits need approval, and `dontAsk` denies them
+     - allow rules must match both the requested path and its symlink target
+     - Glob and Grep follow Read rules
    - Bash appears only at L3 and L4, limited to allowlisted prefixes. Push, remote, config, branch, reset, rebase, merge, tag, gh, vercel, supabase, curl, wget and ssh are explicitly denied.
 2. **Process.**
    - A fresh git worktree on `parallax-exec/<executionId>`, created from the approved commit. It lives under the execution root, never in the founder's checkout and never in /tmp.
@@ -147,6 +151,10 @@ The executor refuses in these cases:
   - the stale check asks the remote
   - origins are github.com only
   - logs are capped
+- **Codex review (PR #47):**
+  - a P1: bare file-tool allow rules were not path-confined; fixed with worktree-anchored rules
+  - a P1 on package scripts, which L3/L4 refusal resolves
+  - a P2 on silent store errors, fixed
 - **Real CLI** (`scripts/m6-execution-proof.mjs`, a throwaway sandbox repo):
   - The real Claude Code CLI started with exactly the granted tools in `dontAsk` mode.
   - Every run failed with the CLI's 401 "OAuth access token has expired". The executor reported `failed` (not succeeded), changed nothing, and pushed nothing.
@@ -164,6 +172,6 @@ The executor refuses in these cases:
 4. **Flip the constant**, as a reviewed PR.
 
 **Residual risks to accept or close:**
-- **Unverified at L2: the real CLI's Write and Edit path scope.** Whether the Write and Edit tools refuse paths outside the working directory, or follow symlinks committed in a repository, still needs checking. The shared `.git` and the founder's checkout are verified after every run; other directories are not.
+- **To confirm on the real CLI:** that worktree-anchored rules deny reads and writes elsewhere (`~/.ssh`, `~/.zshrc`, other repositories), as the permissions docs state. This needs a working CLI credential. The shared `.git` and the founder's checkout are verified after every run either way.
 - **Needs an OS sandbox:** L3 and L4 (see above), and anything that runs repository code.
 - **Fails safe:** concurrent edits by the founder in the same checkout during a run, or a background fetch, are reported as a violation.
