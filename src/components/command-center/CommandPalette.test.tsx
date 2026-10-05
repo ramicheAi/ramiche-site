@@ -162,6 +162,15 @@ describe("Universal Command entry in the command palette", () => {
     await waitFor(() => expect(fetchSpy.mock.calls[0]?.[0]).toBe("/api/command-center/jobs"));
   });
 
+  it("hovering Run as Job does not select it, so Enter after a stray mouse move still shadow-routes", async () => {
+    fetchSpy.mockImplementation(() => json(201, { data: { id: ID }, error: null }));
+    open("fix it");
+    fireEvent.mouseEnter(screen.getByRole("button", { name: /run as job/i }));
+    fireEvent.keyDown(window, { key: "Enter" });
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
+    expect(fetchSpy.mock.calls.map(([u]) => u)).toEqual(["/api/command-center/command/shadow"]);
+  });
+
   it("editing the text after arrowing to Run as Job moves the highlight back to Shadow-route", async () => {
     fetchSpy.mockImplementation(() => json(201, { data: { id: ID }, error: null }));
     open("first");

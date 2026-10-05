@@ -483,7 +483,8 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
                   data-idx={idx}
                   type="button"
                   className={`po-pal-item${active ? " on" : ""}${isShadow ? " run" : ""}`}
-                  onMouseEnter={() => setActiveIdx(idx)}
+                  // Hover never selects Run as Job: a stray mouse move followed by Enter must not dispatch a job.
+                  onMouseEnter={() => { if (!isRun) setActiveIdx(idx); }}
                   onClick={() => execute(entry)}
                 >
                   <span

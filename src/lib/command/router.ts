@@ -19,7 +19,7 @@
  *   5. AMBIGUOUS  otherwise no handler is chosen and a question is returned. There is no classifier in M5.
  */
 import { AGENT_CORE } from "@/lib/agent-registry-core";
-import { authorityFinding } from "./authority";
+import { authorityFinding, canonicalCommand } from "./authority";
 import { HANDLER_META, HANDLERS, type Handler, type ShadowDecision } from "./types";
 
 export type RouteInput = {
@@ -55,7 +55,7 @@ const NO_MERGE = /\b(?:don'?t|do not|never|no)\s+merge\b|\bwithout me\b/;
 const WORK: ReadonlySet<Handler> = new Set<Handler>(["claude_code", "openclaw", "existing_job", "cockpit_agent"]);
 const NEEDS_FOUNDER: ReadonlySet<Handler> = new Set<Handler>(["claude_code", "openclaw", "existing_job", "cockpit_agent", "human", "codex_review"]);
 
-const norm = (s: string) => s.toLowerCase().replace(/[‘’]/g, "'").replace(/\s+/g, " ").trim();
+const norm = canonicalCommand;
 
 /** Every handler named in the text, in order of appearance, each tagged as a doer or a reviewer by its own sentence. */
 function namedHandlers(t: string): { handler: Handler; at: number; reviewer: boolean; agentId: string | null }[] {

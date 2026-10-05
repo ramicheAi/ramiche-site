@@ -106,6 +106,16 @@ describe("Universal Command shadow panel", () => {
     expect(m.list).toHaveBeenNthCalledWith(2, 7);
   });
 
+  it("overlapping pages do not duplicate a mission in the picker", async () => {
+    const { command, m } = apis(record());
+    (m.list as ReturnType<typeof vi.fn>).mockReset()
+      .mockResolvedValueOnce({ ok: true, data: { missions: [mission()], nextBefore: 7 } })
+      .mockResolvedValueOnce({ ok: true, data: { missions: [mission()], nextBefore: null } });
+    render(<ShadowCommandPanel id={CMD} api={command} missions={m} {...handlers()} />);
+    await waitFor(() => expect(m.list).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(within(screen.getByLabelText("Mission to attach to")).getAllByRole("option").map((o) => o.textContent)).toEqual(["Attach to a mission…", "M-7 · Fix Mettle"]));
+  });
+
   it("the picker is bounded and says so when more missions exist than it lists", async () => {
     const { command, m } = apis(record());
     let n = 100;

@@ -71,7 +71,7 @@ export function ShadowCommandPanel({ id, api = httpCommandApi, missions = httpMi
         const r = await missions.list(before);
         if (!alive) return;
         if (!r.ok) { setPickerNote(`Missions could not be loaded for attaching: ${r.message}`); setOpen([]); return; }
-        all.push(...r.data.missions);
+        for (const m of r.data.missions) if (!all.some((x) => x.id === m.id)) all.push(m);   // pages may overlap
         if (r.data.nextBefore === null) { setOpen(all.filter((m) => !isTerminal(m.state))); return; }
         before = r.data.nextBefore;
       }
