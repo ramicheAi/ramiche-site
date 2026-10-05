@@ -1366,3 +1366,14 @@ describe("M4B cost wording", () => {
     expect(shadow).not.toContain("1.42");
   });
 });
+
+describe("M5A browser-acceptance fixes (detail on phones)", () => {
+  it("the detail grid column can shrink to the screen, and the back link and removed-links toggle are full touch targets", async () => {
+    render(<MissionDetailView id={M_ID} api={fakeApi({}, { mission: mission({ state: "executing" }), links: [evidenceLink()] })} />);
+    const back = await screen.findByRole("link", { name: "← All missions" });
+    expect(parseInt(back.style.minHeight, 10)).toBeGreaterThanOrEqual(44);
+    expect((back.parentElement as HTMLElement).style.gridTemplateColumns).toBe("minmax(0, 1fr)");
+    const toggle = screen.getByRole("checkbox").closest("label") as HTMLElement;
+    expect(parseInt(toggle.style.minHeight, 10)).toBeGreaterThanOrEqual(44);
+  });
+});

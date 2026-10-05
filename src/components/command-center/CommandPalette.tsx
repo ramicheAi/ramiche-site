@@ -518,7 +518,7 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
                       {entry.label}
                     </span>
                     {entry.hint && (
-                      <span style={{ display: "block", fontSize: 11, color: "var(--t-lo)", marginTop: 2 }}>
+                      <span style={{ display: "block", fontSize: 11, color: isRun ? "var(--c-amber, #f59e0b)" : "var(--t-lo)", marginTop: 2 }}>
                         {entry.hint}
                       </span>
                     )}
@@ -526,7 +526,7 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
                   {isShadow ? (
                     <span className="kbd">↵ shadow</span>
                   ) : isRun ? (
-                    <span className="kbd">runs now</span>
+                    <span className="kbd" style={{ color: "var(--c-amber, #f59e0b)", borderColor: "var(--c-amber, #f59e0b)" }}>runs now</span>
                   ) : (
                     <span className="po-pal-grp">{kindLabelFor(entry)}</span>
                   )}

@@ -196,3 +196,23 @@ describe("Universal Command shadow panel", () => {
     expect(screen.getByTestId("shadow-route").style.gridTemplateColumns).toBe("auto minmax(0, 1fr)");   // the value column can shrink: no horizontal scroll
   });
 });
+
+describe("M5A browser-acceptance fixes", () => {
+  it("completed missions are not offered as attach targets, and a completed context mission is not the default", async () => {
+    const done = mission({ id: MID, state: "completed" });
+    const open = mission({ id: "00000000-0000-4000-8000-000000000005", ref: 5, state: "executing", objective: "Open work" });
+    const { command, m } = apis(record({ missionContext: MID }), [done, open]);
+    render(<ShadowCommandPanel id={CMD} api={command} missions={m} {...handlers()} />);
+    await screen.findByTestId("shadow-label");
+    await waitFor(() => expect(within(screen.getByLabelText("Mission to attach to")).getAllByRole("option").map((o) => o.textContent)).toEqual(["Attach to a mission…", "M-5 · Open work"]));
+    expect((screen.getByLabelText("Mission to attach to") as HTMLSelectElement).value).toBe("");
+  });
+
+  it("on a phone the panel content and its pickers can never be wider than the screen", async () => {
+    const { command, m } = apis(record());
+    render(<ShadowCommandPanel id={CMD} api={command} missions={m} {...handlers()} />);
+    await screen.findByTestId("shadow-label");
+    expect(screen.getByTestId("shadow-command").style.gridTemplateColumns).toBe("minmax(0, 1fr)");
+    for (const s of screen.getAllByRole("combobox")) expect([(s as HTMLElement).style.minWidth, (s as HTMLElement).style.maxWidth]).toEqual(["0px", "100%"]);
+  });
+});
