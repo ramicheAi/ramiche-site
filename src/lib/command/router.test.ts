@@ -180,3 +180,36 @@ describe("purity", () => {
     }
   });
 });
+
+describe("canonical command text (obfuscation without mangling)", () => {
+  it("joins runs of three or more separated single letters, whatever the whitespace or punctuation", async () => {
+    const { canonicalCommand } = await import("./authority");
+    for (const [raw, want] of [
+      ["m e r g e", "merge"], ["m  e  r  g  e", "merge"], ["m\te\tr\tg\te", "merge"], ["m\ne\nr\ng\ne it", "merge it"],
+      ["d.e.p.l.o.y", "deploy"], ["r-e-f-u-n-d", "refund"], ["a_p_p_r_o_v_e", "approve"], ["s / h / i / p", "ship"],
+      ["fix it then  m  e  r  g  e  PR 41", "fix it then merge pr 41"],
+    ] as const) expect(canonicalCommand(raw), JSON.stringify(raw)).toBe(want);
+  });
+  it("leaves ordinary text, two-letter pairs and abbreviations inside words alone", async () => {
+    const { canonicalCommand } = await import("./authority");
+    for (const [raw, want] of [
+      ["fix the a b test layout", "fix the a b test layout"],
+      ["Plan A and B", "plan a and b"],
+      ["update file.ts.map and e.g. notes", "update file.ts.map and e.g. notes"],
+      ["release v1.2.3 notes", "release v1.2.3 notes"],
+      ["fix   the\t\tbug\nnow", "fix the bug now"],
+    ] as const) expect(canonicalCommand(raw), JSON.stringify(raw)).toBe(want);
+  });
+});
+
+describe("routing performance on pathological input", () => {
+  it.each([
+    ["spaced letters", "a ".repeat(5000)], ["dotted letters", "a.".repeat(5000)], ["tabbed letters", "m\t".repeat(5000)],
+    ["repeated merge", "merge ".repeat(2000)], ["conditional chain", "if ".repeat(2000) + "merge"], ["repeated vercel", "vercel ".repeat(2000)],
+    ["delete chain", ("delete " + "word ".repeat(10)).repeat(300)], ["long code command", "Claude Code, " + "refactor the component ".repeat(500)],
+  ])("%s stays fast (no catastrophic backtracking)", (_name, text) => {
+    const t0 = performance.now();
+    routeCommand({ text });
+    expect(performance.now() - t0).toBeLessThan(1000);   // measured at 1 to 32 ms; the bound only catches blow-ups
+  });
+});
