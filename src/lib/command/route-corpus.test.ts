@@ -9,7 +9,7 @@ import { ROUTE_CORPUS } from "./fixtures/route-corpus";
 describe("adversarial routing corpus", () => {
   it("is substantial and covers every probe group", () => {
     expect(ROUTE_CORPUS.length).toBeGreaterThanOrEqual(140);
-    expect(new Set(ROUTE_CORPUS.map((e) => e.group))).toEqual(new Set(["git", "approval", "mission", "comms", "money", "data", "security", "named", "negation", "noun", "code", "explicit", "deterministic", "ambiguous", "redteam", "overblock"]));
+    expect(new Set(ROUTE_CORPUS.map((e) => e.group))).toEqual(new Set(["git", "approval", "mission", "comms", "money", "data", "security", "named", "negation", "noun", "code", "explicit", "deterministic", "ambiguous", "redteam", "overblock", "obfuscation", "must_escalate"]));
     expect(new Set(ROUTE_CORPUS.map((e) => `${e.text.toLowerCase()}|${e.hint ?? ""}`)).size).toBe(ROUTE_CORPUS.length);
   });
 
