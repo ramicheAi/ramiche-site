@@ -11,6 +11,8 @@ export function cockpitMetadata(title: string): Metadata {
     description: "Parallax OS command center (owner only).",
     manifest: "/parallax-os.webmanifest",
     robots: { index: false, follow: false },
+    alternates: null,   // never the marketing homepage canonical
+    keywords: null,
     openGraph: null,
     twitter: null,
     appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Parallax OS" },

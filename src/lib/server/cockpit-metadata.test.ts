@@ -16,6 +16,8 @@ it("cockpit metadata has its own title and manifest, no marketing title or socia
     expect(m.robots).toEqual({ index: false, follow: false });
     expect(m.openGraph).toBeNull();
     expect(m.twitter).toBeNull();
+    expect(m.alternates).toBeNull();   // no inherited canonical to the public homepage (Codex P2, PR #46)
+    expect(m.keywords).toBeNull();
     expect(JSON.stringify(m)).not.toMatch(MARKETING);
   }
 });
