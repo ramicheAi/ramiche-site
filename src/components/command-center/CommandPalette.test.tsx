@@ -130,10 +130,45 @@ describe("Universal Command entry in the command palette", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("the existing Run as Job entry is unchanged and still first", () => {
+  it("with typed text, Shadow-route is row 0 and Run as Job row 1", () => {
     open("fix it");
     const items = screen.getAllByRole("button").map((b) => b.textContent ?? "");
-    expect(items[0]).toContain("Run as Job");
-    expect(items[1]).toContain("Shadow-route");
+    expect(items[0]).toContain("Shadow-route");
+    expect(items[0]).toContain("↵ shadow");
+    expect(items[1]).toContain("Run as Job");
+    expect(items[1]).toContain("runs now");
+  });
+
+  it("a plain Enter on a typed command shadow-routes it and never calls /jobs", async () => {
+    fetchSpy.mockImplementation(() => json(201, { data: { id: ID }, error: null }));
+    open("Claude Code, fix Mettle");
+    fireEvent.keyDown(window, { key: "Enter" });
+    await waitFor(() => expect(nav.push).toHaveBeenCalledWith(`/command-center/missions?command=${ID}`));
+    expect(fetchSpy.mock.calls.map(([u]) => u)).toEqual(["/api/command-center/command/shadow"]);
+  });
+
+  it("Run as Job still works, but only by deliberate selection (arrow down + Enter, or a click)", async () => {
+    fetchSpy.mockImplementation(() => json(201, { data: { id: "job-1" }, error: null }));
+    const onClose = open("rebuild the index");
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    fireEvent.keyDown(window, { key: "Enter" });
+    await waitFor(() => expect(nav.push).toHaveBeenCalledWith("/command-center/jobs"));
+    expect(fetchSpy.mock.calls[0][0]).toBe("/api/command-center/jobs");
+    expect(JSON.parse(fetchSpy.mock.calls[0][1].body)).toEqual({ title: "rebuild the index", kind: "generic", source: "command-bar" });
+    expect(onClose).toHaveBeenCalled();
+    cleanup(); fetchSpy.mockClear(); nav.push.mockClear();
+    open("rebuild the index");
+    fireEvent.click(screen.getByRole("button", { name: /run as job/i }));
+    await waitFor(() => expect(fetchSpy.mock.calls[0]?.[0]).toBe("/api/command-center/jobs"));
+  });
+
+  it("editing the text after arrowing to Run as Job moves the highlight back to Shadow-route", async () => {
+    fetchSpy.mockImplementation(() => json(201, { data: { id: ID }, error: null }));
+    open("first");
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    fireEvent.change(screen.getByPlaceholderText(/type intent/i), { target: { value: "first, edited" } });
+    fireEvent.keyDown(window, { key: "Enter" });
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
+    expect(fetchSpy.mock.calls.map(([u]) => u)).toEqual(["/api/command-center/command/shadow"]);
   });
 });

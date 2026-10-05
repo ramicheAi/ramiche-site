@@ -233,9 +233,6 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
   // open it on the Missions page. Issued from inside a mission, the mission travels along as context.
   const pathname = usePathname();
   const [shadowState, setShadowState] = useState<ShadowState>(IDLE);
-  // After a shadow attempt the highlight stays on the Shadow-route row, so Enter after editing a failed command
-  // retries the SHADOW route and can never fall through to "Run as Job" (which executes).
-  const [shadowSticky, setShadowSticky] = useState(false);
   // Every attempt gets a number; closing the palette moves past it, so a late result from an abandoned attempt can
   // neither navigate nor show an error, even after the palette is reopened.
   const [attempt, setAttempt] = useState(0);
@@ -245,7 +242,6 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
       if (!text) return;
       const mine = attempt + 1;
       setAttempt(mine);
-      setShadowSticky(true);
       setShadowState({ busy: true, error: null, doneId: null, attempt: mine });
       const r = await httpCommandApi.route({ text, missionId: missionIdFromPath(pathname) });
       setShadowState((cur) => (cur.attempt !== mine ? cur
@@ -262,13 +258,12 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
       setShadowState({ ...IDLE, attempt: shadowState.attempt });
       onClose();
       router.push(`/command-center/missions?command=${encodeURIComponent(id)}`);
-    } else if (!open && (shadowState.busy || shadowState.doneId || shadowState.error || shadowSticky)) {
+    } else if (!open && (shadowState.busy || shadowState.doneId || shadowState.error)) {
       // Closing abandons a pending route (a hung request can never lock the palette); a late result is discarded
       // by the open check above, and a late error only appears if it arrives while the palette is open again.
       setShadowState({ ...IDLE, attempt: -1 });   // matches no attempt: anything still in flight is ignored
-      setShadowSticky(false);
     }
-  }, [open, shadowState, shadowSticky, onClose, router]);
+  }, [open, shadowState, onClose, router]);
 
   const dispatchJob = useCallback(
     (instruction: string) => {
@@ -318,12 +313,14 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
       .sort((a, b) => b.s - a.s || a.e.label.localeCompare(b.e.label))
       .slice(0, 16)
       .map((r) => r.e);
-    // Top entry: dispatch the typed instruction to the fleet as a Job.
+    // P06 M5 shadow phase: the DEFAULT for typed text is the Universal Command shadow route (row 0, so a plain Enter
+    // records a decision and executes nothing). Running it as a Job stays available as row 1, only by deliberate
+    // selection (arrow down or click); editing the text moves the highlight back to the shadow route.
     const dispatch: ActionEntry = {
       kind: "action",
       id: "action:dispatch",
       label: `Run as Job: "${q.length > 48 ? q.slice(0, 48) + "…" : q}"`,
-      hint: "Dispatch to the fleet → watch it run",
+      hint: "Executes now: dispatches to the fleet. Select deliberately.",
       icon: "⚡",
       accent: TOKENS.gold,
       action: () => dispatchJob(q),
@@ -339,7 +336,7 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
       keepOpen: true,
       action: () => void shadowRoute(q),
     };
-    return [dispatch, shadow, ...localTop, ...globalEntries];
+    return [shadow, dispatch, ...localTop, ...globalEntries];
   }, [allEntries, actions, globalEntries, query, dispatchJob, shadowRoute]);
 
   const execute = useCallback(
@@ -363,8 +360,8 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
   );
 
   useEffect(() => {
-    setActiveIdx(open && shadowSticky && query.trim() ? 1 : 0);
-  }, [query, open, shadowSticky]);
+    setActiveIdx(0);   // with typed text, row 0 is always the shadow route
+  }, [query, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -472,19 +469,20 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
               {global.loading
                 ? "Looking across the system…"
                 : query.trim()
-                  ? `Press ↵ to run “${query.trim()}” as a job.`
+                  ? `Press ↵ to shadow-route “${query.trim()}”. Nothing is executed.`
                   : "Try an agent name, a page, or “refresh”."}
             </div>
           ) : (
             results.map((entry, idx) => {
               const active = idx === activeIdx;
               const isRun = entry.kind === "action" && entry.id === "action:dispatch";
+              const isShadow = entry.kind === "action" && entry.id === "action:shadow-route";
               return (
                 <button
                   key={entry.id}
                   data-idx={idx}
                   type="button"
-                  className={`po-pal-item${active ? " on" : ""}${isRun ? " run" : ""}`}
+                  className={`po-pal-item${active ? " on" : ""}${isShadow ? " run" : ""}`}
                   onMouseEnter={() => setActiveIdx(idx)}
                   onClick={() => execute(entry)}
                 >
@@ -494,7 +492,7 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
                       display: "grid",
                       placeItems: "center",
                       width: 18,
-                      color: isRun ? "var(--accent)" : entry.accent ?? "var(--t-mid)",
+                      color: isShadow ? "var(--accent)" : entry.accent ?? "var(--t-mid)",
                     }}
                   >
                     <Icon name={iconNameFor(entry)} size={16} />
@@ -505,7 +503,7 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
                       minWidth: 0,
                       textAlign: "left",
                       fontSize: 14,
-                      color: isRun ? "var(--accent)" : "var(--t-hi)",
+                      color: isShadow ? "var(--accent)" : "var(--t-hi)",
                     }}
                   >
                     <span
@@ -524,8 +522,10 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
                       </span>
                     )}
                   </span>
-                  {isRun ? (
-                    <span className="kbd">↵ dispatch</span>
+                  {isShadow ? (
+                    <span className="kbd">↵ shadow</span>
+                  ) : isRun ? (
+                    <span className="kbd">runs now</span>
                   ) : (
                     <span className="po-pal-grp">{kindLabelFor(entry)}</span>
                   )}
