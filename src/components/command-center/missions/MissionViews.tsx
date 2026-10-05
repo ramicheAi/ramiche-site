@@ -14,9 +14,9 @@ import { httpMissionApi, type MissionApi, type MissionDetail } from "@/lib/missi
 import type { MissionCosts } from "@/lib/missions/costs";
 import type { LinkRow, MissionRow, MissionState, Relation, TargetType } from "@/lib/missions/types";
 import {
-  actualCostText, agentName, canCancel, canEditLinks, canReassign, canVerify, createBody, emptyCreateForm, EVIDENCE_TARGETS, formatRef,
-  formatUsd, forwardSteps, FOUNDER, LINK_TARGETS, mergeMissionPages, nextHint, RELATION_LABEL, selectableAgents, STATE_LABEL, targetLabel,
-  tokenText, uncoveredCriteria, validateCreate, type CreateForm,
+  actualCostText, agentName, attentionCue, canCancel, canEditLinks, canReassign, canVerify, createBody, emptyCreateForm, EVIDENCE_TARGETS, formatRef,
+  coverageText, decisionText, formatUsd, forwardSteps, FOUNDER, groupMissions, listHint, LINK_TARGETS, mergeMissionPages, nextHint, RELATION_LABEL, selectableAgents, STATE_LABEL, targetLabel,
+  tokenText, uncoveredCriteria, validateCreate, type CreateForm, type Cue,
 } from "@/lib/missions/ui";
 
 /* ── small shared pieces ─────────────────────────────────────────────────────────────────────────────── */
@@ -39,6 +39,21 @@ export function StateBadge({ state }: { state: MissionState }) {
       fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", padding: "3px 10px", borderRadius: 6,
       color: c, border: `1px solid ${c}`, whiteSpace: "nowrap",
     }}>{STATE_LABEL[state]}</span>
+  );
+}
+
+const CUE_COLOR: Record<Cue["tone"], string> = {
+  attention: "var(--c-amber, #f59e0b)", active: "var(--accent)", quiet: "var(--t-mid)", done: "var(--t-mid)",
+};
+/** The deterministic founder cue (ui.ts attentionCue). Attention cues are filled so "needs you" reads at a glance. */
+function CueBadge({ cue }: { cue: Cue }) {
+  const c = CUE_COLOR[cue.tone];
+  const filled = cue.tone === "attention";
+  return (
+    <span data-testid="cue" style={{
+      fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", padding: "3px 10px", borderRadius: 6,
+      color: filled ? "var(--ink-0)" : c, background: filled ? c : "transparent", border: `1px solid ${c}`, whiteSpace: "nowrap",
+    }}>{cue.label}</span>
   );
 }
 
@@ -145,7 +160,12 @@ export function MissionListView({ api = httpMissionApi, initialObjective, fromSy
           <Btn tone="primary" onClick={() => setCreating(true)}>+ New Mission</Btn>
         </div>
       )}
-      <ErrorLine text={error} />
+      {error && (
+        <div style={{ ...row, marginBottom: 12 }}>
+          <ErrorLine text={missions === null ? error : `Refreshing the list failed, so it may be out of date. ${error}`} />
+          <Btn onClick={() => void load()} disabled={reloading}>{reloading ? "Retrying…" : "Try again"}</Btn>
+        </div>
+      )}
       {missions === null && !error && <p style={muted}>Loading missions…</p>}
       {missions !== null && missions.length === 0 && !creating && (
         <Panel title="No missions yet" icon="bolt">
@@ -156,25 +176,7 @@ export function MissionListView({ api = httpMissionApi, initialObjective, fromSy
         </Panel>
       )}
       {missions !== null && missions.length > 0 && (
-        <div role="list" style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 340px), 1fr))" }}>
-          {missions.map((m) => (
-            <Link key={m.id} href={`/command-center/missions/${m.id}`} role="listitem" data-testid="mission-card" style={{
-              display: "block", textDecoration: "none", padding: 16, borderRadius: "var(--r-lg, 12px)",
-              background: "var(--ink-1)", border: "1px solid var(--line)", borderLeft: `4px solid ${STATE_COLOR[m.state]}`,
-            }}>
-              <div style={{ ...row, justifyContent: "space-between", marginBottom: 8 }}>
-                <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: "var(--accent)" }}>{formatRef(m.ref)}</span>
-                <StateBadge state={m.state} />
-              </div>
-              <p style={{ color: "var(--t-hi)", fontSize: 15, fontWeight: 600, lineHeight: 1.4, margin: "0 0 8px", overflowWrap: "anywhere" }}>{m.objective}</p>
-              <p style={{ ...muted, margin: 0 }}>
-                Owner {agentName(m.owner)}
-                {m.agent_ids.length > 0 && <> · Team {m.agent_ids.map(agentName).join(", ")}</>}
-                {" · "}Updated {timeAgo(m.updated_at)}
-              </p>
-            </Link>
-          ))}
-        </div>
+        <MissionGroups missions={missions} mayHaveMore={nextBefore !== null} />
       )}
       {missions !== null && missions.length > 0 && (
         <div style={{ ...row, marginTop: 16 }}>
@@ -183,6 +185,67 @@ export function MissionListView({ api = httpMissionApi, initialObjective, fromSy
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * The loaded missions in four fixed groups (ui.ts GROUP_OF). Grouping and order are derived from state and updated_at.
+ *
+ * mayHaveMore is the list cursor: it means another page MAY exist, never that one does (a final page that is exactly
+ * full still carries a cursor). So while it is set, every count is a count of what is LOADED and no wording claims that
+ * more missions exist or that nothing is waiting. Definitive wording is used only once paging is exhausted.
+ */
+function MissionGroups({ missions, mayHaveMore }: { missions: MissionRow[]; mayHaveMore: boolean }) {
+  const groups = useMemo(() => groupMissions(missions), [missions]);
+  const needs = groups[0].missions.length;
+  return (
+    <div style={{ display: "grid", gap: 20 }}>
+      <p data-testid="triage-summary" style={{ ...muted, fontSize: 14, margin: 0 }}>
+        {groups.map((g) => `${g.missions.length} ${g.label.toLowerCase()}`).join(" · ")}
+        {mayHaveMore && ` · counted from the ${missions.length} ${missions.length === 1 ? "mission" : "missions"} loaded; more may be available (Load more below)`}
+      </p>
+      {groups.map((g) => (
+        <section key={g.group} data-testid={`group-${g.group}`} aria-label={g.label}>
+          <h2 style={{
+            fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", margin: "0 0 10px",
+            color: g.group === "needs_you" && needs > 0 ? "var(--c-amber, #f59e0b)" : "var(--t-mid)",
+          }}>{g.label} · {g.missions.length}{mayHaveMore && " loaded"}</h2>
+          {g.missions.length === 0 ? (
+            // While more may be available, an empty group is empty only among what is loaded.
+            <p style={{ ...muted, margin: 0 }}>
+              {mayHaveMore
+                ? (g.group === "needs_you" ? "No missions need you among those loaded. More may be available (Load more below)." : "None among those loaded.")
+                : (g.group === "needs_you" ? "Nothing is waiting on you." : "None.")}
+            </p>
+          ) : (
+            <div role="list" style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 340px), 1fr))" }}>
+              {g.missions.map((m) => <MissionCard key={m.id} m={m} quiet={g.group === "done"} />)}
+            </div>
+          )}
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function MissionCard({ m, quiet }: { m: MissionRow; quiet: boolean }) {
+  return (
+    <Link href={`/command-center/missions/${m.id}`} role="listitem" data-testid="mission-card" style={{
+      display: "block", textDecoration: "none", padding: 16, minHeight: 44, borderRadius: "var(--r-lg, 12px)",
+      background: "var(--ink-1)", border: "1px solid var(--line)", borderLeft: `4px solid ${STATE_COLOR[m.state]}`, opacity: quiet ? 0.75 : 1,
+    }}>
+      <div style={{ ...row, justifyContent: "space-between", marginBottom: 8 }}>
+        <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: "var(--accent)" }}>{formatRef(m.ref)}</span>
+        <span style={row}>{!quiet && <CueBadge cue={attentionCue(m)} />}<StateBadge state={m.state} /></span>
+      </div>
+      <p style={{ color: "var(--t-hi)", fontSize: 15, fontWeight: 600, lineHeight: 1.4, margin: "0 0 8px", overflowWrap: "anywhere" }}>{m.objective}</p>
+      {!quiet && <p data-testid="card-next" style={{ fontSize: 13, margin: "0 0 8px", color: "var(--t-hi)" }}>{listHint(m)}</p>}
+      <p style={{ ...muted, margin: 0 }}>
+        Owner {agentName(m.owner)}
+        {m.agent_ids.length > 0 && <> · Team {m.agent_ids.map(agentName).join(", ")}</>}
+        {" · "}Updated {timeAgo(m.updated_at)}
+      </p>
+    </Link>
   );
 }
 
@@ -355,20 +418,34 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
     try { if (await load()) setNeedsRefresh(false); } finally { setBusy(false); }
   }
 
-  if (!d) return <>{readError ? <ErrorLine text={readError} /> : <p style={muted}>Loading mission…</p>}</>;
+  if (!d) return readError ? (
+    <div style={row}>
+      <ErrorLine text={`This mission could not be loaded. ${readError}`} />
+      <Btn onClick={() => void load()}>Try again</Btn>
+      <Link href="/command-center/missions" style={{ ...muted, textDecoration: "none" }}>← All missions</Link>
+    </div>
+  ) : <p style={muted}>Loading mission…</p>;
   const m = d.mission;
   const live = d.links.filter((l) => !l.removed_at);
   const evidence = live.filter((l) => l.relation === "evidence");
   const missing = uncoveredCriteria(m.success_criteria, evidence);
+  const decision = decisionText(m, evidence);
+  const coverage = coverageText(m.success_criteria, evidence);
 
   return (
     <div style={{ display: "grid", gap: 16 }}>
       <Link href="/command-center/missions" style={{ ...muted, textDecoration: "none" }}>← All missions</Link>
-      <Panel title={formatRef(m.ref)} icon="bolt" badge={<StateBadge state={m.state} />}>
+      <Panel title={formatRef(m.ref)} icon="bolt" badge={<span style={row}><CueBadge cue={attentionCue(m, evidence)} /><StateBadge state={m.state} /></span>}>
         <p style={{ color: "var(--t-hi)", fontSize: 18, fontWeight: 600, lineHeight: 1.45, margin: "0 0 10px", overflowWrap: "anywhere" }}>{m.objective}</p>
         <p style={{ ...muted, margin: "0 0 12px" }}>
           Owner {agentName(m.owner)}{m.agent_ids.length > 0 && <> · Team {m.agent_ids.map(agentName).join(", ")}</>}
         </p>
+        {decision && (
+          <p data-testid="decision" style={{
+            fontSize: 14, lineHeight: 1.5, margin: "0 0 12px", padding: "10px 12px", borderRadius: "var(--r-sm, 8px)", color: "var(--t-hi)",
+            border: `1px solid ${m.state === "verified" ? "var(--c-green, #22c55e)" : "var(--c-amber, #f59e0b)"}`,
+          }}>{decision}</p>
+        )}
         <p data-testid="next-hint" style={{ fontSize: 15, margin: "0 0 14px", color: "var(--accent)" }}>{nextHint(m, evidence)}</p>
         <ErrorLine text={error} />
         <ErrorLine text={readError} />
@@ -401,7 +478,7 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
       </Panel>
 
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))" }}>
-        <Panel title="Success criteria" icon="tasks">
+        <Panel title="Success criteria" icon="tasks" badge={coverage ? <span data-testid="coverage" style={muted}>{coverage}</span> : undefined}>
           {m.success_criteria.length === 0 ? <p style={muted}>None yet. Approval needs at least one.</p> : (
             <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 6 }}>
               {m.success_criteria.map((c) => {
@@ -418,12 +495,12 @@ export function MissionDetailView({ id, api = httpMissionApi }: { id: string; ap
         </Panel>
       </div>
 
-      <LinksPanel m={m} links={d.links} busy={locked} showRemoved={showRemoved} setShowRemoved={setShowRemoved}
-        onAdd={(body) => act(() => api.addLink(m.id, body)).then((x) => x.ok)} onRemove={(l) => void act(() => api.removeLink(m.id, l.id))} />
+      {canReassign(m.state) && <ReassignPanel m={m} busy={locked} onSave={(b) => act(() => api.reassign(m.id, b)).then((x) => x.ok && x.fresh)} />}
 
       <CostsPanel api={api} id={m.id} version={reads} />
 
-      {canReassign(m.state) && <ReassignPanel m={m} busy={locked} onSave={(b) => act(() => api.reassign(m.id, b)).then((x) => x.ok && x.fresh)} />}
+      <LinksPanel m={m} links={d.links} busy={locked} showRemoved={showRemoved} setShowRemoved={setShowRemoved}
+        onAdd={(body) => act(() => api.addLink(m.id, body)).then((x) => x.ok)} onRemove={(l) => void act(() => api.removeLink(m.id, l.id))} />
 
       <Panel title="History" icon="pulse" badge={d.eventsTruncated ? "latest 200" : undefined}>
         <ol style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 6 }} data-testid="history">
@@ -465,12 +542,12 @@ function CostsPanel({ api, id, version }: { api: MissionApi; id: string; version
         {!c ? (!err && <p style={muted}>Loading cost and usage…</p>) : (
           <>
             <p data-testid="actual-cost" style={{ margin: 0, color: "var(--t-hi)", fontSize: 15 }}>
-              <strong>Actual cost:</strong> {actualCostText(c.actualCost)}
+              <strong>Actual marginal cost:</strong> {actualCostText(c.actualCost)}
             </p>
             {c.events.total > 0 && (
               <>
                 <p data-testid="shadow-cost" style={{ ...muted, margin: 0 }}>
-                  List-price equivalent, NOT actual spend:{" "}
+                  Shadow (list-price equivalent), NOT actual spend:{" "}
                   {c.shadowCost.usd === null ? "not available" : `${formatUsd(c.shadowCost.usd)} (lower bound, ${c.shadowCost.pricedEvents} of ${c.events.total} calls priced)`}
                 </p>
                 <p data-testid="usage" style={{ ...muted, margin: 0 }}>

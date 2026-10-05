@@ -225,7 +225,7 @@ export function actualCostText(a: MissionCosts["actualCost"]): string {
     case "no_events": return "No usage attributed to this mission yet.";
     case "none_recorded": return "No actual marginal cost recorded (subscription or local calls only).";
     case "unknown": return `No actual marginal cost recorded. Cost unknown for ${plural(a.unknownEvents, "call")}.`;
-    case "partial": return `${formatUsd(a.knownUsd ?? "0")} recorded across ${plural(a.knownEvents, "call")}. Partial: cost unknown for ${plural(a.unknownEvents, "call")}.`;
+    case "partial": return `${formatUsd(a.knownUsd ?? "0")} + unknown. Recorded across ${plural(a.knownEvents, "call")}. Partial: cost unknown for ${plural(a.unknownEvents, "call")}.`;
     case "complete": return `${formatUsd(a.knownUsd ?? "0")} recorded across ${plural(a.knownEvents, "call")}.`;
   }
 }
@@ -235,4 +235,85 @@ export function tokenText(c: CountSum): string {
   if (c.sum === null) return c.unknownEvents ? `unknown (${plural(c.unknownEvents, "call")})` : "none";
   const n = c.sum.toLocaleString("en-US");
   return c.unknownEvents ? `${n} known, unknown for ${plural(c.unknownEvents, "call")}` : n;
+}
+
+/* ── founder triage (M4B): groups and cues derived from mission state only. No scores, no inference. ─────────────── */
+
+export type MissionGroup = "needs_you" | "active" | "early" | "done";
+
+/** Every state belongs to exactly one group (the Record type makes a missing state a compile error). */
+export const GROUP_OF: Record<MissionState, MissionGroup> = {
+  reviewing: "needs_you", completed: "needs_you",
+  executing: "active", approved: "active", plan: "active",
+  intent: "early",
+  verified: "done", cancelled: "done",
+};
+export const GROUP_ORDER: MissionGroup[] = ["needs_you", "active", "early", "done"];
+export const GROUP_LABEL: Record<MissionGroup, string> = { needs_you: "Needs you", active: "Active", early: "Inbox / early", done: "Done" };
+
+/** Most recently updated first; ties (and unreadable dates) fall back to the newest ref, so the order is total. */
+function byRecency(a: MissionRow, b: MissionRow): number {
+  const ta = Date.parse(a.updated_at), tb = Date.parse(b.updated_at);
+  return ((Number.isNaN(tb) ? 0 : tb) - (Number.isNaN(ta) ? 0 : ta)) || (b.ref - a.ref);
+}
+
+/** The four groups in display order (empty ones included), each sorted most recently updated first. */
+export function groupMissions(missions: MissionRow[]): { group: MissionGroup; label: string; missions: MissionRow[] }[] {
+  return GROUP_ORDER.map((group) => ({
+    group, label: GROUP_LABEL[group],
+    missions: missions.filter((m) => GROUP_OF[m.state] === group).sort(byRecency),
+  }));
+}
+
+export type Cue = { label: string; tone: "attention" | "active" | "quiet" | "done" };
+
+/**
+ * One deterministic cue per mission, from its state alone. For a completed mission the cue depends on evidence
+ * coverage; when the caller has no links loaded (the list) `evidence` is omitted and the cue says only what is known.
+ * Nothing here infers "blocked" or urgency.
+ */
+export function attentionCue(m: Pick<MissionRow, "state" | "success_criteria">, evidence?: Pick<LinkRow, "criterion_id">[]): Cue {
+  switch (m.state) {
+    case "reviewing": return { label: "Needs review", tone: "attention" };
+    case "completed":
+      if (!evidence) return { label: "Needs verification", tone: "attention" };
+      return uncoveredCriteria(m.success_criteria, evidence).length === 0
+        ? { label: "Verify", tone: "attention" }
+        : { label: "Evidence missing", tone: "attention" };
+    case "approved": return { label: "Ready to start", tone: "active" };
+    case "executing": return { label: "Active", tone: "active" };
+    case "plan": return { label: "Planning", tone: "active" };
+    case "intent": return m.success_criteria.length === 0 ? { label: "No criteria", tone: "quiet" } : { label: "New", tone: "quiet" };
+    case "verified": return { label: "Verified", tone: "done" };
+    case "cancelled": return { label: "Cancelled", tone: "done" };
+  }
+}
+
+/** The next action for a list row, where evidence links are not loaded. */
+export function listHint(m: Pick<MissionRow, "state" | "success_criteria">): string {
+  if (m.state === "completed") return "Completed, not yet verified. Open it to check the evidence and verify.";
+  if (m.state === "reviewing") return "Your review: complete it, or send it back for rework.";
+  return nextHint(m, []);
+}
+
+/** "2 of 3 criteria have evidence" (null when there are no criteria to cover). */
+export function coverageText(criteria: Item[], evidence: Pick<LinkRow, "criterion_id">[]): string | null {
+  if (criteria.length === 0) return null;
+  const covered = criteria.length - uncoveredCriteria(criteria, evidence).length;
+  return `${covered} of ${criteria.length} ${criteria.length === 1 ? "criterion has" : "criteria have"} evidence`;
+}
+
+/**
+ * What the current state means for the founder, where a decision or a distinction matters. Completed and Verified are
+ * never the same thing: completed is the work's claim, verified is the founder's check against evidence.
+ */
+export function decisionText(m: Pick<MissionRow, "state" | "success_criteria">, evidence: Pick<LinkRow, "criterion_id">[]): string | null {
+  switch (m.state) {
+    case "reviewing": return "Your review is the current decision point: mark the work completed, or send it back for rework.";
+    case "completed": return uncoveredCriteria(m.success_criteria, evidence).length === 0
+      ? "Completed, NOT yet verified. The work says it is finished. It becomes verified only when you check the success criteria against the evidence and verify."
+      : "Completed, NOT yet verified. The work says it is finished, but some success criteria have no evidence yet, so it cannot be verified.";
+    case "verified": return "Verified: you checked the success criteria against the evidence.";
+    default: return null;
+  }
 }
