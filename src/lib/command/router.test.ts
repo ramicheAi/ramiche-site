@@ -207,9 +207,11 @@ describe("routing performance on pathological input", () => {
     ["spaced letters", "a ".repeat(5000)], ["dotted letters", "a.".repeat(5000)], ["tabbed letters", "m\t".repeat(5000)],
     ["repeated merge", "merge ".repeat(2000)], ["conditional chain", "if ".repeat(2000) + "merge"], ["repeated vercel", "vercel ".repeat(2000)],
     ["delete chain", ("delete " + "word ".repeat(10)).repeat(300)], ["long code command", "Claude Code, " + "refactor the component ".repeat(500)],
+    ["negated merges", "don't merge it ".repeat(2000)], ["negated shares", "don't share the key ".repeat(1500)],
+    ["exempted notifies", "notify users component ".repeat(800)], ["exempted deletes", "Claude Code, " + "delete the leads filter component and ".repeat(400)],
   ])("%s stays fast (no catastrophic backtracking)", (_name, text) => {
     const t0 = performance.now();
     routeCommand({ text });
-    expect(performance.now() - t0).toBeLessThan(1000);   // measured at 1 to 32 ms; the bound only catches blow-ups
+    expect(performance.now() - t0).toBeLessThan(1000);   // measured at 1 to 93 ms (30k chars); the bound only catches blow-ups
   });
 });
