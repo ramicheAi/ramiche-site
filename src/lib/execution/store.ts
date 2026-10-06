@@ -161,6 +161,21 @@ export class JobsExecutionStore implements ExecutionStore {
     if (ev.error) throw new Error(`cancel check failed: ${ev.error}`);
     return ev.found;
   }
+  /**
+   * Founder cancel by jobs row id (the cancel route). Only a running M6 execution can be canceled; anything else is a
+   * plain answer, never a silent no-op. The running executor stops at its next heartbeat; a run whose executor died
+   * is stopped by the reaper's orphan pass.
+   */
+  async requestCancelJob(jobId: string, founderUid: string): Promise<{ ok: true } | { ok: false; code: "not_found" | "not_running" | "store_error"; message: string }> {
+    const cur = await this.db.getJob(jobId);
+    if (cur.error) return { ok: false, code: "store_error", message: `The execution record could not be read: ${cur.error}` };
+    const input = cur.row?.input ?? null;
+    if (!cur.row || typeof input?.executionId !== "string" || typeof input?.bindingHash !== "string") return { ok: false, code: "not_found", message: "No such execution." };
+    if (cur.row.status !== "running") return { ok: false, code: "not_running", message: `This execution is already ${cur.row.status}.` };
+    const ev = await this.db.insertEvent({ job_id: jobId, kind: "cancel_requested", detail: { by: founderUid, at: new Date().toISOString() } });
+    if (ev.error) return { ok: false, code: "store_error", message: `The cancel could not be recorded: ${ev.error}` };
+    return { ok: true };
+  }
   /** The founder asks to cancel (called from a founder-authenticated surface). The running executor stops at its next heartbeat. */
   async requestCancel(idempotencyKey: string, founderUid: string): Promise<void> {
     const ev = await this.db.insertEvent({ job_id: executionJobId(idempotencyKey), kind: "cancel_requested", detail: { by: founderUid, at: new Date().toISOString() } });

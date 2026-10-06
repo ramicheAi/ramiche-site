@@ -29,7 +29,7 @@ const seed = (m: ReturnType<typeof memoryJobsDb>, id: string, executionId: strin
   const old = new Date(Date.now() - HEARTBEAT_STALE_MS - 60_000).toISOString();
   m.jobs.set(id, { id, status: "running", source: EXECUTOR_SOURCE, started_at: old, updated_at: old, input: { executionId, project: "mettle", limits: { timeoutMs: 30 * 60_000 }, runner } });
 };
-const opts = (m: ReturnType<typeof memoryJobsDb>, kill = (pid: number, sig: NodeJS.Signals) => process.kill(pid, sig)) => ({
+const opts = (m: ReturnType<typeof memoryJobsDb>, kill: (pid: number, sig: NodeJS.Signals) => void = (pid, sig) => { process.kill(pid, sig); }) => ({
   db: m.db, host: hostname(), isAlive: processAlive, inspect: inspectProcess, kill, claudeBin: bin, execRoot, now: Date.now(),
 });
 

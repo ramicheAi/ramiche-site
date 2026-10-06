@@ -110,3 +110,27 @@ describe("phase 1 production: L0/L1 only", () => {
     }
   });
 });
+
+describe("rollback rehearsal (simulated activation): the HALT file stops new runs without a redeploy", () => {
+  it("halt -> new approvals refused before any record or CLI; unhalt -> runs again", async () => {
+    const { executionAvailable } = await import("./service");
+    const { dispatchHalted } = await import("./halt");
+    const halt = join(root, "HALT");
+    vi.stubEnv("PARALLAX_EXECUTION_HALT_FILE", halt);
+    const p = await prepareExecution({ record: shadow(INSPECT), founderUid: OWNER }, prod());
+    if (!p.ok) throw new Error(p.message);
+    writeFileSync(halt, "rollback\n");
+    expect(dispatchHalted()).toBe(true);
+    expect(executionAvailable()).toBe(false);
+    const d = prod();
+    const out = await approveExecution({ record: shadow(INSPECT), founderUid: OWNER, seenBindingHash: p.bindingHash }, d);
+    expect(out).toMatchObject({ ok: false, code: "execution_halted" });
+    const direct = await runExecution(p.request, approve(p.request, OWNER, KEY), { ...d.executor, surface: "production", ownerUid: OWNER, approvalKey: KEY });
+    expect(direct.failure?.code).toBe("execution_halted");
+    expect(existsSync(rec)).toBe(false);
+    expect((d.executor.store as InstanceType<typeof MemoryExecutionStore>).rows.size).toBe(0);
+    rmSync(halt);
+    expect((await approveExecution({ record: shadow(INSPECT), founderUid: OWNER, seenBindingHash: p.bindingHash }, prod())).ok).toBe(true);
+    vi.unstubAllEnvs();
+  }, 30_000);
+});

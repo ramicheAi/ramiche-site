@@ -20,13 +20,13 @@ import { CAPABILITIES, type Capability } from "./contract";
 export const executionRoots = (): string[] => (process.env.CC_EXECUTION_ROOTS ?? homedir()).split(",").map((s) => s.trim()).filter(Boolean);
 
 /** The remote tip of a branch, read through a verified local checkout of the project (null when there is none). */
-export function checkoutRemoteTip(roots: string[]) {
+export function checkoutRemoteTip(roots: string[], timeoutMs?: number) {
   return async (entry: RepoEntry & { origin: string }, branch: string): Promise<string | null> => {
     for (const root of roots) for (const dir of entry.checkouts) {
       const p = join(/*turbopackIgnore: true*/ root, dir);
       if (!existsSync(join(/*turbopackIgnore: true*/ p, ".git"))) continue;
       const remote = await git(p, ["remote", "get-url", "origin"]);
-      if (remote.ok && originOf(remote.out)?.toLowerCase() === entry.origin.toLowerCase()) return remoteBranchTip(p, branch);
+      if (remote.ok && originOf(remote.out)?.toLowerCase() === entry.origin.toLowerCase()) return remoteBranchTip(p, branch, timeoutMs);
     }
     return null;
   };

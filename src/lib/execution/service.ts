@@ -15,6 +15,7 @@ import { randomUUID } from "node:crypto";
 import { approve, approvalKey as defaultKey } from "./approval";
 import { bindingHash, CAPABILITIES, CAPABILITY_META, capabilityRank, EXECUTABLE_CAPABILITIES, type Capability, type ExecutionRequest, type ExecutionResult } from "./contract";
 import { runExecution, type ExecutionDeps } from "./executor";
+import { dispatchHalted } from "./halt";
 import { missionSuggestion, type MissionSuggestion } from "./mission";
 import { capabilityCeiling, PRODUCTION_DISPATCH_ENABLED, surfaceAllowed, withinCeiling, type Surface } from "./policy";
 import { bySlug, projectName, resolveProject, REPO_REGISTRY, type RepoEntry } from "./projects";
@@ -113,6 +114,7 @@ export async function approveExecution(input: { record: ShadowRecord; founderUid
   // The production gate answers first, before any derivation, remote read or store write.
   const gate = surfaceAllowed(deps.surface);
   if (!gate.ok) return gate;
+  if (deps.surface === "production" && dispatchHalted()) return { ok: false, code: "execution_halted", message: "Execution is halted on the execution host. Nothing was run." };
   if (input.founderUid !== deps.ownerUid) return { ok: false, code: "not_founder", message: "Only the founder can approve an execution." };
   if (typeof input.seenBindingHash !== "string" || !/^[0-9a-f]{64}$/.test(input.seenBindingHash)) return { ok: false, code: "approval_invalid", message: "Missing the approval you were shown." };
 
@@ -129,6 +131,6 @@ export async function approveExecution(input: { record: ShadowRecord; founderUid
 }
 
 /** Whether the cockpit should offer execution at all (the UI hides it otherwise). */
-export const executionAvailable = (): boolean => PRODUCTION_DISPATCH_ENABLED && surfaceAllowed("production").ok;
+export const executionAvailable = (): boolean => PRODUCTION_DISPATCH_ENABLED && surfaceAllowed("production").ok && !dispatchHalted();
 
 export { projectName };

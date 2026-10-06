@@ -13,6 +13,7 @@ import { verifyApproval, type Approval } from "./approval";
 import { runClaudeCode, type ClaudeRunOutcome } from "./claude-code";
 import { bindingHash, capabilityRank, EXECUTABLE_CAPABILITIES, invalidRequest, nextStepAfter, type ExecutionRequest, type ExecutionResult, type ExecutionStatus } from "./contract";
 import { changedFiles, checkoutSnapshot, commonGitDir, git, gitDirSnapshot, isAncestor, refsSnapshot, remoteBranchTip, revParse, unsafeGitConfig } from "./git";
+import { dispatchHalted } from "./halt";
 import { surfaceAllowed, withinCeiling, type Surface } from "./policy";
 import { bySlug, originOf, REPO_REGISTRY, type RepoEntry } from "./projects";
 import { executionJobId, type ExecutionStore } from "./store";
@@ -139,6 +140,7 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
   const now = deps.now ?? Date.now;
   const gate = surfaceAllowed(deps.surface);
   if (!gate.ok) return reject(req, now(), gate.code, gate.message);
+  if (deps.surface === "production" && dispatchHalted()) return reject(req, now(), "execution_halted", "Execution is halted on the execution host. Nothing was run.");
   const problems = invalidRequest(req);
   if (problems.length) return reject(req, now(), "contract_invalid", `The execution request is invalid: ${problems.join(/*turbopackIgnore: true*/ "; ")}.`);
   if (req.founder.uid !== deps.ownerUid) return reject(req, now(), "not_founder", "Only the founder can request an execution.");

@@ -22,11 +22,11 @@ export function git(cwd: string, args: string[], env?: Record<string, string>, t
  * The branch tip on the remote itself (not the possibly stale remote-tracking ref). Read-only, with the user's own
  * credential configuration (needed for private repositories), hooks and fsmonitor still off. Null when unreachable.
  */
-export async function remoteBranchTip(cwd: string, branch: string): Promise<string | null> {
+export async function remoteBranchTip(cwd: string, branch: string, timeoutMs = 60_000): Promise<string | null> {
   const env = { PATH: process.env.PATH ?? "/usr/bin:/bin", HOME: process.env.HOME ?? "/", GIT_TERMINAL_PROMPT: "0", GIT_CONFIG_NOSYSTEM: "1", GIT_ASKPASS: "/usr/bin/false", SSH_ASKPASS: "/usr/bin/false" };
   // The only credential helper is the macOS keychain: an empty value first clears any helper a repository config
   // (which a run could have edited) would otherwise make git execute.
-  const r = await git(cwd, ["-c", "credential.helper=", "-c", "credential.helper=osxkeychain", "ls-remote", "--exit-code", "origin", `refs/heads/${branch}`], env);
+  const r = await git(cwd, ["-c", "credential.helper=", "-c", "credential.helper=osxkeychain", "ls-remote", "--exit-code", "origin", `refs/heads/${branch}`], env, timeoutMs);
   const sha = r.ok ? r.out.trim().split(/\s+/)[0] : "";
   return /^[0-9a-f]{40}$/.test(sha) ? sha : null;
 }
