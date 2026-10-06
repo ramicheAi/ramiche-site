@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { guardPrivateRead } from "@/lib/server/protected-mutation";
 import { noStoreJson } from "@/lib/server/cockpit-chat-data";
 import { checkoutRemoteTip, executionRoots } from "@/lib/execution/http";
+import { dispatchHalted } from "@/lib/execution/halt";
 import { executionHealth, type HealthSignals } from "@/lib/execution/health";
 import { capabilityCeiling } from "@/lib/execution/policy";
 import { bySlug } from "@/lib/execution/projects";
@@ -65,15 +66,17 @@ export async function GET(req: Request) {
   }
   let reaper: HealthSignals["reaper"] = { at: null, ok: null, error: null };
   try { const r = JSON.parse(readFileSync(/*turbopackIgnore: true*/ join(/*turbopackIgnore: true*/ execRoot, "reaper-status.json"), "utf8")); reaper = { at: String(r.at), ok: !!r.ok, error: r.error ? "error" : null }; } catch { /* never ran */ }
-  let repoAccess: HealthSignals["repoAccess"] = repoCache && now - repoCache.at < 5 * 60_000 ? repoCache.v : "unchecked";
-  if (new URL(req.url).searchParams.get("deep") === "1") {
+  const fresh = !!repoCache && now - repoCache.at < 5 * 60_000;
+  let repoAccess: HealthSignals["repoAccess"] = fresh ? repoCache!.v : "unchecked";
+  // deep=1 runs the credentialed read at most once per 5 minutes, whoever asks (it can raise a Keychain prompt).
+  if (new URL(req.url).searchParams.get("deep") === "1" && !fresh) {
     const mettle = bySlug("mettle");
     const tip = mettle.ok ? await checkoutRemoteTip(executionRoots(), 10_000)(mettle.entry, "main") : null;
     repoAccess = tip ? "ok" : "unavailable";
     repoCache = { at: now, v: repoAccess };
   }
   const h = executionHealth({
-    now, dispatchEnabled: executionAvailable(), ceiling: capabilityCeiling("production"), claude: await claudeAuth(now), repoAccess,
+    now, dispatchEnabled: executionAvailable(), halted: dispatchHalted(), ceiling: capabilityCeiling("production"), claude: await claudeAuth(now), repoAccess,
     diskFreeBytes, minFreeBytes: MIN_FREE_BYTES, store, running, stuck, staleHeartbeats, failures24h, reaper,
   });
   return noStoreJson({ data: { ...h, counts: { running, stuck, staleHeartbeats, failures24h } }, error: null }, 200);
