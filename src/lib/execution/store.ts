@@ -119,6 +119,7 @@ export class JobsExecutionStore implements ExecutionStore {
       progress: result.status, finished_at: result.completedAt, updated_at: result.completedAt,
     });
     if (up.error) throw new Error(`execution result could not be saved: ${up.error}`);
+    this.inputs.delete(id);   // a long-running server keeps no per-run state after the run
   }
   async recordProcess(r: ExecutionRequest, cliPid: number): Promise<void> {
     const id = executionJobId(r.idempotencyKey);
