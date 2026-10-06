@@ -45,7 +45,7 @@
 - Clone repo from GitHub
 - Set env vars from documented list (stored in password manager)
 - `npm install && vercel --prod`
-- Re-enable Firestore security rules: `firebase deploy --only firestore:rules`
+- Firestore security rules are not deployed from this repo. If they need re-deploying, follow the procedure in `ramicheAi/mettle` (`docs/SHARED-FIRESTORE-RULES.md`); see `FIRESTORE-RULES.md` here
 
 ## Monitoring & Alerts
 - Vercel Speed Insights + Analytics (real-time)
