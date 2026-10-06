@@ -24,11 +24,16 @@ export const HEARTBEAT_STALE_MS = 3 * 60_000;
 export function processAlive(pid: number): boolean {
   try { process.kill(pid, 0); return true; } catch (e) { return (e as NodeJS.ErrnoException).code === "EPERM"; }
 }
+/** Whether any process is still in this process group (the CLI leads its own group, so pgid = its pid). A pid is never
+ *  reused while a process group with that id exists, so a live group here is still the group the CLI started. */
+export function processGroupAlive(pgid: number): boolean {
+  try { process.kill(-pgid, 0); return true; } catch (e) { return (e as NodeJS.ErrnoException).code === "EPERM"; }
+}
 export const DEADLINE_GRACE_MS = 10 * 60_000;
 
 export interface ReapOutcome { reaped: { id: string; reason: string }[]; skipped: { id: string; reason: string }[]; error: string | null }
 
-export async function reapAbandoned(o: { db: JobsDb; now: number; host: string; isAlive: (pid: number) => boolean }): Promise<ReapOutcome> {
+export async function reapAbandoned(o: { db: JobsDb; now: number; host: string; isAlive: (pid: number) => boolean; isGroupAlive?: (pgid: number) => boolean }): Promise<ReapOutcome> {
   const out: ReapOutcome = { reaped: [], skipped: [], error: null };
   const list = await o.db.listRunning(EXECUTOR_SOURCE);
   if (list.error) return { ...out, error: list.error };
@@ -56,15 +61,18 @@ export async function reapAbandoned(o: { db: JobsDb; now: number; host: string; 
   return out;
 }
 
-function judge(j: RunningJob, o: { now: number; host: string; isAlive: (pid: number) => boolean }): { reap: boolean; reason: string } {
+function judge(j: RunningJob, o: { now: number; host: string; isAlive: (pid: number) => boolean; isGroupAlive?: (pgid: number) => boolean }): { reap: boolean; reason: string } {
   const input = (j.input ?? {}) as { limits?: { timeoutMs?: unknown }; runner?: { host?: unknown; pid?: unknown; cliPid?: unknown } };
   const started = Date.parse(j.started_at ?? "");
   const beat = Date.parse(j.updated_at ?? "");
   const timeout = typeof input.limits?.timeoutMs === "number" ? input.limits.timeoutMs : null;
   if (Number.isNaN(started) || Number.isNaN(beat) || timeout === null) return { reap: false, reason: "missing timing facts; left for a person" };
   const local = input.runner?.host === o.host;
-  const pid = typeof input.runner?.cliPid === "number" ? input.runner.cliPid : typeof input.runner?.pid === "number" ? input.runner.pid : null;
-  const alive = local && pid !== null ? o.isAlive(pid) : null;
+  const cli = typeof input.runner?.cliPid === "number" ? input.runner.cliPid : null;
+  const pid = cli ?? (typeof input.runner?.pid === "number" ? input.runner.pid : null);
+  // Once a CLI exists, the run is alive while ANY member of its process group is: a helper that outlived the CLI is
+  // still this run's work, and its row must not turn terminal while it runs.
+  const alive = local && pid !== null ? o.isAlive(pid) || (cli !== null && (o.isGroupAlive ?? processGroupAlive)(cli)) : null;
   const deadline = started + timeout + DEADLINE_GRACE_MS;
   if (alive === true) return { reap: false, reason: o.now >= deadline ? "past its deadline but its process is alive; investigate" : "process alive" };
   if (o.now >= deadline) return { reap: true, reason: `no result ${Math.round((o.now - started) / 60_000)} min after start (deadline passed${local ? ", process gone" : ""})` };
@@ -87,52 +95,105 @@ export function inspectProcess(pid: number): ProcessFacts | null {
   } catch { return null; }
 }
 
-export interface OrphanOutcome { stopped: { id: string; cliPid: number }[]; skipped: { id: string; reason: string }[]; error: string | null }
+export interface OrphanOutcome {
+  stopped: { id: string; cliPid: number; escalated: boolean }[];
+  skipped: { id: string; reason: string }[];
+  /** Groups that could not be confirmed stopped, or cannot be safely judged: actionable, never silently reaped. */
+  unstopped: { id: string; reason: string }[];
+  error: string | null;
+}
+
+/** The normal runner's grace before SIGKILL (claude-code.ts KILL_GRACE_MS). */
+export const ORPHAN_KILL_GRACE_MS = 5_000;
+const KILL_CONFIRM_MS = 2_000;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+async function groupGoneWithin(alive: (pgid: number) => boolean, pgid: number, ms: number): Promise<boolean> {
+  const until = Date.now() + ms;
+  for (;;) { if (!alive(pgid)) return true; if (Date.now() >= until) return false; await sleep(50); }
+}
 
 /**
  * A Claude Code run whose executor died (a cockpit restart or rollback) keeps running in its own process group with
- * nobody watching its limits. On this host only, stop such a run when ALL of these hold, so a reused pid can never be
- * hit: the executor's process is gone; the CLI pid is alive, leads its own process group, runs the configured CLI
- * binary, and its working directory is exactly this execution's worktree. A durable "orphan_stop" event is written
- * first; the reaper then fails the row on a later pass once the heartbeat is stale.
+ * nobody watching its limits. On this host only, stop such a run's WHOLE group, mirroring the runner's containment:
+ * SIGTERM, a bounded wait, then SIGKILL if any member survives, then confirm the group is empty.
+ *
+ * Identity, so a reused pid can never be hit: the executor's process is gone; the CLI pid is alive, leads its own
+ * process group, runs the configured CLI binary, and its working directory is exactly this execution's worktree. If the
+ * CLI already exited but members of its group survive, the group is stopped only when an earlier pass proved its
+ * identity (an orphan_stop event); otherwise it is reported, never reaped (the reaper treats a live group as alive).
+ * Every step is a durable event first: orphan_stop, orphan_kill (escalation), orphan_stopped or orphan_stop_failed.
  */
 export async function stopOrphans(o: {
   db: JobsDb; host: string; isAlive: (pid: number) => boolean; inspect: (pid: number) => ProcessFacts | null;
   kill: (pid: number, sig: NodeJS.Signals) => void; claudeBin: string; execRoot: string; now: number;
+  isGroupAlive?: (pgid: number) => boolean; graceMs?: number;
 }): Promise<OrphanOutcome> {
-  const out: OrphanOutcome = { stopped: [], skipped: [], error: null };
+  const out: OrphanOutcome = { stopped: [], skipped: [], unstopped: [], error: null };
+  const groupAlive = o.isGroupAlive ?? processGroupAlive;
+  const grace = o.graceMs ?? ORPHAN_KILL_GRACE_MS;
   const list = await o.db.listRunning(EXECUTOR_SOURCE);
   if (list.error) return { ...out, error: list.error };
+  const record = async (jobId: string, kind: string, detail: Record<string, unknown>) => {
+    const ev = await o.db.insertEvent({ job_id: jobId, kind, detail: { ...detail, host: o.host, at: new Date().toISOString() } });
+    return ev.error;
+  };
   for (const j of list.rows) {
     const input = (j.input ?? {}) as { executionId?: unknown; project?: unknown; runner?: { host?: unknown; pid?: unknown; cliPid?: unknown } };
     const cli = typeof input.runner?.cliPid === "number" ? input.runner.cliPid : null;
     const host = typeof input.runner?.pid === "number" ? input.runner.pid : null;
     if (input.runner?.host !== o.host || cli === null || host === null) { out.skipped.push({ id: j.id, reason: "not a local run with process evidence" }); continue; }
     if (o.isAlive(host)) { out.skipped.push({ id: j.id, reason: "its executor is alive" }); continue; }
-    if (!o.isAlive(cli)) { out.skipped.push({ id: j.id, reason: "nothing left running" }); continue; }
-    const facts = o.inspect(cli);
-    // The path comes from database values: only a plain slug and a UUID may form it (no "..", no "/").
-    const valid = typeof input.project === "string" && /^[a-z0-9-]{1,64}$/.test(input.project)
-      && typeof input.executionId === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(input.executionId);
-    const worktree = valid ? join(/*turbopackIgnore: true*/ o.execRoot, input.project as string, input.executionId as string) : null;
-    const same = !!facts && facts.pgid === cli && facts.args.startsWith(o.claudeBin) && !!worktree && facts.cwd === worktree;
-    if (!same) { out.skipped.push({ id: j.id, reason: "the live pid is not provably this run's CLI; left for a person" }); continue; }
-    const ev = await o.db.insertEvent({ job_id: j.id, kind: "orphan_stop", detail: { cliPid: cli, executorPid: host, host: o.host, at: new Date(o.now).toISOString() } });
-    if (ev.error) return { ...out, error: `could not record the orphan stop for ${j.id}, so nothing was stopped: ${ev.error}` };
-    try { o.kill(-cli, "SIGTERM"); } catch { /* already gone */ }
-    out.stopped.push({ id: j.id, cliPid: cli });
+    const leader = o.isAlive(cli);
+    if (!leader && !groupAlive(cli)) { out.skipped.push({ id: j.id, reason: "nothing left running" }); continue; }
+    let escalateOnly = false;
+    if (leader) {
+      const facts = o.inspect(cli);
+      // The path comes from database values: only a plain slug and a UUID may form it (no "..", no "/").
+      const valid = typeof input.project === "string" && /^[a-z0-9-]{1,64}$/.test(input.project)
+        && typeof input.executionId === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(input.executionId);
+      const worktree = valid ? join(/*turbopackIgnore: true*/ o.execRoot, input.project as string, input.executionId as string) : null;
+      const same = !!facts && facts.pgid === cli && facts.args.startsWith(o.claudeBin) && !!worktree && facts.cwd === worktree;
+      if (!same) { out.skipped.push({ id: j.id, reason: "the live pid is not provably this run's CLI; left for a person" }); continue; }
+    } else {
+      // The CLI is gone but its group lives on. Stop it only if an earlier pass proved this group is ours.
+      const proof = await o.db.hasEvent(j.id, "orphan_stop");
+      if (proof.error) return { ...out, error: `could not read the orphan history for ${j.id}, so nothing was stopped: ${proof.error}` };
+      if (!proof.found) { out.unstopped.push({ id: j.id, reason: "its process group survives without the CLI and was never proven to be this run's; left for a person" }); continue; }
+      escalateOnly = true;
+    }
+    if (!escalateOnly) {
+      const e1 = await record(j.id, "orphan_stop", { cliPid: cli, executorPid: host, signal: "SIGTERM" });
+      if (e1) return { ...out, error: `could not record the orphan stop for ${j.id}, so nothing was stopped: ${e1}` };
+      try { o.kill(-cli, "SIGTERM"); } catch { /* already gone */ }
+    }
+    let escalated = false;
+    if (escalateOnly || !(await groupGoneWithin(groupAlive, cli, grace))) {
+      const e2 = await record(j.id, "orphan_kill", { cliPid: cli, signal: "SIGKILL", why: escalateOnly ? "group outlived its CLI" : `group still alive ${grace} ms after SIGTERM` });
+      if (e2) return { ...out, error: `could not record the SIGKILL escalation for ${j.id}, so it was not sent: ${e2}` };
+      try { o.kill(-cli, "SIGKILL"); } catch { /* already gone */ }
+      escalated = true;
+    }
+    if (escalated && !(await groupGoneWithin(groupAlive, cli, KILL_CONFIRM_MS))) {
+      await record(j.id, "orphan_stop_failed", { cliPid: cli });
+      out.unstopped.push({ id: j.id, reason: "its process group could not be stopped (still alive after SIGKILL)" });
+      continue;
+    }
+    const e3 = await record(j.id, "orphan_stopped", { cliPid: cli, escalated });
+    out.stopped.push({ id: j.id, cliPid: cli, escalated });
+    if (e3) return { ...out, error: `stopped ${j.id} but the confirmation could not be written: ${e3}` };
   }
   return out;
 }
 
-export interface ReaperStatus { at: string; host: string; ok: boolean; stopped: number; reaped: number; stuck: number; skipped: { id: string; reason: string }[]; error: string | null }
+export interface ReaperStatus { at: string; host: string; ok: boolean; stopped: number; reaped: number; stuck: number; unstopped: number; skipped: { id: string; reason: string }[]; error: string | null }
 
-/** One scheduled pass: stop orphans, then reap. `stuck` counts rows still running past their deadline afterwards. */
+/** One scheduled pass: stop orphans, then reap. `stuck` counts rows still running past their deadline afterwards; any
+ *  group that could not be stopped or judged makes the pass not ok, and its row is never reaped (its group is alive). */
 export async function reaperPass(o: Parameters<typeof stopOrphans>[0]): Promise<ReaperStatus> {
   const orphans = await stopOrphans(o);
-  const reap = orphans.error ? null : await reapAbandoned({ db: o.db, now: o.now, host: o.host, isAlive: o.isAlive });
-  const skipped = [...orphans.skipped, ...(reap?.skipped ?? [])];
+  const reap = orphans.error ? null : await reapAbandoned({ db: o.db, now: o.now, host: o.host, isAlive: o.isAlive, isGroupAlive: o.isGroupAlive });
+  const skipped = [...orphans.skipped, ...orphans.unstopped, ...(reap?.skipped ?? [])];
   const stuck = (reap?.skipped ?? []).filter((s) => s.reason.startsWith("past its deadline")).length;
-  const error = orphans.error ?? reap?.error ?? null;
-  return { at: new Date(o.now).toISOString(), host: o.host, ok: !error && stuck === 0, stopped: orphans.stopped.length, reaped: reap?.reaped.length ?? 0, stuck, skipped, error };
+  const error = orphans.error ?? reap?.error ?? (orphans.unstopped.length ? `${orphans.unstopped.length} orphaned process group(s) could not be stopped or safely judged` : null);
+  return { at: new Date(o.now).toISOString(), host: o.host, ok: !error && stuck === 0, stopped: orphans.stopped.length, reaped: reap?.reaped.length ?? 0, stuck, unstopped: orphans.unstopped.length, skipped, error };
 }

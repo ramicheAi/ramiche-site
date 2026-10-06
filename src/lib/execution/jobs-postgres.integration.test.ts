@@ -232,6 +232,31 @@ describe.skipIf(!PG_URL)("M6F jobs store on real Postgres (jobs backbone migrati
     expect((await sql(`select count(*) from jobs where status = 'running'`)).out).toBe("0");   // no stuck running rows
   }, 60_000);
 
+  it("a retry replaces the previous attempt's identity in the same conditional update (PR #55 Codex P1)", async () => {
+    const db = pgJobsDb();
+    const base: ExecutionRequest = {
+      executionId: "00000000-0000-4000-8000-0000000000d1", commandId: null, missionId: null, founder: { uid: OWNER }, executor: "claude_code",
+      project: { slug: "mettle" }, repository: { origin: "test-owner/proj-a", branch: "main", head: "a".repeat(40) },
+      task: { instruction: "Inspect METTLE.", contextRefs: [] }, capability: "L1", limits: { timeoutMs: 60_000, maxTurns: 5, maxBudgetUsd: null },
+      idempotencyKey: "m6f-pg-retry", createdAt: new Date().toISOString(),
+    };
+    const a = new JobsExecutionStore(db, { runner: () => ({ host: "cockpit", pid: 111 }) });
+    expect((await a.begin(base, "h".repeat(64))).state).toBe("new");
+    await a.recordProcess(base, 222);
+    const failedA = { executionId: base.executionId, status: "failed", summary: "x", completedAt: new Date().toISOString(), failure: { code: "executor_failed", message: "x" } } as ExecutionResult;
+    await a.finish(base, failedA);
+    const retry = { ...base, executionId: "00000000-0000-4000-8000-0000000000d2" };
+    const b = new JobsExecutionStore(db, { runner: () => ({ host: "cockpit", pid: 333 }) });
+    expect((await b.begin(retry, "h".repeat(64))).state).toBe("existing");
+    expect(await b.restart(retry, failedA, "h".repeat(64))).toBe(true);
+    const id = executionJobId("m6f-pg-retry");
+    const after = await row(id);
+    expect(after.status).toBe("running");
+    expect(after.input).toMatchObject({ executionId: retry.executionId, runner: { host: "cockpit", pid: 333 } });
+    expect(after.input.runner.cliPid).toBeUndefined();   // attempt A's CLI pid is gone
+    expect(JSON.parse(await events(id))).toEqual(["execution_result", "retry"]);
+  });
+
   it("store unavailable fails closed: nothing runs and no row is created", async () => {
     const broken: JobsDb = { ...pgJobsDb(), insertJob: async () => ({ conflict: false, error: "connection refused" }) };
     const store = new JobsExecutionStore(broken);

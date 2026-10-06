@@ -41,12 +41,10 @@ describe("orphaned CLI after a cockpit restart", () => {
     expect(inspectProcess(cli.pid!)).toMatchObject({ pgid: cli.pid, cwd: join(execRoot, "mettle", "00000000-0000-4000-8000-000000000001") });
     seed(m, "job-1", "00000000-0000-4000-8000-000000000001", { host: hostname(), pid: await deadPid(), cliPid: cli.pid });
     const first = await reaperPass(opts(m));
-    expect(first.stopped).toBe(1);
-    expect(m.events.map((e) => e.kind)).toEqual(["orphan_stop"]);
-    await new Promise((r) => cli.once("exit", r));
+    expect(first).toMatchObject({ stopped: 1, reaped: 1, ok: true, error: null });
+    // TERM was enough (no escalation); the group is confirmed gone before the row is failed.
+    expect(m.events.map((e) => e.kind)).toEqual(["orphan_stop", "orphan_stopped", "reap_intent", "reaped"]);
     expect(processAlive(cli.pid!)).toBe(false);
-    const second = await reaperPass({ ...opts(m), now: Date.now() });
-    expect(second).toMatchObject({ reaped: 1, ok: true, error: null });
     expect(m.jobs.get("job-1")).toMatchObject({ status: "failed", progress: "reaped" });
   }, 20_000);
 

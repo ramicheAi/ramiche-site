@@ -80,10 +80,13 @@ Daily: health headline; failed runs (degraded at 3 a day); stuck runs (any is a 
 1. Stop new runs now, no redeploy: `touch ~/.parallax/executions/HALT` on the iMac. Prepare and approve refuse with
    403 `execution_halted`; health says "Off · halted on the execution host".
 2. Running runs: cancel through the cancel route (it works with dispatch off), or wait: each run is bounded by its own
-   timeout. If the cockpit itself was restarted, the reaper's orphan pass stops a run's CLI when it can prove the
-   process is that run's (own process group, the Claude binary, its worktree as working directory), then fails the row.
+   timeout. If the cockpit itself was restarted, the reaper's orphan pass stops the run's whole process group when it can
+   prove the CLI is that run's (own process group, the Claude binary, its worktree as working directory): SIGTERM, a
+   5 second wait, SIGKILL if any member survives, then it confirms the group is empty before the row is failed. A group
+   that cannot be stopped or proven is reported (health Degraded) and its row is never made terminal.
 3. Restore the previous cockpit release: repoint `com.command-center` to the previous `cockpit-releases/<sha>` and
    kickstart. (Rehearsed 2026-10-06: release 9ecae340 boots in 6 s and serves `/api/health` 200 on a side port.)
 4. Turn dispatch off in code (revert the ACTIVATE commit) in the next release; then remove HALT if wanted.
 5. Audit: every run is a `jobs` row (source `m6-executor`) with its `job_events` (`execution_result`,
-   `cancel_requested`, `orphan_stop`, `reap_intent`, `reaped`). Missions are untouched by the executor.
+   `retry`, `cancel_requested`, `orphan_stop`, `orphan_kill`, `orphan_stopped` or `orphan_stop_failed`, `reap_intent`,
+   `reaped`). After a retry the row describes the current attempt (its execution id and the process running it). Missions are untouched by the executor.

@@ -197,7 +197,7 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
     const retryable = RETRYABLE.has(begun.result.status) && begun.result.failure?.code !== "abandoned" && !!deps.store.restart;
     if (!retryable) return begun.result;
     let restarted = false;
-    try { restarted = await deps.store.restart!(req, begun.result); } catch { /* treated as not restarted */ }
+    try { restarted = await deps.store.restart!(req, begun.result, hash); } catch { /* treated as not restarted */ }
     if (!restarted) return reject(req, now(), "in_progress", "This execution is already being retried.");
   }
 

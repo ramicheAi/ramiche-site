@@ -22,8 +22,9 @@ export interface ExecutionStore {
   heartbeat?(r: ExecutionRequest): Promise<void>;
   /** The executor's own process (the CLI), recorded once it exists, so liveness is judged by the run, not its host. */
   recordProcess?(r: ExecutionRequest, cliPid: number): Promise<void>;
-  /** Reopen a finished, non-successful attempt for a retry under the same approval; false when it lost a race. */
-  restart?(r: ExecutionRequest, previous: ExecutionResult): Promise<boolean>;
+  /** Reopen a finished, non-successful attempt for a retry under the same approval; false when it lost a race. The row
+   *  then describes THIS attempt (its execution id and the process running it), never the previous one. */
+  restart?(r: ExecutionRequest, previous: ExecutionResult, bindingHash: string): Promise<boolean>;
   /** Whether the founder asked to cancel this run. Optional; checked with each heartbeat. */
   cancelRequested?(r: ExecutionRequest): Promise<boolean>;
 }
@@ -95,17 +96,26 @@ export class JobsExecutionStore implements ExecutionStore {
   /** When the current attempt of each running execution began: a founder cancel applies to that attempt only. */
   private readonly attemptStart = new Map<string, string>();
   private readonly db: JobsDb;
-  constructor(db: JobsDb) { this.db = db; }
+  /** The process that runs executions (this cockpit server). Injectable so tests can play two different servers. */
+  private readonly runner: () => { host: string; pid: number };
+  constructor(db: JobsDb, opts: { runner?: () => { host: string; pid: number } } = {}) {
+    this.db = db;
+    this.runner = opts.runner ?? (() => ({ host: hostname(), pid: process.pid }));
+  }
+  /** The row's input for one attempt: the request facts plus the process evidence the reaper relies on. */
+  private attemptInput(r: ExecutionRequest, bindingHash: string): Record<string, unknown> {
+    return {
+      executionId: r.executionId, bindingHash, commandId: r.commandId, missionId: r.missionId, project: r.project.slug,
+      origin: r.repository.origin, branch: r.repository.branch, head: r.repository.head, capability: r.capability,
+      contextRefs: r.task.contextRefs, limits: r.limits, founder: r.founder.uid,
+      // Process evidence for the reaper: which host and process run THIS attempt (the CLI pid is added once spawned).
+      runner: this.runner(),
+    };
+  }
   async begin(r: ExecutionRequest, bindingHash: string): Promise<Begin> {
     const id = executionJobId(r.idempotencyKey);
     const now = new Date().toISOString();
-    const input: Record<string, unknown> = {
-        executionId: r.executionId, bindingHash, commandId: r.commandId, missionId: r.missionId, project: r.project.slug,
-        origin: r.repository.origin, branch: r.repository.branch, head: r.repository.head, capability: r.capability,
-        contextRefs: r.task.contextRefs, limits: r.limits, founder: r.founder.uid,
-        // Process evidence for the reaper: which host and process run this execution.
-        runner: { host: hostname(), pid: process.pid },
-    };
+    const input = this.attemptInput(r, bindingHash);
     const ins = await this.db.insertJob({
       id, title: r.task.instruction.slice(0, 200), kind: "dev", status: "running", agent: "claude-code", source: EXECUTOR_SOURCE,
       input, progress: `approved ${r.capability}`, started_at: now, updated_at: now,
@@ -133,17 +143,20 @@ export class JobsExecutionStore implements ExecutionStore {
     this.inputs.delete(id);   // a long-running server keeps no per-run state after the run
     this.attemptStart.delete(id);
   }
-  async restart(r: ExecutionRequest, previous: ExecutionResult): Promise<boolean> {
+  async restart(r: ExecutionRequest, previous: ExecutionResult, bindingHash: string): Promise<boolean> {
     const id = executionJobId(r.idempotencyKey);
     const now = new Date().toISOString();
+    // One conditional write reopens the row AND replaces the previous attempt's identity (execution id, worktree, the
+    // runner host and pid, no stale CLI pid), so the reaper can never judge this attempt by the last one's processes.
+    const input = this.attemptInput(r, bindingHash);
     const up = await this.db.updateJobIf(id, { status: jobStatusFor(previous.status), updated_at: null }, {
-      status: "running", started_at: now, updated_at: now, finished_at: null, error: null, result: null, progress: `retry after ${previous.status}`,
+      status: "running", started_at: now, updated_at: now, finished_at: null, error: null, result: null, progress: `retry after ${previous.status}`, input,
     });
     if (up.error) throw new Error(`retry could not be recorded: ${up.error}`);
     if (!up.updated) return false;
     const ev = await this.db.insertEvent({ job_id: id, kind: "retry", detail: { previous: previous.status, code: previous.failure?.code ?? null, at: now } });
     if (ev.error) throw new Error(`retry event could not be recorded: ${ev.error}`);
-    this.inputs.set(id, (await this.db.getJob(id)).row?.input ?? {});
+    this.inputs.set(id, input);
     this.attemptStart.set(id, now);
     return true;
   }
