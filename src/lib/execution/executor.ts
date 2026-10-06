@@ -277,8 +277,10 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
     usage: { promptTokens: run.inputTokens ?? undefined, completionTokens: run.outputTokens ?? undefined },
   };
   try { await (deps.telemetry ?? recordExecution)(facts); } catch { /* telemetry never changes a result */ }
-  // A clean read-only run leaves nothing to review: remove its worktree and branch so checkouts do not pile up.
-  if (status === "succeeded" && capabilityRank(req.capability) <= capabilityRank("L1") && files.length === 0) {
+  // A clean read-only run leaves nothing to review: remove its worktree and branch so checkouts do not pile up. That
+  // includes a read-only run that was canceled or timed out (its process group is already gone); a boundary violation
+  // or a failure keeps its worktree for review.
+  if ((status === "succeeded" || status === "canceled" || status === "timed_out") && capabilityRank(req.capability) <= capabilityRank("L1") && files.length === 0) {
     const rm = await git(repo, ["worktree", "remove", "--force", worktree]);
     const del = rm.ok ? await git(repo, ["branch", "-D", branch]) : rm;
     if (rm.ok && del.ok) { result.worktree = null; result.branch = null; } else result.warnings.push("the read-only worktree could not be removed");
