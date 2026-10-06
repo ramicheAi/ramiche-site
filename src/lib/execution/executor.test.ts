@@ -67,6 +67,7 @@ function deps(over: Partial<ExecutionDeps> = {}): ExecutionDeps {
     surface: "harness", ownerUid: OWNER, approvalKey: KEY, roots: [checkouts], execRoot: join(root, "exec"), store: new MemoryExecutionStore(),
     claudeBin: FAKE, registry, telemetry: vi.fn(async () => {}), extraEnv: { FAKE_CLAUDE_RECORD: rec },
     remoteTip: async (_repo, branch) => { try { return g(bare, "rev-parse", "--verify", `refs/heads/${branch}`); } catch { return null; } },   // the remote itself
+    freeBytes: () => 1e12,
     ...over,
   };
 }
@@ -205,6 +206,36 @@ describe("M6 executor: red team, a model that ignores its permissions is caught 
     expect(res.status).toBe("canceled");
     await new Promise((r) => setTimeout(r, 300));
     expect(alive(Number(readFileSync(child, "utf8")))).toBe(false);
+  }, 30_000);
+
+  it("a clean read-only run removes its worktree and branch; a low disk refuses before any checkout", async () => {
+    const r = request({ capability: "L1" });
+    const res = await run(r);
+    expect(res.status).toBe("succeeded");
+    expect([res.worktree, res.branch]).toEqual([null, null]);
+    expect(existsSync(join(root, "exec", "mettle", r.executionId))).toBe(false);
+    expect(g(repo, "for-each-ref", "--format=%(refname)", "refs/heads/parallax-exec/")).toBe("");
+    rmSync(rec);
+    const low = await run(request(), deps({ freeBytes: () => 2 * 1024 ** 3 }));
+    expect(low.failure?.code).toBe("disk_low");
+    expect((await run(request(), deps({ freeBytes: () => { throw new Error("statfs failed"); } }))).failure?.code).toBe("disk_low");   // unknown space is refused
+    expect((await run(request(), deps({ freeBytes: () => 100 * 1024 ** 2, minFreeBytes: 0 }))).failure?.code).toBe("disk_low");   // the floor cannot be removed
+    expect(existsSync(rec)).toBe(false);
+  }, 30_000);
+
+  it("an L1 write to a gitignored path is a violation, and its worktree is kept as evidence (PR #49 review P2)", async () => {
+    const seed2 = join(root, "seed2");
+    g(root, "clone", "-q", bare, seed2);
+    writeFileSync(join(seed2, ".gitignore"), "*.log\n.env.local\n");
+    g(seed2, "add", "-A"); g(seed2, "commit", "-qm", "ignore"); g(seed2, "push", "-q", "origin", "main");
+    g(repo, "fetch", "-q", bare, "main:refs/remotes/origin/main");
+    const head2 = g(bare, "rev-parse", "main");
+    const r = request({ capability: "L1", repository: { origin: "test-owner/proj-a", branch: "main", head: head2 }, plan: { actions: [{ write: ".env.local", content: "STOLEN=1\n" }] } });
+    const res = await run(r);
+    expect(res.status).toBe("boundary_violation");
+    expect(res.failure?.message).toContain("without modify capability");
+    expect(res.worktree).not.toBeNull();
+    expect(readFileSync(join(res.worktree!, ".env.local"), "utf8")).toBe("STOLEN=1\n");
   }, 30_000);
 
   it("a reported failure is failed, not succeeded", async () => {

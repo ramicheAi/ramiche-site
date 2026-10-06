@@ -6,7 +6,7 @@
  * its own branch, and afterwards the boundary is verified from git state alone (verifyBoundary), whatever the model
  * said it did. Telemetry goes to execution_events through the existing recorder (subscription cost semantics kept).
  */
-import { existsSync, mkdirSync, realpathSync } from "node:fs";
+import { existsSync, mkdirSync, realpathSync, statfsSync } from "node:fs";
 import { join } from "node:path";
 import { recordExecution, type ExecutionFacts } from "@/lib/execution-events";
 import { verifyApproval, type Approval } from "./approval";
@@ -34,11 +34,21 @@ export interface ExecutionDeps {
   telemetry?: (f: ExecutionFacts) => Promise<void>;
   /** Tests only (fake CLI). */
   extraEnv?: Record<string, string>;
+  /** Free bytes on the execution volume (default: statfs). Injectable for tests. */
+  freeBytes?: (path: string) => number;
+  /** Required free space before a checkout (default MIN_FREE_BYTES); a small sandbox repository may set less. */
+  minFreeBytes?: number;
   /** The branch tip on the remote (default: git ls-remote origin). Injectable for tests. */
   remoteTip?: (repo: string, branch: string) => Promise<string | null>;
 }
 
 export const execBranch = (executionId: string) => `parallax-exec/${executionId}`;
+
+/** A full checkout needs room; the execution host is also the fleet gateway, so never fill its disk (fail closed). */
+export const MIN_FREE_BYTES = 4 * 1024 ** 3;
+/** No caller can lower the floor below this. */
+export const ABSOLUTE_MIN_FREE_BYTES = 256 * 1024 ** 2;
+const statfsFree = (p: string) => { const s = statfsSync(p); return Number(s.bavail) * Number(s.bsize); };
 
 function base(r: Partial<ExecutionRequest>, now: number): ExecutionResult {
   return {
@@ -89,8 +99,10 @@ export async function verifyBoundary(b: BoundaryInput): Promise<{ violations: st
     v.push("the execution branch was rewritten (base is no longer an ancestor)");
   }
   if (capabilityRank(b.capability) <= capabilityRank("L1")) {
-    const st = await git(b.worktree, ["status", "--porcelain=v1", "--untracked-files=all"]);
-    if (st.out.trim()) v.push("files were changed without modify capability (L2)");
+    // A fresh worktree holds only tracked files, so ANY other file, gitignored ones included (.env.local, *.log), was
+    // written by the run. Fail closed when status cannot be read.
+    const st = await git(b.worktree, ["status", "--porcelain=v1", "--untracked-files=all", "--ignored=matching"]);
+    if (!st.ok || st.out.trim()) v.push("files were changed without modify capability (L2)");
   }
   return { violations: v, tip };
 }
@@ -147,6 +159,12 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
   }
 
   mkdirSync(join(deps.execRoot, req.project.slug), { recursive: true });
+  let free = NaN;
+  try { free = (deps.freeBytes ?? statfsFree)(deps.execRoot); } catch { /* unknown free space: refused below */ }
+  const need = Math.max(deps.minFreeBytes ?? MIN_FREE_BYTES, ABSOLUTE_MIN_FREE_BYTES);
+  if (!(free >= need)) {
+    return finishWith(reject(req, now(), "disk_low", `Only ${(free / 1024 ** 3).toFixed(1)} GB free on the execution host (need ${(need / 1024 ** 3).toFixed(1)} GB). Nothing was run.`));
+  }
   // Canonical path: permission allow rules must match the resolved path too (macOS /var is /private/var).
   const dir = realpathSync(join(deps.execRoot, req.project.slug));
   const worktree = join(dir, req.executionId);
@@ -154,8 +172,12 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
   const branch = execBranch(req.executionId);
   const [refsBefore, checkoutBefore] = await Promise.all([refsSnapshot(repo), checkoutSnapshot(repo)]);
   const gitDirBefore = await gitDirSnapshot(repo, req.executionId);
-  const add = await git(repo, ["worktree", "add", "-b", branch, worktree, req.repository.head]);
-  if (!add.ok) return finishWith(reject(req, now(), "worktree_failed", "The isolated worktree could not be created, so nothing ran."));
+  // A full checkout of a large repository can take minutes on a busy host: bounded, but not by the 60s read default.
+  const add = await git(repo, ["worktree", "add", "--quiet", "-b", branch, worktree, req.repository.head], undefined, 5 * 60_000);
+  if (!add.ok) {
+    const why = add.err.replace(/\s+/g, " ").trim().slice(-300);
+    return finishWith(reject(req, now(), "worktree_failed", `The isolated worktree could not be created, so nothing ran (git: ${why || "no output"}).`));
+  }
   // The worktree add itself created the execution branch; that is the one ref change the run may own.
   refsBefore.delete(`refs/heads/${branch}`);
 
@@ -203,5 +225,11 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
     usage: { promptTokens: run.inputTokens ?? undefined, completionTokens: run.outputTokens ?? undefined },
   };
   try { await (deps.telemetry ?? recordExecution)(facts); } catch { /* telemetry never changes a result */ }
+  // A clean read-only run leaves nothing to review: remove its worktree and branch so checkouts do not pile up.
+  if (status === "succeeded" && capabilityRank(req.capability) <= capabilityRank("L1") && files.length === 0) {
+    const rm = await git(repo, ["worktree", "remove", "--force", worktree]);
+    const del = rm.ok ? await git(repo, ["branch", "-D", branch]) : rm;
+    if (rm.ok && del.ok) { result.worktree = null; result.branch = null; } else result.warnings.push("the read-only worktree could not be removed");
+  }
   return finishWith(result);
 }

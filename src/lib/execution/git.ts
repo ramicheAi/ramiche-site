@@ -11,10 +11,10 @@ import { join } from "node:path";
 const SAFE_ENV = () => ({ PATH: process.env.PATH ?? "/usr/bin:/bin", HOME: process.env.HOME ?? "/", GIT_TERMINAL_PROMPT: "0", GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null" });
 const SAFE_ARGS = ["-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null", "-c", "core.sshCommand=/usr/bin/false"];
 
-export function git(cwd: string, args: string[], env?: Record<string, string>): Promise<{ ok: boolean; out: string; err: string }> {
+export function git(cwd: string, args: string[], env?: Record<string, string>, timeoutMs = 60_000): Promise<{ ok: boolean; out: string; err: string }> {
   return new Promise((resolve) => {
-    execFile("git", [...SAFE_ARGS, ...args], { cwd, env: (env ?? SAFE_ENV()) as NodeJS.ProcessEnv, maxBuffer: 32 * 1024 * 1024, timeout: 60_000 },
-      (e, stdout, stderr) => resolve({ ok: !e, out: String(stdout), err: String(stderr) }));
+    execFile("git", [...SAFE_ARGS, ...args], { cwd, env: (env ?? SAFE_ENV()) as NodeJS.ProcessEnv, maxBuffer: 32 * 1024 * 1024, timeout: timeoutMs },
+      (e, stdout, stderr) => resolve({ ok: !e, out: String(stdout), err: String(stderr) || (e ? String((e as Error).message) : "") }));
   });
 }
 
