@@ -29,16 +29,27 @@ export const REPO_REGISTRY: readonly RepoEntry[] = [
     checkouts: ["galactik-antics", "GALACTIK-ANTICS", "GALACTIK-ANTICS 2"], aliases: ["galactik antics", "galactik"],
   },
   {
+    // Parallax OS: the founder cockpit (command.parallaxvinc.com). Never the public website.
     slug: "command-center", origin: "ramicheAi/ramiche-site", checkouts: ["ramiche-site"],
     aliases: ["parallax os", "command center", "cockpit", "ramiche-site", "ramiche site"],
   },
   {
-    slug: "parallax", origin: null, checkouts: [], aliases: ["parallax site", "parallaxvinc.com", "marketing site"],
-    unsettled: "The public Parallax site is served from ramicheAi/parallax-site, but the Parallax project lists the ramiche-site homepage. Which repository should Parallax work run in?",
+    // The public Parallax website (parallaxvinc.com), verified 2026-10-06: ramicheAi/parallax-site, checkout ~/parallax-site.
+    slug: "parallax", origin: "ramicheAi/parallax-site", checkouts: ["parallax-site"],
+    aliases: ["parallax site", "parallax website", "parallax-site", "parallaxvinc.com", "public site", "marketing site"],
+  },
+  {
+    // RAMICHE OS, verified 2026-10-06: private ramicheAi/ramiche-os, checkout ~/repos/ramiche-os on the iMac.
+    slug: "ramiche-os", origin: "ramicheAi/ramiche-os", checkouts: ["repos/ramiche-os", "ramiche-os"],
+    aliases: ["ramiche os", "ramiche-os"],
   },
 ];
 
-export const projectName = (slug: string) => PROJECTS.find((p) => p.slug === slug)?.name ?? slug;
+/** Projects an executor can target that are not on the cockpit projects board (PROJECTS). Kept explicit so the
+ *  registry never invents a project silently. */
+export const REGISTRY_ONLY_PROJECTS: Readonly<Record<string, string>> = { "ramiche-os": "RAMICHE OS" };
+
+export const projectName = (slug: string) => PROJECTS.find((p) => p.slug === slug)?.name ?? REGISTRY_ONLY_PROJECTS[slug] ?? slug;
 
 export type Resolution =
   | { ok: true; entry: RepoEntry & { origin: string }; name: string }
