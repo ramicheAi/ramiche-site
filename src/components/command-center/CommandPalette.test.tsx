@@ -319,3 +319,22 @@ describe("Least effort: the shadow result stays in the palette (P06 M5C)", () =>
     expect(fetchSpy).toHaveBeenCalledTimes(1);   // neither button writes anything
   });
 });
+
+describe("P06 M6C: execution in the palette stays off in production", () => {
+  it("by default (the production gate) the shadow result offers no execution and makes no extra request", async () => {
+    fetchSpy.mockImplementation(() => ok("Claude Code, fix the METTLE roster import"));
+    open("Claude Code, fix the METTLE roster import");
+    fireEvent.keyDown(window, { key: "Enter" });
+    await screen.findByTestId("shadow-result");
+    expect(screen.queryByRole("button", { name: "Run with Claude Code" })).toBeNull();
+    expect(fetchSpy.mock.calls.map(([u]) => u)).toEqual(["/api/command-center/command/shadow"]);
+  });
+  it("when enabled (development), Claude Code work offers Run with Claude Code under the result", async () => {
+    fetchSpy.mockImplementation(() => ok("Claude Code, fix the METTLE roster import"));
+    render(<CommandPalette open onClose={vi.fn()} executionEnabled />);
+    fireEvent.change(screen.getByPlaceholderText(/type intent/i), { target: { value: "Claude Code, fix the METTLE roster import" } });
+    fireEvent.keyDown(window, { key: "Enter" });
+    await screen.findByTestId("shadow-result");
+    expect(screen.getByRole("button", { name: "Run with Claude Code" })).toBeTruthy();
+  });
+});

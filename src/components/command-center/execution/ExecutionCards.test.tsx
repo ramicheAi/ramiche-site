@@ -3,7 +3,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ExecutionRequest, ExecutionResult } from "@/lib/execution/contract";
-import { approvalSentence, ExecutionApprovalCard, ExecutionResultCard } from "./ExecutionCards";
+import { approvalSentence, ExecutionApprovalCard, ExecutionResultCard, requestDetails } from "./ExecutionCards";
 
 afterEach(cleanup);
 
@@ -24,7 +24,7 @@ const result = (over: Partial<ExecutionResult> = {}): ExecutionResult => ({
 describe("execution approval", () => {
   it("is one sentence with Approve and Cancel; the technical request is only under Details", () => {
     const onApprove = vi.fn(), onCancel = vi.fn();
-    render(<ExecutionApprovalCard request={request} projectName="METTLE" onApprove={onApprove} onCancel={onCancel} />);
+    render(<ExecutionApprovalCard sentence={approvalSentence(request, "METTLE")} details={requestDetails(request)} onApprove={onApprove} onCancel={onCancel} />);
     const card = screen.getByTestId("execution-approval");
     expect(card.textContent).toContain("Claude Code wants to modify METTLE locally.");
     expect(card.textContent).not.toContain("ramicheAi/mettle");

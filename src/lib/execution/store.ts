@@ -22,6 +22,8 @@ export interface ExecutionStore {
   heartbeat?(r: ExecutionRequest): Promise<void>;
   /** The executor's own process (the CLI), recorded once it exists, so liveness is judged by the run, not its host. */
   recordProcess?(r: ExecutionRequest, cliPid: number): Promise<void>;
+  /** Reopen a finished, non-successful attempt for a retry under the same approval; false when it lost a race. */
+  restart?(r: ExecutionRequest, previous: ExecutionResult): Promise<boolean>;
   /** Whether the founder asked to cancel this run. Optional; checked with each heartbeat. */
   cancelRequested?(r: ExecutionRequest): Promise<boolean>;
 }
@@ -37,6 +39,12 @@ export class MemoryExecutionStore implements ExecutionStore {
   async finish(r: ExecutionRequest, result: ExecutionResult): Promise<void> {
     const cur = this.rows.get(r.idempotencyKey);
     if (cur) cur.result = result;
+  }
+  async restart(r: ExecutionRequest, previous: ExecutionResult): Promise<boolean> {
+    const cur = this.rows.get(r.idempotencyKey);
+    if (!cur || cur.result !== previous) return false;
+    cur.result = null;
+    return true;
   }
 }
 
@@ -120,6 +128,19 @@ export class JobsExecutionStore implements ExecutionStore {
     });
     if (up.error) throw new Error(`execution result could not be saved: ${up.error}`);
     this.inputs.delete(id);   // a long-running server keeps no per-run state after the run
+  }
+  async restart(r: ExecutionRequest, previous: ExecutionResult): Promise<boolean> {
+    const id = executionJobId(r.idempotencyKey);
+    const now = new Date().toISOString();
+    const up = await this.db.updateJobIf(id, { status: jobStatusFor(previous.status), updated_at: null }, {
+      status: "running", started_at: now, updated_at: now, finished_at: null, error: null, result: null, progress: `retry after ${previous.status}`,
+    });
+    if (up.error) throw new Error(`retry could not be recorded: ${up.error}`);
+    if (!up.updated) return false;
+    const ev = await this.db.insertEvent({ job_id: id, kind: "retry", detail: { previous: previous.status, code: previous.failure?.code ?? null, at: now } });
+    if (ev.error) throw new Error(`retry event could not be recorded: ${ev.error}`);
+    this.inputs.set(id, (await this.db.getJob(id)).row?.input ?? {});
+    return true;
   }
   async recordProcess(r: ExecutionRequest, cliPid: number): Promise<void> {
     const id = executionJobId(r.idempotencyKey);
