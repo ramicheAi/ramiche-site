@@ -5,7 +5,7 @@
  * PRODUCTION_DISPATCH_ENABLED is false; these render from an ExecutionRequest / ExecutionResult only.
  */
 import { Fragment, useState, type CSSProperties } from "react";
-import { CAPABILITY_META, CONSEQUENTIAL_ACTIONS, type ExecutionRequest, type ExecutionResult } from "@/lib/execution/contract";
+import { CAPABILITY_META, CONSEQUENTIAL_ACTIONS, type ExecutionRequest, type ExecutionResult } from "@/lib/execution/contract-core";
 
 const card: CSSProperties = { display: "grid", gap: 8, padding: "14px 16px", borderRadius: 10, border: "1px solid var(--line, #1e1e1e)", background: "rgba(255,255,255,0.03)", overflowWrap: "anywhere" };
 const eyebrow: CSSProperties = { fontSize: 11, letterSpacing: 1, fontWeight: 700 };
