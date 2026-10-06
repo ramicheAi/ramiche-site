@@ -72,8 +72,8 @@ export interface JobsDb {
   insertEvent(row: Record<string, unknown>): Promise<{ error: string | null }>;
   /** Update only if the row still has these values (optimistic concurrency); `updated` says whether it did. */
   updateJobIf(id: string, expect: { status: string; updated_at: string | null }, patch: Record<string, unknown>): Promise<{ updated: boolean; error: string | null }>;
-  /** Whether an event of this kind exists; with `sinceAt`, only one whose detail.at (an ISO time) is at or after it. */
-  hasEvent(jobId: string, kind: string, sinceAt?: string): Promise<{ found: boolean; error: string | null }>;
+  /** Whether an event of this kind exists; with `executionId`, only one whose detail names that execution (attempt). */
+  hasEvent(jobId: string, kind: string, executionId?: string): Promise<{ found: boolean; error: string | null }>;
   listRunning(source: string): Promise<{ rows: RunningJob[]; error: string | null }>;
 }
 
@@ -93,8 +93,6 @@ export function abandonedResult(r: ExecutionRequest, reason: string | null): Exe
 
 export class JobsExecutionStore implements ExecutionStore {
   private readonly inputs = new Map<string, Record<string, unknown>>();
-  /** When the current attempt of each running execution began: a founder cancel applies to that attempt only. */
-  private readonly attemptStart = new Map<string, string>();
   private readonly db: JobsDb;
   /** The process that runs executions (this cockpit server). Injectable so tests can play two different servers. */
   private readonly runner: () => { host: string; pid: number };
@@ -121,7 +119,7 @@ export class JobsExecutionStore implements ExecutionStore {
       input, progress: `approved ${r.capability}`, started_at: now, updated_at: now,
     });
     if (ins.error) throw new Error(`execution record could not be created: ${ins.error}`);   // fail closed: no record, no run
-    if (!ins.conflict) { this.inputs.set(id, input); this.attemptStart.set(id, now); return { state: "new" }; }
+    if (!ins.conflict) { this.inputs.set(id, input); return { state: "new" }; }
     const cur = await this.db.getJob(id);
     if (cur.error) throw new Error(`execution record could not be read: ${cur.error}`);   // never mistake a read failure for a conflict
     if (!cur.row) throw new Error("execution record conflicted but could not be found");
@@ -141,7 +139,6 @@ export class JobsExecutionStore implements ExecutionStore {
     });
     if (up.error) throw new Error(`execution result could not be saved: ${up.error}`);
     this.inputs.delete(id);   // a long-running server keeps no per-run state after the run
-    this.attemptStart.delete(id);
   }
   async restart(r: ExecutionRequest, previous: ExecutionResult, bindingHash: string): Promise<boolean> {
     const id = executionJobId(r.idempotencyKey);
@@ -157,7 +154,6 @@ export class JobsExecutionStore implements ExecutionStore {
     const ev = await this.db.insertEvent({ job_id: id, kind: "retry", detail: { previous: previous.status, code: previous.failure?.code ?? null, at: now } });
     if (ev.error) throw new Error(`retry event could not be recorded: ${ev.error}`);
     this.inputs.set(id, input);
-    this.attemptStart.set(id, now);
     return true;
   }
   async recordProcess(r: ExecutionRequest, cliPid: number): Promise<void> {
@@ -175,9 +171,9 @@ export class JobsExecutionStore implements ExecutionStore {
     if (up.error) throw new Error(`heartbeat failed: ${up.error}`);
   }
   async cancelRequested(r: ExecutionRequest): Promise<boolean> {
-    // Only a cancel made against THIS attempt: an earlier attempt's cancel must not stop a retry the founder approved.
-    const id = executionJobId(r.idempotencyKey);
-    const ev = await this.db.hasEvent(id, "cancel_requested", this.attemptStart.get(id));
+    // Only a cancel that names THIS attempt's execution id: a cancel aimed at an earlier attempt (even one written after
+    // a retry began) never stops a retry the founder approved.
+    const ev = await this.db.hasEvent(executionJobId(r.idempotencyKey), "cancel_requested", r.executionId);
     if (ev.error) throw new Error(`cancel check failed: ${ev.error}`);
     return ev.found;
   }
@@ -192,13 +188,15 @@ export class JobsExecutionStore implements ExecutionStore {
     const input = cur.row?.input ?? null;
     if (!cur.row || cur.row.source !== EXECUTOR_SOURCE || typeof input?.executionId !== "string" || typeof input?.bindingHash !== "string") return { ok: false, code: "not_found", message: "No such execution." };
     if (cur.row.status !== "running") return { ok: false, code: "not_running", message: `This execution is already ${cur.row.status}.` };
-    const ev = await this.db.insertEvent({ job_id: jobId, kind: "cancel_requested", detail: { by: founderUid, at: new Date().toISOString() } });
+    // Bound to the attempt the founder was looking at: if it finishes and a retry starts before this write, the retry
+    // (a different execution id) ignores it.
+    const ev = await this.db.insertEvent({ job_id: jobId, kind: "cancel_requested", detail: { by: founderUid, executionId: input.executionId, at: new Date().toISOString() } });
     if (ev.error) return { ok: false, code: "store_error", message: `The cancel could not be recorded: ${ev.error}` };
     return { ok: true };
   }
   /** The founder asks to cancel (called from a founder-authenticated surface). The running executor stops at its next heartbeat. */
-  async requestCancel(idempotencyKey: string, founderUid: string): Promise<void> {
-    const ev = await this.db.insertEvent({ job_id: executionJobId(idempotencyKey), kind: "cancel_requested", detail: { by: founderUid, at: new Date().toISOString() } });
+  async requestCancel(idempotencyKey: string, founderUid: string, executionId: string): Promise<void> {
+    const ev = await this.db.insertEvent({ job_id: executionJobId(idempotencyKey), kind: "cancel_requested", detail: { by: founderUid, executionId, at: new Date().toISOString() } });
     if (ev.error) throw new Error(`cancel could not be recorded: ${ev.error}`);
   }
 }

@@ -337,7 +337,7 @@ describe("M6B: executor with the jobs store (heartbeat, founder cancel)", () => 
     const m = memoryJobsDb();
     const store = new JobsExecutionStore(m.db);
     const r = request({ plan: { actions: [{ sleep: 60_000 }] } });
-    setTimeout(() => { void store.requestCancel(r.idempotencyKey, OWNER); }, 600);
+    setTimeout(() => { void store.requestCancel(r.idempotencyKey, OWNER, r.executionId); }, 600);
     const res = await run(r, deps({ store, heartbeatMs: 200 }));
     expect(res.status).toBe("canceled");
     const row = m.jobs.get(executionJobId(r.idempotencyKey))!;

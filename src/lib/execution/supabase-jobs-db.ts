@@ -40,9 +40,9 @@ export function supabaseJobsDb(db: SupabaseClient): JobsDb {
       const { data, error } = await q.select("id");
       return { updated: !error && Array.isArray(data) && data.length === 1, error: msg(error) };
     },
-    async hasEvent(jobId, kind, sinceAt) {
+    async hasEvent(jobId, kind, executionId) {
       let q = db.from("job_events").select("id").eq("job_id", jobId).eq("kind", kind);
-      if (sinceAt) q = q.gte("detail->>at", sinceAt);   // ISO strings from the same host compare in time order
+      if (executionId) q = q.eq("detail->>executionId", executionId);
       const { data, error } = await q.limit(1);
       return { found: !error && Array.isArray(data) && data.length > 0, error: msg(error) };
     },

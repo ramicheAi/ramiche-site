@@ -79,8 +79,8 @@ function pgJobsDb(url = PG_URL): JobsDb {
       { id, st: expect.status, patch: JSON.stringify(patch), ...(expect.updated_at !== null ? { ts: expect.updated_at } : {}) });
       return { updated: !r.err && r.out === "1", error: r.err };
     },
-    async hasEvent(jobId, kind, sinceAt) {
-      const r = await sql(`select count(*) from job_events where job_id = :'id'::uuid and kind = :'k'${sinceAt ? ` and detail->>'at' >= :'since'` : ""}`, { id: jobId, k: kind, ...(sinceAt ? { since: sinceAt } : {}) });
+    async hasEvent(jobId, kind, executionId) {
+      const r = await sql(`select count(*) from job_events where job_id = :'id'::uuid and kind = :'k'${executionId ? ` and detail->>'executionId' = :'eid'` : ""}`, { id: jobId, k: kind, ...(executionId ? { eid: executionId } : {}) });
       return { found: !r.err && Number(r.out) > 0, error: r.err };
     },
     async listRunning(source) {
@@ -185,7 +185,7 @@ describe.skipIf(!PG_URL)("M6F jobs store on real Postgres (jobs backbone migrati
     await new Promise((r) => setTimeout(r, 500));
     const cliPid = (await row(id)).input.runner.cliPid as number;
     expect(processAlive(cliPid)).toBe(true);
-    await store.requestCancel(p.request.idempotencyKey, OWNER);
+    expect(await store.requestCancelJob(id, OWNER)).toEqual({ ok: true });   // the cancel route's path: names the running attempt
     const out = await pending;
     if (!out.ok) throw new Error(out.message);
     expect(out.result.status).toBe("canceled");

@@ -200,3 +200,50 @@ describe("leaderless groups are never signaled across passes (independent review
     expect(out.ok).toBe(false);
   }, 20_000);
 });
+
+describe("PR #55 Codex on 262c477", () => {
+  it("P1: a live CLI whose executor died but whose identity cannot be proven degrades the pass immediately", async () => {
+    const m = memoryJobsDb();
+    const cli = spawn(bin, ["300"], { cwd: (mkdirSync(join(root, "not-the-worktree"), { recursive: true }), join(root, "not-the-worktree")), detached: true, stdio: "ignore" });
+    kids.push(cli);
+    await new Promise((r) => setTimeout(r, 200));
+    const id = executionJobId("m6f-unproven-key");
+    const fresh = new Date().toISOString();   // before any deadline: the reaper alone would call it "process alive"
+    m.jobs.set(id, { id, status: "running", source: "m6-executor", started_at: fresh, updated_at: fresh, input: { executionId: A, project: "mettle", limits: { timeoutMs: 30 * 60_000 }, runner: { host: hostname(), pid: await deadPid(), cliPid: cli.pid } } });
+    const kills: number[] = [];
+    const out = await pass(m, { kill: (p: number) => { kills.push(p); } });
+    expect(kills).toEqual([]);   // never signaled: not provably ours
+    expect(out).toMatchObject({ ok: false, unstopped: 1, reaped: 0 });
+    expect(m.jobs.get(id)!.status).toBe("running");
+  }, 20_000);
+
+  it("P2: a cancel aimed at attempt A that lands after retry B started does not cancel B", async () => {
+    const m = memoryJobsDb();
+    const key = "m6f-cancel-race-key";
+    const id = executionJobId(key);
+    const rA = { ...req(A), idempotencyKey: key }, rB = { ...req(B), idempotencyKey: key };
+    const storeA = new JobsExecutionStore(m.db);
+    expect((await storeA.begin(rA, "h".repeat(64))).state).toBe("new");
+    // The founder's cancel reads the row while A runs; before its event is written, A fails and B is restarted.
+    let raced = false;
+    const racing = { ...m.db, getJob: async (jid: string) => {
+      const r = await m.db.getJob(jid);
+      if (!raced) {
+        raced = true;
+        await storeA.finish(rA, failed(rA));
+        const storeB = new JobsExecutionStore(m.db);
+        await storeB.begin(rB, "h".repeat(64));
+        await storeB.restart(rB, failed(rA), "h".repeat(64));
+        (racing as unknown as { b: JobsExecutionStore }).b = storeB;
+      }
+      return r;
+    } };
+    expect((await new JobsExecutionStore(racing).requestCancelJob(id, "owner")).ok).toBe(true);
+    const storeB = (racing as unknown as { b: JobsExecutionStore }).b;
+    expect(m.jobs.get(id)!.status).toBe("running");
+    expect(await storeB.cancelRequested(rB)).toBe(false);   // the cancel named attempt A, not B
+    // A cancel made while B runs does apply to B.
+    expect((await new JobsExecutionStore(m.db).requestCancelJob(id, "owner")).ok).toBe(true);
+    expect(await storeB.cancelRequested(rB)).toBe(true);
+  }, 20_000);
+});

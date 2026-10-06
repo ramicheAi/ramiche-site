@@ -153,7 +153,9 @@ export async function stopOrphans(o: {
         && typeof input.executionId === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(input.executionId);
       const worktree = valid ? join(/*turbopackIgnore: true*/ o.execRoot, input.project as string, input.executionId as string) : null;
       const same = !!facts && facts.pgid === cli && facts.args.startsWith(o.claudeBin) && !!worktree && facts.cwd === worktree;
-      if (!same) { out.skipped.push({ id: j.id, reason: "the live pid is not provably this run's CLI; left for a person" }); continue; }
+      // Its executor is dead and something is running under its CLI pid that cannot be proven to be the CLI: nothing is
+      // watching that run's limits, so the pass must degrade now (not wait for the deadline). Never signaled.
+      if (!same) { out.unstopped.push({ id: j.id, reason: "its CLI pid is alive but not provably this run's CLI; not signaled; left for a person" }); continue; }
     } else {
       // The CLI is gone but its group lives on. A pid can be reused once its group has emptied, and nothing proves this
       // group never emptied since an earlier pass, so a leaderless group is never signaled here: it is reported for a
