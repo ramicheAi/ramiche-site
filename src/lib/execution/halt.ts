@@ -12,5 +12,5 @@ export const DEFAULT_HALT_FILE = join(/*turbopackIgnore: true*/ homedir(), ".par
 
 export function dispatchHalted(env: Record<string, string | undefined> = process.env): boolean {
   const extra = env.PARALLAX_EXECUTION_HALT_FILE;
-  return existsSync(DEFAULT_HALT_FILE) || (!!extra && existsSync(extra));
+  return existsSync(/*turbopackIgnore: true*/ DEFAULT_HALT_FILE) || (!!extra && existsSync(/*turbopackIgnore: true*/ extra));
 }

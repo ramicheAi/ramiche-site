@@ -26,7 +26,7 @@ function claudeAuth(now: number): Promise<HealthSignals["claude"]> {
   if (claudeCache && now - claudeCache.at < 60_000) return Promise.resolve(claudeCache.v);
   const bin = process.env.CC_CLAUDE_BIN ?? join(/*turbopackIgnore: true*/ homedir(), ".local", "bin", "claude");
   return new Promise((resolve) => {
-    execFile(bin, ["auth", "status"], { timeout: 10_000 }, (err, stdout) => {
+    execFile(/*turbopackIgnore: true*/ bin, ["auth", "status"], { timeout: 10_000 }, (err, stdout) => {
       const v: HealthSignals["claude"] = /"loggedIn"\s*:\s*true/.test(stdout) ? "ok" : /"loggedIn"\s*:\s*false/.test(stdout) ? "logged_out" : "unknown";
       void err;
       claudeCache = { at: now, v };
@@ -46,7 +46,7 @@ export async function GET(req: Request) {
   const now = Date.now();
   const execRoot = join(/*turbopackIgnore: true*/ homedir(), ".parallax", "executions");
   let diskFreeBytes: number | null = null;
-  try { const s = statfsSync(homedir()); diskFreeBytes = Number(s.bavail) * Number(s.bsize); } catch { /* unknown */ }
+  try { const s = statfsSync(/*turbopackIgnore: true*/ homedir()); diskFreeBytes = Number(s.bavail) * Number(s.bsize); } catch { /* unknown */ }
   let store: HealthSignals["store"] = "error", running = 0, stuck = 0, staleHeartbeats = 0, failures24h = 0;
   const svc = getSupabaseAdmin();
   if (svc) {
@@ -64,7 +64,7 @@ export async function GET(req: Request) {
     }
   }
   let reaper: HealthSignals["reaper"] = { at: null, ok: null, error: null };
-  try { const r = JSON.parse(readFileSync(join(/*turbopackIgnore: true*/ execRoot, "reaper-status.json"), "utf8")); reaper = { at: String(r.at), ok: !!r.ok, error: r.error ? "error" : null }; } catch { /* never ran */ }
+  try { const r = JSON.parse(readFileSync(/*turbopackIgnore: true*/ join(/*turbopackIgnore: true*/ execRoot, "reaper-status.json"), "utf8")); reaper = { at: String(r.at), ok: !!r.ok, error: r.error ? "error" : null }; } catch { /* never ran */ }
   let repoAccess: HealthSignals["repoAccess"] = repoCache && now - repoCache.at < 5 * 60_000 ? repoCache.v : "unchecked";
   if (new URL(req.url).searchParams.get("deep") === "1") {
     const mettle = bySlug("mettle");
