@@ -14,41 +14,69 @@ import { ExecutionApprovalCard, ExecutionResultCard } from "./ExecutionCards";
 type Prepared = { sentence: string; bindingHash: string; details: Record<string, string>; capability: string; project: string };
 type State =
   | { s: "idle" } | { s: "preparing" } | { s: "prepared"; p: Prepared } | { s: "running"; p: Prepared }
-  | { s: "done"; result: ExecutionResult; projectName: string } | { s: "stopped"; message: string };
+  | { s: "done"; result: ExecutionResult; projectName: string; open: boolean } | { s: "stopped"; message: string; candidates: string[] };
 
-async function post<T>(path: string, body: unknown): Promise<{ ok: true; data: T } | { ok: false; message: string }> {
+async function post<T>(path: string, body: unknown): Promise<{ ok: true; data: T } | { ok: false; message: string; candidates: string[] }> {
   try {
     const res = await cockpitFetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     const j = await res.json().catch(() => null);
     if (res.ok && j?.data) return { ok: true, data: j.data as T };
-    return { ok: false, message: j?.error?.question ?? j?.error?.message ?? `Request failed (${res.status}).` };
-  } catch (e) { return { ok: false, message: e instanceof Error ? e.message : "Network error." }; }
+    const candidates = Array.isArray(j?.error?.candidates) ? (j.error.candidates as unknown[]).filter((c): c is string => typeof c === "string") : [];
+    return { ok: false, message: j?.error?.question ?? j?.error?.message ?? `Request failed (${res.status}).`, candidates };
+  } catch (e) { return { ok: false, message: e instanceof Error ? e.message : "Network error.", candidates: [] }; }
 }
 
 export function ExecutionFlow({ record, onOpenDetails }: { record: Pick<ShadowRecord, "id" | "decision">; onOpenDetails: () => void }) {
   const [st, setSt] = useState<State>({ s: "idle" });
   if (record.decision.handler !== "claude_code") return null;
-  const prepare = async () => {
+  // The founder may answer "which project?" with one tap: the server re-prepares with that choice (it still decides).
+  const prepare = async (project?: string) => {
     setSt({ s: "preparing" });
-    const r = await post<Prepared>("/api/command-center/execution/prepare", { commandId: record.id });
-    setSt(r.ok ? { s: "prepared", p: r.data } : { s: "stopped", message: r.message });
+    const r = await post<Prepared>("/api/command-center/execution/prepare", project ? { commandId: record.id, project } : { commandId: record.id });
+    setSt(r.ok ? { s: "prepared", p: r.data } : { s: "stopped", message: r.message, candidates: project ? [] : r.candidates });
   };
   const approve = async (p: Prepared) => {
     setSt({ s: "running", p });
     const r = await post<{ result: ExecutionResult }>("/api/command-center/execution/approve", { commandId: record.id, capability: p.capability, project: p.project, bindingHash: p.bindingHash });
-    setSt(r.ok ? { s: "done", result: r.data.result, projectName: p.details.Project ?? p.project } : { s: "stopped", message: r.message });
+    setSt(r.ok ? { s: "done", result: r.data.result, projectName: p.details.Project ?? p.project, open: false } : { s: "stopped", message: r.message, candidates: [] });
   };
-  if (st.s === "idle") return <button type="button" data-testid="execution-start" style={{ minHeight: 44, padding: "0 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }} onClick={prepare}>Run with Claude Code</button>;
+  if (st.s === "idle") return <button type="button" data-testid="execution-start" style={{ minHeight: 44, padding: "0 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }} onClick={() => void prepare()}>Run with Claude Code</button>;
   if (st.s === "preparing") return <div role="status" style={{ fontSize: 12 }}>Preparing the exact request. Nothing runs until you approve.</div>;
   if (st.s === "prepared" || st.s === "running") {
     const p = st.p;
     return <ExecutionApprovalCard sentence={p.sentence} details={p.details} busy={st.s === "running"} onApprove={() => void approve(p)} onCancel={() => setSt({ s: "idle" })} />;
   }
-  if (st.s === "done") return <ExecutionResultCard result={st.result} projectName={st.projectName} onReview={onOpenDetails} onApproveNext={onOpenDetails} onDetails={onOpenDetails} />;
+  if (st.s === "done") {
+    const toggle = () => setSt({ ...st, open: !st.open });
+    const r = st.result;
+    return (
+      <div style={{ display: "grid", gap: 8 }}>
+        <ExecutionResultCard result={r} projectName={st.projectName} onReview={toggle} onApproveNext={onOpenDetails} onDetails={toggle} />
+        {st.open && (
+          // The run's own evidence, right here: what changed, where, and the full log for anything deeper.
+          <dl data-testid="execution-evidence" style={{ display: "grid", gridTemplateColumns: "auto minmax(0, 1fr)", gap: "4px 12px", margin: 0, fontSize: 12, overflowWrap: "anywhere" }}>
+            <dt>Files</dt><dd style={{ margin: 0 }}>{r.filesChanged.length ? r.filesChanged.join(", ") : "none"}</dd>
+            <dt>Branch</dt><dd style={{ margin: 0 }}>{r.branch ?? "removed (read-only run)"}</dd>
+            <dt>Worktree</dt><dd style={{ margin: 0 }}>{r.worktree ?? "removed (read-only run)"}</dd>
+            <dt>Checks</dt><dd style={{ margin: 0 }}>{r.checks.length ? r.checks.map((c) => `${c.ok ? "ok" : "failed"}: ${c.command}`).join("; ") : "none run"}</dd>
+            <dt>Log</dt><dd style={{ margin: 0 }}>{r.evidence.logPath ?? "none"}</dd>
+            <dt>Model</dt><dd style={{ margin: 0 }}>{r.evidence.modelReported ?? "unknown"}{r.evidence.turns !== null ? `, ${r.evidence.turns} turns` : ""}</dd>
+          </dl>
+        )}
+      </div>
+    );
+  }
   return (
     <div data-testid="execution-stopped" role="alert" style={{ display: "grid", gap: 6 }}>
       <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#ef4444" }}>STOPPED</div>
       <div style={{ fontSize: 13 }}>{st.message}</div>
+      {st.candidates.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {st.candidates.map((c) => (
+            <button key={c} type="button" style={{ minHeight: 44, padding: "0 14px", borderRadius: 8, fontSize: 13, cursor: "pointer" }} onClick={() => void prepare(c)}>{c}</button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -46,3 +46,31 @@ describe("execution flow", () => {
     expect(screen.queryByRole("button", { name: "Run with Claude Code" })).toBeNull();
   });
 });
+
+describe("Codex review (PR #52): ask-rather-than-guess continues with one tap; review shows the run's own evidence", () => {
+  it("an unresolved project offers the server's candidates; picking one re-prepares with that project", async () => {
+    fetchSpy.mockImplementationOnce(() => json(422, { data: null, error: { code: "project_unresolved", message: "Which project is this for?", question: "Which project is this for?", candidates: ["mettle", "command-center"] } }))
+      .mockImplementationOnce(() => json(200, { data: PREP, error: null }));
+    render(<ExecutionFlow record={REC} onOpenDetails={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Run with Claude Code" }));
+    expect((await screen.findByTestId("execution-stopped")).textContent).toContain("Which project is this for?");
+    fireEvent.click(screen.getByRole("button", { name: "mettle" }));
+    expect((await screen.findByTestId("execution-approval")).textContent).toContain("Claude Code wants to modify METTLE locally.");
+    expect(JSON.parse(fetchSpy.mock.calls[1][1].body)).toEqual({ commandId: REC.id, project: "mettle" });
+  });
+
+  it("Review changes and Details show the run's files, branch, worktree, checks and log inline; they do not navigate away", async () => {
+    const onOpenDetails = vi.fn();
+    fetchSpy.mockImplementationOnce(() => json(200, { data: PREP, error: null })).mockImplementationOnce(() => json(200, { data: { result: { ...RESULT, checks: [{ command: "npx vitest run", ok: true }], evidence: { logPath: "/x.log.jsonl", turns: 3, modelReported: "m" } }, mission: { suggest: false } }, error: null }));
+    render(<ExecutionFlow record={REC} onOpenDetails={onOpenDetails} />);
+    fireEvent.click(screen.getByRole("button", { name: "Run with Claude Code" }));
+    await screen.findByTestId("execution-approval");
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+    await screen.findByTestId("execution-result");
+    expect(screen.queryByTestId("execution-evidence")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Review changes" }));
+    const ev = screen.getByTestId("execution-evidence").textContent!;
+    expect(ev).toMatch(/a\.ts[\s\S]*\/w[\s\S]*ok: npx vitest run[\s\S]*\/x\.log\.jsonl/);
+    expect(onOpenDetails).not.toHaveBeenCalled();
+  });
+});
