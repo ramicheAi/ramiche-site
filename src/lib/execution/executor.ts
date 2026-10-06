@@ -36,6 +36,8 @@ export interface ExecutionDeps {
   extraEnv?: Record<string, string>;
   /** Free bytes on the execution volume (default: statfs). Injectable for tests. */
   freeBytes?: (path: string) => number;
+  /** Heartbeat and cancel-check interval while running (default 30 s). */
+  heartbeatMs?: number;
   /** Required free space before a checkout (default MIN_FREE_BYTES); a small sandbox repository may set less. */
   minFreeBytes?: number;
   /** The branch tip on the remote (default: git ls-remote origin). Injectable for tests. */
@@ -182,15 +184,29 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
   refsBefore.delete(`refs/heads/${branch}`);
 
   const startedAtMs = now();
+  // One abort for the run: the caller's signal, or a founder cancel seen at a heartbeat.
+  const ac = new AbortController();
+  const onCallerAbort = () => ac.abort();
+  if (deps.signal?.aborted) ac.abort(); else deps.signal?.addEventListener("abort", onCallerAbort, { once: true });
+  let heartbeatFailures = 0;
+  const beat = setInterval(async () => {
+    try {
+      await deps.store.heartbeat?.(req);
+      if (await deps.store.cancelRequested?.(req)) ac.abort();
+    } catch { heartbeatFailures++; }
+  }, deps.heartbeatMs ?? 30_000);
   let run: ClaudeRunOutcome;
   try {
     run = await runClaudeCode({
       bin: deps.claudeBin, cwd: worktree, capability: req.capability, instruction: req.task.instruction, projectName: resolved.name,
       maxTurns: req.limits.maxTurns, maxBudgetUsd: req.limits.maxBudgetUsd, model: deps.model ?? null, timeoutMs: req.limits.timeoutMs,
-      signal: deps.signal, logPath, extraEnv: deps.extraEnv,
+      signal: ac.signal, logPath, extraEnv: deps.extraEnv,
     });
   } catch {
     run = { exitCode: null, timedOut: false, canceled: false, reportedError: true, resultText: "", modelReported: null, turns: null, inputTokens: null, outputTokens: null, costEstimateUsd: null, checks: [], sawResult: false };
+  } finally {
+    clearInterval(beat);
+    deps.signal?.removeEventListener("abort", onCallerAbort);
   }
   const completedMs = now();
 
@@ -212,7 +228,10 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
     summary: status === "succeeded" ? (run.resultText.trim().slice(0, 1200) || "Done.") : failure!.message,
     evidence: { logPath, turns: run.turns, modelReported: run.modelReported },
     usage: { inputTokens: run.inputTokens, outputTokens: run.outputTokens, billing: "subscription", reportedCostEstimateUsd: run.costEstimateUsd },
-    warnings: run.costEstimateUsd !== null ? ["The CLI's cost figure is a list-price estimate, not marginal spend (subscription)."] : [],
+    warnings: [
+      ...(run.costEstimateUsd !== null ? ["The CLI's cost figure is a list-price estimate, not marginal spend (subscription)."] : []),
+      ...(heartbeatFailures ? [`${heartbeatFailures} heartbeat(s) could not be recorded`] : []),
+    ],
     nextStep: status === "succeeded" ? nextStepAfter(req.capability, files.length, committed) : null,
     failure,
   };
