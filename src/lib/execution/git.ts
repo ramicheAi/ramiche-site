@@ -70,13 +70,13 @@ export async function gitDirSnapshot(cwd: string, ownWorktreeName: string | null
   const add = (p: string) => {
     try {
       const st = statSync(p);
-      if (st.isDirectory()) { for (const n of readdirSync(p).sort()) add(join(p, n)); return; }
+      if (st.isDirectory()) { for (const n of readdirSync(p).sort()) add(join(/*turbopackIgnore: true*/ p, n)); return; }
       h.update(`${p}\0${st.size}\0`); h.update(readFileSync(p)); h.update("\0");
     } catch { h.update(`${p}\0absent\0`); }
   };
-  for (const f of ["config", "config.worktree", "hooks", "info", join("objects", "info", "alternates"), "commondir"]) add(join(common, f));
+  for (const f of ["config", "config.worktree", "hooks", "info", join(/*turbopackIgnore: true*/ "objects", "info", "alternates"), "commondir"]) add(join(/*turbopackIgnore: true*/ common, f));
   try {
-    for (const w of readdirSync(join(common, "worktrees")).sort()) if (w !== ownWorktreeName) add(join(common, "worktrees", w));
+    for (const w of readdirSync(join(/*turbopackIgnore: true*/ common, "worktrees")).sort()) if (w !== ownWorktreeName) add(join(/*turbopackIgnore: true*/ common, "worktrees", w));
   } catch { /* no worktrees */ }
   return h.digest("hex");
 }

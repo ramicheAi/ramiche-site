@@ -4,7 +4,7 @@
  * Raw logs and the full request stay behind Details. Not mounted on any production surface while
  * PRODUCTION_DISPATCH_ENABLED is false; these render from an ExecutionRequest / ExecutionResult only.
  */
-import { useState, type CSSProperties } from "react";
+import { Fragment, useState, type CSSProperties } from "react";
 import { CAPABILITY_META, CONSEQUENTIAL_ACTIONS, type ExecutionRequest, type ExecutionResult } from "@/lib/execution/contract";
 
 const card: CSSProperties = { display: "grid", gap: 8, padding: "14px 16px", borderRadius: 10, border: "1px solid var(--line, #1e1e1e)", background: "rgba(255,255,255,0.03)", overflowWrap: "anywhere" };
@@ -25,26 +25,33 @@ export function approvalSentence(r: Pick<ExecutionRequest, "capability">, projec
   return `Claude Code wants to ${CAPABILITY_META[r.capability].verb} ${projectName}${local}.`;
 }
 
-export function ExecutionApprovalCard({ request, projectName, onApprove, onCancel }: {
-  request: ExecutionRequest; projectName: string; onApprove: () => void; onCancel: () => void;
+/** Details for a full request (server side or tests); the cockpit receives the same map from `prepare`. */
+export function requestDetails(request: ExecutionRequest): Record<string, string> {
+  return {
+    Task: request.task.instruction,
+    Repository: `${request.repository.origin} @ ${request.repository.branch} ${short(request.repository.head)}`,
+    Allows: `${request.capability}: ${CAPABILITY_META[request.capability].label}, in an isolated worktree`,
+    "Never allows": NOT_ALLOWED,
+    Limits: `${Math.round(request.limits.timeoutMs / 60000)} min, ${request.limits.maxTurns} turns`,
+  };
+}
+
+export function ExecutionApprovalCard({ sentence, details, busy = false, onApprove, onCancel }: {
+  sentence: string; details: Record<string, string>; busy?: boolean; onApprove: () => void; onCancel: () => void;
 }) {
-  const [details, setDetails] = useState(false);
+  const [open, setOpen] = useState(false);
   return (
     <div data-testid="execution-approval" role="group" aria-label="Execution approval" style={card}>
       <div style={{ ...eyebrow, color: "var(--c-amber, #f59e0b)" }}>NEEDS YOUR APPROVAL</div>
-      <div style={{ fontSize: 15, fontWeight: 600, color: "var(--t-hi, #fff)" }}>{approvalSentence(request, projectName)}</div>
+      <div style={{ fontSize: 15, fontWeight: 600, color: "var(--t-hi, #fff)" }}>{sentence}</div>
       <div style={row}>
-        <button type="button" style={btn(true)} onClick={onApprove}>Approve</button>
-        <button type="button" style={btn()} onClick={onCancel}>Cancel</button>
-        <button type="button" style={btn()} aria-expanded={details} onClick={() => setDetails((d) => !d)}>Details</button>
+        <button type="button" style={btn(true)} disabled={busy} onClick={onApprove}>{busy ? "Working" : "Approve"}</button>
+        <button type="button" style={btn()} disabled={busy} onClick={onCancel}>Cancel</button>
+        <button type="button" style={btn()} aria-expanded={open} onClick={() => setOpen((d) => !d)}>Details</button>
       </div>
-      {details && (
+      {open && (
         <dl data-testid="execution-approval-details" style={{ ...muted, display: "grid", gridTemplateColumns: "auto minmax(0, 1fr)", gap: "4px 12px", margin: 0 }}>
-          <dt>Task</dt><dd style={{ margin: 0 }}>{request.task.instruction}</dd>
-          <dt>Repository</dt><dd style={{ margin: 0 }}>{request.repository.origin} @ {request.repository.branch} {short(request.repository.head)}</dd>
-          <dt>Allows</dt><dd style={{ margin: 0 }}>{request.capability}: {CAPABILITY_META[request.capability].label}, in an isolated worktree</dd>
-          <dt>Never allows</dt><dd style={{ margin: 0 }}>{NOT_ALLOWED}</dd>
-          <dt>Limits</dt><dd style={{ margin: 0 }}>{Math.round(request.limits.timeoutMs / 60000)} min, {request.limits.maxTurns} turns</dd>
+          {Object.entries(details).map(([k, v]) => (<Fragment key={k}><dt>{k}</dt><dd style={{ margin: 0 }}>{v}</dd></Fragment>))}
         </dl>
       )}
     </div>

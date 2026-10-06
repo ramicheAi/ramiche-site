@@ -7,6 +7,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { httpCommandApi, missionIdFromPath } from "@/lib/command/client";
 import type { ShadowRecord } from "@/lib/command/types";
 import { handlerText } from "@/components/command-center/missions/ShadowCommandPanel";
+import { ExecutionFlow } from "@/components/command-center/execution/ExecutionFlow";
+import { PRODUCTION_DISPATCH_ENABLED } from "@/lib/execution/policy";
 import { AGENT_UI, AGENT_ORBIT_IDS, type OrbitAgentId } from "@/app/command-center/dashboard-agents";
 import { useGlobalSearch, type GlobalSearchResult } from "@/hooks/useGlobalSearch";
 import { Icon } from "@/components/command-center/po/Brand";
@@ -184,9 +186,11 @@ export interface CommandPaletteProps {
   onClose: () => void;
   onLock?: () => void;
   onRefresh?: () => void;
+  /** P06 M6C: offer execution from a shadow result. Defaults to the production gate, which is off. */
+  executionEnabled?: boolean;
 }
 
-export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPaletteProps) {
+export function CommandPalette({ open, onClose, onLock, onRefresh, executionEnabled = PRODUCTION_DISPATCH_ENABLED }: CommandPaletteProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [activeIdx, setActiveIdx] = useState(0);
@@ -506,6 +510,7 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
                   {createOffered(rec) && <button type="button" className="po-pal-btn" style={resultBtn} onClick={() => openShadow(rec.id, true)}>Create Mission</button>}
                   <button type="button" className="po-pal-btn" style={resultBtn} onClick={() => openShadow(rec.id, false)}>Details</button>
                 </div>
+                {executionEnabled && <ExecutionFlow key={rec.id} record={rec} onOpenDetails={() => openShadow(rec.id, false)} />}
               </div>
             );
           })()}

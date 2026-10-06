@@ -112,8 +112,8 @@ export async function verifyBoundary(b: BoundaryInput): Promise<{ violations: st
 async function findCheckout(entry: RepoEntry & { origin: string }, roots: string[], head: string): Promise<string | null> {
   for (const root of roots) {
     for (const dir of entry.checkouts) {
-      const p = join(root, dir);
-      if (!existsSync(join(p, ".git"))) continue;
+      const p = join(/*turbopackIgnore: true*/ root, dir);
+      if (!existsSync(join(/*turbopackIgnore: true*/ p, ".git"))) continue;
       const remote = await git(p, ["remote", "get-url", "origin"]);
       if (!remote.ok || originOf(remote.out)?.toLowerCase() !== entry.origin.toLowerCase()) continue;
       if (await revParse(p, head)) return p;
@@ -127,7 +127,7 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
   const gate = surfaceAllowed(deps.surface);
   if (!gate.ok) return reject(req, now(), gate.code, gate.message);
   const problems = invalidRequest(req);
-  if (problems.length) return reject(req, now(), "contract_invalid", `The execution request is invalid: ${problems.join("; ")}.`);
+  if (problems.length) return reject(req, now(), "contract_invalid", `The execution request is invalid: ${problems.join(/*turbopackIgnore: true*/ "; ")}.`);
   if (req.founder.uid !== deps.ownerUid) return reject(req, now(), "not_founder", "Only the founder can request an execution.");
   const ap = verifyApproval(req, approval, deps.approvalKey, now());
   if (!ap.ok) return reject(req, now(), ap.code, ap.message);
@@ -160,7 +160,7 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
     return finishWith(reject(req, now(), "stale_head", `${req.repository.branch} moved since you approved (${req.repository.head.slice(0, 7)} is now ${tipSha.slice(0, 7)}). Approve again on the current commit.`));
   }
 
-  mkdirSync(join(deps.execRoot, req.project.slug), { recursive: true });
+  mkdirSync(join(/*turbopackIgnore: true*/ deps.execRoot, req.project.slug), { recursive: true });
   let free = NaN;
   try { free = (deps.freeBytes ?? statfsFree)(deps.execRoot); } catch { /* unknown free space: refused below */ }
   const need = Math.max(deps.minFreeBytes ?? MIN_FREE_BYTES, ABSOLUTE_MIN_FREE_BYTES);
@@ -168,9 +168,9 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
     return finishWith(reject(req, now(), "disk_low", `Only ${(free / 1024 ** 3).toFixed(1)} GB free on the execution host (need ${(need / 1024 ** 3).toFixed(1)} GB). Nothing was run.`));
   }
   // Canonical path: permission allow rules must match the resolved path too (macOS /var is /private/var).
-  const dir = realpathSync(join(deps.execRoot, req.project.slug));
-  const worktree = join(dir, req.executionId);
-  const logPath = join(dir, `${req.executionId}.log.jsonl`);
+  const dir = realpathSync(join(/*turbopackIgnore: true*/ deps.execRoot, req.project.slug));
+  const worktree = join(/*turbopackIgnore: true*/ dir, req.executionId);
+  const logPath = join(/*turbopackIgnore: true*/ dir, `${req.executionId}.log.jsonl`);
   const branch = execBranch(req.executionId);
   const [refsBefore, checkoutBefore] = await Promise.all([refsSnapshot(repo), checkoutSnapshot(repo)]);
   const gitDirBefore = await gitDirSnapshot(repo, req.executionId);
@@ -218,7 +218,7 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
     : run.canceled ? "canceled" : run.timedOut ? "timed_out"
       : !run.sawResult || run.reportedError || run.exitCode !== 0 ? "failed" : "succeeded";
   const failure = status === "succeeded" ? null
-    : status === "boundary_violation" ? { code: "boundary_violation", message: `Stopped: the run acted outside ${req.capability}. ${boundary.violations.join("; ")}. Its worktree is kept for review; nothing was pushed.` }
+    : status === "boundary_violation" ? { code: "boundary_violation", message: `Stopped: the run acted outside ${req.capability}. ${boundary.violations.join(/*turbopackIgnore: true*/ "; ")}. Its worktree is kept for review; nothing was pushed.` }
       : status === "canceled" ? { code: "canceled", message: "Canceled. Anything it changed is in its worktree." }
         : status === "timed_out" ? { code: "timed_out", message: `Stopped after ${Math.round(req.limits.timeoutMs / 1000)} seconds. Anything it changed is in its worktree.` }
           : { code: "executor_failed", message: run.sawResult ? (run.resultText.slice(0, 300) || "Claude Code reported a failure.") : "Claude Code did not complete (no result). See the log." };
