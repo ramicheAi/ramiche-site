@@ -154,8 +154,12 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
   const branch = execBranch(req.executionId);
   const [refsBefore, checkoutBefore] = await Promise.all([refsSnapshot(repo), checkoutSnapshot(repo)]);
   const gitDirBefore = await gitDirSnapshot(repo, req.executionId);
-  const add = await git(repo, ["worktree", "add", "-b", branch, worktree, req.repository.head]);
-  if (!add.ok) return finishWith(reject(req, now(), "worktree_failed", "The isolated worktree could not be created, so nothing ran."));
+  // A full checkout of a large repository can take minutes on a busy host: bounded, but not by the 60s read default.
+  const add = await git(repo, ["worktree", "add", "--quiet", "-b", branch, worktree, req.repository.head], undefined, 5 * 60_000);
+  if (!add.ok) {
+    const why = add.err.replace(/\s+/g, " ").trim().slice(-300);
+    return finishWith(reject(req, now(), "worktree_failed", `The isolated worktree could not be created, so nothing ran (git: ${why || "no output"}).`));
+  }
   // The worktree add itself created the execution branch; that is the one ref change the run may own.
   refsBefore.delete(`refs/heads/${branch}`);
 
