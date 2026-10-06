@@ -362,14 +362,17 @@ export async function POST() {
 
   // ── 10. Firestore rules ─────────────────────────────────────────────
   try {
+    // The shared project's rules are not carried in this repo; they live in and
+    // deploy only from ramicheAi/mettle (see FIRESTORE-RULES.md). A local copy
+    // here would be a second deploy source, so its presence is the drift to flag.
     const rulesPath = join(REPO_DIR, "firestore.rules");
-    const exists = existsSync(rulesPath);
+    const strayCopy = existsSync(rulesPath);
     results.push({
       name: "Firestore Rules",
-      status: exists ? "pass" : "warn",
-      detail: exists
-        ? "firestore.rules file present in repo"
-        : "No firestore.rules found — database may use default (open) rules",
+      status: strayCopy ? "warn" : "pass",
+      detail: strayCopy
+        ? "A firestore.rules copy is in this repo. Rules deploy only from ramicheAi/mettle; remove the local copy so it cannot overwrite them."
+        : "Rules are not carried in this repo. The authoritative copy is ramicheAi/mettle firestore.rules (see FIRESTORE-RULES.md).",
       category: "Database",
     });
   } catch {
