@@ -13,7 +13,7 @@ const clientFiles = readdirSync(dir).filter((f) => /\.tsx?$/.test(f) && !/\.test
 it("execution UI imports only the client-safe contract, never node-only modules or server execution code", () => {
   for (const f of clientFiles) {
     const src = readFileSync(f, "utf8");
-    expect(src, f).not.toMatch(/from\s+["']node:/);
+    expect(src, f).not.toMatch(/(from|import)\s*\(?\s*["']node:/);
     expect(src, f).not.toMatch(/from\s+["']@\/lib\/execution\/(contract|executor|claude-code|git|store|reaper|service|http|approval|policy|supabase-jobs-db)["']/);
   }
 });
@@ -21,4 +21,10 @@ it("execution UI imports only the client-safe contract, never node-only modules 
 it("contract-core has no imports at all (constants and types only)", () => {
   const src = readFileSync(join(process.cwd(), "src/lib/execution/contract-core.ts"), "utf8");
   expect(src).not.toMatch(/^\s*import\s/m);
+});
+
+it("policy.ts, which the command palette imports on the client, reaches only the client-safe contract", () => {
+  const src = readFileSync(join(process.cwd(), "src/lib/execution/policy.ts"), "utf8");
+  const specifiers = [...src.matchAll(/(?:from|import)\s*\(?\s*["']([^"']+)["']/g)].map((m) => m[1]);
+  expect(specifiers).toEqual(["./contract-core"]);
 });

@@ -11,7 +11,7 @@
  *   3. After the run, git state is checked against the capability (executor.ts verifyBoundary): no writes at L0/L1, no
  *      commits below L4, no ref outside the execution branch moved, the founder's own checkout untouched.
  */
-import type { Capability } from "./contract";
+import type { Capability } from "./contract-core";
 
 /** M6 builds and proves the executor; production Universal Command does not reach it. Changing this is a separate,
  *  founder-authorized step (it is a constant, not configuration, so it cannot be flipped by an environment change). */
