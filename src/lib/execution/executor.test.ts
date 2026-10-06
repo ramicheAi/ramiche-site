@@ -346,6 +346,22 @@ describe("M6B: executor with the jobs store (heartbeat, founder cancel)", () => 
   }, 30_000);
 });
 
+describe("M6G: the executor's remote check uses only its own GitHub machine identity", () => {
+  it("with no App configured the run is BLOCKED before any record, worktree or CLI; there is no other credential to fall back to", async () => {
+    vi.stubEnv("PARALLAX_GITHUB_APP_ID", ""); vi.stubEnv("PARALLAX_GITHUB_APP_PRIVATE_KEY_B64", "");
+    const store = new MemoryExecutionStore();
+    const r = request({ capability: "L1" });
+    const d = deps({ store });
+    delete (d as { remoteTip?: unknown }).remoteTip;   // the production default
+    const res = await run(r, d);
+    expect(res.failure).toEqual({ code: "github_auth_unavailable", message: "BLOCKED · GitHub machine authentication unavailable. Nothing was run." });
+    expect(store.rows.size).toBe(0);
+    expect(existsSync(join(root, "exec", "mettle", r.executionId))).toBe(false);
+    expect(existsSync(rec)).toBe(false);
+    vi.unstubAllEnvs();
+  }, 30_000);
+});
+
 describe("M6F: a founder cancel applies to the attempt it was made against (PR #55 review P2)", () => {
   it("a retry under the same approval after a cancel runs; it is not canceled by the old request", async () => {
     const { JobsExecutionStore } = await import("./store");

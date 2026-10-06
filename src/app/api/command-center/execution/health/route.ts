@@ -4,6 +4,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { guardPrivateRead } from "@/lib/server/protected-mutation";
 import { noStoreJson } from "@/lib/server/cockpit-chat-data";
+import { GithubAuthUnavailable } from "@/lib/execution/github-app";
 import { checkoutRemoteTip, executionRoots } from "@/lib/execution/http";
 import { dispatchHalted } from "@/lib/execution/halt";
 import { executionHealth, type HealthSignals } from "@/lib/execution/health";
@@ -71,8 +72,10 @@ export async function GET(req: Request) {
   // deep=1 runs the credentialed read at most once per 5 minutes, whoever asks (it can raise a Keychain prompt).
   if (new URL(req.url).searchParams.get("deep") === "1" && !fresh) {
     const mettle = bySlug("mettle");
-    const tip = mettle.ok ? await checkoutRemoteTip(executionRoots(), 10_000)(mettle.entry, "main") : null;
-    repoAccess = tip ? "ok" : "unavailable";
+    try {
+      const tip = mettle.ok ? await checkoutRemoteTip(executionRoots(), 10_000)(mettle.entry, "main") : null;
+      repoAccess = tip ? "ok" : "unavailable";
+    } catch (e) { repoAccess = e instanceof GithubAuthUnavailable ? "auth_unavailable" : "unavailable"; }
     repoCache = { at: now, v: repoAccess };
   }
   const h = executionHealth({

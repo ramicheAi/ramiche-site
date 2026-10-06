@@ -15,6 +15,7 @@ import { randomUUID } from "node:crypto";
 import { approve, approvalKey as defaultKey } from "./approval";
 import { bindingHash, CAPABILITIES, CAPABILITY_META, capabilityRank, EXECUTABLE_CAPABILITIES, type Capability, type ExecutionRequest, type ExecutionResult } from "./contract";
 import { runExecution, type ExecutionDeps } from "./executor";
+import { GITHUB_AUTH_BLOCKED, GithubAuthUnavailable } from "./github-app";
 import { dispatchHalted } from "./halt";
 import { missionSuggestion, type MissionSuggestion } from "./mission";
 import { capabilityCeiling, PRODUCTION_DISPATCH_ENABLED, surfaceAllowed, withinCeiling, type Surface } from "./policy";
@@ -76,7 +77,12 @@ export async function prepareExecution(input: { record: ShadowRecord; founderUid
   if (!resolved.ok) return { ok: false, code: resolved.code, message: resolved.question, question: resolved.question, candidates: resolved.candidates };
 
   const branch = choices.branch ?? "main";
-  const head = await deps.remoteTip(resolved.entry, branch);
+  let head: string | null;
+  try { head = await deps.remoteTip(resolved.entry, branch); }
+  catch (e) {
+    if (e instanceof GithubAuthUnavailable) return { ok: false, code: e.code, message: GITHUB_AUTH_BLOCKED };
+    return { ok: false, code: "branch_unknown", message: `Could not read ${branch} of ${resolved.entry.origin}.` };
+  }
   if (!head) return { ok: false, code: "branch_unknown", message: `Could not read ${branch} of ${resolved.entry.origin}.` };
 
   const request: ExecutionRequest = {
