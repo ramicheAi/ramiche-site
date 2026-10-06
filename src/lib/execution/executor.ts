@@ -6,7 +6,7 @@
  * its own branch, and afterwards the boundary is verified from git state alone (verifyBoundary), whatever the model
  * said it did. Telemetry goes to execution_events through the existing recorder (subscription cost semantics kept).
  */
-import { existsSync, mkdirSync, realpathSync } from "node:fs";
+import { existsSync, mkdirSync, realpathSync, statfsSync } from "node:fs";
 import { join } from "node:path";
 import { recordExecution, type ExecutionFacts } from "@/lib/execution-events";
 import { verifyApproval, type Approval } from "./approval";
@@ -34,11 +34,19 @@ export interface ExecutionDeps {
   telemetry?: (f: ExecutionFacts) => Promise<void>;
   /** Tests only (fake CLI). */
   extraEnv?: Record<string, string>;
+  /** Free bytes on the execution volume (default: statfs). Injectable for tests. */
+  freeBytes?: (path: string) => number;
+  /** Required free space before a checkout (default MIN_FREE_BYTES); a small sandbox repository may set less. */
+  minFreeBytes?: number;
   /** The branch tip on the remote (default: git ls-remote origin). Injectable for tests. */
   remoteTip?: (repo: string, branch: string) => Promise<string | null>;
 }
 
 export const execBranch = (executionId: string) => `parallax-exec/${executionId}`;
+
+/** A full checkout needs room; the execution host is also the fleet gateway, so never fill its disk (fail closed). */
+export const MIN_FREE_BYTES = 4 * 1024 ** 3;
+const statfsFree = (p: string) => { const s = statfsSync(p); return Number(s.bavail) * Number(s.bsize); };
 
 function base(r: Partial<ExecutionRequest>, now: number): ExecutionResult {
   return {
@@ -147,6 +155,11 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
   }
 
   mkdirSync(join(deps.execRoot, req.project.slug), { recursive: true });
+  const free = (deps.freeBytes ?? statfsFree)(deps.execRoot);
+  const need = deps.minFreeBytes ?? MIN_FREE_BYTES;
+  if (!(free >= need)) {
+    return finishWith(reject(req, now(), "disk_low", `Only ${(free / 1024 ** 3).toFixed(1)} GB free on the execution host (need ${(need / 1024 ** 3).toFixed(1)} GB). Nothing was run.`));
+  }
   // Canonical path: permission allow rules must match the resolved path too (macOS /var is /private/var).
   const dir = realpathSync(join(deps.execRoot, req.project.slug));
   const worktree = join(dir, req.executionId);
@@ -207,5 +220,11 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
     usage: { promptTokens: run.inputTokens ?? undefined, completionTokens: run.outputTokens ?? undefined },
   };
   try { await (deps.telemetry ?? recordExecution)(facts); } catch { /* telemetry never changes a result */ }
+  // A clean read-only run leaves nothing to review: remove its worktree and branch so checkouts do not pile up.
+  if (status === "succeeded" && capabilityRank(req.capability) <= capabilityRank("L1") && files.length === 0) {
+    const rm = await git(repo, ["worktree", "remove", "--force", worktree]);
+    const del = rm.ok ? await git(repo, ["branch", "-D", branch]) : rm;
+    if (rm.ok && del.ok) { result.worktree = null; result.branch = null; } else result.warnings.push("the read-only worktree could not be removed");
+  }
   return finishWith(result);
 }
