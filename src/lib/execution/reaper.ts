@@ -14,6 +14,8 @@
  *    heartbeat or a second reaper wins; a lost race is recorded as "reap_withdrawn", an applied one as "reaped".
  *  - Any database error stops the pass and is reported; nothing is changed on a partial read.
  */
+import { execFileSync } from "node:child_process";
+import { join } from "node:path";
 import { EXECUTOR_SOURCE, type JobsDb, type RunningJob } from "./store";
 
 export const HEARTBEAT_STALE_MS = 3 * 60_000;
@@ -68,4 +70,66 @@ function judge(j: RunningJob, o: { now: number; host: string; isAlive: (pid: num
   if (o.now >= deadline) return { reap: true, reason: `no result ${Math.round((o.now - started) / 60_000)} min after start (deadline passed${local ? ", process gone" : ""})` };
   if (o.now - beat >= HEARTBEAT_STALE_MS && local && alive === false) return { reap: true, reason: "heartbeat stale and its process is gone" };
   return { reap: false, reason: local ? "heartbeat fresh or process unknown" : "runs on another host; waiting for its deadline" };
+}
+
+/** What the operating system says about a pid (null when it does not exist). */
+export interface ProcessFacts { pgid: number; args: string; cwd: string | null }
+
+/** ps for the group and command line, lsof for the working directory. Read-only. */
+export function inspectProcess(pid: number): ProcessFacts | null {
+  try {
+    const line = execFileSync("ps", ["-o", "pgid=,args=", "-p", String(pid)], { encoding: "utf8" }).trim();
+    const m = line.match(/^(\d+)\s+(.*)$/);
+    if (!m) return null;
+    let cwd: string | null = null;
+    try { cwd = execFileSync("lsof", ["-a", "-p", String(pid), "-d", "cwd", "-Fn"], { encoding: "utf8" }).split("\n").find((l) => l.startsWith("n"))?.slice(1) ?? null; } catch { /* unknown */ }
+    return { pgid: Number(m[1]), args: m[2], cwd };
+  } catch { return null; }
+}
+
+export interface OrphanOutcome { stopped: { id: string; cliPid: number }[]; skipped: { id: string; reason: string }[]; error: string | null }
+
+/**
+ * A Claude Code run whose executor died (a cockpit restart or rollback) keeps running in its own process group with
+ * nobody watching its limits. On this host only, stop such a run when ALL of these hold, so a reused pid can never be
+ * hit: the executor's process is gone; the CLI pid is alive, leads its own process group, runs the configured CLI
+ * binary, and its working directory is exactly this execution's worktree. A durable "orphan_stop" event is written
+ * first; the reaper then fails the row on a later pass once the heartbeat is stale.
+ */
+export async function stopOrphans(o: {
+  db: JobsDb; host: string; isAlive: (pid: number) => boolean; inspect: (pid: number) => ProcessFacts | null;
+  kill: (pid: number, sig: NodeJS.Signals) => void; claudeBin: string; execRoot: string; now: number;
+}): Promise<OrphanOutcome> {
+  const out: OrphanOutcome = { stopped: [], skipped: [], error: null };
+  const list = await o.db.listRunning(EXECUTOR_SOURCE);
+  if (list.error) return { ...out, error: list.error };
+  for (const j of list.rows) {
+    const input = (j.input ?? {}) as { executionId?: unknown; project?: unknown; runner?: { host?: unknown; pid?: unknown; cliPid?: unknown } };
+    const cli = typeof input.runner?.cliPid === "number" ? input.runner.cliPid : null;
+    const host = typeof input.runner?.pid === "number" ? input.runner.pid : null;
+    if (input.runner?.host !== o.host || cli === null || host === null) { out.skipped.push({ id: j.id, reason: "not a local run with process evidence" }); continue; }
+    if (o.isAlive(host)) { out.skipped.push({ id: j.id, reason: "its executor is alive" }); continue; }
+    if (!o.isAlive(cli)) { out.skipped.push({ id: j.id, reason: "nothing left running" }); continue; }
+    const facts = o.inspect(cli);
+    const worktree = typeof input.project === "string" && typeof input.executionId === "string" ? join(/*turbopackIgnore: true*/ o.execRoot, input.project, input.executionId) : null;
+    const same = !!facts && facts.pgid === cli && facts.args.startsWith(o.claudeBin) && !!worktree && facts.cwd === worktree;
+    if (!same) { out.skipped.push({ id: j.id, reason: "the live pid is not provably this run's CLI; left for a person" }); continue; }
+    const ev = await o.db.insertEvent({ job_id: j.id, kind: "orphan_stop", detail: { cliPid: cli, executorPid: host, host: o.host, at: new Date(o.now).toISOString() } });
+    if (ev.error) return { ...out, error: `could not record the orphan stop for ${j.id}, so nothing was stopped: ${ev.error}` };
+    try { o.kill(-cli, "SIGTERM"); } catch { /* already gone */ }
+    out.stopped.push({ id: j.id, cliPid: cli });
+  }
+  return out;
+}
+
+export interface ReaperStatus { at: string; host: string; ok: boolean; stopped: number; reaped: number; stuck: number; skipped: { id: string; reason: string }[]; error: string | null }
+
+/** One scheduled pass: stop orphans, then reap. `stuck` counts rows still running past their deadline afterwards. */
+export async function reaperPass(o: Parameters<typeof stopOrphans>[0]): Promise<ReaperStatus> {
+  const orphans = await stopOrphans(o);
+  const reap = orphans.error ? null : await reapAbandoned({ db: o.db, now: o.now, host: o.host, isAlive: o.isAlive });
+  const skipped = [...orphans.skipped, ...(reap?.skipped ?? [])];
+  const stuck = (reap?.skipped ?? []).filter((s) => s.reason.startsWith("past its deadline")).length;
+  const error = orphans.error ?? reap?.error ?? null;
+  return { at: new Date(o.now).toISOString(), host: o.host, ok: !error && stuck === 0, stopped: orphans.stopped.length, reaped: reap?.reaped.length ?? 0, stuck, skipped, error };
 }

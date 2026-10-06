@@ -13,7 +13,7 @@ import { verifyApproval, type Approval } from "./approval";
 import { runClaudeCode, type ClaudeRunOutcome } from "./claude-code";
 import { bindingHash, capabilityRank, EXECUTABLE_CAPABILITIES, invalidRequest, nextStepAfter, type ExecutionRequest, type ExecutionResult, type ExecutionStatus } from "./contract";
 import { changedFiles, checkoutSnapshot, commonGitDir, git, gitDirSnapshot, isAncestor, refsSnapshot, remoteBranchTip, revParse, unsafeGitConfig } from "./git";
-import { surfaceAllowed, type Surface } from "./policy";
+import { surfaceAllowed, withinCeiling, type Surface } from "./policy";
 import { bySlug, originOf, REPO_REGISTRY, type RepoEntry } from "./projects";
 import { executionJobId, type ExecutionStore } from "./store";
 
@@ -147,6 +147,9 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
   if (!EXECUTABLE_CAPABILITIES.includes(req.capability)) {
     return reject(req, now(), "capability_unavailable", `${req.capability} runs the repository's own code and needs an OS sandbox that is not built yet. Nothing was run; approve up to L2 (modify locally).`);
   }
+  // Defense in depth behind prepare: the surface's capability ceiling (production phase 1: L0/L1), before anything is
+  // read, recorded or run.
+  if (!withinCeiling(deps.surface, req.capability)) return reject(req, now(), "capability_not_enabled", `${req.capability} is not enabled on this surface. Nothing was run.`);
 
   // Every check that can fail for a transient reason runs BEFORE the record exists, so a refusal never uses up the
   // idempotency key (PR #52 red team): only a real start is recorded.
