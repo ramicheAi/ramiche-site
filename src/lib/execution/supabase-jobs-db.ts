@@ -16,10 +16,15 @@ export function supabaseJobsDb(db: SupabaseClient): JobsDb {
       return { conflict: false, error: msg(error) };
     },
     async getJob(id) {
-      const job = await db.from("jobs").select("input").eq("id", id).maybeSingle();
-      if (job.error || !job.data) return null;
+      const job = await db.from("jobs").select("input, status, error").eq("id", id).maybeSingle();
+      if (job.error) return { row: null, error: msg(job.error) };
+      if (!job.data) return { row: null, error: null };
       const ev = await db.from("job_events").select("detail").eq("job_id", id).eq("kind", "execution_result").order("created_at", { ascending: false }).limit(1);
-      return { input: (job.data.input as Record<string, unknown>) ?? null, resultEvent: ((ev.data?.[0]?.detail as ExecutionResult | undefined) ?? null) };
+      if (ev.error) return { row: null, error: msg(ev.error) };
+      return {
+        row: { input: (job.data.input as Record<string, unknown>) ?? null, status: String(job.data.status), error: (job.data.error as string | null) ?? null, resultEvent: ((ev.data?.[0]?.detail as ExecutionResult | undefined) ?? null) },
+        error: null,
+      };
     },
     async updateJob(id, patch) {
       const { error } = await db.from("jobs").update(patch).eq("id", id);
@@ -40,7 +45,7 @@ export function supabaseJobsDb(db: SupabaseClient): JobsDb {
       return { found: !error && Array.isArray(data) && data.length > 0, error: msg(error) };
     },
     async listRunning(source) {
-      const { data, error } = await db.from("jobs").select("id, input, started_at, updated_at").eq("status", "running").eq("source", source).limit(500);
+      const { data, error } = await db.from("jobs").select("id, input, started_at, updated_at").eq("status", "running").eq("source", source).order("started_at", { ascending: true }).limit(500);
       return { rows: (data as RunningJob[] | null) ?? [], error: msg(error) };
     },
   };

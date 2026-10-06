@@ -55,7 +55,8 @@ export interface RunningJob { id: string; input: Record<string, unknown> | null;
 /** The narrow slice of the Supabase client this store uses (supabase-jobs-db.ts implements it). */
 export interface JobsDb {
   insertJob(row: Record<string, unknown>): Promise<{ conflict: boolean; error: string | null }>;
-  getJob(id: string): Promise<{ input: Record<string, unknown> | null; resultEvent: ExecutionResult | null } | null>;
+  /** The row (null when absent) with its latest execution_result; read errors come back as `error`, never as absence. */
+  getJob(id: string): Promise<{ row: { input: Record<string, unknown> | null; status: string; error: string | null; resultEvent: ExecutionResult | null } | null; error: string | null }>;
   updateJob(id: string, patch: Record<string, unknown>): Promise<{ error: string | null }>;
   insertEvent(row: Record<string, unknown>): Promise<{ error: string | null }>;
   /** Update only if the row still has these values (optimistic concurrency); `updated` says whether it did. */
@@ -65,6 +66,18 @@ export interface JobsDb {
 }
 
 export const EXECUTOR_SOURCE = "m6-executor";
+
+/** The result reported for a finished execution whose own result was never recorded (process died, then reaped). */
+export function abandonedResult(r: ExecutionRequest, reason: string | null): ExecutionResult {
+  const message = `This execution stopped without a recorded result${reason ? ` (${reason})` : ""}. Nothing further will run under this approval; approve a new run to retry.`;
+  return {
+    executionId: r.executionId, executor: r.executor, status: "failed", startedAt: null, completedAt: new Date().toISOString(),
+    project: r.project.slug, repository: r.repository.origin, branch: null, baseHead: r.repository.head, resultingHead: null, worktree: null,
+    filesChanged: [], checks: [], summary: message, evidence: { logPath: null, turns: null, modelReported: null },
+    usage: { inputTokens: null, outputTokens: null, billing: "subscription", reportedCostEstimateUsd: null }, warnings: [], nextStep: null,
+    failure: { code: "abandoned", message },
+  };
+}
 
 export class JobsExecutionStore implements ExecutionStore {
   private readonly db: JobsDb;
@@ -86,7 +99,12 @@ export class JobsExecutionStore implements ExecutionStore {
     if (ins.error) throw new Error(`execution record could not be created: ${ins.error}`);   // fail closed: no record, no run
     if (!ins.conflict) return { state: "new" };
     const cur = await this.db.getJob(id);
-    return { state: "existing", bindingHash: String(cur?.input?.bindingHash ?? ""), result: cur?.resultEvent ?? null };
+    if (cur.error) throw new Error(`execution record could not be read: ${cur.error}`);   // never mistake a read failure for a conflict
+    if (!cur.row) throw new Error("execution record conflicted but could not be found");
+    const row = cur.row;
+    // A finished row without a recorded result (reaped, or its result write was lost) is a failure, not "running".
+    const result = row.resultEvent ?? (row.status !== "running" && row.status !== "queued" ? abandonedResult(r, row.error) : null);
+    return { state: "existing", bindingHash: String(row.input?.bindingHash ?? ""), result };
   }
   async finish(r: ExecutionRequest, result: ExecutionResult): Promise<void> {
     const id = executionJobId(r.idempotencyKey);

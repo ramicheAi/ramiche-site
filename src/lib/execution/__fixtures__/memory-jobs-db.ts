@@ -8,7 +8,12 @@ export function memoryJobsDb() {
   const fail: Partial<Record<keyof JobsDb, string>> = {};
   const db: JobsDb = {
     async insertJob(row) { if (fail.insertJob) return { conflict: false, error: fail.insertJob }; if (jobs.has(String(row.id))) return { conflict: true, error: null }; jobs.set(String(row.id), { ...row }); return { conflict: false, error: null }; },
-    async getJob(id) { const j = jobs.get(id); return j ? { input: j.input as Record<string, unknown>, resultEvent: ([...events].reverse().find((e) => e.job_id === id && e.kind === "execution_result")?.detail as ExecutionResult) ?? null } : null; },
+    async getJob(id) {
+      if (fail.getJob) return { row: null, error: fail.getJob };
+      const j = jobs.get(id);
+      if (!j) return { row: null, error: null };
+      return { row: { input: j.input as Record<string, unknown>, status: String(j.status), error: (j.error as string) ?? null, resultEvent: ([...events].reverse().find((e) => e.job_id === id && e.kind === "execution_result")?.detail as ExecutionResult) ?? null }, error: null };
+    },
     async updateJob(id, patch) { if (fail.updateJob) return { error: fail.updateJob }; Object.assign(jobs.get(id)!, patch); return { error: null }; },
     async insertEvent(row) { if (fail.insertEvent) return { error: fail.insertEvent }; events.push({ ...row }); return { error: null }; },
     async updateJobIf(id, expect, patch) {

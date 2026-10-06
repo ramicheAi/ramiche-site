@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { ExecutionRequest } from "./contract";
-import { reapAbandoned, DEADLINE_GRACE_MS, HEARTBEAT_STALE_MS } from "./reaper";
+import { processAlive, reapAbandoned, DEADLINE_GRACE_MS, HEARTBEAT_STALE_MS } from "./reaper";
 import { EXECUTOR_SOURCE, executionJobId, JobsExecutionStore } from "./store";
 import { supabaseJobsDb } from "./supabase-jobs-db";
 import { memoryJobsDb } from "./__fixtures__/memory-jobs-db";
@@ -67,6 +67,12 @@ describe("reaper: only demonstrably abandoned executions", () => {
     return m;
   }
   const reap = (m: ReturnType<typeof memoryJobsDb>, alive: boolean, host = "imac") => reapAbandoned({ db: m.db, now: NOW, host, isAlive: () => alive });
+
+  it("process evidence: this process is alive, an unused pid is not, and a pid owned by another user (EPERM) counts as alive", () => {
+    expect(processAlive(process.pid)).toBe(true);
+    expect(processAlive(2 ** 22 + 12345)).toBe(false);
+    expect(processAlive(1)).toBe(true);   // launchd/init: exists but not ours (EPERM)
+  });
 
   it("a live process is never reaped, before or after its deadline", async () => {
     for (const started of [NOW - 60_000, NOW - 10 * 60_000 - DEADLINE_GRACE_MS - 1]) {
@@ -146,5 +152,40 @@ describe("supabase JobsDb adapter: exact queries on the existing tables", () => 
     await supabaseJobsDb(c.db).listRunning(EXECUTOR_SOURCE);
     expect(c.calls).toContainEqual(["eq", "status", "running"]);
     expect(c.calls).toContainEqual(["eq", "source", EXECUTOR_SOURCE]);
+  });
+});
+
+describe("idempotent retries after abandonment or read failure (PR #50 review)", () => {
+  it("a reaped execution retried with the same key reports a failed, abandoned result, never 'running'", async () => {
+    const m = memoryJobsDb();
+    const s = new JobsExecutionStore(m.db);
+    await s.begin(req(), "b");
+    const id = executionJobId("idem-persist-1");
+    Object.assign(m.jobs.get(id)!, { started_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" });
+    await reapAbandoned({ db: m.db, now: Date.parse("2026-10-06T00:00:00Z"), host: "other", isAlive: () => false });
+    const again = await s.begin(req(), "b");
+    expect(again).toMatchObject({ state: "existing", bindingHash: "b", result: { status: "failed", failure: { code: "abandoned" } } });
+    expect((again as { result: { summary: string } }).result.summary).toMatch(/Abandoned/);
+  });
+
+  it("a still-running row is reported as running (result null); a read failure throws instead of posing as a conflict", async () => {
+    const m = memoryJobsDb();
+    const s = new JobsExecutionStore(m.db);
+    await s.begin(req(), "b");
+    expect(await s.begin(req(), "b")).toEqual({ state: "existing", bindingHash: "b", result: null });
+    m.fail.getJob = "read timeout";
+    await expect(s.begin(req(), "b")).rejects.toThrow(/could not be read: read timeout/);
+  });
+
+  it("the adapter surfaces job and event read errors", async () => {
+    const mk = (results: { data?: unknown; error?: unknown }[]) => {
+      let i = 0; const chain: Record<string, (...a: unknown[]) => unknown> = {};
+      for (const m of ["from", "select", "eq", "order", "limit", "maybeSingle"]) chain[m] = () => chain;
+      (chain as { then?: unknown }).then = (res: (v: unknown) => unknown) => res(results[i++]);
+      return chain as never;
+    };
+    expect(await supabaseJobsDb(mk([{ data: null, error: { message: "boom" } }])).getJob("j")).toEqual({ row: null, error: "boom" });
+    expect(await supabaseJobsDb(mk([{ data: { input: {}, status: "done", error: null }, error: null }, { data: null, error: { message: "events down" } }])).getJob("j")).toEqual({ row: null, error: "events down" });
+    expect(await supabaseJobsDb(mk([{ data: null, error: null }])).getJob("j")).toEqual({ row: null, error: null });
   });
 });

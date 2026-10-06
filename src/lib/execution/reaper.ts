@@ -13,6 +13,11 @@
 import { EXECUTOR_SOURCE, type JobsDb, type RunningJob } from "./store";
 
 export const HEARTBEAT_STALE_MS = 3 * 60_000;
+
+/** Process evidence for this host. EPERM means the pid exists (owned by someone else): alive, never reaped. */
+export function processAlive(pid: number): boolean {
+  try { process.kill(pid, 0); return true; } catch (e) { return (e as NodeJS.ErrnoException).code === "EPERM"; }
+}
 export const DEADLINE_GRACE_MS = 10 * 60_000;
 
 export interface ReapOutcome { reaped: { id: string; reason: string }[]; skipped: { id: string; reason: string }[]; error: string | null }
