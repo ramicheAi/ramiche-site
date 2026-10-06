@@ -25,7 +25,7 @@ The executor never writes Missions; a result is suggested as Mission evidence an
 | Real Claude cancel and timeout (L1) | PROVEN on the iMac in gui/501 on a throwaway sandbox repository |
 | Kill switch | PROVEN in tests: constant gate refuses before store, approval, remote, CLI, telemetry; no env can enable; HALT file stops runs without a redeploy |
 | Claude auth in the executor session | READY (logged in, first party, Max) |
-| Repository access for the stale-head check | BLOCKED: in gui/501 the keychain credential read for a private repository hangs (killed at 45 s). Founder action needed on the iMac; see Precheck 3 |
+| Repository access for the stale-head check | M6G: the Keychain path is removed; the executor reads remote heads with its own read-only GitHub App identity. Pending the one-time App creation and install by the account owner |
 | Exact founder phrase routing | "Inspect METTLE and tell me what is blocking production." routes to no handler (asks who). Naming Claude Code works. Router semantics unchanged by design; M5C labels decide |
 | Founder Cancel control in the cockpit | NOT WIRED: `POST /api/command-center/execution/cancel {jobId}` exists and works with dispatch off, but the approval card does not yet show a Cancel button while a run is working (the approve call holds the request until the run ends and does not return the job id first) |
 | Long runs through the tunnel | RISK: the cockpit is served through a Cloudflare tunnel; a proxied request with no response for about 100 s ends with error 524. Approve holds the request for the whole run, so a run longer than that loses its on-screen result (the jobs row still records it). The real L1 analyze took 38 s |
@@ -36,10 +36,10 @@ The executor never writes Missions; a result is suggested as Mission evidence an
 1. M5C gate passed: at least 7 calendar days (not before 2026-10-12 10:05:17 EDT) and at least 40 real labelled
    commands, 0 dangerous false negatives, replay drift 0.
 2. Integration branch with this runbook's code is merged to main by the founder and released to the cockpit as usual.
-3. On the iMac, in the founder's GUI session: a credentialed `git ls-remote` of `ramicheAi/mettle` completes in a few
-   seconds from the executor context. If a Keychain dialog appears for `git-credential-osxkeychain`, the founder
-   answers it (Always Allow). Then `GET /api/command-center/execution/health?deep=1` must not report
-   "Repository access needs attention".
+3. The executor's GitHub machine identity is set up (docs/p06/M6G-GITHUB-MACHINE-AUTH.md) and
+   `scripts/m6g-github-app-setup.mjs check` prints `M6G CHECK: PASS` from the executor's context. No Keychain or
+   person's credential is involved; `GET /api/command-center/execution/health?deep=1` must not report
+   "GitHub machine authentication unavailable".
 4. Health reasons list nothing except "Recovery check is not running" (the reaper is loaded in ACTIVATE step 2;
    state is `off` before activation): Claude logged in, disk above 4 GB, store reachable, 0 stuck, 0 not reporting.
    After ACTIVATE step 2, `readiness` must be `ready`.

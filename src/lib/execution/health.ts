@@ -14,7 +14,7 @@ export interface HealthSignals {
   /** `claude auth status` from the executor's own session. */
   claude: "ok" | "logged_out" | "unknown";
   /** A credentialed read of a registered project's remote head (the stale-head check every run needs). */
-  repoAccess: "ok" | "unavailable" | "unchecked";
+  repoAccess: "ok" | "unavailable" | "auth_unavailable" | "unchecked";
   diskFreeBytes: number | null;
   minFreeBytes: number;
   store: "ok" | "error";
@@ -37,6 +37,7 @@ export function executionHealth(s: HealthSignals): ExecutionHealth {
   const blockers: string[] = [], degraded: string[] = [];
   if (s.claude === "logged_out") blockers.push("Claude login required");
   if (s.claude === "unknown") blockers.push("Claude login could not be checked");
+  if (s.repoAccess === "auth_unavailable") blockers.push("GitHub machine authentication unavailable");
   if (s.repoAccess === "unavailable") blockers.push("Repository access needs attention on the execution host");
   if (s.diskFreeBytes === null || s.diskFreeBytes < s.minFreeBytes) blockers.push("Low disk on the execution host");
   if (s.store === "error") blockers.push("Execution records unavailable");

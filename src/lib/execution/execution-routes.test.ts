@@ -9,7 +9,8 @@ import { issueCsrfToken } from "@/lib/server/csrf";
 
 const { sessionVerifier, spies } = vi.hoisted(() => ({ sessionVerifier: vi.fn(), spies: { git: vi.fn(), tip: vi.fn(), run: vi.fn(), shadow: vi.fn() } }));
 vi.mock("@/lib/firebase-admin", async (orig) => ({ ...(await orig<object>()), verifySessionCookie: sessionVerifier }));
-vi.mock("@/lib/execution/git", async (orig) => ({ ...(await orig<object>()), git: spies.git, remoteBranchTip: spies.tip }));
+vi.mock("@/lib/execution/git", async (orig) => ({ ...(await orig<object>()), git: spies.git }));
+vi.mock("@/lib/execution/github-app", async (orig) => ({ ...(await orig<object>()), githubBranchTip: spies.tip }));
 vi.mock("@/lib/execution/executor", async (orig) => ({ ...(await orig<object>()), runExecution: spies.run }));
 vi.mock("@/lib/command/service", async (orig) => ({ ...(await orig<object>()), getShadow: spies.shadow }));
 

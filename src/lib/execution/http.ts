@@ -12,7 +12,8 @@ import { commandContext } from "@/lib/command/http";
 import { getShadow } from "@/lib/command/service";
 import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { noStoreJson } from "@/lib/server/cockpit-chat-data";
-import { git, remoteBranchTip } from "./git";
+import { git } from "./git";
+import { githubBranchTip } from "./github-app";
 import { originOf, type RepoEntry } from "./projects";
 import { dispatchHalted } from "./halt";
 import { executionAvailable, type Choices } from "./service";
@@ -20,14 +21,18 @@ import { CAPABILITIES, type Capability } from "./contract";
 
 export const executionRoots = (): string[] => (process.env.CC_EXECUTION_ROOTS ?? homedir()).split(",").map((s) => s.trim()).filter(Boolean);
 
-/** The remote tip of a branch, read through a verified local checkout of the project (null when there is none). */
+/**
+ * The remote tip of a branch for a project that has a verified local checkout on this host (null when there is none),
+ * read from GitHub with the executor's own read-only machine identity (github-app.ts). Throws GithubAuthUnavailable
+ * when that identity cannot be used; there is no fallback to any person's credential.
+ */
 export function checkoutRemoteTip(roots: string[], timeoutMs?: number) {
   return async (entry: RepoEntry & { origin: string }, branch: string): Promise<string | null> => {
     for (const root of roots) for (const dir of entry.checkouts) {
       const p = join(/*turbopackIgnore: true*/ root, dir);
       if (!existsSync(join(/*turbopackIgnore: true*/ p, ".git"))) continue;
       const remote = await git(p, ["remote", "get-url", "origin"]);
-      if (remote.ok && originOf(remote.out)?.toLowerCase() === entry.origin.toLowerCase()) return remoteBranchTip(p, branch, timeoutMs);
+      if (remote.ok && originOf(remote.out)?.toLowerCase() === entry.origin.toLowerCase()) return githubBranchTip(entry.origin, branch, { timeoutMs });
     }
     return null;
   };

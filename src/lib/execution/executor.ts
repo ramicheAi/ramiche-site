@@ -12,7 +12,8 @@ import { recordExecution, type ExecutionFacts } from "@/lib/execution-events";
 import { verifyApproval, type Approval } from "./approval";
 import { runClaudeCode, type ClaudeRunOutcome } from "./claude-code";
 import { bindingHash, capabilityRank, EXECUTABLE_CAPABILITIES, invalidRequest, nextStepAfter, type ExecutionRequest, type ExecutionResult, type ExecutionStatus } from "./contract";
-import { changedFiles, checkoutSnapshot, commonGitDir, git, gitDirSnapshot, isAncestor, refsSnapshot, remoteBranchTip, revParse, unsafeGitConfig } from "./git";
+import { changedFiles, checkoutSnapshot, commonGitDir, git, gitDirSnapshot, isAncestor, refsSnapshot, revParse, unsafeGitConfig } from "./git";
+import { GITHUB_AUTH_BLOCKED, githubBranchTip, GithubAuthUnavailable } from "./github-app";
 import { dispatchHalted } from "./halt";
 import { surfaceAllowed, withinCeiling, type Surface } from "./policy";
 import { bySlug, originOf, REPO_REGISTRY, type RepoEntry } from "./projects";
@@ -41,7 +42,7 @@ export interface ExecutionDeps {
   heartbeatMs?: number;
   /** Required free space before a checkout (default MIN_FREE_BYTES); a small sandbox repository may set less. */
   minFreeBytes?: number;
-  /** The branch tip on the remote (default: git ls-remote origin). Injectable for tests. */
+  /** The branch tip on the remote (default: GitHub, read with the executor's own read-only App identity). Injectable for tests. */
   remoteTip?: (repo: string, branch: string) => Promise<string | null>;
 }
 
@@ -163,7 +164,13 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
   const repo = await findCheckout(resolved.entry, deps.roots, req.repository.head);
   if (!repo) return reject(req, now(), "repository_unresolved", `NO VERIFIED LOCAL CHECKOUT: no checkout of ${resolved.entry.origin} with that origin and the approved commit exists on this host. Nothing was run.`);
   // Checked against the remote itself, not a possibly stale remote-tracking ref; unreachable fails closed.
-  const tipSha = await (deps.remoteTip ?? remoteBranchTip)(repo, req.repository.branch);
+  // The executor's own read-only GitHub identity, never a person's credential, the Keychain or a prompt; bounded.
+  let tipSha: string | null;
+  try { tipSha = await (deps.remoteTip ?? ((_repo: string, b: string) => githubBranchTip(resolved.entry.origin, b)))(repo, req.repository.branch); }
+  catch (e) {
+    if (e instanceof GithubAuthUnavailable) return reject(req, now(), e.code, `${GITHUB_AUTH_BLOCKED}. Nothing was run.`);
+    return reject(req, now(), "branch_unknown", `Could not confirm the current ${req.repository.branch} of ${resolved.entry.origin}. Nothing was run.`);
+  }
   if (!tipSha) return reject(req, now(), "branch_unknown", `Could not confirm the current ${req.repository.branch} of ${resolved.entry.origin} (branch missing or remote unreachable).`);
   if (tipSha !== req.repository.head) {
     return reject(req, now(), "stale_head", `${req.repository.branch} moved since you approved (${req.repository.head.slice(0, 7)} is now ${tipSha.slice(0, 7)}). Approve again on the current commit.`);

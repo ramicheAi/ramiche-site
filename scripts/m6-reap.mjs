@@ -4,12 +4,12 @@
  * cockpit restart, then fail executions abandoned by a dead process. Scheduled by a LaunchAgent in the founder's GUI
  * session (ops/execution/com.parallax.m6-reaper.plist, prepared and NOT loaded until activation).
  *
- *   node --experimental-strip-types scripts/m6-reap.mjs --env-file .env.production.local [--dry-run] [--status <file>]
+ *   node --experimental-strip-types scripts/m6-reap.mjs --secrets-file .env.production.local [--dry-run] [--status <file>]
  *
  * --dry-run reads only: it lists and judges, writes nothing, signals nothing, and prints what it would do.
  * The status file (default ~/.parallax/executions/reaper-status.json) is what execution health reads. Exit 0 when the
  * pass was clean, 1 when it failed or a run is still alive past its deadline, 2 on bad configuration.
- * Prints no secrets.
+ * Prints no secrets. (Not `--env-file`: Node claims that flag for itself even after the script path.)
  */
 import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from "node:fs";
 import { registerHooks } from "node:module";
@@ -32,9 +32,10 @@ registerHooks({
 
 const arg = (n, d) => { const i = process.argv.indexOf(n); return i >= 0 ? process.argv[i + 1] : d; };
 const DRY = process.argv.includes("--dry-run");
-const envFile = arg("--env-file", null);
+const envFile = arg("--secrets-file", null);
 const env = { ...process.env };
 if (envFile) {
+  if (!existsSync(envFile)) { console.error(`m6-reap: secrets file ${envFile} not found`); process.exit(2); }
   for (const line of readFileSync(envFile, "utf8").split("\n")) {
     const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
     if (m && env[m[1]] === undefined) env[m[1]] = m[2].trim().replace(/^["']|["']$/g, "");
