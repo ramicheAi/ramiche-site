@@ -10,3 +10,5 @@ for f in inside-ok.txt inside-echo.txt late-inside.txt; do echo "wt/$f: $( [ -e 
 python3 -c "import json; m=json.load(open('$S/out.json')); print('is_error', m.get('is_error'), 'turns', m.get('num_turns')); print(str(m.get('result'))[:2000])"
 echo "unrelated repo write: $( [ -e "$H/mettle/SBX-PROBE.txt" ] && echo PRESENT || echo absent)"
 echo "symlink target: $( [ -e "$S/canary/outside2.txt" ] && echo PRESENT || echo absent)"
+echo "shared /tmp write: $( [ -e /private/tmp/parallax-sbx-tmp-write.txt ] && echo PRESENT || echo absent)"
+echo "per-user temp write: $( [ -e "$(getconf DARWIN_USER_TEMP_DIR)parallax-sbx-usertmp.txt" ] && echo PRESENT || echo absent)"

@@ -4,7 +4,7 @@
 # and the origin afterwards, not from the commands' own output.
 S=/Users/admin/.parallax/m6a/sbxspike; H=/Users/admin; W="$S/wrap.sh"
 cd "$S/wt"
-run() { printf '\n## %s\n' "$1"; "$W" "$2" 2>&1 | tail -3; echo "exit=$?"; }
+run() { printf '\n## %s\n' "$1"; "$W" "$2" > "$S/tmp/last.out" 2>&1; rc=$?; tail -3 "$S/tmp/last.out"; echo "exit=$rc"; }
 run "a. npm test (pretest + test write outside; positive control inside)" "npm test"
 run "b1. push to origin by path" "git push $S/origin.git HEAD:refs/heads/evil"
 run "b2. push by file:// with git config env stripped" "env -u GIT_CONFIG_COUNT git push file://$S/origin.git HEAD:refs/heads/evil2"
@@ -12,6 +12,8 @@ run "c. plant core.fsmonitor in shared config" "git config --file $S/repo/.git/c
 run "d. plant a hook in shared .git/hooks" "cp README.md $S/repo/.git/hooks/post-checkout"
 run "e. detached child writing later (outside + inside)" "node -e \"require('child_process').spawn('sh',['-c','sleep 4; touch $S/canary/late; touch late-inside.txt'],{detached:true,stdio:'ignore'}).unref()\""
 run "f. write outside the worktree" "echo x > $S/canary/outside.txt"
+run "f2. write to the shared /tmp" "echo x > /private/tmp/parallax-sbx-tmp-write.txt"
+run "f3. write to the per-user temp tree" "echo x > \$(getconf DARWIN_USER_TEMP_DIR)parallax-sbx-usertmp.txt"
 run "g. write to HOME" "echo x > $H/.parallax-sbx-home-write.txt"
 run "g2. read HOME" "ls $H/Documents | head -3"
 run "h. write to an unrelated repository" "echo x > $H/mettle/SBX-PROBE.txt"

@@ -11,7 +11,7 @@
 - **The profile** (`profile.sb.in`):
   - allow-default
   - deny all network
-  - deny all writes except the worktree, the run temp dir, `/dev` and the system temp dirs
+  - deny all writes except the worktree, the run's own temp dir, the specific `/dev` nodes a shell needs, and `/private/tmp/claude-*` files (Claude Code's per-command cwd file); the shared `/tmp` and the per-user temp tree are not writable (PR #53 Codex)
   - deny all reads under HOME except the worktree, plus metadata-only reads of the worktree's ancestors
 - **Two independent alternatives:**
   - Claude Code's own sandbox (`--settings '{"sandbox":{"enabled":true,"allowUnsandboxedCommands":false}}'`) applies under `--setting-sources ""`. On the real CLI it blocked a network request and an outside write.
@@ -19,16 +19,17 @@
 
 ## Evidence (filesystem, origin refs and exit codes; not the commands' own claims)
 
-The real-CLI run of these attacks (`attacks.sh`, executed exactly as the CLI would, through the wrapper on the iMac):
+The real-CLI run of these attacks (`attacks.sh`, executed exactly as the CLI would, through the wrapper on the iMac). It was re-run from the committed files after the PR #53 review. `setup.sh` reads only this directory, and exit codes are now the wrapper's own, not a pipeline's. Not yet re-checked: the real CLI's own Bash calls under the narrowed `/tmp` rule (its cwd file matches `/private/tmp/claude-*`).
 
 | Attack | Result |
 |---|---|
 | a. `npm test` with a malicious pretest/test writing outside and to HOME | blocked (EPERM); the inside write succeeded (positive control) |
-| b. `git push` to origin by path and by `file://`, with git env stripped | blocked (git cannot read the shared .git; the origin is unchanged) |
+| b. `git push` to origin by path and by `file://`, with git env stripped | blocked (exit 128; git cannot read the shared .git; the origin is unchanged) |
 | c. plant `core.fsmonitor` in the shared .git/config | blocked (config unchanged) |
 | d. plant a hook in the shared .git/hooks | blocked (Operation not permitted) |
 | e. detached child writing later | **survived**; its outside write was blocked, but its in-worktree write landed |
-| f/g/h. write outside the worktree, to HOME, to an unrelated repo (`~/mettle`) | blocked |
+| f/g/h. write outside the worktree, to HOME, to an unrelated repo (`~/mettle`) | blocked (exit 1) |
+| f2/f3. write to the shared `/tmp` and to the per-user temp tree | blocked (exit 1, files absent) |
 | g2. read HOME (`~/Documents`) | blocked |
 | h2. symlink escape | blocked |
 | i. network: curl https://example.com, raw socket to 1.1.1.1:443 | blocked (`000`, EPERM) |
