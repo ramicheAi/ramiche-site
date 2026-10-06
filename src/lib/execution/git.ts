@@ -9,7 +9,7 @@ import { join } from "node:path";
  * so a repository config planted by a run (core.fsmonitor, hooks) can never execute during the executor's checks.
  */
 const SAFE_ENV = () => ({ PATH: process.env.PATH ?? "/usr/bin:/bin", HOME: process.env.HOME ?? "/", GIT_TERMINAL_PROMPT: "0", GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null" });
-const SAFE_ARGS = ["-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null", "-c", "core.sshCommand=/usr/bin/false"];
+const SAFE_ARGS = ["-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null", "-c", "core.sshCommand=/usr/bin/false", "-c", "core.attributesFile=/dev/null"];
 
 export function git(cwd: string, args: string[], env?: Record<string, string>, timeoutMs = 60_000): Promise<{ ok: boolean; out: string; err: string }> {
   return new Promise((resolve) => {
@@ -60,12 +60,19 @@ export async function checkoutSnapshot(cwd: string): Promise<{ head: string | nu
   return { head, branch, status };
 }
 
+/** The shared git directory of a checkout, resolved BEFORE a run (a run must never be able to choose it). */
+export async function commonGitDir(cwd: string): Promise<string | null> {
+  const r = await git(cwd, ["rev-parse", "--path-format=absolute", "--git-common-dir"]);
+  return r.ok && r.out.trim() ? r.out.trim() : null;
+}
+
 /**
- * Hash of the shared .git state a run must never touch: config (incl. config.worktree), hooks, info, alternates, and
- * every other worktree's metadata. A change there can execute code later (core.fsmonitor, hooks) or redirect objects.
+ * Hash of the shared .git state a run must never touch, read with plain filesystem calls (NO git: a planted config,
+ * filter driver or attribute must never get a chance to execute while it is being checked). Covers config (incl.
+ * config.worktree), hooks, info (attributes, exclude, sparse-checkout), alternates, every other worktree's metadata,
+ * and this run's own worktree files that could redirect or reconfigure it (config.worktree, commondir, gitdir).
  */
-export async function gitDirSnapshot(cwd: string, ownWorktreeName: string | null): Promise<string> {
-  const common = (await git(cwd, ["rev-parse", "--path-format=absolute", "--git-common-dir"])).out.trim();
+export function gitDirSnapshot(common: string, ownWorktreeName: string | null): string {
   const h = createHash("sha256");
   const add = (p: string) => {
     try {
@@ -76,7 +83,10 @@ export async function gitDirSnapshot(cwd: string, ownWorktreeName: string | null
   };
   for (const f of ["config", "config.worktree", "hooks", "info", join(/*turbopackIgnore: true*/ "objects", "info", "alternates"), "commondir"]) add(join(/*turbopackIgnore: true*/ common, f));
   try {
-    for (const w of readdirSync(join(/*turbopackIgnore: true*/ common, "worktrees")).sort()) if (w !== ownWorktreeName) add(join(/*turbopackIgnore: true*/ common, "worktrees", w));
+    for (const w of readdirSync(join(/*turbopackIgnore: true*/ common, "worktrees")).sort()) {
+      if (w !== ownWorktreeName) add(join(/*turbopackIgnore: true*/ common, "worktrees", w));
+      else for (const f of ["config.worktree", "commondir", "gitdir"]) add(join(/*turbopackIgnore: true*/ common, "worktrees", w, f));
+    }
   } catch { /* no worktrees */ }
   return h.digest("hex");
 }
@@ -87,7 +97,7 @@ export async function isAncestor(cwd: string, a: string, b: string): Promise<boo
 
 export async function changedFiles(worktree: string, base: string): Promise<string[]> {
   const [diff, untracked] = await Promise.all([
-    git(worktree, ["diff", "--name-only", base]),
+    git(worktree, ["diff", "--no-ext-diff", "--no-textconv", "--name-only", base]),
     git(worktree, ["ls-files", "--others", "--exclude-standard"]),
   ]);
   return [...new Set([...diff.out.split("\n"), ...untracked.out.split("\n")].map((s) => s.trim()).filter(Boolean))].sort();
