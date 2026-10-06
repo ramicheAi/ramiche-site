@@ -48,6 +48,12 @@ const DIR = join(homedir(), ".parallax", "github-app");
 const arg = (n, d) => { const i = process.argv.indexOf(n); return i >= 0 ? process.argv[i + 1] : d; };
 const ENV_FILE = arg("--secrets-file", join(DIR, "executor.env"));
 const mode = process.argv[2];
+// Only the read-only modes may point elsewhere: create/finish always write the dedicated 0700/0600 file, never someone
+// else's env file (which would be rewritten and its directory re-permissioned).
+if ((mode === "create" || mode === "finish") && process.argv.includes("--secrets-file")) {
+  console.error("m6g: --secrets-file is only for 'check' and 'probe'; create and finish always write ~/.parallax/github-app/executor.env");
+  process.exit(2);
+}
 const gh = { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
 const fail = (msg, code = 1) => { console.error(`m6g: ${msg}`); process.exit(code); };
 
