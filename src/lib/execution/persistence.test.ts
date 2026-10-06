@@ -2,7 +2,7 @@
  * P06 M6B: executions persisted on the existing jobs / job_events tables. Heartbeat, founder cancel, the reaper's
  * conservative criteria, and the Supabase adapter's exact queries.
  */
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { ExecutionRequest } from "./contract";
 import { reapAbandoned, DEADLINE_GRACE_MS, HEARTBEAT_STALE_MS } from "./reaper";
 import { EXECUTOR_SOURCE, executionJobId, JobsExecutionStore } from "./store";
