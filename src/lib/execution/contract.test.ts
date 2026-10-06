@@ -6,7 +6,7 @@ import { claudeArgs } from "./claude-code";
 import { bindingHash, CAPABILITIES, EXECUTABLE_CAPABILITIES, invalidRequest, nextStepAfter, type ExecutionRequest, type ExecutionResult } from "./contract";
 import { missionSuggestion } from "./mission";
 import { cliPolicy, DENIED_BASH, executionEnv, PRODUCTION_DISPATCH_ENABLED, PUSH_DISABLED_URL, surfaceAllowed } from "./policy";
-import { bySlug, originOf, REPO_REGISTRY, resolveProject } from "./projects";
+import { bySlug, originOf, projectName, REGISTRY_ONLY_PROJECTS, REPO_REGISTRY, resolveProject } from "./projects";
 import { executionJobId, JobsExecutionStore, jobStatusFor, type JobsDb } from "./store";
 
 const req = (over: Partial<ExecutionRequest> = {}): ExecutionRequest => ({
@@ -122,8 +122,23 @@ describe("capability policy", () => {
 });
 
 describe("project and repository resolution", () => {
-  it("every registry slug is a canonical project (no duplicate project truth)", () => {
-    for (const e of REPO_REGISTRY) expect(PROJECTS.map((p) => p.slug)).toContain(e.slug);
+  it("every registry slug is a canonical project or explicitly registry-only (no invented projects)", () => {
+    for (const e of REPO_REGISTRY) expect([...PROJECTS.map((p) => p.slug), ...Object.keys(REGISTRY_ONLY_PROJECTS)]).toContain(e.slug);
+  });
+
+  it("registry truth: the website, the cockpit and RAMICHE OS resolve to their own repositories and never to each other", () => {
+    const origin = (t: string) => { const r = resolveProject(t); return r.ok ? r.entry.origin : r.code; };
+    for (const t of ["Update the Parallax website hero", "Fix the parallax site footer", "Check parallaxvinc.com for broken links", "Refresh the public site copy"]) expect(origin(t)).toBe("ramicheAi/parallax-site");
+    for (const t of ["Fix the Command Center palette", "Parallax OS login is slow", "Tidy the cockpit spacing"]) expect(origin(t)).toBe("ramicheAi/ramiche-site");
+    for (const t of ["Audit RAMICHE OS queues", "ramiche-os health agent"]) expect(origin(t)).toBe("ramicheAi/ramiche-os");
+    expect(origin("Fix Parallax")).toBe("project_unresolved");                                    // bare "Parallax" is not a repository
+    expect(origin("Move the Parallax OS banner onto the Parallax website")).toBe("project_ambiguous");
+    expect(projectName("ramiche-os")).toBe("RAMICHE OS");
+    // No alias belongs to two projects, and no two projects share a repository.
+    const aliases = REPO_REGISTRY.flatMap((e) => e.aliases);
+    expect(new Set(aliases).size).toBe(aliases.length);
+    const origins = REPO_REGISTRY.map((e) => e.origin).filter(Boolean);
+    expect(new Set(origins).size).toBe(origins.length);
   });
 
   it("one named project resolves; none or several, or an unsettled repository, asks instead of guessing", () => {
@@ -131,8 +146,7 @@ describe("project and repository resolution", () => {
     expect(resolveProject("Fix the cockpit spacing")).toMatchObject({ ok: true, entry: { origin: "ramicheAi/ramiche-site" } });
     expect(resolveProject("Fix the login bug")).toMatchObject({ ok: false, code: "project_unresolved" });
     expect(resolveProject("Port the METTLE leaderboard to Galactik")).toMatchObject({ ok: false, code: "project_ambiguous" });
-    expect(resolveProject("Update the parallax site hero")).toMatchObject({ ok: false, code: "repository_unsettled" });
-    expect(resolveProject("RAMICHE OS cleanup")).toMatchObject({ ok: false, code: "project_unresolved" });
+    expect(resolveProject("Clean up the old builds")).toMatchObject({ ok: false, code: "project_unresolved" });
     expect(resolveProject("metallic finish")).toMatchObject({ ok: false });   // word boundaries, not substrings
     expect(bySlug("nope")).toMatchObject({ ok: false, code: "project_unresolved" });
   });

@@ -286,7 +286,9 @@ describe("M6 executor: fail closed before anything runs", () => {
   it("the wrong project for the repository, an unsettled project, or no checkout is refused", async () => {
     expect((await run(request({ repository: { origin: "test-owner/proj-b", branch: "main", head } }))).failure?.code).toBe("wrong_project");
     expect((await run(request({ project: { slug: "parallax" } }))).failure?.code).toBe("repository_unsettled");
-    expect((await run(request(), deps({ roots: [join(root, "nowhere")] }))).failure?.code).toBe("repository_unresolved");
+    const none = await run(request(), deps({ roots: [join(root, "nowhere")] }));
+    expect(none.failure?.code).toBe("repository_unresolved");
+    expect(none.failure?.message).toMatch(/^NO VERIFIED LOCAL CHECKOUT/);
     expect((await run(request(), deps({ remoteTip: async () => null }))).failure?.code).toBe("branch_unknown");   // remote unreachable: fail closed
     // A checkout directory with the expected name but another origin is never used.
     expect((await run(request(), deps({ registry: [{ ...registry[0], checkouts: ["proj-b"] }] }))).failure?.code).toBe("repository_unresolved");
