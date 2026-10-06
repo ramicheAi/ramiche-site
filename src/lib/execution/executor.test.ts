@@ -309,3 +309,34 @@ describe("M6 executor: fail closed before anything runs", () => {
     expect(other.failure?.code).toBe("idempotency_conflict");
   }, 30_000);
 });
+
+describe("M6B: executor with the jobs store (heartbeat, founder cancel)", () => {
+  it("a founder cancel recorded mid-run stops the run at the next heartbeat; the row ends canceled with its result event", async () => {
+    const { JobsExecutionStore } = await import("./store");
+    const { memoryJobsDb } = await import("./__fixtures__/memory-jobs-db");
+    const m = memoryJobsDb();
+    const store = new JobsExecutionStore(m.db);
+    const r = request({ plan: { actions: [{ sleep: 60_000 }] } });
+    setTimeout(() => { void store.requestCancel(r.idempotencyKey, OWNER); }, 600);
+    const res = await run(r, deps({ store, heartbeatMs: 200 }));
+    expect(res.status).toBe("canceled");
+    const row = m.jobs.get(executionJobId(r.idempotencyKey))!;
+    expect(row.status).toBe("canceled");
+    expect(m.events.map((e) => e.kind)).toEqual(expect.arrayContaining(["cancel_requested", "execution_result"]));
+  }, 30_000);
+});
+
+describe("M6B: the CLI's own pid is recorded as process evidence (PR #50 Codex P1)", () => {
+  it("records the spawned CLI pid on the jobs row while running", async () => {
+    const { JobsExecutionStore } = await import("./store");
+    const { memoryJobsDb } = await import("./__fixtures__/memory-jobs-db");
+    const m = memoryJobsDb();
+    const r = request();
+    const res = await run(r, deps({ store: new JobsExecutionStore(m.db) }));
+    expect(res.status).toBe("succeeded");
+    const runner = (m.jobs.get(executionJobId(r.idempotencyKey))!.input as { runner: { pid: number; cliPid: number } }).runner;
+    expect(runner.pid).toBe(process.pid);
+    expect(typeof runner.cliPid).toBe("number");
+    expect(runner.cliPid).not.toBe(process.pid);
+  }, 30_000);
+});

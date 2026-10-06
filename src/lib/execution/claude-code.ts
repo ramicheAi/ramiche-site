@@ -23,6 +23,8 @@ export interface ClaudeRunOptions {
   timeoutMs: number;
   signal?: AbortSignal;
   logPath: string;
+  /** Called once with the CLI's own pid (process evidence for the reaper). */
+  onSpawn?: (pid: number) => void;
   /** Tests only: extra variables for a fake CLI. Never secrets. */
   extraEnv?: Record<string, string>;
   spawnImpl?: typeof spawn;
@@ -116,6 +118,7 @@ export function runClaudeCode(o: ClaudeRunOptions): Promise<ClaudeRunOutcome> {
   return new Promise((resolve) => {
     const opts: SpawnOptions = { cwd: o.cwd, env: { ...executionEnv(), ...(o.extraEnv ?? {}) } as NodeJS.ProcessEnv, detached: true, stdio: ["pipe", "pipe", "pipe"] };
     const child = (o.spawnImpl ?? spawn)(o.bin, claudeArgs(o), opts);
+    if (child.pid) { try { o.onSpawn?.(child.pid); } catch { /* evidence only */ } }
     let buf = "";
     let settled = false;
     let killTimer: ReturnType<typeof setTimeout> | undefined;

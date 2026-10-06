@@ -7,7 +7,8 @@ import { bindingHash, CAPABILITIES, EXECUTABLE_CAPABILITIES, invalidRequest, nex
 import { missionSuggestion } from "./mission";
 import { cliPolicy, DENIED_BASH, executionEnv, PRODUCTION_DISPATCH_ENABLED, PUSH_DISABLED_URL, surfaceAllowed } from "./policy";
 import { bySlug, originOf, projectName, REGISTRY_ONLY_PROJECTS, REPO_REGISTRY, resolveProject } from "./projects";
-import { executionJobId, JobsExecutionStore, jobStatusFor, type JobsDb } from "./store";
+import { executionJobId, JobsExecutionStore, jobStatusFor } from "./store";
+import { memoryJobsDb } from "./__fixtures__/memory-jobs-db";
 
 const req = (over: Partial<ExecutionRequest> = {}): ExecutionRequest => ({
   executionId: "00000000-0000-4000-8000-000000000001", commandId: "00000000-0000-4000-8000-000000000002", missionId: null,
@@ -159,16 +160,7 @@ describe("project and repository resolution", () => {
 });
 
 describe("jobs-backed execution store (existing jobs / job_events, no migration)", () => {
-  function fakeDb() {
-    const jobs = new Map<string, Record<string, unknown>>(); const events: Record<string, unknown>[] = [];
-    const db: JobsDb = {
-      async insertJob(row) { if (jobs.has(String(row.id))) return { conflict: true, error: null }; jobs.set(String(row.id), row); return { conflict: false, error: null }; },
-      async getJob(id) { const j = jobs.get(id); return j ? { input: j.input as Record<string, unknown>, resultEvent: (events.find((e) => e.job_id === id)?.detail as ExecutionResult) ?? null } : null; },
-      async updateJob(id, patch) { Object.assign(jobs.get(id)!, patch); return { error: null }; },
-      async insertEvent(row) { events.push(row); return { error: null }; },
-    };
-    return { db, jobs, events };
-  }
+  const fakeDb = () => memoryJobsDb();
 
   it("one jobs row per idempotency key, with the binding hash; a repeat sees it; the result lands as a job_events detail", async () => {
     const { db, jobs, events } = fakeDb();
