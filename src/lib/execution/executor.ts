@@ -152,7 +152,7 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
     return finishWith(reject(req, now(), "wrong_project", `${resolved.name} is ${resolved.entry.origin}, not ${req.repository.origin}.`));
   }
   const repo = await findCheckout(resolved.entry, deps.roots, req.repository.head);
-  if (!repo) return finishWith(reject(req, now(), "repository_unresolved", `No checkout of ${resolved.entry.origin} containing the approved commit was found on this host.`));
+  if (!repo) return finishWith(reject(req, now(), "repository_unresolved", `NO VERIFIED LOCAL CHECKOUT: no checkout of ${resolved.entry.origin} with that origin and the approved commit exists on this host. Nothing was run.`));
   // Checked against the remote itself, not a possibly stale remote-tracking ref; unreachable fails closed.
   const tipSha = await (deps.remoteTip ?? remoteBranchTip)(repo, req.repository.branch);
   if (!tipSha) return finishWith(reject(req, now(), "branch_unknown", `Could not confirm the current ${req.repository.branch} of ${resolved.entry.origin} (branch missing or remote unreachable).`));
