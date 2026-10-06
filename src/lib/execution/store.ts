@@ -22,8 +22,9 @@ export interface ExecutionStore {
   heartbeat?(r: ExecutionRequest): Promise<void>;
   /** The executor's own process (the CLI), recorded once it exists, so liveness is judged by the run, not its host. */
   recordProcess?(r: ExecutionRequest, cliPid: number): Promise<void>;
-  /** Reopen a finished, non-successful attempt for a retry under the same approval; false when it lost a race. */
-  restart?(r: ExecutionRequest, previous: ExecutionResult): Promise<boolean>;
+  /** Reopen a finished, non-successful attempt for a retry under the same approval; false when it lost a race. The row
+   *  then describes THIS attempt (its execution id and the process running it), never the previous one. */
+  restart?(r: ExecutionRequest, previous: ExecutionResult, bindingHash: string): Promise<boolean>;
   /** Whether the founder asked to cancel this run. Optional; checked with each heartbeat. */
   cancelRequested?(r: ExecutionRequest): Promise<boolean>;
 }
@@ -66,12 +67,13 @@ export interface RunningJob { id: string; input: Record<string, unknown> | null;
 export interface JobsDb {
   insertJob(row: Record<string, unknown>): Promise<{ conflict: boolean; error: string | null }>;
   /** The row (null when absent) with its latest execution_result; read errors come back as `error`, never as absence. */
-  getJob(id: string): Promise<{ row: { input: Record<string, unknown> | null; status: string; error: string | null; resultEvent: ExecutionResult | null } | null; error: string | null }>;
+  getJob(id: string): Promise<{ row: { input: Record<string, unknown> | null; status: string; error: string | null; source?: string | null; resultEvent: ExecutionResult | null } | null; error: string | null }>;
   updateJob(id: string, patch: Record<string, unknown>): Promise<{ error: string | null }>;
   insertEvent(row: Record<string, unknown>): Promise<{ error: string | null }>;
   /** Update only if the row still has these values (optimistic concurrency); `updated` says whether it did. */
   updateJobIf(id: string, expect: { status: string; updated_at: string | null }, patch: Record<string, unknown>): Promise<{ updated: boolean; error: string | null }>;
-  hasEvent(jobId: string, kind: string): Promise<{ found: boolean; error: string | null }>;
+  /** Whether an event of this kind exists; with `executionId`, only one whose detail names that execution (attempt). */
+  hasEvent(jobId: string, kind: string, executionId?: string): Promise<{ found: boolean; error: string | null }>;
   listRunning(source: string): Promise<{ rows: RunningJob[]; error: string | null }>;
 }
 
@@ -92,17 +94,26 @@ export function abandonedResult(r: ExecutionRequest, reason: string | null): Exe
 export class JobsExecutionStore implements ExecutionStore {
   private readonly inputs = new Map<string, Record<string, unknown>>();
   private readonly db: JobsDb;
-  constructor(db: JobsDb) { this.db = db; }
+  /** The process that runs executions (this cockpit server). Injectable so tests can play two different servers. */
+  private readonly runner: () => { host: string; pid: number };
+  constructor(db: JobsDb, opts: { runner?: () => { host: string; pid: number } } = {}) {
+    this.db = db;
+    this.runner = opts.runner ?? (() => ({ host: hostname(), pid: process.pid }));
+  }
+  /** The row's input for one attempt: the request facts plus the process evidence the reaper relies on. */
+  private attemptInput(r: ExecutionRequest, bindingHash: string): Record<string, unknown> {
+    return {
+      executionId: r.executionId, bindingHash, commandId: r.commandId, missionId: r.missionId, project: r.project.slug,
+      origin: r.repository.origin, branch: r.repository.branch, head: r.repository.head, capability: r.capability,
+      contextRefs: r.task.contextRefs, limits: r.limits, founder: r.founder.uid,
+      // Process evidence for the reaper: which host and process run THIS attempt (the CLI pid is added once spawned).
+      runner: this.runner(),
+    };
+  }
   async begin(r: ExecutionRequest, bindingHash: string): Promise<Begin> {
     const id = executionJobId(r.idempotencyKey);
     const now = new Date().toISOString();
-    const input: Record<string, unknown> = {
-        executionId: r.executionId, bindingHash, commandId: r.commandId, missionId: r.missionId, project: r.project.slug,
-        origin: r.repository.origin, branch: r.repository.branch, head: r.repository.head, capability: r.capability,
-        contextRefs: r.task.contextRefs, limits: r.limits, founder: r.founder.uid,
-        // Process evidence for the reaper: which host and process run this execution.
-        runner: { host: hostname(), pid: process.pid },
-    };
+    const input = this.attemptInput(r, bindingHash);
     const ins = await this.db.insertJob({
       id, title: r.task.instruction.slice(0, 200), kind: "dev", status: "running", agent: "claude-code", source: EXECUTOR_SOURCE,
       input, progress: `approved ${r.capability}`, started_at: now, updated_at: now,
@@ -129,17 +140,20 @@ export class JobsExecutionStore implements ExecutionStore {
     if (up.error) throw new Error(`execution result could not be saved: ${up.error}`);
     this.inputs.delete(id);   // a long-running server keeps no per-run state after the run
   }
-  async restart(r: ExecutionRequest, previous: ExecutionResult): Promise<boolean> {
+  async restart(r: ExecutionRequest, previous: ExecutionResult, bindingHash: string): Promise<boolean> {
     const id = executionJobId(r.idempotencyKey);
     const now = new Date().toISOString();
+    // One conditional write reopens the row AND replaces the previous attempt's identity (execution id, worktree, the
+    // runner host and pid, no stale CLI pid), so the reaper can never judge this attempt by the last one's processes.
+    const input = this.attemptInput(r, bindingHash);
     const up = await this.db.updateJobIf(id, { status: jobStatusFor(previous.status), updated_at: null }, {
-      status: "running", started_at: now, updated_at: now, finished_at: null, error: null, result: null, progress: `retry after ${previous.status}`,
+      status: "running", started_at: now, updated_at: now, finished_at: null, error: null, result: null, progress: `retry after ${previous.status}`, input,
     });
     if (up.error) throw new Error(`retry could not be recorded: ${up.error}`);
     if (!up.updated) return false;
     const ev = await this.db.insertEvent({ job_id: id, kind: "retry", detail: { previous: previous.status, code: previous.failure?.code ?? null, at: now } });
     if (ev.error) throw new Error(`retry event could not be recorded: ${ev.error}`);
-    this.inputs.set(id, (await this.db.getJob(id)).row?.input ?? {});
+    this.inputs.set(id, input);
     return true;
   }
   async recordProcess(r: ExecutionRequest, cliPid: number): Promise<void> {
@@ -157,13 +171,32 @@ export class JobsExecutionStore implements ExecutionStore {
     if (up.error) throw new Error(`heartbeat failed: ${up.error}`);
   }
   async cancelRequested(r: ExecutionRequest): Promise<boolean> {
-    const ev = await this.db.hasEvent(executionJobId(r.idempotencyKey), "cancel_requested");
+    // Only a cancel that names THIS attempt's execution id: a cancel aimed at an earlier attempt (even one written after
+    // a retry began) never stops a retry the founder approved.
+    const ev = await this.db.hasEvent(executionJobId(r.idempotencyKey), "cancel_requested", r.executionId);
     if (ev.error) throw new Error(`cancel check failed: ${ev.error}`);
     return ev.found;
   }
+  /**
+   * Founder cancel by jobs row id (the cancel route). Only a running M6 execution can be canceled; anything else is a
+   * plain answer, never a silent no-op. The running executor stops at its next heartbeat; a run whose executor died
+   * is stopped by the reaper's orphan pass.
+   */
+  async requestCancelJob(jobId: string, founderUid: string): Promise<{ ok: true } | { ok: false; code: "not_found" | "not_running" | "store_error"; message: string }> {
+    const cur = await this.db.getJob(jobId);
+    if (cur.error) return { ok: false, code: "store_error", message: `The execution record could not be read: ${cur.error}` };
+    const input = cur.row?.input ?? null;
+    if (!cur.row || cur.row.source !== EXECUTOR_SOURCE || typeof input?.executionId !== "string" || typeof input?.bindingHash !== "string") return { ok: false, code: "not_found", message: "No such execution." };
+    if (cur.row.status !== "running") return { ok: false, code: "not_running", message: `This execution is already ${cur.row.status}.` };
+    // Bound to the attempt the founder was looking at: if it finishes and a retry starts before this write, the retry
+    // (a different execution id) ignores it.
+    const ev = await this.db.insertEvent({ job_id: jobId, kind: "cancel_requested", detail: { by: founderUid, executionId: input.executionId, at: new Date().toISOString() } });
+    if (ev.error) return { ok: false, code: "store_error", message: `The cancel could not be recorded: ${ev.error}` };
+    return { ok: true };
+  }
   /** The founder asks to cancel (called from a founder-authenticated surface). The running executor stops at its next heartbeat. */
-  async requestCancel(idempotencyKey: string, founderUid: string): Promise<void> {
-    const ev = await this.db.insertEvent({ job_id: executionJobId(idempotencyKey), kind: "cancel_requested", detail: { by: founderUid, at: new Date().toISOString() } });
+  async requestCancel(idempotencyKey: string, founderUid: string, executionId: string): Promise<void> {
+    const ev = await this.db.insertEvent({ job_id: executionJobId(idempotencyKey), kind: "cancel_requested", detail: { by: founderUid, executionId, at: new Date().toISOString() } });
     if (ev.error) throw new Error(`cancel could not be recorded: ${ev.error}`);
   }
 }

@@ -198,6 +198,26 @@ describe("M6 executor: red team, a model that ignores its permissions is caught 
     expect(alive(Number(readFileSync(child, "utf8")))).toBe(false);
   }, 30_000);
 
+  it("a read-only run that is canceled or times out leaves no worktree or branch behind (M6F); an L2 one keeps its worktree", async () => {
+    const t = request({ capability: "L1", limits: { timeoutMs: 1200, maxTurns: 5, maxBudgetUsd: null }, plan: { actions: [{ sleep: 60_000 }] } });
+    const timed = await run(t);
+    expect(timed.status).toBe("timed_out");
+    expect([timed.worktree, timed.branch]).toEqual([null, null]);
+    expect(existsSync(join(root, "exec", "mettle", t.executionId))).toBe(false);
+    const ac = new AbortController();
+    setTimeout(() => ac.abort(), 800);
+    const c = request({ capability: "L0", plan: { actions: [{ sleep: 60_000 }] } });
+    const canceled = await run(c, deps({ signal: ac.signal }));
+    expect(canceled.status).toBe("canceled");
+    expect([canceled.worktree, canceled.branch]).toEqual([null, null]);
+    expect(g(repo, "for-each-ref", "--format=%(refname)", "refs/heads/parallax-exec/")).toBe("");
+    const ac2 = new AbortController();
+    setTimeout(() => ac2.abort(), 800);
+    const l2 = await run(request({ capability: "L2", plan: { actions: [{ sleep: 60_000 }] } }), deps({ signal: ac2.signal }));
+    expect(l2.status).toBe("canceled");
+    expect(l2.worktree).not.toBeNull();   // L2 work is never discarded automatically
+  }, 30_000);
+
   it("cancel stops the CLI and everything it started", async () => {
     const child = join(root, "child.pid");
     const ac = new AbortController();
@@ -317,12 +337,28 @@ describe("M6B: executor with the jobs store (heartbeat, founder cancel)", () => 
     const m = memoryJobsDb();
     const store = new JobsExecutionStore(m.db);
     const r = request({ plan: { actions: [{ sleep: 60_000 }] } });
-    setTimeout(() => { void store.requestCancel(r.idempotencyKey, OWNER); }, 600);
+    setTimeout(() => { void store.requestCancel(r.idempotencyKey, OWNER, r.executionId); }, 600);
     const res = await run(r, deps({ store, heartbeatMs: 200 }));
     expect(res.status).toBe("canceled");
     const row = m.jobs.get(executionJobId(r.idempotencyKey))!;
     expect(row.status).toBe("canceled");
     expect(m.events.map((e) => e.kind)).toEqual(expect.arrayContaining(["cancel_requested", "execution_result"]));
+  }, 30_000);
+});
+
+describe("M6F: a founder cancel applies to the attempt it was made against (PR #55 review P2)", () => {
+  it("a retry under the same approval after a cancel runs; it is not canceled by the old request", async () => {
+    const { JobsExecutionStore } = await import("./store");
+    const { memoryJobsDb } = await import("./__fixtures__/memory-jobs-db");
+    const m = memoryJobsDb();
+    const store = new JobsExecutionStore(m.db);
+    const r = request({ plan: { actions: [{ sleep: 1500 }] } });
+    setTimeout(() => { void store.requestCancelJob(executionJobId(r.idempotencyKey), OWNER); }, 500);
+    expect((await run(r, deps({ store, heartbeatMs: 150 }))).status).toBe("canceled");
+    await new Promise((res) => setTimeout(res, 20));
+    const again = await run({ ...r, executionId: uuid() }, deps({ store, heartbeatMs: 150 }));
+    expect(again.status).toBe("succeeded");
+    expect(m.events.map((e) => e.kind)).toEqual(["cancel_requested", "execution_result", "retry", "execution_result"]);
   }, 30_000);
 });
 

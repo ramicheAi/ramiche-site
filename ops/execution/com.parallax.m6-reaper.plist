@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- P06 M6F: the execution reaper, every 2 minutes, in the founder's GUI session (gui/501) on the execution host.
+     PREPARED, NOT LOADED. Load only at activation (docs/p06/M6F-ACTIVATION-RUNBOOK.md):
+       sed "s#__RELEASE_DIR__#/Users/admin/cockpit-releases/<release>#" ops/execution/com.parallax.m6-reaper.plist > ~/Library/LaunchAgents/com.parallax.m6-reaper.plist
+       launchctl bootstrap gui/501 ~/Library/LaunchAgents/com.parallax.m6-reaper.plist
+     launchd never starts a second copy while one runs; concurrent passes are safe anyway (conditional updates). -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.parallax.m6-reaper</string>
+  <key>WorkingDirectory</key><string>__RELEASE_DIR__</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/node</string>
+    <string>--experimental-strip-types</string>
+    <string>--no-warnings</string>
+    <string>scripts/m6-reap.mjs</string>
+    <string>--env-file</string>
+    <string>.env.production.local</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>HOME</key><string>/Users/admin</string>
+  </dict>
+  <key>StartInterval</key><integer>120</integer>
+  <key>RunAtLoad</key><true/>
+  <key>StandardOutPath</key><string>/Users/admin/Library/Logs/parallax/m6-reaper.log</string>
+  <key>StandardErrorPath</key><string>/Users/admin/Library/Logs/parallax/m6-reaper.log</string>
+</dict>
+</plist>

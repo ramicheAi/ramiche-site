@@ -13,7 +13,8 @@ import { verifyApproval, type Approval } from "./approval";
 import { runClaudeCode, type ClaudeRunOutcome } from "./claude-code";
 import { bindingHash, capabilityRank, EXECUTABLE_CAPABILITIES, invalidRequest, nextStepAfter, type ExecutionRequest, type ExecutionResult, type ExecutionStatus } from "./contract";
 import { changedFiles, checkoutSnapshot, commonGitDir, git, gitDirSnapshot, isAncestor, refsSnapshot, remoteBranchTip, revParse, unsafeGitConfig } from "./git";
-import { surfaceAllowed, type Surface } from "./policy";
+import { dispatchHalted } from "./halt";
+import { surfaceAllowed, withinCeiling, type Surface } from "./policy";
 import { bySlug, originOf, REPO_REGISTRY, type RepoEntry } from "./projects";
 import { executionJobId, type ExecutionStore } from "./store";
 
@@ -139,6 +140,7 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
   const now = deps.now ?? Date.now;
   const gate = surfaceAllowed(deps.surface);
   if (!gate.ok) return reject(req, now(), gate.code, gate.message);
+  if (deps.surface === "production" && dispatchHalted()) return reject(req, now(), "execution_halted", "Execution is halted on the execution host. Nothing was run.");
   const problems = invalidRequest(req);
   if (problems.length) return reject(req, now(), "contract_invalid", `The execution request is invalid: ${problems.join(/*turbopackIgnore: true*/ "; ")}.`);
   if (req.founder.uid !== deps.ownerUid) return reject(req, now(), "not_founder", "Only the founder can request an execution.");
@@ -147,6 +149,9 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
   if (!EXECUTABLE_CAPABILITIES.includes(req.capability)) {
     return reject(req, now(), "capability_unavailable", `${req.capability} runs the repository's own code and needs an OS sandbox that is not built yet. Nothing was run; approve up to L2 (modify locally).`);
   }
+  // Defense in depth behind prepare: the surface's capability ceiling (production phase 1: L0/L1), before anything is
+  // read, recorded or run.
+  if (!withinCeiling(deps.surface, req.capability)) return reject(req, now(), "capability_not_enabled", `${req.capability} is not enabled on this surface. Nothing was run.`);
 
   // Every check that can fail for a transient reason runs BEFORE the record exists, so a refusal never uses up the
   // idempotency key (PR #52 red team): only a real start is recorded.
@@ -192,7 +197,7 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
     const retryable = RETRYABLE.has(begun.result.status) && begun.result.failure?.code !== "abandoned" && !!deps.store.restart;
     if (!retryable) return begun.result;
     let restarted = false;
-    try { restarted = await deps.store.restart!(req, begun.result); } catch { /* treated as not restarted */ }
+    try { restarted = await deps.store.restart!(req, begun.result, hash); } catch { /* treated as not restarted */ }
     if (!restarted) return reject(req, now(), "in_progress", "This execution is already being retried.");
   }
 
@@ -277,8 +282,10 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
     usage: { promptTokens: run.inputTokens ?? undefined, completionTokens: run.outputTokens ?? undefined },
   };
   try { await (deps.telemetry ?? recordExecution)(facts); } catch { /* telemetry never changes a result */ }
-  // A clean read-only run leaves nothing to review: remove its worktree and branch so checkouts do not pile up.
-  if (status === "succeeded" && capabilityRank(req.capability) <= capabilityRank("L1") && files.length === 0) {
+  // A clean read-only run leaves nothing to review: remove its worktree and branch so checkouts do not pile up. That
+  // includes a read-only run that was canceled or timed out (its process group is already gone); a boundary violation
+  // or a failure keeps its worktree for review.
+  if ((status === "succeeded" || status === "canceled" || status === "timed_out") && capabilityRank(req.capability) <= capabilityRank("L1") && files.length === 0) {
     const rm = await git(repo, ["worktree", "remove", "--force", worktree]);
     const del = rm.ok ? await git(repo, ["branch", "-D", branch]) : rm;
     if (rm.ok && del.ok) { result.worktree = null; result.branch = null; } else result.warnings.push("the read-only worktree could not be removed");

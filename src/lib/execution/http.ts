@@ -14,19 +14,20 @@ import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { noStoreJson } from "@/lib/server/cockpit-chat-data";
 import { git, remoteBranchTip } from "./git";
 import { originOf, type RepoEntry } from "./projects";
+import { dispatchHalted } from "./halt";
 import { executionAvailable, type Choices } from "./service";
 import { CAPABILITIES, type Capability } from "./contract";
 
 export const executionRoots = (): string[] => (process.env.CC_EXECUTION_ROOTS ?? homedir()).split(",").map((s) => s.trim()).filter(Boolean);
 
 /** The remote tip of a branch, read through a verified local checkout of the project (null when there is none). */
-export function checkoutRemoteTip(roots: string[]) {
+export function checkoutRemoteTip(roots: string[], timeoutMs?: number) {
   return async (entry: RepoEntry & { origin: string }, branch: string): Promise<string | null> => {
     for (const root of roots) for (const dir of entry.checkouts) {
       const p = join(/*turbopackIgnore: true*/ root, dir);
       if (!existsSync(join(/*turbopackIgnore: true*/ p, ".git"))) continue;
       const remote = await git(p, ["remote", "get-url", "origin"]);
-      if (remote.ok && originOf(remote.out)?.toLowerCase() === entry.origin.toLowerCase()) return remoteBranchTip(p, branch);
+      if (remote.ok && originOf(remote.out)?.toLowerCase() === entry.origin.toLowerCase()) return remoteBranchTip(p, branch, timeoutMs);
     }
     return null;
   };
@@ -40,11 +41,12 @@ export function choicesFrom(body: Record<string, unknown>): Choices | NextRespon
   return c;
 }
 const bad = (message: string) => noStoreJson({ data: null, error: { code: "invalid", message } }, 400);
+const halted = () => noStoreJson({ data: null, error: { code: "execution_halted", message: "Execution is halted on the execution host. Nothing was run." } }, 403);
 const disabled = () => noStoreJson({ data: null, error: { code: "production_dispatch_disabled", message: "Execution from Universal Command is not enabled yet. Nothing was run." } }, 403);
 
 /** Shared front half of both routes, after the route's own owner guard: gate, body, the founder's shadow record. */
 export async function executionRequestContext(req: Request, guard: Extract<Awaited<ReturnType<typeof guardProtectedMutation>>, { ok: true }>) {
-  if (!executionAvailable()) return { ok: false as const, response: disabled() };
+  if (!executionAvailable()) return { ok: false as const, response: dispatchHalted() ? halted() : disabled() };
   const c = commandContext(guard);
   if (!c.ok) return { ok: false as const, response: c.response };
   const body = await jsonObject(req);

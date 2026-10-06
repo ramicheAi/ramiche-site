@@ -15,8 +15,9 @@ import { randomUUID } from "node:crypto";
 import { approve, approvalKey as defaultKey } from "./approval";
 import { bindingHash, CAPABILITIES, CAPABILITY_META, capabilityRank, EXECUTABLE_CAPABILITIES, type Capability, type ExecutionRequest, type ExecutionResult } from "./contract";
 import { runExecution, type ExecutionDeps } from "./executor";
+import { dispatchHalted } from "./halt";
 import { missionSuggestion, type MissionSuggestion } from "./mission";
-import { PRODUCTION_DISPATCH_ENABLED, surfaceAllowed } from "./policy";
+import { capabilityCeiling, PRODUCTION_DISPATCH_ENABLED, surfaceAllowed, withinCeiling, type Surface } from "./policy";
 import { bySlug, projectName, resolveProject, REPO_REGISTRY, type RepoEntry } from "./projects";
 import type { ShadowRecord } from "@/lib/command/types";
 
@@ -32,6 +33,8 @@ export interface PrepareDeps {
   registry?: readonly RepoEntry[];
   now?: () => number;
   limits?: ExecutionRequest["limits"];
+  /** Which ceiling applies (production: L0/L1 in phase 1). Defaults to production, the stricter one. */
+  surface?: Surface;
 }
 
 const DEFAULT_LIMITS: ExecutionRequest["limits"] = { timeoutMs: 30 * 60_000, maxTurns: 60, maxBudgetUsd: null };
@@ -57,10 +60,16 @@ export async function prepareExecution(input: { record: ShadowRecord; founderUid
 
   // Capability: what the decision implies, narrowed (never widened) by the founder, never above what can execute.
   const implied = impliedCapability(record.decision);
-  const asked = choices.capability ?? implied;
+  // Above the surface's ceiling, a command is narrowed to read-only (never widened) and the founder sees that before
+  // approving; an explicit choice above the ceiling is refused. Narrowing only ever removes power.
+  const surface = deps.surface ?? "production";
+  const ceiling = capabilityCeiling(surface);
+  const narrowed = choices.capability === undefined && !withinCeiling(surface, implied) && capabilityRank(implied) <= capabilityRank("L2");
+  const asked = choices.capability ?? (narrowed ? ceiling : implied);
   if (!CAPABILITIES.includes(asked)) return { ok: false, code: "capability_invalid", message: "Unknown capability." };
   if (capabilityRank(asked) > capabilityRank(implied)) return { ok: false, code: "capability_widened", message: `This command implies ${implied}; it cannot be approved at ${asked}.` };
   if (!EXECUTABLE_CAPABILITIES.includes(asked)) return { ok: false, code: "capability_unavailable", message: `${asked} needs an OS sandbox that is not enabled yet.` };
+  if (!withinCeiling(surface, asked)) return { ok: false, code: "capability_not_enabled", message: `${CAPABILITY_META[asked].label} is not enabled yet. Parallax can only inspect and analyze for now.` };
 
   const registry = deps.registry ?? REPO_REGISTRY;
   const resolved = choices.project ? bySlug(choices.project, registry) : resolveProject(record.command, registry);
@@ -81,7 +90,7 @@ export async function prepareExecution(input: { record: ShadowRecord; founderUid
   const name = resolved.name;
   return {
     ok: true, request, bindingHash: bindingHash(request), projectName: name,
-    sentence: `Claude Code wants to ${CAPABILITY_META[asked].verb} ${name}${capabilityRank(asked) >= capabilityRank("L2") ? " locally" : ""}.`,
+    sentence: `Claude Code wants to ${CAPABILITY_META[asked].verb} ${name}${capabilityRank(asked) >= capabilityRank("L2") ? " locally" : ""}${narrowed ? " (read only: changing files is not enabled yet)" : ""}.`,
     details: {
       Executor: "Claude Code", Project: name, Repository: resolved.entry.origin, Branch: branch, Head: head.slice(0, 7),
       Capability: `${asked} (${CAPABILITY_META[asked].label})`, Task: record.command, "Never allowed": "push, pull request, merge, deploy, migration, credentials, external messages, payments, production changes",
@@ -105,6 +114,7 @@ export async function approveExecution(input: { record: ShadowRecord; founderUid
   // The production gate answers first, before any derivation, remote read or store write.
   const gate = surfaceAllowed(deps.surface);
   if (!gate.ok) return gate;
+  if (deps.surface === "production" && dispatchHalted()) return { ok: false, code: "execution_halted", message: "Execution is halted on the execution host. Nothing was run." };
   if (input.founderUid !== deps.ownerUid) return { ok: false, code: "not_founder", message: "Only the founder can approve an execution." };
   if (typeof input.seenBindingHash !== "string" || !/^[0-9a-f]{64}$/.test(input.seenBindingHash)) return { ok: false, code: "approval_invalid", message: "Missing the approval you were shown." };
 
@@ -121,6 +131,6 @@ export async function approveExecution(input: { record: ShadowRecord; founderUid
 }
 
 /** Whether the cockpit should offer execution at all (the UI hides it otherwise). */
-export const executionAvailable = (): boolean => PRODUCTION_DISPATCH_ENABLED && surfaceAllowed("production").ok;
+export const executionAvailable = (): boolean => PRODUCTION_DISPATCH_ENABLED && surfaceAllowed("production").ok && !dispatchHalted();
 
 export { projectName };

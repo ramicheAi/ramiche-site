@@ -37,7 +37,7 @@ describe("jobs store: identity, heartbeat and founder cancel", () => {
     await s.heartbeat(req());
     expect(jobs.get(id)!.updated_at).not.toBe("2026-10-06T03:00:00.000Z");
     expect(await s.cancelRequested(req())).toBe(false);
-    await s.requestCancel("idem-persist-1", "owner");
+    await s.requestCancel("idem-persist-1", "owner", req().executionId);
     expect(await s.cancelRequested(req())).toBe(true);
     expect(events).toContainEqual(expect.objectContaining({ job_id: id, kind: "cancel_requested", detail: expect.objectContaining({ by: "owner" }) }));
     jobs.get(id)!.status = "done";
@@ -52,7 +52,7 @@ describe("jobs store: identity, heartbeat and founder cancel", () => {
     m.fail.updateJobIf = "down"; m.fail.hasEvent = "down"; m.fail.insertEvent = "down";
     await expect(s.heartbeat(req())).rejects.toThrow(/heartbeat failed/);
     await expect(s.cancelRequested(req())).rejects.toThrow(/cancel check failed/);
-    await expect(s.requestCancel("k", "owner")).rejects.toThrow(/could not be recorded/);
+    await expect(s.requestCancel("k", "owner", "e")).rejects.toThrow(/could not be recorded/);
   });
 });
 
@@ -135,7 +135,7 @@ describe("supabase JobsDb adapter: exact queries on the existing tables", () => 
   function client(result: { data?: unknown; error?: unknown }) {
     const calls: unknown[][] = [];
     const chain: Record<string, (...a: unknown[]) => unknown> = {};
-    for (const m of ["from", "insert", "update", "select", "eq", "order", "limit", "maybeSingle"]) chain[m] = (...a: unknown[]) => { calls.push([m, ...a]); return chain; };
+    for (const m of ["from", "insert", "update", "select", "eq", "gte", "order", "limit", "maybeSingle"]) chain[m] = (...a: unknown[]) => { calls.push([m, ...a]); return chain; };
     (chain as { then?: unknown }).then = (res: (v: unknown) => unknown) => res(result);
     return { db: chain as never, calls };
   }
@@ -147,6 +147,11 @@ describe("supabase JobsDb adapter: exact queries on the existing tables", () => 
     expect(await supabaseJobsDb(dup.db).insertJob({ id: "x" })).toEqual({ conflict: true, error: null });
     const zero = client({ data: [], error: null });
     expect((await supabaseJobsDb(zero.db).updateJobIf("j1", { status: "running", updated_at: null }, {})).updated).toBe(false);
+  });
+  it("a cancel check matches the attempt's execution id (PR #55 Codex P2 on 262c477)", async () => {
+    const c = client({ data: [], error: null });
+    await supabaseJobsDb(c.db).hasEvent("j1", "cancel_requested", "00000000-0000-4000-8000-0000000000b2");
+    expect(c.calls).toEqual([["from", "job_events"], ["select", "id"], ["eq", "job_id", "j1"], ["eq", "kind", "cancel_requested"], ["eq", "detail->>executionId", "00000000-0000-4000-8000-0000000000b2"], ["limit", 1]]);
   });
   it("lists only running executor jobs", async () => {
     const c = client({ data: [], error: null });

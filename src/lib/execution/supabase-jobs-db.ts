@@ -16,13 +16,13 @@ export function supabaseJobsDb(db: SupabaseClient): JobsDb {
       return { conflict: false, error: msg(error) };
     },
     async getJob(id) {
-      const job = await db.from("jobs").select("input, status, error").eq("id", id).maybeSingle();
+      const job = await db.from("jobs").select("input, status, error, source").eq("id", id).maybeSingle();
       if (job.error) return { row: null, error: msg(job.error) };
       if (!job.data) return { row: null, error: null };
       const ev = await db.from("job_events").select("detail").eq("job_id", id).eq("kind", "execution_result").order("created_at", { ascending: false }).limit(1);
       if (ev.error) return { row: null, error: msg(ev.error) };
       return {
-        row: { input: (job.data.input as Record<string, unknown>) ?? null, status: String(job.data.status), error: (job.data.error as string | null) ?? null, resultEvent: ((ev.data?.[0]?.detail as ExecutionResult | undefined) ?? null) },
+        row: { input: (job.data.input as Record<string, unknown>) ?? null, status: String(job.data.status), error: (job.data.error as string | null) ?? null, source: (job.data.source as string | null) ?? null, resultEvent: ((ev.data?.[0]?.detail as ExecutionResult | undefined) ?? null) },
         error: null,
       };
     },
@@ -40,8 +40,10 @@ export function supabaseJobsDb(db: SupabaseClient): JobsDb {
       const { data, error } = await q.select("id");
       return { updated: !error && Array.isArray(data) && data.length === 1, error: msg(error) };
     },
-    async hasEvent(jobId, kind) {
-      const { data, error } = await db.from("job_events").select("id").eq("job_id", jobId).eq("kind", kind).limit(1);
+    async hasEvent(jobId, kind, executionId) {
+      let q = db.from("job_events").select("id").eq("job_id", jobId).eq("kind", kind);
+      if (executionId) q = q.eq("detail->>executionId", executionId);
+      const { data, error } = await q.limit(1);
       return { found: !error && Array.isArray(data) && data.length > 0, error: msg(error) };
     },
     async listRunning(source) {

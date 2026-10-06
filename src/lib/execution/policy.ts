@@ -18,6 +18,15 @@ import type { Capability } from "./contract-core";
 export const PRODUCTION_DISPATCH_ENABLED = false as const;
 
 export type Surface = "production" | "harness";
+
+const RANK: Record<Capability, number> = { L0: 0, L1: 1, L2: 2, L3: 3, L4: 4 };
+/** Phase 1 production execution (M6F, prepared; inert while PRODUCTION_DISPATCH_ENABLED is false): read-only work
+ *  only, L0 inspect and L1 analyze. L2 and above stay off in production until each is proven on its own; the harness
+ *  may run L2. A constant, like the dispatch switch, so no environment change can raise it. */
+export const PRODUCTION_MAX_CAPABILITY = "L1" as const satisfies Capability;
+export const HARNESS_MAX_CAPABILITY = "L2" as const satisfies Capability;
+export const capabilityCeiling = (surface: Surface): Capability => (surface === "production" ? PRODUCTION_MAX_CAPABILITY : HARNESS_MAX_CAPABILITY);
+export const withinCeiling = (surface: Surface, c: Capability): boolean => RANK[c] <= RANK[capabilityCeiling(surface)];
 type Env = Record<string, string | undefined>;
 
 /** Production dispatch is off, and the cockpit deployment (NEXT_DIST_DIR=.next-cc) never runs the executor at all. */
