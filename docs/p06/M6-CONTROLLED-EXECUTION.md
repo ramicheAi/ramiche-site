@@ -11,7 +11,7 @@ the executor in production.
 |---|---|
 | `jobs` / `job_events` (status `queued, running, done, failed, canceled`) | the execution record (`JobsExecutionStore`): one jobs row per idempotency key, kind `dev`, agent `claude-code`, source `m6-executor`; the structured result as a `job_events` detail. No migration. |
 | `execution_events` + `recordExecution` | telemetry: provider `claude-max`, purpose `job`, correlation `job` (the jobs row id), billing `subscription`, unknown kept NULL |
-| `PROJECTS` (shared-projects.ts) | canonical project identity; the M6 registry only adds the repository, keyed by the same slugs (a test fails on drift) |
+| `PROJECTS` (shared-projects.ts) | canonical project identity; the M6 registry only adds the repository, keyed by the same slugs. A slug must be in `PROJECTS` or listed explicitly in `REGISTRY_ONLY_PROJECTS` (a test fails otherwise) |
 | `CC_BUILDER_ROOTS` allowlist idea | `roots`: checkouts are only used from configured directories |
 | `PARALLAX_CSRF_SECRET` | the approval key is derived from it with a fixed label (no new secret) |
 | M5 router (`NEEDS_FOUNDER`, `missionRecommended`) and the Mission API (`job` link type, evidence) | approval policy input and Mission suggestion; the executor never writes Missions |
@@ -118,8 +118,12 @@ The executor refuses in these cases:
   - Command Center / Parallax OS: `ramicheAi/ramiche-site`
 - **Resolution asks rather than guesses** when no project or more than one is named.
 - **Open questions for Ramon:**
-  - "Parallax site" is unsettled. The public site is served from `ramicheAi/parallax-site`, while the Parallax project points at the ramiche-site homepage, so it asks which.
-  - RAMICHE OS has no canonical project and no repository on the execution host, so it asks.
+  - **Resolved 2026-10-06 (PR #51, repositories verified):**
+    - the Parallax website (parallaxvinc.com) is `ramicheAi/parallax-site` (`~/parallax-site`)
+    - Parallax OS / Command Center is `ramicheAi/ramiche-site`
+    - RAMICHE OS is private `ramicheAi/ramiche-os` (`~/repos/ramiche-os`), a registry-only project
+  - Bare "Parallax" still asks.
+  - A project without a verified local checkout fails closed with "NO VERIFIED LOCAL CHECKOUT".
 
 ## Mission integration (`mission.ts`)
 

@@ -3,7 +3,8 @@
  *
  * Project identity stays canonical in PROJECTS (shared-projects.ts): this file adds only what an executor needs that
  * PROJECTS does not hold, keyed by the same slugs: the repository (owner/repo) and where checkouts of it may live on an
- * execution host. A slug here that is not in PROJECTS fails a test, so the two cannot drift apart.
+ * execution host. A slug here must be in PROJECTS or named explicitly in REGISTRY_ONLY_PROJECTS (a test enforces it),
+ * so the registry cannot invent a project.
  *
  * Resolution never guesses. A command naming no project, or more than one, or a project whose repository is not
  * settled, gets a question back instead of a repository.
