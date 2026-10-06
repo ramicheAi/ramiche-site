@@ -167,6 +167,11 @@ describe("PR #52 red team regressions: a poisoned checkout never executes in a l
     expect(unsafeGitConfig(common)).toEqual(['filter."lfs".clean']);
     write(`[include]\n\tpath = ../../evil.cfg\n[diff "x"]\n\ttextconv = cat\n[merge "y"]\n\tdriver = sh\n[credential]\n\thelper = !evil\n[includeIf "gitdir:/"]\n\tpath = z\n`);
     expect(unsafeGitConfig(common)).toEqual(["include.path", 'diff."x".textconv', 'merge."y".driver', "credential.helper", 'includeif."gitdir:/".path']);
+    // R4: git accepts a key on the header's line and continuation lines; both are refused, never half-parsed.
+    for (const sneaky of [`[filter "pw"] clean = touch /tmp/x\n`, `[filter "pw"]clean=touch /tmp/x\n`, `[include] path = evil.cfg\n`, `[filter "lfs"]\n\tclean = git-lfs clean -- %f \\\n\t; touch /tmp/x\n`]) {
+      write(sneaky);
+      expect(unsafeGitConfig(common).length, sneaky).toBeGreaterThan(0);
+    }
   });
 });
 

@@ -116,10 +116,16 @@ export function unsafeGitConfig(common: string): string[] {
       // an allowed value.
       const line = raw.trim();
       if (!line || line.startsWith("#") || line.startsWith(";")) continue;
-      const head = line.match(/^\[\s*([A-Za-z0-9.-]+)(?:\s+"([^"]*)")?\s*\]/);
-      if (head) { section = (head[1] + (head[2] !== undefined ? `."${head[2]}"` : "")).toLowerCase(); continue; }
+      // Fail closed: a line must be exactly a lone section header or a plain key/value. git also accepts a key on the
+      // header's line ("[filter "x"] clean = ...") and continuation lines; both are refused, never half-parsed.
+      if (line.startsWith("[")) {
+        const head = line.match(/^\[\s*([A-Za-z0-9.-]+)(?:\s+"([^"\\]*)")?\s*\]$/);
+        if (!head) { found.push(`unreadable line in ${f}`); continue; }
+        section = (head[1] + (head[2] !== undefined ? `."${head[2]}"` : "")).toLowerCase();
+        continue;
+      }
       const kv = line.match(/^([A-Za-z][A-Za-z0-9-]*)\s*(?:=\s*(.*))?$/);
-      if (!kv) { found.push(`unreadable line in ${f}`); continue; }
+      if (!kv || /\\$/.test(line)) { found.push(`unreadable line in ${f}`); continue; }
       const key = kv[1].toLowerCase(), value = (kv[2] ?? "").replace(/^"|"$/g, "").trim();
       const sec = section.split(".")[0];
       const name = `${section}.${key}`;
