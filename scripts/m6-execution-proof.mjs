@@ -61,6 +61,7 @@ const deps = {
   surface: "harness", ownerUid: OWNER, approvalKey: key, roots: [join(dir, "checkouts")], execRoot: join(dir, "exec"), store: new MemoryExecutionStore(),
   claudeBin: arg("--claude", "claude"), model: arg("--model", "haiku"), registry, telemetry: async (f) => { telemetry.push(f); },
   remoteTip: async (_repo, branch) => { try { return g(bare, "rev-parse", "--verify", `refs/heads/${branch}`); } catch { return null; } },
+  minFreeBytes: 512 * 1024 ** 2,   // the throwaway sandbox repository needs kilobytes, not the 4 GB checkout floor
 };
 const request = (capability, instruction, over = {}) => ({
   executionId: randomUUID(), commandId: null, missionId: null, founder: { uid: OWNER }, executor: "claude_code", project: { slug: "command-center" },
