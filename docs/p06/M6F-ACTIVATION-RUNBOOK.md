@@ -83,7 +83,9 @@ Daily: health headline; failed runs (degraded at 3 a day); stuck runs (any is a 
    timeout. If the cockpit itself was restarted, the reaper's orphan pass stops the run's whole process group when it can
    prove the CLI is that run's (own process group, the Claude binary, its worktree as working directory): SIGTERM, a
    5 second wait, SIGKILL if any member survives, then it confirms the group is empty before the row is failed. A group
-   that cannot be stopped or proven is reported (health Degraded) and its row is never made terminal.
+   that cannot be stopped or proven is reported (health Degraded) and its row is never made terminal. A group whose CLI
+   already exited is never signaled automatically (its identity cannot be proven once the CLI is gone): a person checks
+   it with `ps -A -o pid,pgid,lstart,args` and stops it by hand.
 3. Restore the previous cockpit release: repoint `com.command-center` to the previous `cockpit-releases/<sha>` and
    kickstart. (Rehearsed 2026-10-06: release 9ecae340 boots in 6 s and serves `/api/health` 200 on a side port.)
 4. Turn dispatch off in code (revert the ACTIVATE commit) in the next release; then remove HALT if wanted.

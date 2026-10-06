@@ -150,3 +150,53 @@ describe("P2: orphan shutdown escalates and never leaves a terminal row with a l
     expect(m.jobs.get(id)!.status).toBe("running");
   }, 20_000);
 });
+
+describe("leaderless groups are never signaled across passes (independent review + Codex on d747933)", () => {
+  it("after a confirmed stop, a reused pid's leaderless group is never killed", async () => {
+    const m = memoryJobsDb();
+    const cwd = join(execRoot, "mettle", A);
+    mkdirSync(cwd, { recursive: true });
+    const cli = spawn(bin, ["300"], { cwd, detached: true, stdio: "ignore" });
+    kids.push(cli);
+    await new Promise((r) => setTimeout(r, 200));
+    const id = executionJobId("m6f-reuse-key");
+    const fresh = new Date().toISOString();   // fresh heartbeat: pass 1 stops the group but does not reap the row
+    m.jobs.set(id, { id, status: "running", source: "m6-executor", started_at: fresh, updated_at: fresh, input: { executionId: A, project: "mettle", limits: { timeoutMs: 30 * 60_000 }, runner: { host: hostname(), pid: await deadPid(), cliPid: cli.pid } } });
+    const one = await pass(m);
+    expect(one).toMatchObject({ stopped: 1, reaped: 0 });
+    expect(m.jobs.get(id)!.status).toBe("running");
+    // Pass 2: the pid now names someone else's group whose leader exited (simulated: leader dead, group alive).
+    const kills: [number, string][] = [];
+    const two = await pass(m, { isAlive: (p: number) => (p === cli.pid ? false : processAlive(p)), isGroupAlive: (g: number) => g === cli.pid, kill: (p: number, s: string) => { kills.push([p, s]); } });
+    expect(kills).toEqual([]);
+    expect(two.ok).toBe(false);   // reported for a person, never killed
+    expect(m.events.map((e) => e.kind)).toEqual(["orphan_stop", "orphan_stopped"]);
+  }, 20_000);
+
+  it("a leaderless group is not signaled even with an earlier unconfirmed orphan_stop for the same CLI (PR #55 Codex, d747933)", async () => {
+    const m = memoryJobsDb();
+    const id = executionJobId("m6f-proven-key");
+    const old = new Date(Date.now() - HEARTBEAT_STALE_MS - 60_000).toISOString();
+    const leader = 2 ** 22 + 777;
+    m.jobs.set(id, { id, status: "running", source: "m6-executor", started_at: old, updated_at: old, input: { executionId: A, project: "mettle", limits: { timeoutMs: 30 * 60_000 }, runner: { host: hostname(), pid: await deadPid(), cliPid: leader } } });
+    m.events.push({ job_id: id, kind: "orphan_stop", detail: { cliPid: leader, signal: "SIGTERM", at: old } });   // a pass that died after SIGTERM
+    const kills: [number, string][] = [];
+    const out = await pass(m, { isAlive: (p: number) => (p === leader ? false : processAlive(p)), isGroupAlive: (g: number) => g === leader, kill: (p: number, s: string) => { kills.push([p, s]); } });
+    expect(kills).toEqual([]);
+    expect(out).toMatchObject({ ok: false, reaped: 0, unstopped: 1 });
+    expect(m.jobs.get(id)!.status).toBe("running");
+  }, 20_000);
+
+  it("a proof recorded for a different CLI pid is not proof", async () => {
+    const m = memoryJobsDb();
+    const id = executionJobId("m6f-otherpid-key");
+    const old = new Date(Date.now() - HEARTBEAT_STALE_MS - 60_000).toISOString();
+    const leader = 2 ** 22 + 778;
+    m.jobs.set(id, { id, status: "running", source: "m6-executor", started_at: old, updated_at: old, input: { executionId: A, project: "mettle", limits: { timeoutMs: 30 * 60_000 }, runner: { host: hostname(), pid: await deadPid(), cliPid: leader } } });
+    m.events.push({ job_id: id, kind: "orphan_stop", detail: { cliPid: leader + 1, signal: "SIGTERM", at: old } });
+    const kills: [number, string][] = [];
+    const out = await pass(m, { isAlive: (p: number) => (p === leader ? false : processAlive(p)), isGroupAlive: (g: number) => g === leader, kill: (p: number, s: string) => { kills.push([p, s]); } });
+    expect(kills).toEqual([]);
+    expect(out.ok).toBe(false);
+  }, 20_000);
+});

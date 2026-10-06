@@ -119,8 +119,9 @@ async function groupGoneWithin(alive: (pgid: number) => boolean, pgid: number, m
  *
  * Identity, so a reused pid can never be hit: the executor's process is gone; the CLI pid is alive, leads its own
  * process group, runs the configured CLI binary, and its working directory is exactly this execution's worktree. If the
- * CLI already exited but members of its group survive, the group is stopped only when an earlier pass proved its
- * identity (an orphan_stop event); otherwise it is reported, never reaped (the reaper treats a live group as alive).
+ * CLI already exited but members of its group survive, the group is never signaled (its identity cannot be proven
+ * across passes, since a pid is reusable once its group empties): it is reported, and never reaped (the reaper treats a
+ * live group as alive).
  * Every step is a durable event first: orphan_stop, orphan_kill (escalation), orphan_stopped or orphan_stop_failed.
  */
 export async function stopOrphans(o: {
@@ -145,7 +146,6 @@ export async function stopOrphans(o: {
     if (o.isAlive(host)) { out.skipped.push({ id: j.id, reason: "its executor is alive" }); continue; }
     const leader = o.isAlive(cli);
     if (!leader && !groupAlive(cli)) { out.skipped.push({ id: j.id, reason: "nothing left running" }); continue; }
-    let escalateOnly = false;
     if (leader) {
       const facts = o.inspect(cli);
       // The path comes from database values: only a plain slug and a UUID may form it (no "..", no "/").
@@ -155,20 +155,19 @@ export async function stopOrphans(o: {
       const same = !!facts && facts.pgid === cli && facts.args.startsWith(o.claudeBin) && !!worktree && facts.cwd === worktree;
       if (!same) { out.skipped.push({ id: j.id, reason: "the live pid is not provably this run's CLI; left for a person" }); continue; }
     } else {
-      // The CLI is gone but its group lives on. Stop it only if an earlier pass proved this group is ours.
-      const proof = await o.db.hasEvent(j.id, "orphan_stop");
-      if (proof.error) return { ...out, error: `could not read the orphan history for ${j.id}, so nothing was stopped: ${proof.error}` };
-      if (!proof.found) { out.unstopped.push({ id: j.id, reason: "its process group survives without the CLI and was never proven to be this run's; left for a person" }); continue; }
-      escalateOnly = true;
+      // The CLI is gone but its group lives on. A pid can be reused once its group has emptied, and nothing proves this
+      // group never emptied since an earlier pass, so a leaderless group is never signaled here: it is reported for a
+      // person, and the reaper keeps its row running (a live group counts as alive). Escalation happens only inside the
+      // same pass that proved the CLI's identity, while the group is watched continuously.
+      out.unstopped.push({ id: j.id, reason: "its process group survives without the CLI; it cannot be proven to be this run's, so it was not signaled; left for a person" });
+      continue;
     }
-    if (!escalateOnly) {
-      const e1 = await record(j.id, "orphan_stop", { cliPid: cli, executorPid: host, signal: "SIGTERM" });
-      if (e1) return { ...out, error: `could not record the orphan stop for ${j.id}, so nothing was stopped: ${e1}` };
-      try { o.kill(-cli, "SIGTERM"); } catch { /* already gone */ }
-    }
+    const e1 = await record(j.id, "orphan_stop", { cliPid: cli, executorPid: host, signal: "SIGTERM" });
+    if (e1) return { ...out, error: `could not record the orphan stop for ${j.id}, so nothing was stopped: ${e1}` };
+    try { o.kill(-cli, "SIGTERM"); } catch { /* already gone */ }
     let escalated = false;
-    if (escalateOnly || !(await groupGoneWithin(groupAlive, cli, grace))) {
-      const e2 = await record(j.id, "orphan_kill", { cliPid: cli, signal: "SIGKILL", why: escalateOnly ? "group outlived its CLI" : `group still alive ${grace} ms after SIGTERM` });
+    if (!(await groupGoneWithin(groupAlive, cli, grace))) {
+      const e2 = await record(j.id, "orphan_kill", { cliPid: cli, signal: "SIGKILL", why: `group still alive ${grace} ms after SIGTERM` });
       if (e2) return { ...out, error: `could not record the SIGKILL escalation for ${j.id}, so it was not sent: ${e2}` };
       try { o.kill(-cli, "SIGKILL"); } catch { /* already gone */ }
       escalated = true;
