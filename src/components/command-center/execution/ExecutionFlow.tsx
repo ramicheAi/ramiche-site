@@ -7,7 +7,7 @@
  */
 import { useState } from "react";
 import { cockpitFetch } from "@/lib/cockpit-fetch";
-import type { ExecutionResult } from "@/lib/execution/contract";
+import type { ExecutionResult } from "@/lib/execution/contract-core";
 import type { ShadowRecord } from "@/lib/command/types";
 import { ExecutionApprovalCard, ExecutionResultCard } from "./ExecutionCards";
 
