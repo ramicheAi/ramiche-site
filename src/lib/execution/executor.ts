@@ -46,6 +46,8 @@ export const execBranch = (executionId: string) => `parallax-exec/${executionId}
 
 /** A full checkout needs room; the execution host is also the fleet gateway, so never fill its disk (fail closed). */
 export const MIN_FREE_BYTES = 4 * 1024 ** 3;
+/** No caller can lower the floor below this. */
+export const ABSOLUTE_MIN_FREE_BYTES = 256 * 1024 ** 2;
 const statfsFree = (p: string) => { const s = statfsSync(p); return Number(s.bavail) * Number(s.bsize); };
 
 function base(r: Partial<ExecutionRequest>, now: number): ExecutionResult {
@@ -97,8 +99,10 @@ export async function verifyBoundary(b: BoundaryInput): Promise<{ violations: st
     v.push("the execution branch was rewritten (base is no longer an ancestor)");
   }
   if (capabilityRank(b.capability) <= capabilityRank("L1")) {
-    const st = await git(b.worktree, ["status", "--porcelain=v1", "--untracked-files=all"]);
-    if (st.out.trim()) v.push("files were changed without modify capability (L2)");
+    // A fresh worktree holds only tracked files, so ANY other file, gitignored ones included (.env.local, *.log), was
+    // written by the run. Fail closed when status cannot be read.
+    const st = await git(b.worktree, ["status", "--porcelain=v1", "--untracked-files=all", "--ignored=matching"]);
+    if (!st.ok || st.out.trim()) v.push("files were changed without modify capability (L2)");
   }
   return { violations: v, tip };
 }
@@ -155,8 +159,9 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
   }
 
   mkdirSync(join(deps.execRoot, req.project.slug), { recursive: true });
-  const free = (deps.freeBytes ?? statfsFree)(deps.execRoot);
-  const need = deps.minFreeBytes ?? MIN_FREE_BYTES;
+  let free = NaN;
+  try { free = (deps.freeBytes ?? statfsFree)(deps.execRoot); } catch { /* unknown free space: refused below */ }
+  const need = Math.max(deps.minFreeBytes ?? MIN_FREE_BYTES, ABSOLUTE_MIN_FREE_BYTES);
   if (!(free >= need)) {
     return finishWith(reject(req, now(), "disk_low", `Only ${(free / 1024 ** 3).toFixed(1)} GB free on the execution host (need ${(need / 1024 ** 3).toFixed(1)} GB). Nothing was run.`));
   }
