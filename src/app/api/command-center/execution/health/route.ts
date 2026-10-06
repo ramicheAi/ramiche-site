@@ -8,7 +8,7 @@ import { GithubAuthUnavailable } from "@/lib/execution/github-app";
 import { checkoutRemoteTip, executionRoots } from "@/lib/execution/http";
 import { dispatchHalted } from "@/lib/execution/halt";
 import { executionHealth, type HealthSignals } from "@/lib/execution/health";
-import { capabilityCeiling } from "@/lib/execution/policy";
+import { capabilityCeiling, executionEnv } from "@/lib/execution/policy";
 import { bySlug } from "@/lib/execution/projects";
 import { DEADLINE_GRACE_MS, HEARTBEAT_STALE_MS } from "@/lib/execution/reaper";
 import { executionAvailable } from "@/lib/execution/service";
@@ -28,7 +28,8 @@ function claudeAuth(now: number): Promise<HealthSignals["claude"]> {
   if (claudeCache && now - claudeCache.at < 60_000) return Promise.resolve(claudeCache.v);
   const bin = process.env.CC_CLAUDE_BIN ?? join(/*turbopackIgnore: true*/ homedir(), ".local", "bin", "claude");
   return new Promise((resolve) => {
-    execFile(/*turbopackIgnore: true*/ bin, ["auth", "status"], { timeout: 10_000 }, (err, stdout) => {
+    // The execution allowlist environment: the cockpit's secrets (Supabase, the GitHub App key) never reach the CLI.
+    execFile(/*turbopackIgnore: true*/ bin, ["auth", "status"], { timeout: 10_000, env: executionEnv() as NodeJS.ProcessEnv }, (err, stdout) => {
       const v: HealthSignals["claude"] = /"loggedIn"\s*:\s*true/.test(stdout) ? "ok" : /"loggedIn"\s*:\s*false/.test(stdout) ? "logged_out" : "unknown";
       void err;
       claudeCache = { at: now, v };
@@ -40,7 +41,7 @@ function claudeAuth(now: number): Promise<HealthSignals["claude"]> {
 /**
  * GET /api/command-center/execution/health[?deep=1]  (founder only, read-only)
  * One headline plus reasons. `deep=1` also reads a registered project's remote head with the executor's credentials
- * (it can raise a Keychain prompt on the host, so it is on demand and cached for 5 minutes).
+ * (one GitHub read with the executor's machine identity; on demand and cached for 5 minutes).
  */
 export async function GET(req: Request) {
   const guard = await guardPrivateRead(req);
@@ -69,7 +70,7 @@ export async function GET(req: Request) {
   try { const r = JSON.parse(readFileSync(/*turbopackIgnore: true*/ join(/*turbopackIgnore: true*/ execRoot, "reaper-status.json"), "utf8")); reaper = { at: String(r.at), ok: !!r.ok, error: r.error ? "error" : null }; } catch { /* never ran */ }
   const fresh = !!repoCache && now - repoCache.at < 5 * 60_000;
   let repoAccess: HealthSignals["repoAccess"] = fresh ? repoCache!.v : "unchecked";
-  // deep=1 runs the credentialed read at most once per 5 minutes, whoever asks (it can raise a Keychain prompt).
+  // deep=1 runs the remote read at most once per 5 minutes, whoever asks.
   if (new URL(req.url).searchParams.get("deep") === "1" && !fresh) {
     const mettle = bySlug("mettle");
     try {

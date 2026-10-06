@@ -12,6 +12,16 @@ const { sessionVerifier, mem } = vi.hoisted(() => ({ sessionVerifier: vi.fn(), m
 vi.mock("@/lib/firebase-admin", async (orig) => ({ ...(await orig<object>()), verifySessionCookie: sessionVerifier }));
 vi.mock("@/lib/supabase-admin", () => ({ getSupabaseAdmin: () => (mem.db ? { from: () => ({ select: () => ({ eq: () => ({ eq: () => ({ gte: async () => ({ count: 0, error: null }) }) }) }) }) } : null) }));
 vi.mock("./supabase-jobs-db", () => ({ supabaseJobsDb: () => mem.db }));
+const cp = vi.hoisted(() => ({ seen: [] as (Record<string, string | undefined> | undefined)[] }));
+vi.mock("node:child_process", async (orig) => {
+  const real = await orig<typeof import("node:child_process")>();
+  // Records the environment the health route hands to `claude auth status`; answers "not logged in" without spawning.
+  const execFile = ((file: string, args: string[], opts: { env?: Record<string, string> }, cb: (e: Error | null, out: string) => void) => {
+    if (args?.[0] === "auth") { cp.seen.push(opts?.env); cb(new Error("fixture"), ""); return; }
+    return (real.execFile as unknown as (...a: unknown[]) => unknown)(file, args, opts, cb);
+  }) as typeof real.execFile;
+  return { ...real, execFile, default: { ...real, execFile } };
+});
 
 const OWNER = "owner_fixture_only";
 const COOKIE = "fixture-session-".repeat(5);
@@ -97,5 +107,19 @@ describe("HALT through the real routes (PR #55 Codex P2)", () => {
       const hr = await h.GET(new NextRequest(`${ORIGIN}/api/command-center/execution/health`, { headers: { cookie: `__session=${COOKIE}` } }));
       expect((await hr.json()).data.headline).toBe("Off · halted on the execution host");
     } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+describe("health's Claude login check never hands the cockpit's secrets to a child (independent review P2 on #56)", () => {
+  it("claude auth status runs with the execution allowlist environment, not the cockpit's", async () => {
+    vi.stubEnv("PARALLAX_GITHUB_APP_PRIVATE_KEY_B64", "c2VjcmV0LWtleS1maXh0dXJl");
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "fixture-service-role");
+    cp.seen.length = 0;
+    vi.resetModules();
+    const h = await import("@/app/api/command-center/execution/health/route");
+    await h.GET(new NextRequest(`${ORIGIN}/api/command-center/execution/health`, { headers: { cookie: `__session=${COOKIE}` } }));
+    expect(cp.seen.length).toBe(1);
+    expect(cp.seen[0]).toBeDefined();
+    expect(Object.keys(cp.seen[0]!).filter((k) => /PARALLAX|SUPABASE|GITHUB|GH_/.test(k))).toEqual([]);
   });
 });

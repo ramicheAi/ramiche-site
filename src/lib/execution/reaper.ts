@@ -83,14 +83,17 @@ function judge(j: RunningJob, o: { now: number; host: string; isAlive: (pid: num
 /** What the operating system says about a pid (null when it does not exist). */
 export interface ProcessFacts { pgid: number; args: string; cwd: string | null }
 
+/** System tools get only a fixed PATH, never the cockpit's environment (its secrets). */
+const SYSTEM_ENV = { PATH: "/usr/bin:/bin:/usr/sbin:/sbin" } as unknown as NodeJS.ProcessEnv;
+
 /** ps for the group and command line, lsof for the working directory. Read-only. */
 export function inspectProcess(pid: number): ProcessFacts | null {
   try {
-    const line = execFileSync("ps", ["-o", "pgid=,args=", "-p", String(pid)], { encoding: "utf8" }).trim();
+    const line = execFileSync("ps", ["-o", "pgid=,args=", "-p", String(pid)], { encoding: "utf8", env: SYSTEM_ENV }).trim();
     const m = line.match(/^(\d+)\s+(.*)$/);
     if (!m) return null;
     let cwd: string | null = null;
-    try { cwd = execFileSync("lsof", ["-a", "-p", String(pid), "-d", "cwd", "-Fn"], { encoding: "utf8" }).split("\n").find((l) => l.startsWith("n"))?.slice(1) ?? null; } catch { /* unknown */ }
+    try { cwd = execFileSync("lsof", ["-a", "-p", String(pid), "-d", "cwd", "-Fn"], { encoding: "utf8", env: SYSTEM_ENV }).split("\n").find((l) => l.startsWith("n"))?.slice(1) ?? null; } catch { /* unknown */ }
     return { pgid: Number(m[1]), args: m[2], cwd };
   } catch { return null; }
 }

@@ -134,3 +134,18 @@ it("execution modules use no TypeScript parameter properties (the host scripts l
     expect(readFileSync(join(dir, f), "utf8"), f).not.toMatch(/constructor\s*\([^)]*\b(private|public|protected|readonly)\s+\w+\s*:/);
   }
 });
+
+describe("independent security review of 20b7209", () => {
+  it("P3: inherited names (__proto__, constructor, toString) in a grant are not read permissions", async () => {
+    const gh = github({ mint: () => new Response(`{"token":"${TOKEN}","permissions":{"__proto__":"read","constructor":"read","toString":"read","contents":"read"},"repositories":[{"full_name":"ramicheAi/mettle"}]}`, { status: 201 }) });
+    await expect(githubBranchTip("ramicheAi/mettle", "main", { fetch: gh.fetch, env: ENV })).rejects.toBeInstanceOf(GithubAuthUnavailable);
+    expect(gh.calls.some((c) => c.url.includes("/git/ref/"))).toBe(false);
+  });
+  it("P3: a malformed grant (null repository entry, null body) is BLOCKED and the minted token is revoked", async () => {
+    for (const body of [`{"token":"${TOKEN}","permissions":{"contents":"read","metadata":"read"},"repositories":[null]}`, "null"]) {
+      const gh = github({ mint: () => new Response(body, { status: 201 }) });
+      await expect(githubBranchTip("ramicheAi/mettle", "main", { fetch: gh.fetch, env: ENV })).rejects.toBeInstanceOf(GithubAuthUnavailable);
+      if (body !== "null") expect(gh.calls.at(-1)!.method).toBe("DELETE");
+    }
+  });
+});

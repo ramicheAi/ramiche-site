@@ -85,14 +85,19 @@ async function mintReadToken(origin: string, deps: GithubDeps): Promise<{ token:
     body: JSON.stringify({ repositories: [parts.repo], permissions: EXECUTOR_PERMISSIONS }),
   });
   if (res.status !== 201) throw new GithubAuthUnavailable(`GitHub refused a read token for ${origin} (HTTP ${res.status})`);
-  let body: { token?: unknown; permissions?: unknown; repositories?: unknown };
+  let body: unknown;
   try { body = await res.json(); } catch { throw new GithubAuthUnavailable("GitHub's token response was unreadable"); }
-  const token = typeof body.token === "string" ? body.token : "";
+  const b = (body && typeof body === "object" ? body : {}) as { token?: unknown; permissions?: unknown; repositories?: unknown };
+  const token = typeof b.token === "string" ? b.token : "";
   if (!token) throw new GithubAuthUnavailable("GitHub returned no token");
-  const perms = (body.permissions ?? {}) as Record<string, unknown>;
-  const repos = Array.isArray(body.repositories) ? (body.repositories as { full_name?: unknown }[]).map((r) => String(r.full_name ?? "").toLowerCase()) : [];
-  const exactPerms = Object.keys(perms).length > 0 && Object.entries(perms).every(([k, v]) => k in EXECUTOR_PERMISSIONS && v === "read");
-  const exactRepo = repos.length === 1 && repos[0] === origin.toLowerCase();
+  // Checked defensively: a malformed grant is a refusal (and its token is revoked), never an exception.
+  let exactPerms = false, exactRepo = false;
+  try {
+    const perms = (b.permissions && typeof b.permissions === "object" ? b.permissions : {}) as Record<string, unknown>;
+    const repos = Array.isArray(b.repositories) ? b.repositories.map((r) => (r && typeof r === "object" && typeof (r as { full_name?: unknown }).full_name === "string" ? (r as { full_name: string }).full_name.toLowerCase() : "")) : [];
+    exactPerms = Object.keys(perms).length > 0 && Object.entries(perms).every(([k, v]) => Object.hasOwn(EXECUTOR_PERMISSIONS, k) && v === "read");
+    exactRepo = repos.length === 1 && repos[0] === origin.toLowerCase();
+  } catch { /* refused below */ }
   if (!exactPerms || !exactRepo) {
     await revoke(token, deps);
     throw new GithubAuthUnavailable(!exactPerms ? "the token carried more than read access; refused" : "the token was not limited to this repository; refused");

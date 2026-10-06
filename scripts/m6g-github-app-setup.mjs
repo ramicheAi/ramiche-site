@@ -10,7 +10,7 @@
  *       App's id and private key. The client and webhook secrets are discarded (not needed).
  *   (then install the App on ONLY ramicheAi/mettle and ramicheAi/ramiche-site, from the URL `create` prints)
  *   node --experimental-strip-types scripts/m6g-github-app-setup.mjs finish
- *       Finds the installation, checks it is read only and limited to the allowed repositories, records its id.
+ *       Finds the single installation on ramicheAi and records its id (`check` then verifies it).
  *   node --experimental-strip-types scripts/m6g-github-app-setup.mjs check [--secrets-file <file>]
  *       The acceptance proof: reads main of each allowed repository through the executor's own code path (no git, no
  *       Keychain, no prompt, bounded), then shows write authority is denied (installation permissions, and GitHub
@@ -22,7 +22,7 @@
  * Exit 0 on success, 1 on a failed check, 2 on bad setup.
  */
 import { randomBytes } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, writeSync, constants as FS } from "node:fs";
 import { createServer } from "node:http";
 import { registerHooks } from "node:module";
 import { homedir } from "node:os";
@@ -58,11 +58,17 @@ function readEnv() {
   return env;
 }
 function writeEnv(env) {
-  mkdirSync(DIR, { recursive: true, mode: 0o700 });
-  chmodSync(DIR, 0o700);
-  writeFileSync(ENV_FILE, Object.entries(env).map(([k, v]) => `${k}=${v}`).join("\n") + "\n", { mode: 0o600 });
-  chmodSync(ENV_FILE, 0o600);
+  // The secrets file's own directory is created 0700, and the file is written to a fresh temp file opened with O_EXCL
+  // and 0600, then renamed into place: never into an existing looser file, never through a symlink.
+  const dir = dirname(ENV_FILE);
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  chmodSync(dir, 0o700);
+  const tmp = `${ENV_FILE}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
+  const fd = openSync(tmp, FS.O_CREAT | FS.O_EXCL | FS.O_WRONLY | (FS.O_NOFOLLOW ?? 0), 0o600);
+  try { writeSync(fd, Object.entries(env).map(([k, v]) => `${k}=${v}`).join("\n") + "\n"); } finally { closeSync(fd); }
+  try { renameSync(tmp, ENV_FILE); } catch (e) { rmSync(tmp, { force: true }); throw e; }
 }
+const html = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 async function api(path, init = {}) {
   const res = await fetch(`https://api.github.com${path}`, { ...init, headers: { ...gh, ...(init.headers ?? {}) }, redirect: "error", signal: AbortSignal.timeout(15_000) });
   let body = null; try { body = await res.json(); } catch { /* empty */ }
@@ -80,17 +86,21 @@ if (mode === "create") {
   };
   const page = `<!doctype html><meta charset="utf-8"><title>Parallax Executor</title><body style="font:16px system-ui;margin:40px">
 <h1>Create the Parallax Executor GitHub App</h1><p>Read-only (Contents, Metadata). No webhooks. Owned by ${OWNER}.</p>
-<form action="https://github.com/settings/apps/new?state=${state}" method="post"><input type="hidden" name="manifest" value='${JSON.stringify(manifest).replace(/'/g, "&#39;")}'>
+<form action="https://github.com/settings/apps/new?state=${state}" method="post"><input type="hidden" name="manifest" value="${html(JSON.stringify(manifest))}">
 <button style="font-size:18px;padding:10px 18px">Continue to GitHub</button></form></body>`;
+  let used = false;
   const server = createServer(async (req, res) => {
+    // Only this exact local origin (defeats DNS rebinding), and the state is good for one callback only.
+    if (req.headers.host !== `127.0.0.1:${PORT}`) { res.writeHead(421); return res.end(); }
     const u = new URL(req.url, `http://127.0.0.1:${PORT}`);
     if (u.pathname === "/") { res.writeHead(200, { "content-type": "text/html" }); return res.end(page); }
     if (u.pathname !== "/callback") { res.writeHead(404); return res.end(); }
-    if (u.searchParams.get("state") !== state || !/^[0-9a-f]{20,64}$/i.test(u.searchParams.get("code") ?? "")) { res.writeHead(400); return res.end("state or code mismatch; nothing stored"); }
+    if (used || u.searchParams.get("state") !== state || !/^[0-9a-f]{20,64}$/i.test(u.searchParams.get("code") ?? "")) { res.writeHead(400); return res.end("state or code mismatch; nothing stored"); }
+    used = true;
     const out = await api(`/app-manifests/${u.searchParams.get("code")}/conversions`, { method: "POST" });
     if (out.status !== 201 || !out.body?.pem || !out.body?.id) { res.writeHead(502); res.end("exchange failed; nothing stored"); server.close(); fail(`manifest exchange failed (HTTP ${out.status})`); }
-    const perms = out.body.permissions ?? {};
-    if (Object.entries(perms).some(([k, v]) => !["contents", "metadata"].includes(k) || v !== "read")) { res.writeHead(500); res.end("App has more than read permissions; not stored"); server.close(); fail("the created App has more than read permissions; delete it on GitHub and retry"); }
+    const perms = out.body.permissions;
+    if (!perms || typeof perms !== "object" || Object.keys(perms).length === 0 || Object.entries(perms).some(([k, v]) => !["contents", "metadata"].includes(k) || v !== "read")) { res.writeHead(500); res.end("App has more than read permissions; not stored"); server.close(); fail("the created App has more than read permissions; delete it on GitHub and retry"); }
     writeEnv({ PARALLAX_GITHUB_APP_ID: String(out.body.id), PARALLAX_GITHUB_APP_PRIVATE_KEY_B64: Buffer.from(out.body.pem).toString("base64") });
     res.writeHead(200, { "content-type": "text/html" });
     res.end(`<p>Created. Now install it on ONLY ramicheAi/mettle and ramicheAi/ramiche-site: <a href="https://github.com/apps/${out.body.slug}/installations/new">install</a></p>`);
