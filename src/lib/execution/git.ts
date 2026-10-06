@@ -8,7 +8,7 @@ import { join } from "node:path";
  * The executor's own git. It ignores system and global config and forces fsmonitor and hooks off on the command line,
  * so a repository config planted by a run (core.fsmonitor, hooks) can never execute during the executor's checks.
  */
-const SAFE_ENV = () => ({ PATH: process.env.PATH ?? "/usr/bin:/bin", HOME: process.env.HOME ?? "/", GIT_TERMINAL_PROMPT: "0", GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null" });
+const SAFE_ENV = () => ({ PATH: process.env.PATH ?? "/usr/bin:/bin", HOME: process.env.HOME ?? "/", GIT_TERMINAL_PROMPT: "0", GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", GIT_ASKPASS: "/usr/bin/false", SSH_ASKPASS: "/usr/bin/false" });
 const SAFE_ARGS = ["-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null", "-c", "core.sshCommand=/usr/bin/false", "-c", "core.attributesFile=/dev/null"];
 
 export function git(cwd: string, args: string[], env?: Record<string, string>, timeoutMs = 60_000): Promise<{ ok: boolean; out: string; err: string }> {
@@ -23,8 +23,10 @@ export function git(cwd: string, args: string[], env?: Record<string, string>, t
  * credential configuration (needed for private repositories), hooks and fsmonitor still off. Null when unreachable.
  */
 export async function remoteBranchTip(cwd: string, branch: string): Promise<string | null> {
-  const env = { PATH: process.env.PATH ?? "/usr/bin:/bin", HOME: process.env.HOME ?? "/", GIT_TERMINAL_PROMPT: "0", GIT_CONFIG_NOSYSTEM: "1" };
-  const r = await git(cwd, ["ls-remote", "--exit-code", "origin", `refs/heads/${branch}`], env);
+  const env = { PATH: process.env.PATH ?? "/usr/bin:/bin", HOME: process.env.HOME ?? "/", GIT_TERMINAL_PROMPT: "0", GIT_CONFIG_NOSYSTEM: "1", GIT_ASKPASS: "/usr/bin/false", SSH_ASKPASS: "/usr/bin/false" };
+  // The only credential helper is the macOS keychain: an empty value first clears any helper a repository config
+  // (which a run could have edited) would otherwise make git execute.
+  const r = await git(cwd, ["-c", "credential.helper=", "-c", "credential.helper=osxkeychain", "ls-remote", "--exit-code", "origin", `refs/heads/${branch}`], env);
   const sha = r.ok ? r.out.trim().split(/\s+/)[0] : "";
   return /^[0-9a-f]{40}$/.test(sha) ? sha : null;
 }
@@ -89,6 +91,46 @@ export function gitDirSnapshot(common: string, ownWorktreeName: string | null): 
     }
   } catch { /* no worktrees */ }
   return h.digest("hex");
+}
+
+/** Exact program values git-lfs installs; anything else that names a program is refused. */
+const LFS_VALUES = new Set(["git-lfs clean -- %f", "git-lfs smudge -- %f", "git-lfs filter-process"]);
+
+/**
+ * Keys in a checkout's own git configuration that make git run a program which the executor's command-line overrides
+ * cannot switch off (filter drivers run on status and checkout; includes can bring in any of them; credential
+ * helpers, diff and merge drivers). Read with plain filesystem calls, before any git command that could run them. A
+ * run that edited the shared .git is reported as a violation at once; this scan keeps a poisoned checkout from
+ * executing anything in every later run. Founder-installed git-lfs values are allowed exactly.
+ */
+export function unsafeGitConfig(common: string): string[] {
+  const files = [join(/*turbopackIgnore: true*/ common, "config"), join(/*turbopackIgnore: true*/ common, "config.worktree")];
+  try { for (const w of readdirSync(join(/*turbopackIgnore: true*/ common, "worktrees"))) files.push(join(/*turbopackIgnore: true*/ common, "worktrees", w, "config.worktree")); } catch { /* none */ }
+  const found: string[] = [];
+  for (const f of files) {
+    let text = "";
+    try { text = readFileSync(f, "utf8"); } catch { continue; }
+    let section = "";
+    for (const raw of text.split("\n")) {
+      // Whole-line comments only: a value is compared exactly, so "git-lfs clean -- %f; evil" is never truncated into
+      // an allowed value.
+      const line = raw.trim();
+      if (!line || line.startsWith("#") || line.startsWith(";")) continue;
+      const head = line.match(/^\[\s*([A-Za-z0-9.-]+)(?:\s+"([^"]*)")?\s*\]/);
+      if (head) { section = (head[1] + (head[2] !== undefined ? `."${head[2]}"` : "")).toLowerCase(); continue; }
+      const kv = line.match(/^([A-Za-z][A-Za-z0-9-]*)\s*(?:=\s*(.*))?$/);
+      if (!kv) { found.push(`unreadable line in ${f}`); continue; }
+      const key = kv[1].toLowerCase(), value = (kv[2] ?? "").replace(/^"|"$/g, "").trim();
+      const sec = section.split(".")[0];
+      const name = `${section}.${key}`;
+      if (sec === "filter" && ["clean", "smudge", "process"].includes(key) && !LFS_VALUES.has(value)) found.push(name);
+      else if ((sec === "include" || sec === "includeif") && key === "path") found.push(name);
+      else if (sec === "diff" && (key === "command" || key === "textconv")) found.push(name);
+      else if (sec === "merge" && key === "driver") found.push(name);
+      else if (sec === "credential" && key === "helper" && value !== "" && value !== "osxkeychain") found.push(name);
+    }
+  }
+  return found;
 }
 
 export async function isAncestor(cwd: string, a: string, b: string): Promise<boolean> {

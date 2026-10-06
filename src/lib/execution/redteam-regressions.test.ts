@@ -135,3 +135,56 @@ describe("PR #52 red team regressions: a refusal never uses up the approval (P2)
     expect(codes.filter((c) => c.startsWith("succeeded")).length).toBe(1);
   }, 30_000);
 });
+
+describe("PR #52 red team regressions: a poisoned checkout never executes in a later run (R3)", () => {
+  it("a filter planted by a violating run is refused before any git in every later run; nothing executes", async () => {
+    const marker = join(root, "PWNED3"), script = join(root, "pw3.sh");
+    writeFileSync(script, `#!/bin/sh\necho ran >> ${marker}\ncat\n`); chmodSync(script, 0o755);
+    const h = g(repo, "rev-parse", "HEAD");
+    const mk = (plan: unknown, key: string): ExecutionRequest => ({ executionId: crypto.randomUUID(), commandId: null, missionId: null, founder: { uid: OWNER }, executor: "claude_code",
+      project: { slug: "mettle" }, repository: { origin: "test-owner/proj-a", branch: "main", head: h }, task: { instruction: `x\nFAKE:${JSON.stringify(plan)}`, contextRefs: [] },
+      capability: "L2", limits: { timeoutMs: 20000, maxTurns: 5, maxBudgetUsd: null }, idempotencyKey: key, createdAt: new Date().toISOString() });
+    const d = { ...(deps().executor as ExecutionDeps), surface: "harness" as const, ownerUid: OWNER, approvalKey: KEY };
+    const poison = mk({ actions: [
+      { write: join(repo, ".git", "info", "attributes"), content: "* filter=pw\n" },
+      { bash: `git config --file ${join(repo, ".git", "config")} filter.pw.clean ${script} && git config --file ${join(repo, ".git", "config")} filter.pw.smudge ${script}` },
+    ] }, "idem-r3-poison");
+    expect((await runExecution(poison, approve(poison, OWNER, KEY), d)).status).toBe("boundary_violation");
+    const clean = mk({ actions: [] }, "idem-r3-clean");
+    const next = await runExecution(clean, approve(clean, OWNER, KEY), d);
+    expect(next.failure?.code).toBe("repository_unsafe");
+    expect(next.failure?.message).toContain("filter.\"pw\".clean");
+    expect(existsSync(marker)).toBe(false);
+  }, 30_000);
+
+  it("the config scan: program-valued keys are flagged; exact git-lfs values and husky hooksPath are allowed; truncation tricks are not", async () => {
+    const { unsafeGitConfig } = await import("./git");
+    const common = join(repo, ".git");
+    const write = (extra: string) => writeFileSync(join(common, "config"), `[core]\n\tbare = false\n\thooksPath = .husky/_\n${extra}`);
+    write(`# installed by git lfs install\n[filter "lfs"]\n\t; comment\n\tclean = git-lfs clean -- %f\n\tsmudge = git-lfs smudge -- %f\n\tprocess = git-lfs filter-process\n\trequired = true\n`);
+    expect(unsafeGitConfig(common)).toEqual([]);
+    write(`[filter "lfs"]\n\tclean = git-lfs clean -- %f; touch /tmp/x\n`);
+    expect(unsafeGitConfig(common)).toEqual(['filter."lfs".clean']);
+    write(`[include]\n\tpath = ../../evil.cfg\n[diff "x"]\n\ttextconv = cat\n[merge "y"]\n\tdriver = sh\n[credential]\n\thelper = !evil\n[includeIf "gitdir:/"]\n\tpath = z\n`);
+    expect(unsafeGitConfig(common)).toEqual(["include.path", 'diff."x".textconv', 'merge."y".driver', "credential.helper", 'includeif."gitdir:/".path']);
+  });
+});
+
+describe("PR #52 red team regressions: an abandoned attempt is never re-run", () => {
+  it("a reaped (abandoned) execution returns its failed result instead of running again", async () => {
+    const { reapAbandoned } = await import("./reaper");
+    const { db, jobs } = memoryJobsDb();
+    const store = new JobsExecutionStore(db);
+    const h = g(repo, "rev-parse", "HEAD");
+    const r: ExecutionRequest = { executionId: crypto.randomUUID(), commandId: null, missionId: null, founder: { uid: OWNER }, executor: "claude_code",
+      project: { slug: "mettle" }, repository: { origin: "test-owner/proj-a", branch: "main", head: h }, task: { instruction: "x", contextRefs: [] },
+      capability: "L2", limits: { timeoutMs: 20000, maxTurns: 5, maxBudgetUsd: null }, idempotencyKey: "idem-abandon-1", createdAt: new Date().toISOString() };
+    await store.begin(r, (await import("./contract")).bindingHash(r));
+    for (const j of jobs.values()) Object.assign(j, { started_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" });
+    await reapAbandoned({ db, now: Date.parse("2026-10-06T00:00:00Z"), host: "other", isAlive: () => false });
+    const d = { ...(deps(store).executor as ExecutionDeps), surface: "harness" as const, ownerUid: OWNER, approvalKey: KEY, extraEnv: { FAKE_CLAUDE_RECORD: join(root, "abandon-rec.json") } };
+    const res = await runExecution({ ...r, executionId: crypto.randomUUID() }, approve(r, OWNER, KEY), d);
+    expect(res.failure?.code).toBe("abandoned");
+    expect(existsSync(join(root, "abandon-rec.json"))).toBe(false);
+  });
+});

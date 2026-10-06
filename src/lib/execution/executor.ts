@@ -12,7 +12,7 @@ import { recordExecution, type ExecutionFacts } from "@/lib/execution-events";
 import { verifyApproval, type Approval } from "./approval";
 import { runClaudeCode, type ClaudeRunOutcome } from "./claude-code";
 import { bindingHash, capabilityRank, EXECUTABLE_CAPABILITIES, invalidRequest, nextStepAfter, type ExecutionRequest, type ExecutionResult, type ExecutionStatus } from "./contract";
-import { changedFiles, checkoutSnapshot, commonGitDir, git, gitDirSnapshot, isAncestor, refsSnapshot, remoteBranchTip, revParse } from "./git";
+import { changedFiles, checkoutSnapshot, commonGitDir, git, gitDirSnapshot, isAncestor, refsSnapshot, remoteBranchTip, revParse, unsafeGitConfig } from "./git";
 import { surfaceAllowed, type Surface } from "./policy";
 import { bySlug, originOf, REPO_REGISTRY, type RepoEntry } from "./projects";
 import { executionJobId, type ExecutionStore } from "./store";
@@ -91,7 +91,7 @@ export async function verifyBoundary(b: BoundaryInput): Promise<{ violations: st
   let link = "";
   try { link = readFileSync(join(/*turbopackIgnore: true*/ b.worktree, ".git"), "utf8").trim(); } catch { /* missing: tampered */ }
   const linkOk = link === `gitdir: ${join(/*turbopackIgnore: true*/ b.commonDir, "worktrees", b.worktreeName)}`;
-  if (gitDirAfter !== b.gitDirBefore) v.push("the shared .git directory changed (config, hooks, info or another worktree)");
+  if (gitDirAfter !== b.gitDirBefore) v.push("the shared .git directory changed (config, hooks, info or another worktree); it must be inspected and cleaned before anyone uses git there");
   if (!linkOk) v.push("the worktree's .git link was changed");
   if (v.length) return { violations: v, tip: null, gitTrusted: false };
   const [refsAfter, checkoutAfter, tip, wtBranch] = await Promise.all([
@@ -165,6 +165,12 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
   }
   const commonDir = await commonGitDir(repo);
   if (!commonDir) return reject(req, now(), "repository_unresolved", "The checkout's git directory could not be read. Nothing was run.");
+  // Before any git command that could run a configured program (status runs clean filters, checkout runs smudge):
+  // a checkout whose configuration names one is refused until a person cleans it (PR #52 red team R3).
+  const unsafe = unsafeGitConfig(commonDir);
+  if (unsafe.length) {
+    return reject(req, now(), "repository_unsafe", `The checkout's git configuration (${commonDir}) makes git run programs (${unsafe.slice(0, 5).join(", ")}). Nothing was run. Inspect and clean it before using git there.`);
+  }
 
   mkdirSync(join(/*turbopackIgnore: true*/ deps.execRoot, req.project.slug), { recursive: true });
   let free = NaN;
@@ -182,7 +188,8 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
     if (begun.bindingHash !== hash) return reject(req, now(), "idempotency_conflict", "This idempotency key was already used for a different request.");
     if (!begun.result) return reject(req, now(), "in_progress", "This execution is already running.");
     // A finished attempt that did not succeed may run again under the same approval, unless it violated its boundary.
-    const retryable = RETRYABLE.has(begun.result.status) && !!deps.store.restart;
+    // An abandoned attempt (its process died before recording a result) might have been a violation: never re-run it.
+    const retryable = RETRYABLE.has(begun.result.status) && begun.result.failure?.code !== "abandoned" && !!deps.store.restart;
     if (!retryable) return begun.result;
     let restarted = false;
     try { restarted = await deps.store.restart!(req, begun.result); } catch { /* treated as not restarted */ }
