@@ -117,7 +117,7 @@ The executor refuses in these cases:
   - Galactik Antics: `ramicheAi/galactik-antics`
   - Command Center / Parallax OS: `ramicheAi/ramiche-site`
 - **Resolution asks rather than guesses** when no project or more than one is named.
-- **Open questions for Ramon:**
+- **Formerly open questions:**
   - **Resolved 2026-10-06 (PR #51, repositories verified):**
     - the Parallax website (parallaxvinc.com) is `ramicheAi/parallax-site` (`~/parallax-site`)
     - Parallax OS / Command Center is `ramicheAi/ramiche-site`
