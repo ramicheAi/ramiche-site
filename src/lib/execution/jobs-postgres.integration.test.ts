@@ -55,7 +55,7 @@ function pgJobsDb(url = PG_URL): JobsDb {
       return { conflict: false, error: r.err };
     },
     async getJob(id) {
-      const r = await sql(`select json_build_object('input', j.input, 'status', j.status, 'error', j.error,
+      const r = await sql(`select json_build_object('input', j.input, 'status', j.status, 'error', j.error, 'source', j.source,
         'resultEvent', (select detail from job_events e where e.job_id = j.id and e.kind = 'execution_result' order by created_at desc limit 1))
         from jobs j where j.id = :'id'::uuid`, { id });
       if (r.err) return { row: null, error: r.err };
@@ -79,8 +79,8 @@ function pgJobsDb(url = PG_URL): JobsDb {
       { id, st: expect.status, patch: JSON.stringify(patch), ...(expect.updated_at !== null ? { ts: expect.updated_at } : {}) });
       return { updated: !r.err && r.out === "1", error: r.err };
     },
-    async hasEvent(jobId, kind) {
-      const r = await sql(`select count(*) from job_events where job_id = :'id'::uuid and kind = :'k'`, { id: jobId, k: kind });
+    async hasEvent(jobId, kind, sinceAt) {
+      const r = await sql(`select count(*) from job_events where job_id = :'id'::uuid and kind = :'k'${sinceAt ? ` and detail->>'at' >= :'since'` : ""}`, { id: jobId, k: kind, ...(sinceAt ? { since: sinceAt } : {}) });
       return { found: !r.err && Number(r.out) > 0, error: r.err };
     },
     async listRunning(source) {

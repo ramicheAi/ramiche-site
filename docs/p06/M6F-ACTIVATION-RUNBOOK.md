@@ -40,8 +40,9 @@ The executor never writes Missions; a result is suggested as Mission evidence an
    seconds from the executor context. If a Keychain dialog appears for `git-credential-osxkeychain`, the founder
    answers it (Always Allow). Then `GET /api/command-center/execution/health?deep=1` must not report
    "Repository access needs attention".
-4. Health says `readiness: ready` (state is `off` before activation): Claude logged in, disk above 4 GB, store
-   reachable, recovery check running (after step 2 of ACTIVATE), 0 stuck, 0 not reporting.
+4. Health reasons list nothing except "Recovery check is not running" (the reaper is loaded in ACTIVATE step 2;
+   state is `off` before activation): Claude logged in, disk above 4 GB, store reachable, 0 stuck, 0 not reporting.
+   After ACTIVATE step 2, `readiness` must be `ready`.
 5. `~/.parallax/executions/HALT` does not exist. No `parallax-exec/*` branches or stale worktrees.
 
 ## ACTIVATE (one reviewed PR into integration, then the normal release; founder approved)
@@ -53,7 +54,8 @@ The executor never writes Missions; a result is suggested as Mission evidence an
    - Keep `PRODUCTION_MAX_CAPABILITY = "L1"`. Do not touch `EXECUTABLE_CAPABILITIES`.
 2. Load the reaper (inert until there is something to reap):
    `sed "s#__RELEASE_DIR__#/Users/admin/cockpit-releases/<release>#" ops/execution/com.parallax.m6-reaper.plist > ~/Library/LaunchAgents/com.parallax.m6-reaper.plist`
-   then `launchctl bootstrap gui/501 ~/Library/LaunchAgents/com.parallax.m6-reaper.plist`.
+   then `launchctl bootstrap gui/501 ~/Library/LaunchAgents/com.parallax.m6-reaper.plist`. The plist names one release
+   directory: repoint it at every cockpit release (and never prune the release it names), or health turns Degraded.
 3. Release the cockpit the usual way (new release directory, repoint `com.command-center`, kickstart).
 
 ## SMOKE (founder, in the cockpit, about 5 minutes)
@@ -75,8 +77,8 @@ Daily: health headline; failed runs (degraded at 3 a day); stuck runs (any is a 
 
 ## ROLLBACK (no database rollback: the schema is unchanged)
 
-1. Stop new runs now, no redeploy: `touch ~/.parallax/executions/HALT` on the iMac. Prepare and approve refuse
-   (`execution_halted`); health says Off.
+1. Stop new runs now, no redeploy: `touch ~/.parallax/executions/HALT` on the iMac. Prepare and approve refuse with
+   403 `execution_halted`; health says "Off · halted on the execution host".
 2. Running runs: cancel through the cancel route (it works with dispatch off), or wait: each run is bounded by its own
    timeout. If the cockpit itself was restarted, the reaper's orphan pass stops a run's CLI when it can prove the
    process is that run's (own process group, the Claude binary, its worktree as working directory), then fails the row.

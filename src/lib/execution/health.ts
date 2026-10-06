@@ -8,6 +8,8 @@ import type { Capability } from "./contract-core";
 export interface HealthSignals {
   now: number;
   dispatchEnabled: boolean;
+  /** The operator's HALT file exists (rollback): shown distinctly from "not activated". */
+  halted: boolean;
   ceiling: Capability;
   /** `claude auth status` from the executor's own session. */
   claude: "ok" | "logged_out" | "unknown";
@@ -46,6 +48,7 @@ export function executionHealth(s: HealthSignals): ExecutionHealth {
   if (s.failures24h >= 3) degraded.push(`${s.failures24h} failed runs today`);
   const readiness = blockers.length ? "blocked" : degraded.length ? "degraded" : "ready";
   const reasons = [...blockers, ...degraded];
+  if (s.halted) return { state: "off", headline: "Off · halted on the execution host", readiness, reasons };
   if (!s.dispatchEnabled) return { state: "off", headline: "Off", readiness, reasons };
   const headline = readiness === "ready" ? `Ready · ${s.ceiling === "L1" ? "inspect and analyze" : `up to ${s.ceiling}`}`
     : `${readiness === "blocked" ? "Blocked" : "Degraded"} · ${reasons[0]}`;

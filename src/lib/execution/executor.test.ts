@@ -346,6 +346,22 @@ describe("M6B: executor with the jobs store (heartbeat, founder cancel)", () => 
   }, 30_000);
 });
 
+describe("M6F: a founder cancel applies to the attempt it was made against (PR #55 review P2)", () => {
+  it("a retry under the same approval after a cancel runs; it is not canceled by the old request", async () => {
+    const { JobsExecutionStore } = await import("./store");
+    const { memoryJobsDb } = await import("./__fixtures__/memory-jobs-db");
+    const m = memoryJobsDb();
+    const store = new JobsExecutionStore(m.db);
+    const r = request({ plan: { actions: [{ sleep: 1500 }] } });
+    setTimeout(() => { void store.requestCancelJob(executionJobId(r.idempotencyKey), OWNER); }, 500);
+    expect((await run(r, deps({ store, heartbeatMs: 150 }))).status).toBe("canceled");
+    await new Promise((res) => setTimeout(res, 20));
+    const again = await run({ ...r, executionId: uuid() }, deps({ store, heartbeatMs: 150 }));
+    expect(again.status).toBe("succeeded");
+    expect(m.events.map((e) => e.kind)).toEqual(["cancel_requested", "execution_result", "retry", "execution_result"]);
+  }, 30_000);
+});
+
 describe("M6B: the CLI's own pid is recorded as process evidence (PR #50 Codex P1)", () => {
   it("records the spawned CLI pid on the jobs row while running", async () => {
     const { JobsExecutionStore } = await import("./store");

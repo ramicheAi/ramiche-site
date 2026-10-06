@@ -76,3 +76,26 @@ describe("health route", () => {
     expect([401, 403]).toContain((await r.GET(new NextRequest(`${ORIGIN}/api/command-center/execution/health`, { headers: { cookie: `__session=${COOKIE}` } }))).status);
   });
 });
+
+describe("HALT through the real routes (PR #55 Codex P2)", () => {
+  it("with the HALT file present, prepare and approve answer 403 execution_halted, not 'not enabled'", async () => {
+    const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { tmpdir } = await import("node:os");
+    const dir = mkdtempSync(join(tmpdir(), "m6f-halt-"));
+    const halt = join(dir, "HALT");
+    writeFileSync(halt, "rollback\n");
+    vi.stubEnv("PARALLAX_EXECUTION_HALT_FILE", halt);
+    try {
+      for (const route of ["prepare", "approve"] as const) {
+        const m = await import(`@/app/api/command-center/execution/${route}/route`);
+        const res: Response = await m.POST(new NextRequest(`${ORIGIN}/api/command-center/execution/${route}`, { method: "POST", headers: founder(), body: JSON.stringify({ commandId: "9e000000-0000-4000-8000-000000000001", bindingHash: "a".repeat(64) }) }));
+        expect(res.status).toBe(403);
+        expect((await res.json()).error.code).toBe("execution_halted");
+      }
+      const h = await import("@/app/api/command-center/execution/health/route");
+      const hr = await h.GET(new NextRequest(`${ORIGIN}/api/command-center/execution/health`, { headers: { cookie: `__session=${COOKIE}` } }));
+      expect((await hr.json()).data.headline).toBe("Off · halted on the execution host");
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+});

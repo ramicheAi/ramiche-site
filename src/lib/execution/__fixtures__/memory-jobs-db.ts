@@ -12,7 +12,7 @@ export function memoryJobsDb() {
       if (fail.getJob) return { row: null, error: fail.getJob };
       const j = jobs.get(id);
       if (!j) return { row: null, error: null };
-      return { row: { input: j.input as Record<string, unknown>, status: String(j.status), error: (j.error as string) ?? null, resultEvent: ([...events].reverse().find((e) => e.job_id === id && e.kind === "execution_result")?.detail as ExecutionResult) ?? null }, error: null };
+      return { row: { input: j.input as Record<string, unknown>, status: String(j.status), error: (j.error as string) ?? null, source: (j.source as string) ?? null, resultEvent: ([...events].reverse().find((e) => e.job_id === id && e.kind === "execution_result")?.detail as ExecutionResult) ?? null }, error: null };
     },
     async updateJob(id, patch) { if (fail.updateJob) return { error: fail.updateJob }; Object.assign(jobs.get(id)!, patch); return { error: null }; },
     async insertEvent(row) { if (fail.insertEvent) return { error: fail.insertEvent }; events.push({ ...row }); return { error: null }; },
@@ -23,7 +23,7 @@ export function memoryJobsDb() {
       Object.assign(j, patch);
       return { updated: true, error: null };
     },
-    async hasEvent(jobId, kind) { if (fail.hasEvent) return { found: false, error: fail.hasEvent }; return { found: events.some((e) => e.job_id === jobId && e.kind === kind), error: null }; },
+    async hasEvent(jobId, kind, sinceAt) { if (fail.hasEvent) return { found: false, error: fail.hasEvent }; return { found: events.some((e) => e.job_id === jobId && e.kind === kind && (!sinceAt || String((e.detail as { at?: unknown } | undefined)?.at ?? "") >= sinceAt)), error: null }; },
     async listRunning(source) {
       if (fail.listRunning) return { rows: [], error: fail.listRunning };
       return { rows: [...jobs.values()].filter((j) => j.status === "running" && j.source === source).map((j) => ({ id: String(j.id), input: j.input as Record<string, unknown>, started_at: (j.started_at as string) ?? null, updated_at: (j.updated_at as string) ?? null }) as RunningJob), error: null };

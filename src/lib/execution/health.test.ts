@@ -4,7 +4,7 @@ import { executionHealth, REAPER_SILENT_MS, type HealthSignals } from "./health"
 
 const NOW = Date.parse("2026-10-06T18:00:00Z");
 const good = (over: Partial<HealthSignals> = {}): HealthSignals => ({
-  now: NOW, dispatchEnabled: true, ceiling: "L1", claude: "ok", repoAccess: "ok", diskFreeBytes: 30 * 1024 ** 3, minFreeBytes: 4 * 1024 ** 3,
+  now: NOW, dispatchEnabled: true, halted: false, ceiling: "L1", claude: "ok", repoAccess: "ok", diskFreeBytes: 30 * 1024 ** 3, minFreeBytes: 4 * 1024 ** 3,
   store: "ok", running: 0, stuck: 0, staleHeartbeats: 0, failures24h: 0, reaper: { at: new Date(NOW - 60_000).toISOString(), ok: true, error: null }, ...over,
 });
 
@@ -14,6 +14,10 @@ describe("execution health", () => {
   });
   it("dispatch off says Off, but still reports what would block activation", () => {
     expect(executionHealth(good({ dispatchEnabled: false, claude: "logged_out" }))).toMatchObject({ state: "off", headline: "Off", readiness: "blocked", reasons: ["Claude login required"] });
+  });
+  it("a HALT is shown distinctly from not activated", () => {
+    expect(executionHealth(good({ halted: true })).headline).toBe("Off · halted on the execution host");
+    expect(executionHealth(good({ halted: true, dispatchEnabled: false })).state).toBe("off");
   });
   it("blockers win over degradations, in a fixed order", () => {
     expect(executionHealth(good({ claude: "logged_out", stuck: 2 })).headline).toBe("Blocked · Claude login required");

@@ -14,6 +14,7 @@ import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { noStoreJson } from "@/lib/server/cockpit-chat-data";
 import { git, remoteBranchTip } from "./git";
 import { originOf, type RepoEntry } from "./projects";
+import { dispatchHalted } from "./halt";
 import { executionAvailable, type Choices } from "./service";
 import { CAPABILITIES, type Capability } from "./contract";
 
@@ -40,11 +41,12 @@ export function choicesFrom(body: Record<string, unknown>): Choices | NextRespon
   return c;
 }
 const bad = (message: string) => noStoreJson({ data: null, error: { code: "invalid", message } }, 400);
+const halted = () => noStoreJson({ data: null, error: { code: "execution_halted", message: "Execution is halted on the execution host. Nothing was run." } }, 403);
 const disabled = () => noStoreJson({ data: null, error: { code: "production_dispatch_disabled", message: "Execution from Universal Command is not enabled yet. Nothing was run." } }, 403);
 
 /** Shared front half of both routes, after the route's own owner guard: gate, body, the founder's shadow record. */
 export async function executionRequestContext(req: Request, guard: Extract<Awaited<ReturnType<typeof guardProtectedMutation>>, { ok: true }>) {
-  if (!executionAvailable()) return { ok: false as const, response: disabled() };
+  if (!executionAvailable()) return { ok: false as const, response: dispatchHalted() ? halted() : disabled() };
   const c = commandContext(guard);
   if (!c.ok) return { ok: false as const, response: c.response };
   const body = await jsonObject(req);

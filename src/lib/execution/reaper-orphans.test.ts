@@ -36,10 +36,10 @@ const opts = (m: ReturnType<typeof memoryJobsDb>, kill: (pid: number, sig: NodeJ
 describe("orphaned CLI after a cockpit restart", () => {
   it("is stopped (whole group) and then reaped, with an orphan_stop event first", async () => {
     const m = memoryJobsDb();
-    const cli = startCli(join(execRoot, "mettle", "exec-1"));
+    const cli = startCli(join(execRoot, "mettle", "00000000-0000-4000-8000-000000000001"));
     await new Promise((r) => setTimeout(r, 200));
-    expect(inspectProcess(cli.pid!)).toMatchObject({ pgid: cli.pid, cwd: join(execRoot, "mettle", "exec-1") });
-    seed(m, "job-1", "exec-1", { host: hostname(), pid: await deadPid(), cliPid: cli.pid });
+    expect(inspectProcess(cli.pid!)).toMatchObject({ pgid: cli.pid, cwd: join(execRoot, "mettle", "00000000-0000-4000-8000-000000000001") });
+    seed(m, "job-1", "00000000-0000-4000-8000-000000000001", { host: hostname(), pid: await deadPid(), cliPid: cli.pid });
     const first = await reaperPass(opts(m));
     expect(first.stopped).toBe(1);
     expect(m.events.map((e) => e.kind)).toEqual(["orphan_stop"]);
@@ -54,13 +54,13 @@ describe("orphaned CLI after a cockpit restart", () => {
     const m = memoryJobsDb();
     const wrongDir = startCli(join(root, "elsewhere"));
     symlinkSync("/bin/sleep", join(root, "bin", "other"));
-    const wrongBin = startCli(join(execRoot, "mettle", "exec-3"), join(root, "bin", "other"));
-    const watched = startCli(join(execRoot, "mettle", "exec-4"));
+    const wrongBin = startCli(join(execRoot, "mettle", "00000000-0000-4000-8000-000000000003"), join(root, "bin", "other"));
+    const watched = startCli(join(execRoot, "mettle", "00000000-0000-4000-8000-000000000004"));
     await new Promise((r) => setTimeout(r, 200));
-    seed(m, "job-2", "exec-2", { host: hostname(), pid: await deadPid(), cliPid: wrongDir.pid });
-    seed(m, "job-3", "exec-3", { host: hostname(), pid: await deadPid(), cliPid: wrongBin.pid });
-    seed(m, "job-4", "exec-4", { host: hostname(), pid: process.pid, cliPid: watched.pid });
-    seed(m, "job-5", "exec-5", { host: "another-host", pid: 1, cliPid: watched.pid });
+    seed(m, "job-2", "00000000-0000-4000-8000-000000000002", { host: hostname(), pid: await deadPid(), cliPid: wrongDir.pid });
+    seed(m, "job-3", "00000000-0000-4000-8000-000000000003", { host: hostname(), pid: await deadPid(), cliPid: wrongBin.pid });
+    seed(m, "job-4", "00000000-0000-4000-8000-000000000004", { host: hostname(), pid: process.pid, cliPid: watched.pid });
+    seed(m, "job-5", "00000000-0000-4000-8000-000000000005", { host: "another-host", pid: 1, cliPid: watched.pid });
     const kills: number[] = [];
     const out = await stopOrphans(opts(m, (pid) => { kills.push(pid); }));
     expect(out.stopped).toEqual([]);
@@ -74,14 +74,30 @@ describe("orphaned CLI after a cockpit restart", () => {
 
   it("a database error stops the pass before any signal", async () => {
     const m = memoryJobsDb();
-    const cli = startCli(join(execRoot, "mettle", "exec-6"));
+    const cli = startCli(join(execRoot, "mettle", "00000000-0000-4000-8000-000000000006"));
     await new Promise((r) => setTimeout(r, 200));
-    seed(m, "job-6", "exec-6", { host: hostname(), pid: await deadPid(), cliPid: cli.pid });
+    seed(m, "job-6", "00000000-0000-4000-8000-000000000006", { host: hostname(), pid: await deadPid(), cliPid: cli.pid });
     m.fail.insertEvent = "connection reset";
     const kills: number[] = [];
     const out = await reaperPass(opts(m, (pid) => { kills.push(pid); }));
     expect(out).toMatchObject({ ok: false, stopped: 0 });
     expect(out.error).toMatch(/nothing was stopped/);
+    expect(kills).toEqual([]);
+    expect(processAlive(cli.pid!)).toBe(true);
+  }, 20_000);
+});
+
+describe("orphan stop never builds a path from unvalidated database values (PR #55 review P3)", () => {
+  it("a project with '..' or a non-UUID execution id is skipped, even if a matching process exists", async () => {
+    const m = memoryJobsDb();
+    const id = "00000000-0000-4000-8000-0000000000aa";
+    const cli = startCli(join(root, id));   // exactly where join(execRoot, "..", id) would point
+    await new Promise((r) => setTimeout(r, 200));
+    const old = new Date(Date.now() - HEARTBEAT_STALE_MS - 60_000).toISOString();
+    m.jobs.set("job-x", { id: "job-x", status: "running", source: EXECUTOR_SOURCE, started_at: old, updated_at: old, input: { executionId: id, project: "..", limits: { timeoutMs: 1 }, runner: { host: hostname(), pid: await deadPid(), cliPid: cli.pid } } });
+    const kills: number[] = [];
+    const out = await stopOrphans({ ...opts(m, (pid) => { kills.push(pid); }), execRoot: join(root, "exec") });
+    expect(out.stopped).toEqual([]);
     expect(kills).toEqual([]);
     expect(processAlive(cli.pid!)).toBe(true);
   }, 20_000);

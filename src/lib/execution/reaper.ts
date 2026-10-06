@@ -111,7 +111,10 @@ export async function stopOrphans(o: {
     if (o.isAlive(host)) { out.skipped.push({ id: j.id, reason: "its executor is alive" }); continue; }
     if (!o.isAlive(cli)) { out.skipped.push({ id: j.id, reason: "nothing left running" }); continue; }
     const facts = o.inspect(cli);
-    const worktree = typeof input.project === "string" && typeof input.executionId === "string" ? join(/*turbopackIgnore: true*/ o.execRoot, input.project, input.executionId) : null;
+    // The path comes from database values: only a plain slug and a UUID may form it (no "..", no "/").
+    const valid = typeof input.project === "string" && /^[a-z0-9-]{1,64}$/.test(input.project)
+      && typeof input.executionId === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(input.executionId);
+    const worktree = valid ? join(/*turbopackIgnore: true*/ o.execRoot, input.project as string, input.executionId as string) : null;
     const same = !!facts && facts.pgid === cli && facts.args.startsWith(o.claudeBin) && !!worktree && facts.cwd === worktree;
     if (!same) { out.skipped.push({ id: j.id, reason: "the live pid is not provably this run's CLI; left for a person" }); continue; }
     const ev = await o.db.insertEvent({ job_id: j.id, kind: "orphan_stop", detail: { cliPid: cli, executorPid: host, host: o.host, at: new Date(o.now).toISOString() } });

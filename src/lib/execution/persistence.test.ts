@@ -135,7 +135,7 @@ describe("supabase JobsDb adapter: exact queries on the existing tables", () => 
   function client(result: { data?: unknown; error?: unknown }) {
     const calls: unknown[][] = [];
     const chain: Record<string, (...a: unknown[]) => unknown> = {};
-    for (const m of ["from", "insert", "update", "select", "eq", "order", "limit", "maybeSingle"]) chain[m] = (...a: unknown[]) => { calls.push([m, ...a]); return chain; };
+    for (const m of ["from", "insert", "update", "select", "eq", "gte", "order", "limit", "maybeSingle"]) chain[m] = (...a: unknown[]) => { calls.push([m, ...a]); return chain; };
     (chain as { then?: unknown }).then = (res: (v: unknown) => unknown) => res(result);
     return { db: chain as never, calls };
   }
@@ -147,6 +147,11 @@ describe("supabase JobsDb adapter: exact queries on the existing tables", () => 
     expect(await supabaseJobsDb(dup.db).insertJob({ id: "x" })).toEqual({ conflict: true, error: null });
     const zero = client({ data: [], error: null });
     expect((await supabaseJobsDb(zero.db).updateJobIf("j1", { status: "running", updated_at: null }, {})).updated).toBe(false);
+  });
+  it("a cancel check for an attempt filters on the time the cancel was made (PR #55 review P2)", async () => {
+    const c = client({ data: [], error: null });
+    await supabaseJobsDb(c.db).hasEvent("j1", "cancel_requested", "2026-10-06T18:00:00.000Z");
+    expect(c.calls).toEqual([["from", "job_events"], ["select", "id"], ["eq", "job_id", "j1"], ["eq", "kind", "cancel_requested"], ["gte", "detail->>at", "2026-10-06T18:00:00.000Z"], ["limit", 1]]);
   });
   it("lists only running executor jobs", async () => {
     const c = client({ data: [], error: null });
