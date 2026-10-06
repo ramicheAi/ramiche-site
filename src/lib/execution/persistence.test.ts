@@ -2,6 +2,7 @@
  * P06 M6B: executions persisted on the existing jobs / job_events tables. Heartbeat, founder cancel, the reaper's
  * conservative criteria, and the Supabase adapter's exact queries.
  */
+import { hostname } from "node:os";
 import { describe, expect, it } from "vitest";
 import type { ExecutionRequest } from "./contract";
 import { processAlive, reapAbandoned, DEADLINE_GRACE_MS, HEARTBEAT_STALE_MS } from "./reaper";
@@ -187,5 +188,45 @@ describe("idempotent retries after abandonment or read failure (PR #50 review)",
     expect(await supabaseJobsDb(mk([{ data: null, error: { message: "boom" } }])).getJob("j")).toEqual({ row: null, error: "boom" });
     expect(await supabaseJobsDb(mk([{ data: { input: {}, status: "done", error: null }, error: null }, { data: null, error: { message: "events down" } }])).getJob("j")).toEqual({ row: null, error: "events down" });
     expect(await supabaseJobsDb(mk([{ data: null, error: null }])).getJob("j")).toEqual({ row: null, error: null });
+  });
+});
+
+describe("reaper evidence and atomicity (PR #50 Codex)", () => {
+  const NOW = Date.parse("2026-10-06T00:00:00Z");
+  async function begun() {
+    const m = memoryJobsDb(); const s = new JobsExecutionStore(m.db);
+    await s.begin(req({ idempotencyKey: "codex-50" }), "b");
+    const id = executionJobId("codex-50");
+    Object.assign(m.jobs.get(id)!, { started_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" });
+    return { m, s, id };
+  }
+
+  it("liveness follows the CLI's own pid once recorded: a live host with a dead CLI is reaped; a live CLI is not", async () => {
+    const { m, s, id } = await begun();
+    await s.recordProcess(req({ idempotencyKey: "codex-50" }), 2 ** 22 + 4242);   // a pid that does not exist
+    expect((m.jobs.get(id)!.input as { runner: { cliPid: number; pid: number } }).runner).toMatchObject({ cliPid: 2 ** 22 + 4242, pid: process.pid });
+    const out = await reapAbandoned({ db: m.db, now: NOW, host: hostname(), isAlive: processAlive });
+    expect(out.reaped).toHaveLength(1);   // the host (this process) is alive, but the run's own process is gone
+    const live = await begun();
+    await live.s.recordProcess(req({ idempotencyKey: "codex-50" }), process.pid);
+    expect((await reapAbandoned({ db: live.m.db, now: NOW, host: hostname(), isAlive: processAlive })).reaped).toEqual([]);
+  });
+
+  it("an intent is recorded before any status change: if it cannot be written nothing changes; a lost race is withdrawn", async () => {
+    const a = await begun();
+    a.m.fail.insertEvent = "down";
+    const failed = await reapAbandoned({ db: a.m.db, now: NOW, host: "other", isAlive: () => false });
+    expect(failed.error).toMatch(/so nothing changed/);
+    expect(a.m.jobs.get(a.id)!.status).toBe("running");
+    a.m.fail.insertEvent = undefined;
+    const ok = await reapAbandoned({ db: a.m.db, now: NOW, host: "other", isAlive: () => false });
+    expect(ok.reaped).toHaveLength(1);
+    expect(a.m.events.filter((e) => e.job_id === a.id).map((e) => e.kind)).toEqual(["reap_intent", "reaped"]);
+    const b = await begun();
+    const upd = b.m.db.updateJobIf.bind(b.m.db);
+    b.m.db.updateJobIf = async (id, expect, patch) => { b.m.jobs.get(id)!.updated_at = new Date(NOW).toISOString(); return upd(id, expect, patch); };   // heartbeat wins
+    await reapAbandoned({ db: b.m.db, now: NOW, host: "other", isAlive: () => false });
+    expect(b.m.jobs.get(b.id)!.status).toBe("running");
+    expect(b.m.events.filter((e) => e.job_id === b.id).map((e) => e.kind)).toEqual(["reap_intent", "reap_withdrawn"]);
   });
 });

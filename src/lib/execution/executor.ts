@@ -201,6 +201,7 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
       bin: deps.claudeBin, cwd: worktree, capability: req.capability, instruction: req.task.instruction, projectName: resolved.name,
       maxTurns: req.limits.maxTurns, maxBudgetUsd: req.limits.maxBudgetUsd, model: deps.model ?? null, timeoutMs: req.limits.timeoutMs,
       signal: ac.signal, logPath, extraEnv: deps.extraEnv,
+      onSpawn: (pid) => { deps.store.recordProcess?.(req, pid).catch(() => { heartbeatFailures++; }); },
     });
   } catch {
     run = { exitCode: null, timedOut: false, canceled: false, reportedError: true, resultText: "", modelReported: null, turns: null, inputTokens: null, outputTokens: null, costEstimateUsd: null, checks: [], sawResult: false };

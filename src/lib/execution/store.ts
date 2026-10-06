@@ -20,6 +20,8 @@ export interface ExecutionStore {
   finish(r: ExecutionRequest, result: ExecutionResult): Promise<void>;
   /** Liveness while running (the reaper's evidence that the run is not abandoned). Optional. */
   heartbeat?(r: ExecutionRequest): Promise<void>;
+  /** The executor's own process (the CLI), recorded once it exists, so liveness is judged by the run, not its host. */
+  recordProcess?(r: ExecutionRequest, cliPid: number): Promise<void>;
   /** Whether the founder asked to cancel this run. Optional; checked with each heartbeat. */
   cancelRequested?(r: ExecutionRequest): Promise<boolean>;
 }
@@ -80,24 +82,25 @@ export function abandonedResult(r: ExecutionRequest, reason: string | null): Exe
 }
 
 export class JobsExecutionStore implements ExecutionStore {
+  private readonly inputs = new Map<string, Record<string, unknown>>();
   private readonly db: JobsDb;
   constructor(db: JobsDb) { this.db = db; }
   async begin(r: ExecutionRequest, bindingHash: string): Promise<Begin> {
     const id = executionJobId(r.idempotencyKey);
     const now = new Date().toISOString();
-    const ins = await this.db.insertJob({
-      id, title: r.task.instruction.slice(0, 200), kind: "dev", status: "running", agent: "claude-code", source: EXECUTOR_SOURCE,
-      input: {
+    const input: Record<string, unknown> = {
         executionId: r.executionId, bindingHash, commandId: r.commandId, missionId: r.missionId, project: r.project.slug,
         origin: r.repository.origin, branch: r.repository.branch, head: r.repository.head, capability: r.capability,
         contextRefs: r.task.contextRefs, limits: r.limits, founder: r.founder.uid,
         // Process evidence for the reaper: which host and process run this execution.
         runner: { host: hostname(), pid: process.pid },
-      },
-      progress: `approved ${r.capability}`, started_at: now, updated_at: now,
+    };
+    const ins = await this.db.insertJob({
+      id, title: r.task.instruction.slice(0, 200), kind: "dev", status: "running", agent: "claude-code", source: EXECUTOR_SOURCE,
+      input, progress: `approved ${r.capability}`, started_at: now, updated_at: now,
     });
     if (ins.error) throw new Error(`execution record could not be created: ${ins.error}`);   // fail closed: no record, no run
-    if (!ins.conflict) return { state: "new" };
+    if (!ins.conflict) { this.inputs.set(id, input); return { state: "new" }; }
     const cur = await this.db.getJob(id);
     if (cur.error) throw new Error(`execution record could not be read: ${cur.error}`);   // never mistake a read failure for a conflict
     if (!cur.row) throw new Error("execution record conflicted but could not be found");
@@ -116,6 +119,15 @@ export class JobsExecutionStore implements ExecutionStore {
       progress: result.status, finished_at: result.completedAt, updated_at: result.completedAt,
     });
     if (up.error) throw new Error(`execution result could not be saved: ${up.error}`);
+  }
+  async recordProcess(r: ExecutionRequest, cliPid: number): Promise<void> {
+    const id = executionJobId(r.idempotencyKey);
+    const input = this.inputs.get(id);
+    if (!input) return;
+    const next = { ...input, runner: { ...(input.runner as Record<string, unknown>), cliPid } };
+    const up = await this.db.updateJobIf(id, { status: "running", updated_at: null }, { input: next });
+    if (up.error) throw new Error(`process evidence could not be recorded: ${up.error}`);
+    this.inputs.set(id, next);
   }
   async heartbeat(r: ExecutionRequest): Promise<void> {
     const now = new Date().toISOString();

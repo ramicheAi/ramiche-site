@@ -323,3 +323,18 @@ describe("M6B: executor with the jobs store (heartbeat, founder cancel)", () => 
     expect(m.events.map((e) => e.kind)).toEqual(expect.arrayContaining(["cancel_requested", "execution_result"]));
   }, 30_000);
 });
+
+describe("M6B: the CLI's own pid is recorded as process evidence (PR #50 Codex P1)", () => {
+  it("records the spawned CLI pid on the jobs row while running", async () => {
+    const { JobsExecutionStore } = await import("./store");
+    const { memoryJobsDb } = await import("./__fixtures__/memory-jobs-db");
+    const m = memoryJobsDb();
+    const r = request();
+    const res = await run(r, deps({ store: new JobsExecutionStore(m.db) }));
+    expect(res.status).toBe("succeeded");
+    const runner = (m.jobs.get(executionJobId(r.idempotencyKey))!.input as { runner: { pid: number; cliPid: number } }).runner;
+    expect(runner.pid).toBe(process.pid);
+    expect(typeof runner.cliPid).toBe("number");
+    expect(runner.cliPid).not.toBe(process.pid);
+  }, 30_000);
+});
