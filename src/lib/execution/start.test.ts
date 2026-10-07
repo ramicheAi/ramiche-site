@@ -150,3 +150,22 @@ describe("PR #57 Codex on d46d75a: a refusal that never recorded a run is not 's
     expect(m.jobs.size).toBe(0);
   }, 30_000);
 });
+
+describe("PR #57 Codex on 9523c33: one active run per command, enforced at approval", () => {
+  it("while a run for the command is running, a second approval is refused (even with a different branch head)", async () => {
+    const { refuseIfRunning } = await import("./service");
+    const m = memoryJobsDb();
+    const store = new JobsExecutionStore(m.db);
+    const text = "Claude Code, inspect METTLE and tell me what is blocking production.";
+    const rs = shadow(text, "9e000000-0000-4000-8000-0000000000d1");
+    expect(await refuseIfRunning(m.db, rs.id)).toEqual({ ok: true });
+    const p = await prepareExecution({ record: rs, founderUid: OWNER, choices: { capability: "L1" } }, deps(store));
+    if (!p.ok) throw new Error(p.message);
+    const started = await startExecution({ record: rs, founderUid: OWNER, seenBindingHash: p.bindingHash, choices: { capability: "L1" } }, deps(store, { heartbeatMs: 100 }));
+    expect(started.ok).toBe(true);
+    const second = await refuseIfRunning(m.db, rs.id);
+    expect(second).toMatchObject({ ok: false, code: "already_running" });
+    await vi.waitFor(() => expect(m.jobs.get(executionJobId(p.request.idempotencyKey))!.status).not.toBe("running"), { timeout: 20_000, interval: 100 });
+    expect(await refuseIfRunning(m.db, rs.id)).toEqual({ ok: true });
+  }, 30_000);
+});

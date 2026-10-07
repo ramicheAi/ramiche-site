@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { executionRequestContext, checkoutRemoteTip, executionRoots } from "@/lib/execution/http";
-import { startExecution } from "@/lib/execution/service";
+import { refuseIfRunning, startExecution } from "@/lib/execution/service";
 import { JobsExecutionStore } from "@/lib/execution/store";
 import { supabaseJobsDb } from "@/lib/execution/supabase-jobs-db";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -24,6 +24,9 @@ export async function POST(req: Request) {
   if (!c.ok) return c.response;
   const svc = getSupabaseAdmin();
   if (!svc) return noStoreJson({ data: null, error: { code: "not_configured", message: "Execution records are unavailable." } }, 503);
+  // One active run per command, whatever the branch head or project (Codex P2 on 9523c33).
+  const busy = await refuseIfRunning(supabaseJobsDb(svc), c.record.id);
+  if (!busy.ok) return noStoreJson({ data: busy.jobId ? { jobId: busy.jobId } : null, error: { code: busy.code, message: busy.message } }, busy.code === "already_running" ? 409 : 503);
   const roots = executionRoots();
   // M6H: the approval returns as soon as the run's durable record exists; the run continues on the server and the
   // founder's screen follows its job (status route). A request that goes away loses nothing.

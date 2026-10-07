@@ -15,7 +15,7 @@ import { randomUUID } from "node:crypto";
 import { approve, approvalKey as defaultKey } from "./approval";
 import { bindingHash, CAPABILITIES, CAPABILITY_META, capabilityRank, EXECUTABLE_CAPABILITIES, type Capability, type ExecutionRequest, type ExecutionResult } from "./contract";
 import { runExecution, type ExecutionDeps } from "./executor";
-import { executionJobId } from "./store";
+import { executionJobId, type JobsDb } from "./store";
 import { GITHUB_AUTH_BLOCKED, GithubAuthUnavailable } from "./github-app";
 import { dispatchHalted } from "./halt";
 import { missionSuggestion, type MissionSuggestion } from "./mission";
@@ -163,6 +163,19 @@ export function startExecution(input: { record: ShadowRecord; founderUid: string
       (e) => settle({ ok: false, code: "execution_failed_to_start", message: `The run could not start (${e instanceof Error ? e.message : "error"}). Nothing was run.` }),
     );
   });
+}
+
+/**
+ * One active run per command: a second approval for a command that already has a running attempt is refused, whatever
+ * its branch head, project or capability (those change the idempotency key, so the key alone cannot stop it).
+ * Check-then-start: the window between this read and the record's write is small but not zero; closing it fully
+ * needs a unique partial index on running executor jobs per command (a schema change, not made here).
+ */
+export async function refuseIfRunning(db: Pick<JobsDb, "findRunningByCommand">, commandId: string): Promise<{ ok: true } | { ok: false; code: "already_running" | "store_error"; message: string; jobId?: string }> {
+  const found = await db.findRunningByCommand(commandId);
+  if (found.error) return { ok: false, code: "store_error", message: `The execution record could not be read, so nothing was started: ${found.error}` };
+  if (found.jobId) return { ok: false, code: "already_running", message: "A run for this command is already in progress. Follow it, or cancel it first.", jobId: found.jobId };
+  return { ok: true };
 }
 
 /** Whether the cockpit should offer execution at all (the UI hides it otherwise). */
