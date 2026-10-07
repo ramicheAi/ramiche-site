@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { guardProtectedMutation } from "@/lib/server/protected-mutation";
-import { executionRequestContext, checkoutRemoteTip, executionRoots } from "@/lib/execution/http";
+import { executionGate, executionRequestContext, checkoutRemoteTip, executionRoots } from "@/lib/execution/http";
 import { refuseIfRunning, startExecution } from "@/lib/execution/service";
 import { JobsExecutionStore } from "@/lib/execution/store";
 import { supabaseJobsDb } from "@/lib/execution/supabase-jobs-db";
@@ -22,6 +22,11 @@ export async function POST(req: Request) {
   if (!guard.ok) return guard.response;
   const c = await executionRequestContext(req, guard);
   if (!c.ok) return c.response;
+  // The active-run check is itself a database read: it re-checks the dispatch gate first, on its own, so a disabled
+  // or halted surface never reaches the store even if this check's own ordering ever changes independent of
+  // executionRequestContext's earlier one (Codex final review).
+  const gate = executionGate();
+  if (gate) return gate;
   const svc = getSupabaseAdmin();
   if (!svc) return noStoreJson({ data: null, error: { code: "not_configured", message: "Execution records are unavailable." } }, 503);
   // One active run per command, whatever the branch head or project (Codex P2 on 9523c33).

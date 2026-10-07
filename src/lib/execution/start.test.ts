@@ -226,3 +226,39 @@ describe("PR #57 Codex final: commandStatus rechecks for a newer job after a ter
     expect(await commandStatus({ findRunningByCommand: async () => ({ jobId: null, error: "down" }), getJob: async () => ({ row: null, error: null }) } as never, "cmd")).toEqual({ error: "down" });
   });
 });
+
+describe("PR #57 Codex final: a half-recorded retry is never mistaken for active", () => {
+  it("if the retry event write fails, the row never became running for an attempt that will not execute", async () => {
+    const m = memoryJobsDb();
+    const store = new JobsExecutionStore(m.db);
+    const text = "Claude Code, inspect METTLE and tell me what is blocking production. FAKE:" + JSON.stringify({ isError: true, result: "boom" });
+    const rs = shadow(text, "9e000000-0000-4000-8000-0000000000eb");
+    const p = await prepareExecution({ record: rs, founderUid: OWNER, choices: { capability: "L1" } }, deps(store));
+    if (!p.ok) throw new Error(p.message);
+    const first = await startExecution({ record: rs, founderUid: OWNER, seenBindingHash: p.bindingHash, choices: { capability: "L1" } }, deps(store, { heartbeatMs: 100 }));
+    expect(first.ok).toBe(true);
+    await vi.waitFor(() => expect(m.jobs.get(executionJobId(p.request.idempotencyKey))!.status).not.toBe("running"), { timeout: 20_000, interval: 100 });
+    const statusBefore = m.jobs.get(executionJobId(p.request.idempotencyKey))!.status;
+    m.fail.insertEvent = "connection reset";   // the retry event write fails
+    const out = await startExecution({ record: rs, founderUid: OWNER, seenBindingHash: p.bindingHash, choices: { capability: "L1" } }, deps(store, { heartbeatMs: 100 }));
+    expect(out).toMatchObject({ ok: false, code: "in_progress" });
+    // The row must still be in its PREVIOUS terminal status: never flipped to running for an attempt that will not run.
+    expect(m.jobs.get(executionJobId(p.request.idempotencyKey))!.status).toBe(statusBefore);
+  }, 30_000);
+});
+
+describe("PR #57 Codex final: a retry under the same job id is re-read, not shown as stale", () => {
+  it("the recheck finding the SAME job id (reopened by a retry) still re-reads it, not the earlier terminal snapshot", async () => {
+    const { commandStatus } = await import("./status");
+    const A = "00000000-0000-4000-8000-0000000000a1", B = "00000000-0000-4000-8000-0000000000b2";
+    const terminalA = { status: "done", error: null, input: { executionId: A }, resultEvent: { executionId: A, status: "succeeded" } };
+    const runningB = { status: "running", error: null, input: { executionId: B }, resultEvent: null };
+    let getCalls = 0;
+    const db = {
+      findRunningByCommand: async () => ({ jobId: "job-1", error: null }),   // same job id throughout: a retry reopened it
+      getJob: async () => { getCalls++; return { row: getCalls <= 2 ? terminalA : runningB, error: null }; },
+    };
+    const v = await commandStatus(db as never, "cmd");
+    expect(v).toMatchObject({ jobId: "job-1", view: { state: "running" } });
+  });
+});

@@ -108,6 +108,23 @@ describe("HALT through the real routes (PR #55 Codex P2)", () => {
       expect((await hr.json()).data.headline).toBe("Off · halted on the execution host");
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
+  it("the active-run check never reads the store while halted: approve's own gate fires first (Codex final review)", async () => {
+    const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { tmpdir } = await import("node:os");
+    const dir = mkdtempSync(join(tmpdir(), "m6f-halt2-"));
+    const halt = join(dir, "HALT");
+    writeFileSync(halt, "rollback\n");
+    vi.stubEnv("PARALLAX_EXECUTION_HALT_FILE", halt);
+    const spy = vi.spyOn(m.db, "findRunningByCommand");
+    try {
+      const r = await import("@/app/api/command-center/execution/approve/route");
+      const res: Response = await r.POST(new NextRequest(`${ORIGIN}/api/command-center/execution/approve`, { method: "POST", headers: founder(), body: JSON.stringify({ commandId: JOB, bindingHash: "a".repeat(64) }) }));
+      expect(res.status).toBe(403);
+      expect((await res.json()).error.code).toBe("execution_halted");
+      expect(spy).not.toHaveBeenCalled();
+    } finally { rmSync(dir, { recursive: true, force: true }); spy.mockRestore(); }
+  });
 });
 
 describe("health's Claude login check never hands the cockpit's secrets to a child (independent review P2 on #56)", () => {

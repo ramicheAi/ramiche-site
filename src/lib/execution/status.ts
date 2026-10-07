@@ -66,9 +66,11 @@ export async function commandStatus(db: Pick<JobsDb, "getJob" | "findRunningByCo
     if (!snap.row) continue;   // the row is gone by the time it was read: try again
     const view = executionView(snap.row);
     if (view.state === "running") return { jobId: found.jobId, view };
+    // "Active now" includes the SAME row reopened by a retry, not only a different job: a non-null recheck always
+    // means something is running for this command right now, so the terminal view just read is stale either way.
     const recheck = await db.findRunningByCommand(commandId);
     if (recheck.error) return { error: recheck.error };
-    if (recheck.jobId && recheck.jobId !== found.jobId) continue;   // a newer job started; read that one instead
+    if (recheck.jobId) continue;
     return { jobId: found.jobId, view };
   }
   return { jobId: jobId as string, view: { state: "running", executionId: null } };

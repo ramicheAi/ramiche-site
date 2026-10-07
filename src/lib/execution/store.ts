@@ -150,13 +150,16 @@ export class JobsExecutionStore implements ExecutionStore {
     // One conditional write reopens the row AND replaces the previous attempt's identity (execution id, worktree, the
     // runner host and pid, no stale CLI pid), so the reaper can never judge this attempt by the last one's processes.
     const input = this.attemptInput(r, bindingHash);
+    // The retry event is durable evidence written BEFORE the row is reopened (the same order the reaper's own
+    // reap_intent uses): if this write fails, the row is never flipped to "running" for an attempt that will not
+    // execute, so isRunning() cannot mistake a half-recorded retry for a live one (Codex final review).
+    const ev = await this.db.insertEvent({ job_id: id, kind: "retry", detail: { previous: previous.status, code: previous.failure?.code ?? null, at: now } });
+    if (ev.error) throw new Error(`retry event could not be recorded: ${ev.error}`);
     const up = await this.db.updateJobIf(id, { status: jobStatusFor(previous.status), updated_at: null }, {
       status: "running", started_at: now, updated_at: now, finished_at: null, error: null, result: null, progress: `retry after ${previous.status}`, input,
     });
     if (up.error) throw new Error(`retry could not be recorded: ${up.error}`);
-    if (!up.updated) return false;
-    const ev = await this.db.insertEvent({ job_id: id, kind: "retry", detail: { previous: previous.status, code: previous.failure?.code ?? null, at: now } });
-    if (ev.error) throw new Error(`retry event could not be recorded: ${ev.error}`);
+    if (!up.updated) return false;   // lost a race; the retry event above is then a harmless orphan log line
     this.inputs.set(id, input);
     return true;
   }
