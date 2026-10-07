@@ -152,7 +152,14 @@ export function startExecution(input: { record: ShadowRecord; founderUid: string
       executor: { ...deps.executor, onStarted: (req) => settle({ ok: true, executionId: req.executionId, jobId: executionJobId(req.idempotencyKey) }) },
     };
     approveExecution(input, d).then(
-      (out) => settle(out.ok ? { ok: true, executionId: out.result.executionId, jobId: out.jobId } : out),
+      (out) => {
+        // A run refused before its record existed (disk, stale head, checkout, store) is a refusal, not a started job.
+        if (out.ok && out.result.status === "rejected") {
+          settle({ ok: false, code: out.result.failure?.code ?? "not_started", message: out.result.failure?.message ?? "The run did not start. Nothing was run." });
+          return;
+        }
+        settle(out.ok ? { ok: true, executionId: out.result.executionId, jobId: out.jobId } : out);
+      },
       (e) => settle({ ok: false, code: "execution_failed_to_start", message: `The run could not start (${e instanceof Error ? e.message : "error"}). Nothing was run.` }),
     );
   });

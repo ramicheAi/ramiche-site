@@ -201,3 +201,16 @@ describe("PR #57 Codex on 5a625f7", () => {
     expect(src).not.toMatch(/…/);
   });
 });
+
+describe("PR #57 Codex on d46d75a: a run that finishes during the resume lookup", () => {
+  it("the lookup accepts a finished run and shows its result, not a 'Check again'", async () => {
+    const DONE = { ...RESULT, project: "mettle" };
+    fetchSpy.mockImplementation((url: string) => {
+      if (String(url).includes("commandId=")) return json(200, { data: { jobId: JOB, state: "done", executionId: "e1", result: DONE, message: null }, error: null });
+      throw new Error("unexpected " + url);
+    });
+    render(<ExecutionFlow record={REC} onOpenDetails={vi.fn()} />);
+    expect((await screen.findByTestId("execution-result")).textContent).toContain("Fixed the importer.");
+    expect(screen.queryByRole("button", { name: "Check again" })).toBeNull();
+  });
+});

@@ -136,3 +136,17 @@ describe("PR #57 Codex: the status read is one consistent snapshot", () => {
     expect(executionView((await statusSnapshot(db as never, "job")).row!)).toMatchObject({ state: "running" });
   });
 });
+
+describe("PR #57 Codex on d46d75a: a refusal that never recorded a run is not 'started'", () => {
+  it("a run refused before its record exists (low disk) is returned as a refusal, never as a started job", async () => {
+    const m = memoryJobsDb();
+    const store = new JobsExecutionStore(m.db);
+    const text = "Claude Code, inspect METTLE and tell me what is blocking production.";
+    const rs = shadow(text, "9e000000-0000-4000-8000-0000000000f1");
+    const p = await prepareExecution({ record: rs, founderUid: OWNER, choices: { capability: "L1" } }, deps(store));
+    if (!p.ok) throw new Error(p.message);
+    const out = await startExecution({ record: rs, founderUid: OWNER, seenBindingHash: p.bindingHash, choices: { capability: "L1" } }, deps(store, { freeBytes: () => 0 }));
+    expect(out).toMatchObject({ ok: false, code: "disk_low" });
+    expect(m.jobs.size).toBe(0);
+  }, 30_000);
+});

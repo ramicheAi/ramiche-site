@@ -51,6 +51,9 @@ export function ExecutionFlow({ record, onOpenDetails }: { record: Pick<ShadowRe
         const j = await res.json().catch(() => null);
         if (res.ok && j?.data && j.data.state === "none") next = { s: "idle" };
         else if (res.ok && j?.data?.jobId && j.data.state === "running") next = { s: "running", p: null, jobId: j.data.jobId as string, executionId: (j.data.executionId as string | null) ?? null, cancel: "ready" };
+        // A run that finished before the lookup was read shows its result, the same as the polling path.
+        else if (res.ok && j?.data?.jobId && j.data.result) next = { s: "done", result: j.data.result as ExecutionResult, projectName: (j.data.result as ExecutionResult).project, open: false };
+        else if (res.ok && j?.data?.jobId) next = { s: "stopped", message: (j.data.message as string | null) ?? "This execution failed.", candidates: [] };
       } catch { /* stays lookup_failed */ }
       if (!gone) setSt((cur) => (cur.s === "checking" ? next : cur));
     })();
