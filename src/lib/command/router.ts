@@ -19,6 +19,7 @@
  *   5. AMBIGUOUS  otherwise no handler is chosen and a question is returned. There is no classifier in M5.
  */
 import { AGENT_CORE } from "@/lib/agent-registry-core";
+import { KNOWN_PROJECT_ALIASES } from "./known-project-names";
 import { authorityFinding, canonicalCommand } from "./authority";
 import { HANDLER_META, HANDLERS, type Handler, type ShadowDecision } from "./types";
 
@@ -57,8 +58,14 @@ const ANALYZE_WHAT = /^(?:what'?s|what is|whats)\s+(?:blocking|blocking|holding|
 // Strong codebase or blocker words take precedence over generic recency terms ("current", "latest"): "Analyze the current
 // METTLE codebase and find production blockers" is analysis, while "Find the latest production news" stays research.
 const ANALYZE_STRONG = /\b(codebase|repo|repository|code|blockers?|blocking|blocks?|priority|priorities|unfinished|problems?|issues?|bugs?|readiness)\b/;
-// Precedence also needs a product cue: "Find the latest issues in React" is current web research, not a project's work.
-const PRODUCT_CUE = /\b(codebase|repo|repository|production|prod|blocking|blockers?|readiness|unfinished)\b/;
+// Precedence over explicit recency ("latest", "current") needs real evidence of a known project, not generic words:
+// "Find the latest issues in React" is current web research (React is not a registered project); "Analyze the latest
+// METTLE production issues" is repository work (METTLE is). The registry is the one already used to resolve a project
+// for execution (execution/projects.ts), so this is the same identity, not a second list of names.
+function namesRegisteredProject(t: string): boolean {
+  const padded = ` ${t} `;
+  return KNOWN_PROJECT_ALIASES.some((a) => padded.includes(` ${a} `));
+}
 const CHATTER = /^(hi|hello|hey|thanks|thank you|ok|okay|cool|nice|got it)[.! ]*$/;
 const NO_MERGE = /\b(?:don'?t|do not|never|no)\s+merge\b|\bwithout me\b/;
 
@@ -148,7 +155,7 @@ export function routeCommand(input: RouteInput): ShadowDecision {
   if (job) return decide({ intent: "job_reference", handler: "existing_job", jobId: job[1], source: "deterministic", reasons: ["job_reference"] }, t, inMission);
   if (CHATTER.test(t)) return decide({ intent: "nothing", handler: "no_action", source: "deterministic", reasons: ["no_instruction"] }, t, inMission);
   if (REVIEW_ONLY.test(t)) return decide({ intent: "review", handler: "codex_review", source: "deterministic", reasons: ["review_only"] }, t, inMission);
-  if ((ANALYZE.test(t) || ANALYZE_WHAT.test(t)) && ANALYZE_STRONG.test(t) && PRODUCT_CUE.test(t)) {
+  if ((ANALYZE.test(t) || ANALYZE_WHAT.test(t)) && ANALYZE_STRONG.test(t) && namesRegisteredProject(t)) {
     return decide({ intent: "analysis", handler: "claude_code", source: "deterministic", reasons: ["repository_analysis_read_only"] }, t, inMission);
   }
   if (RESEARCH.test(t)) return decide({ intent: "research", handler: "perplexity", source: "deterministic", reasons: ["current_web_research"] }, t, inMission);

@@ -586,6 +586,9 @@ export const ROUTE_CORPUS: CorpusEntry[] = [
   { group: "deterministic", text: "Find the latest production news", expect: PX },
   { group: "deterministic", text: "Find the latest issues in React", expect: PX },
   { group: "deterministic", text: "What are the latest bugs in Next.js 16?", expect: PX },
+  { group: "deterministic", text: "Analyze the latest production issues in React", expect: PX },
+  { group: "deterministic", text: "Find the latest issues in Next.js", expect: PX },
+  { group: "deterministic", text: "Analyze the latest METTLE production issues", expect: CC },
   { group: "deterministic", text: "Research the current competitor pricing for swim apps", expect: PX },
   // analysis that is still a consequential act stays with the founder (the safety scan runs first)
   { group: "deterministic", text: "Inspect the deploy script and merge PR 41", expect: H },

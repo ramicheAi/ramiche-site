@@ -176,7 +176,7 @@ describe("purity", () => {
     for (const f of ["router.ts", "types.ts", "authority.ts"]) {
       const src = readFileSync(join(process.cwd(), "src/lib/command", f), "utf8");
       const runtimeImports = [...src.matchAll(/^import (?!type )[^;]*from "([^"]+)"/gm)].map((m) => m[1]);
-      expect(runtimeImports.filter((p) => !["@/lib/agent-registry-core", "./types", "./authority"].includes(p)), f).toEqual([]);
+      expect(runtimeImports.filter((p) => !["@/lib/agent-registry-core", "./types", "./authority", "./known-project-names"].includes(p)), f).toEqual([]);
     }
   });
 });
