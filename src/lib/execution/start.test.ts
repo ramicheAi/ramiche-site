@@ -110,3 +110,29 @@ describe("status view: the current attempt, never a stale result", () => {
     expect(executionView({ ...base, status: "failed", error: "Abandoned: process gone", resultEvent: null })).toMatchObject({ state: "failed", result: null, message: "Abandoned: process gone" });
   });
 });
+
+describe("PR #57 Codex: the status read is one consistent snapshot", () => {
+  it("a retry between the row read and the event read never yields a terminal view of the old attempt", async () => {
+    const { statusSnapshot, executionView } = await import("./status");
+    const A = "00000000-0000-4000-8000-0000000000a1", B = "00000000-0000-4000-8000-0000000000b2";
+    const oldFailed = { executionId: A, status: "failed", failure: { code: "executor_failed", message: "old" }, summary: "old" } as unknown as ExecutionResult;
+    // The first read sees attempt A finished; by the second read attempt B is running (a retry reopened the row).
+    const reads = [
+      { row: { status: "failed", error: "old", input: { executionId: A }, resultEvent: oldFailed }, error: null },
+      { row: { status: "running", error: null, input: { executionId: B }, resultEvent: oldFailed }, error: null },
+    ];
+    let i = 0;
+    const db = { getJob: async () => reads[Math.min(i++, reads.length - 1)] };
+    const snap = await statusSnapshot(db as never, "job");
+    expect(executionView(snap.row!)).toMatchObject({ state: "running", executionId: B });
+  });
+  it("a snapshot that cannot settle is reported as running, never as a stale failure", async () => {
+    const { statusSnapshot, executionView } = await import("./status");
+    const A = "00000000-0000-4000-8000-0000000000a1";
+    const flip = { row: { status: "failed", error: "x", input: { executionId: A }, resultEvent: null }, error: null };
+    const flop = { row: { status: "running", error: null, input: { executionId: A }, resultEvent: null }, error: null };
+    let n = 0;
+    const db = { getJob: async () => (n++ % 2 === 0 ? flip : flop) };
+    expect(executionView((await statusSnapshot(db as never, "job")).row!)).toMatchObject({ state: "running" });
+  });
+});

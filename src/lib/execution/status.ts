@@ -3,6 +3,27 @@
  * that may have gone away). Pure: the route supplies the job row.
  */
 import type { ExecutionResult } from "./contract-core";
+import type { JobsDb } from "./store";
+
+type Row = { status: string; error: string | null; input: Record<string, unknown> | null; resultEvent: ExecutionResult | null };
+
+/**
+ * One consistent view of a job. The row and its latest result event are read in separate queries, so a retry can land
+ * between them; the snapshot is accepted only when two reads agree on the attempt and status. If they never settle,
+ * it is reported as still running (the client keeps following), never as a stale finished attempt.
+ */
+export async function statusSnapshot(db: Pick<JobsDb, "getJob">, jobId: string): Promise<{ row: Row | null; error: string | null }> {
+  const attemptOf = (r: Row) => (typeof r.input?.executionId === "string" ? r.input.executionId : null);
+  for (let i = 0; i < 3; i++) {
+    const a = await db.getJob(jobId);
+    if (a.error) return { row: null, error: a.error };
+    if (!a.row) return { row: null, error: null };
+    const b = await db.getJob(jobId);
+    if (b.error) return { row: null, error: b.error };
+    if (b.row && b.row.status === a.row.status && attemptOf(b.row) === attemptOf(a.row)) return { row: b.row, error: null };
+  }
+  return { row: { status: "running", error: null, input: null, resultEvent: null }, error: null };
+}
 
 export type ExecutionView =
   | { state: "running"; executionId: string | null }
@@ -14,6 +35,7 @@ export function executionView(row: { status: string; error: string | null; input
   // is never shown while this one runs.
   if (row.status === "running" || row.status === "queued") return { state: "running", executionId };
   const r = row.resultEvent;
+  // A result event counts only for the attempt the row describes (a torn read can pair a row with another attempt's event).
   if (r && (r.executionId === executionId || executionId === null)) {
     if (r.status === "succeeded") return { state: "done", executionId, result: r, message: null };
     if (r.status === "canceled") return { state: "canceled", executionId, result: r, message: null };

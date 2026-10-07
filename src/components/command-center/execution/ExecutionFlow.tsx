@@ -6,7 +6,8 @@
  * the server derives and checks everything else. Rendered only when execution is enabled (it is not in production).
  *
  * M6H: approval returns as soon as the run is recorded. The card then follows the job (status route, polled every 3 s)
- * with a Cancel control, and shows the result when it lands. A reopened palette resumes the same job.
+ * with a Cancel control, and shows the result when it lands. A run in progress is found on the server for this command,
+ * so any tab resumes it.
  */
 import { useEffect, useState } from "react";
 import { cockpitFetch } from "@/lib/cockpit-fetch";
@@ -22,9 +23,6 @@ type State =
   | { s: "done"; result: ExecutionResult; projectName: string; open: boolean } | { s: "canceled"; result: ExecutionResult | null; projectName: string }
   | { s: "stopped"; message: string; candidates: string[] };
 const TERMINAL_PROGRESS_MS = 3_000;
-const resumeKey = (commandId: string) => `parallax-execution-job:${commandId}`;
-const readJob = (commandId: string) => { try { return sessionStorage.getItem(resumeKey(commandId)); } catch { return null; } };
-const writeJob = (commandId: string, jobId: string | null) => { try { if (jobId) sessionStorage.setItem(resumeKey(commandId), jobId); else sessionStorage.removeItem(resumeKey(commandId)); } catch { /* per-viewer convenience only */ } };
 
 async function post<T>(path: string, body: unknown): Promise<{ ok: true; data: T } | { ok: false; message: string; candidates: string[] }> {
   try {
@@ -38,11 +36,20 @@ async function post<T>(path: string, body: unknown): Promise<{ ok: true; data: T
 
 export function ExecutionFlow({ record, onOpenDetails }: { record: Pick<ShadowRecord, "id" | "decision">; onOpenDetails: () => void }) {
   const [st, setSt] = useState<State>({ s: "idle" });
-  // A run in progress (or just finished) survives a reopened palette: resume its job.
+  // A run already in progress for this command (started in any tab) is followed from the server, not from this tab.
   useEffect(() => {
-    const jobId = readJob(record.id);
-    if (jobId) setSt((cur) => (cur.s === "idle" ? { s: "running", p: null, jobId, cancel: "ready" } : cur));
-  }, [record.id]);
+    if (record.decision.handler !== "claude_code") return;
+    let gone = false;
+    void (async () => {
+      try {
+        const res = await cockpitFetch(`/api/command-center/execution/status?commandId=${encodeURIComponent(record.id)}`);
+        const j = await res.json().catch(() => null);
+        if (gone || !res.ok || !j?.data?.jobId || j.data.state !== "running") return;
+        setSt((cur) => (cur.s === "idle" ? { s: "running", p: null, jobId: j.data.jobId as string, cancel: "ready" } : cur));
+      } catch { /* nothing to resume: the start button stays */ }
+    })();
+    return () => { gone = true; };
+  }, [record.id, record.decision.handler]);
   // Follow the running job until it has a result; poll only while it runs.
   useEffect(() => {
     if (st.s !== "running") return;
@@ -55,7 +62,6 @@ export function ExecutionFlow({ record, onOpenDetails }: { record: Pick<ShadowRe
         if (stopped || !res.ok || !j?.data) return;
         const v = j.data as View;
         if (v.state === "running") return;
-        writeJob(record.id, null);
         const name = (st.p?.details.Project ?? st.p?.project) || "Claude Code";
         if (v.state === "done" && v.result) setSt({ s: "done", result: v.result, projectName: name, open: false });
         else if (v.state === "canceled") setSt({ s: "canceled", result: v.result, projectName: name });
@@ -77,7 +83,6 @@ export function ExecutionFlow({ record, onOpenDetails }: { record: Pick<ShadowRe
     setSt({ s: "starting", p });
     const r = await post<{ started: true; jobId: string; executionId: string }>("/api/command-center/execution/approve", { commandId: record.id, capability: p.capability, project: p.project, bindingHash: p.bindingHash });
     if (!r.ok) { setSt({ s: "stopped", message: r.message, candidates: [] }); return; }
-    writeJob(record.id, r.data.jobId);
     setSt({ s: "running", p, jobId: r.data.jobId, cancel: "ready" });
   };
   // One request per click: the button disables until the server answers, and the job's state is then followed.

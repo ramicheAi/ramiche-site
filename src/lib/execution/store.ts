@@ -75,6 +75,8 @@ export interface JobsDb {
   /** Whether an event of this kind exists; with `executionId`, only one whose detail names that execution (attempt). */
   hasEvent(jobId: string, kind: string, executionId?: string): Promise<{ found: boolean; error: string | null }>;
   listRunning(source: string): Promise<{ rows: RunningJob[]; error: string | null }>;
+  /** The running executor job for a command, if any (newest first); read errors come back as `error`. */
+  findRunningByCommand(commandId: string): Promise<{ jobId: string | null; error: string | null }>;
 }
 
 export const EXECUTOR_SOURCE = "m6-executor";

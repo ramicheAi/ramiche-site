@@ -83,6 +83,10 @@ function pgJobsDb(url = PG_URL): JobsDb {
       const r = await sql(`select count(*) from job_events where job_id = :'id'::uuid and kind = :'k'${executionId ? ` and detail->>'executionId' = :'eid'` : ""}`, { id: jobId, k: kind, ...(executionId ? { eid: executionId } : {}) });
       return { found: !r.err && Number(r.out) > 0, error: r.err };
     },
+    async findRunningByCommand(commandId) {
+      const r = await sql(`select id from jobs where source = 'm6-executor' and status = 'running' and input->>'commandId' = :'cid' order by started_at desc limit 1`, { cid: commandId });
+      return { jobId: r.err || !r.out ? null : r.out, error: r.err };
+    },
     async listRunning(source) {
       const r = await sql(`select coalesce(json_agg(x order by x.started_at), '[]') from (select id, input,
         to_json(started_at)#>>'{}' as started_at, to_json(updated_at)#>>'{}' as updated_at from jobs

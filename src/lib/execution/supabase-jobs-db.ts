@@ -4,7 +4,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ExecutionResult } from "./contract";
-import type { JobsDb, RunningJob } from "./store";
+import { EXECUTOR_SOURCE, type JobsDb, type RunningJob } from "./store";
 
 const msg = (e: { message?: string } | null | undefined) => (e ? e.message ?? "database error" : null);
 
@@ -45,6 +45,11 @@ export function supabaseJobsDb(db: SupabaseClient): JobsDb {
       if (executionId) q = q.eq("detail->>executionId", executionId);
       const { data, error } = await q.limit(1);
       return { found: !error && Array.isArray(data) && data.length > 0, error: msg(error) };
+    },
+    async findRunningByCommand(commandId) {
+      const { data, error } = await db.from("jobs").select("id").eq("source", EXECUTOR_SOURCE).eq("status", "running").eq("input->>commandId", commandId).order("started_at", { ascending: false }).limit(1);
+      if (error) return { jobId: null, error: msg(error) };
+      return { jobId: (data as { id: string }[] | null)?.[0]?.id ?? null, error: null };
     },
     async listRunning(source) {
       const { data, error } = await db.from("jobs").select("id, input, started_at, updated_at").eq("status", "running").eq("source", source).order("started_at", { ascending: true }).limit(500);
