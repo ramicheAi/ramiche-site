@@ -27,8 +27,9 @@ export interface ExecutionStore {
   restart?(r: ExecutionRequest, previous: ExecutionResult, bindingHash: string): Promise<boolean>;
   /** Whether the founder asked to cancel this run. Optional; checked with each heartbeat. */
   cancelRequested?(r: ExecutionRequest): Promise<boolean>;
-  /** Whether this job id's row is genuinely running right now (never trusted from a result code alone). */
-  isRunning?(jobId: string): Promise<boolean>;
+  /** The row's current attempt (its execution id) if it is genuinely running right now, else null; never trusted
+   *  from a result code alone. Replaces the earlier isRunning(jobId): boolean, which could not say WHICH attempt. */
+  activeAttempt?(jobId: string): Promise<string | null>;
 }
 
 export class MemoryExecutionStore implements ExecutionStore {
@@ -184,25 +185,26 @@ export class JobsExecutionStore implements ExecutionStore {
     if (ev.error) throw new Error(`cancel check failed: ${ev.error}`);
     return ev.found;
   }
-  async isRunning(jobId: string): Promise<boolean> {
+  async activeAttempt(jobId: string): Promise<string | null> {
     const cur = await this.db.getJob(jobId);
-    return !cur.error && cur.row?.status === "running";
+    if (cur.error || cur.row?.status !== "running") return null;
+    return typeof cur.row.input?.executionId === "string" ? cur.row.input.executionId : null;
   }
   /**
    * Founder cancel by jobs row id (the cancel route). Only a running M6 execution can be canceled; anything else is a
    * plain answer, never a silent no-op. The running executor stops at its next heartbeat; a run whose executor died
    * is stopped by the reaper's orphan pass.
    */
-  async requestCancelJob(jobId: string, founderUid: string, executionId?: string): Promise<{ ok: true } | { ok: false; code: "not_found" | "not_running" | "attempt_changed" | "store_error"; message: string }> {
+  async requestCancelJob(jobId: string, founderUid: string, executionId: string): Promise<{ ok: true } | { ok: false; code: "not_found" | "not_running" | "attempt_changed" | "store_error"; message: string }> {
     const cur = await this.db.getJob(jobId);
     if (cur.error) return { ok: false, code: "store_error", message: `The execution record could not be read: ${cur.error}` };
     const input = cur.row?.input ?? null;
     if (!cur.row || cur.row.source !== EXECUTOR_SOURCE || typeof input?.executionId !== "string" || typeof input?.bindingHash !== "string") return { ok: false, code: "not_found", message: "No such execution." };
     if (cur.row.status !== "running") return { ok: false, code: "not_running", message: `This execution is already ${cur.row.status}.` };
-    // Bound to the attempt the founder actually SAW: if the caller names an attempt and the row has since moved to a
-    // different one (A finished, a retry reopened it as B, between the founder's click and this request), refuse
-    // rather than cancel the wrong, newly approved attempt (Codex final review).
-    if (executionId !== undefined && input.executionId !== executionId) {
+    // Always bound to the attempt the founder actually SAW: if the row has since moved to a different one (A
+    // finished, a retry reopened it as B, between the founder's click and this request), refuse rather than cancel
+    // the wrong, newly approved attempt. No unbound form exists: a caller that cannot name the attempt cannot cancel.
+    if (input.executionId !== executionId) {
       return { ok: false, code: "attempt_changed", message: "This is no longer the run you were looking at. Review it again before cancelling." };
     }
     // Bound to the attempt the founder was looking at: if it finishes and a retry starts before this write, the retry

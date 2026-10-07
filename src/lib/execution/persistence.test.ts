@@ -267,8 +267,5 @@ describe("requestCancelJob is bound to the attempt the founder saw (PR #57 Codex
     expect(m.events).toEqual([]);
     expect(await s.requestCancelJob(id, "owner", "attempt-b")).toEqual({ ok: true });
     expect(m.events).toHaveLength(1);
-    // No executionId named: the existing, looser behavior (any founder cancel on this job id) still works.
-    m.events.length = 0; m.jobs.get(id)!.status = "running";
-    expect(await s.requestCancelJob(id, "owner")).toEqual({ ok: true });
   });
 });

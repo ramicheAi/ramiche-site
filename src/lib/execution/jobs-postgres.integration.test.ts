@@ -189,7 +189,7 @@ describe.skipIf(!PG_URL)("M6F jobs store on real Postgres (jobs backbone migrati
     await new Promise((r) => setTimeout(r, 500));
     const cliPid = (await row(id)).input.runner.cliPid as number;
     expect(processAlive(cliPid)).toBe(true);
-    expect(await store.requestCancelJob(id, OWNER)).toEqual({ ok: true });   // the cancel route's path: names the running attempt
+    expect(await store.requestCancelJob(id, OWNER, p.request.executionId)).toEqual({ ok: true });   // the cancel route's path: names the running attempt
     const out = await pending;
     if (!out.ok) throw new Error(out.message);
     expect(out.result.status).toBe("canceled");

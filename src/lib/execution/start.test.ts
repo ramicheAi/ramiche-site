@@ -262,3 +262,25 @@ describe("PR #57 Codex final: a retry under the same job id is re-read, not show
     expect(v).toMatchObject({ jobId: "job-1", view: { state: "running" } });
   });
 });
+
+describe("PR #57 Codex final round 5: the race loser follows the row's real attempt, not its own rejected one", () => {
+  it("two approvals racing refuseIfRunning: the loser's reported executionId is the winner's attempt, not the loser's own", async () => {
+    const m = memoryJobsDb();
+    const store = new JobsExecutionStore(m.db);
+    const text = "Claude Code, inspect METTLE and tell me what is blocking production. FAKE:" + JSON.stringify({ actions: [{ sleep: 1200 }], result: "Inspected." });
+    const rs = shadow(text, "9e000000-0000-4000-8000-0000000000ec");
+    const p = await prepareExecution({ record: rs, founderUid: OWNER, choices: { capability: "L1" } }, deps(store));
+    if (!p.ok) throw new Error(p.message);
+    const winner = startExecution({ record: rs, founderUid: OWNER, seenBindingHash: p.bindingHash, choices: { capability: "L1" } }, deps(store, { heartbeatMs: 100 }));
+    await new Promise((r) => setTimeout(r, 50));
+    const loser = await startExecution({ record: rs, founderUid: OWNER, seenBindingHash: p.bindingHash, choices: { capability: "L1" } }, deps(store, { heartbeatMs: 100 }));
+    expect(loser.ok).toBe(true);
+    if (loser.ok) {
+      const row = m.jobs.get(loser.jobId)!;
+      const realAttempt = (row.input as { executionId: string }).executionId;
+      expect(loser.executionId).toBe(realAttempt);
+      expect(loser.executionId).not.toBe(p.request.executionId);
+    }
+    await winner;
+  }, 30_000);
+});

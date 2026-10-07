@@ -54,22 +54,22 @@ const cancel = async (headers: Record<string, string>, body: unknown) => {
 
 describe("cancel route", () => {
   it("the founder's cancel is recorded even with dispatch off; repeats and unknown jobs answer plainly", async () => {
-    expect(await cancel(founder(), { jobId: JOB })).toMatchObject({ status: 202, json: { data: { cancelRequested: true } } });
+    expect(await cancel(founder(), { jobId: JOB, executionId: "e1" })).toMatchObject({ status: 202, json: { data: { cancelRequested: true } } });
     expect(m.events.map((e) => e.kind)).toEqual(["cancel_requested"]);
     m.jobs.get(JOB)!.status = "canceled";
-    expect((await cancel(founder(), { jobId: JOB })).status).toBe(409);
-    expect((await cancel(founder(), { jobId: "3b1f6c2e-8d4a-4f7b-9c1e-2a5d7e9f0b00" })).status).toBe(404);
-    expect((await cancel(founder(), { jobId: "not-a-uuid" })).status).toBe(400);
+    expect((await cancel(founder(), { jobId: JOB, executionId: "e1" })).status).toBe(409);
+    expect((await cancel(founder(), { jobId: "3b1f6c2e-8d4a-4f7b-9c1e-2a5d7e9f0b00", executionId: "e1" })).status).toBe(404);
+    expect((await cancel(founder(), { jobId: "not-a-uuid", executionId: "e1" })).status).toBe(400);
   });
   it("machine callers and other sessions are denied before anything is recorded", async () => {
-    expect([401, 403]).toContain((await cancel({ origin: ORIGIN, "content-type": "application/json", authorization: "Bearer fixture-openclaw-bearer-0123456789" }, { jobId: JOB })).status);
+    expect([401, 403]).toContain((await cancel({ origin: ORIGIN, "content-type": "application/json", authorization: "Bearer fixture-openclaw-bearer-0123456789" }, { jobId: JOB, executionId: "e1" })).status);
     sessionVerifier.mockResolvedValue({ uid: "someone-else", signInProvider: "password" });
-    expect([401, 403]).toContain((await cancel(founder(), { jobId: JOB })).status);
+    expect([401, 403]).toContain((await cancel(founder(), { jobId: JOB, executionId: "e1" })).status);
     expect(m.events).toEqual([]);
   });
   it("a store read failure is a 503, not a silent no-op", async () => {
     m.fail.getJob = "connection reset";
-    expect((await cancel(founder(), { jobId: JOB })).status).toBe(503);
+    expect((await cancel(founder(), { jobId: JOB, executionId: "e1" })).status).toBe(503);
   });
 });
 
@@ -150,5 +150,19 @@ describe("status route (M6H): founder-only read of one job", () => {
     sessionVerifier.mockResolvedValue({ uid: OWNER, signInProvider: "password" });
     expect((await r.GET(new NextRequest(`${ORIGIN}/api/command-center/execution/status?jobId=nope`, { headers: { cookie: `__session=${COOKIE}` } }))).status).toBe(400);
     expect([401, 403]).toContain((await r.GET(new NextRequest(url, { headers: { authorization: "Bearer fixture-openclaw-bearer-0123456789" } }))).status);
+  });
+});
+
+describe("PR #57 Codex final round 5: cancel requires a valid executionId (no unbound fallback)", () => {
+  it("a cancel with no executionId (an old client bundle) is refused, never bound to whatever the row currently holds", async () => {
+    const r = await import("@/app/api/command-center/execution/cancel/route");
+    const res = await r.POST(new NextRequest(`${ORIGIN}/api/command-center/execution/cancel`, { method: "POST", headers: founder(), body: JSON.stringify({ jobId: JOB }) }));
+    expect(res.status).toBe(400);
+    expect(m.events).toEqual([]);
+  });
+  it("a cancel with the right executionId still succeeds", async () => {
+    const r = await import("@/app/api/command-center/execution/cancel/route");
+    const res = await r.POST(new NextRequest(`${ORIGIN}/api/command-center/execution/cancel`, { method: "POST", headers: founder(), body: JSON.stringify({ jobId: JOB, executionId: "e1" }) }));
+    expect(res.status).toBe(202);
   });
 });
