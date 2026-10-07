@@ -2,6 +2,8 @@
 /** P06 M6C: the in-palette execution flow sends only the command id, choices and the shown binding; nothing runs before Approve. */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 const fetchSpy = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/cockpit-fetch", () => ({ cockpitFetch: fetchSpy }));
 import { routeCommand } from "@/lib/command/router";
@@ -49,7 +51,7 @@ describe("execution flow", () => {
     fq.mockImplementationOnce(() => json(200, { data: PREP, error: null })).mockImplementationOnce(STARTED)
       .mockImplementationOnce(() => STATUS({ state: "running", executionId: "e1", result: null, message: null }))
       .mockImplementationOnce(() => json(202, { data: { cancelRequested: true }, error: null }))
-      .mockImplementationOnce(() => STATUS({ state: "canceled", executionId: "e1", result: { ...RESULT, status: "canceled" }, message: null }));
+      .mockImplementationOnce(() => STATUS({ state: "canceled", executionId: "e1", result: { ...RESULT, status: "canceled", failure: { code: "canceled", message: "Canceled. Anything it changed is in its worktree." } }, message: null }));
     render(<ExecutionFlow record={REC} onOpenDetails={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: "Run with Claude Code" }));
     await screen.findByTestId("execution-approval");
@@ -60,7 +62,7 @@ describe("execution flow", () => {
     fireEvent.click(cancel);   // a second click while the request is in flight must not send another cancel
     expect(callsOf().filter((c) => String(c[0]).endsWith("/cancel")).length).toBe(1);
     expect(JSON.parse(callsOf().find((c) => String(c[0]).endsWith("/cancel"))![1].body)).toEqual({ jobId: JOB });
-    expect((await screen.findByTestId("execution-canceled")).textContent).toContain("stopped at your request");
+    expect((await screen.findByTestId("execution-result")).textContent).toContain("STOPPED");
   });
 
   it("a failed job with no recorded result says why (fail loud, never a silent empty state)", async () => {
@@ -169,5 +171,33 @@ describe("PR #57 Codex on a4f0f30", () => {
     fireEvent.click(await screen.findByTestId("execution-cancel"));
     expect(await screen.findByRole("button", { name: "Cancel" })).toBeTruthy();
     expect((screen.getByTestId("execution-cancel") as HTMLButtonElement).disabled).toBe(false);
+  });
+});
+
+describe("PR #57 Codex on 5a625f7", () => {
+  it("a failed run keeps its result: the founder can review the log, checks and files of a stopped run", async () => {
+    const FAILED = { ...RESULT, status: "failed", filesChanged: ["x.ts"], failure: { code: "timed_out", message: "Stopped after 900 seconds." }, summary: "Stopped after 900 seconds." };
+    fq.mockImplementationOnce(() => json(200, { data: PREP, error: null })).mockImplementationOnce(STARTED)
+      .mockImplementationOnce(() => STATUS({ state: "failed", executionId: "e1", result: FAILED, message: "Stopped after 900 seconds." }));
+    render(<ExecutionFlow record={REC} onOpenDetails={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Run with Claude Code" }));
+    await screen.findByTestId("execution-approval");
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+    expect((await screen.findByTestId("execution-result")).textContent).toContain("Stopped after 900 seconds.");
+    fireEvent.click(screen.getByRole("button", { name: "Details" }));
+    expect(screen.getByTestId("execution-evidence").textContent).toMatch(/x\.ts/);
+  });
+  it("a resumed run names its project from the result, not the executor", async () => {
+    fetchSpy.mockImplementation((url: string) => {
+      if (String(url).includes("commandId=")) return json(200, { data: { jobId: JOB, state: "running", executionId: "e1", result: null, message: null }, error: null });
+      return json(200, { data: { jobId: JOB, state: "done", executionId: "e1", result: RESULT, message: null }, error: null });
+    });
+    render(<ExecutionFlow record={REC} onOpenDetails={vi.fn()} />);
+    const card = await screen.findByTestId("execution-result");
+    expect(card.textContent).toContain("mettle");
+  });
+  it("status copy uses no ellipses", () => {
+    const src = readFileSync(join(process.cwd(), "src/components/command-center/execution/ExecutionFlow.tsx"), "utf8");
+    expect(src).not.toMatch(/…/);
   });
 });

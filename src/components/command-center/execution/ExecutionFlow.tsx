@@ -20,7 +20,7 @@ type View = { state: "running" | "done" | "canceled" | "failed"; executionId: st
 type State =
   | { s: "checking" } | { s: "lookup_failed" } | { s: "idle" } | { s: "preparing" } | { s: "prepared"; p: Prepared } | { s: "starting"; p: Prepared }
   | { s: "running"; p: Prepared | null; jobId: string; executionId: string | null; cancel: "ready" | "requested" }
-  | { s: "done"; result: ExecutionResult; projectName: string; open: boolean } | { s: "canceled"; result: ExecutionResult | null; projectName: string }
+  | { s: "done"; result: ExecutionResult; projectName: string; open: boolean }
   | { s: "stopped"; message: string; candidates: string[] };
 const TERMINAL_PROGRESS_MS = 3_000;
 
@@ -72,9 +72,10 @@ export function ExecutionFlow({ record, onOpenDetails }: { record: Pick<ShadowRe
           if (v.executionId && v.executionId !== st.executionId) setSt((cur) => (cur.s === "running" && cur.executionId !== v.executionId ? { ...cur, executionId: v.executionId, cancel: "ready" } : cur));
           return;
         }
-        const name = (st.p?.details.Project ?? st.p?.project) || "Claude Code";
-        if (v.state === "done" && v.result) setSt({ s: "done", result: v.result, projectName: name, open: false });
-        else if (v.state === "canceled") setSt({ s: "canceled", result: v.result, projectName: name });
+        // Every terminal result (done, failed, canceled) keeps its evidence: the founder can review the log, checks and files.
+        // The name the founder approved; a run resumed from another tab has no approval here, so its project slug.
+        const name = st.p ? (st.p.details.Project ?? st.p.project) : (v.result?.project ?? "Claude Code");
+        if (v.result) setSt({ s: "done", result: v.result, projectName: name, open: false });
         else setSt({ s: "stopped", message: v.message ?? "This execution failed.", candidates: [] });
       } catch { /* the next tick tries again; a network blip never ends the follow */ }
     };
@@ -103,7 +104,7 @@ export function ExecutionFlow({ record, onOpenDetails }: { record: Pick<ShadowRe
     const r = await post<{ cancelRequested: true }>("/api/command-center/execution/cancel", { jobId });
     if (!r.ok) setSt((cur) => (cur.s === "running" && cur.jobId === jobId ? { ...cur, cancel: "ready" } : cur));
   };
-  if (st.s === "checking") return <div role="status" style={{ fontSize: 12 }}>Checking for a run already in progress…</div>;
+  if (st.s === "checking") return <div role="status" style={{ fontSize: 12 }}>Checking for a run already in progress.</div>;
   if (st.s === "lookup_failed") {
     return (
       <div role="alert" style={{ display: "grid", gap: 8, fontSize: 13 }}>
@@ -123,7 +124,7 @@ export function ExecutionFlow({ record, onOpenDetails }: { record: Pick<ShadowRe
     return (
       <div data-testid="execution-running" role="status" style={{ display: "grid", gap: 8, padding: "14px 16px", borderRadius: 10, border: "1px solid var(--line, #1e1e1e)" }}>
         <div style={{ fontSize: 11, letterSpacing: 1, fontWeight: 700, color: "var(--accent, #00f0ff)" }}>CLAUDE CODE · RUNNING</div>
-        <div style={{ fontSize: 14, color: "var(--t-hi, #fff)" }}>{st.cancel === "requested" ? "Stopping…" : `Working on ${name}. You can leave this open or come back to it.`}</div>
+        <div style={{ fontSize: 14, color: "var(--t-hi, #fff)" }}>{st.cancel === "requested" ? "Stopping." : `Working on ${name}. You can leave this open or come back to it.`}</div>
         <div>
           <button type="button" data-testid="execution-cancel" disabled={st.cancel !== "ready"} onClick={() => void cancel()}
             style={{ minHeight: 44, padding: "0 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: st.cancel === "ready" ? "pointer" : "default", opacity: st.cancel === "ready" ? 1 : 0.5, background: "rgba(255,255,255,0.04)", color: "var(--t-hi, #fff)", border: "1px solid var(--line, #1e1e1e)" }}>
@@ -133,14 +134,7 @@ export function ExecutionFlow({ record, onOpenDetails }: { record: Pick<ShadowRe
       </div>
     );
   }
-  if (st.s === "canceled") {
-    return (
-      <div data-testid="execution-canceled" role="status" style={{ display: "grid", gap: 6, fontSize: 13 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>CANCELED · CLAUDE CODE</div>
-        <div>{st.projectName}: stopped at your request. Anything it changed is in its worktree.</div>
-      </div>
-    );
-  }
+
   if (st.s === "done") {
     const toggle = () => setSt({ ...st, open: !st.open });
     const r = st.result;
