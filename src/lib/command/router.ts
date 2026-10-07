@@ -63,7 +63,9 @@ const ANALYZE_STRONG = /\b(codebase|repo|repository|code|blockers?|blocking|bloc
 // METTLE production issues" is repository work (METTLE is). The registry is the one already used to resolve a project
 // for execution (execution/projects.ts), so this is the same identity, not a second list of names.
 function namesRegisteredProject(t: string): boolean {
-  const padded = ` ${t} `;
+  // Same word-boundary normalization execution's own project resolution uses (projects.ts `words`): punctuation
+  // ("METTLE's") never hides a registered project name from this check.
+  const padded = ` ${t.replace(/[^a-z0-9.\- ]+/g, " ").replace(/\s+/g, " ").trim()} `;
   return KNOWN_PROJECT_ALIASES.some((a) => padded.includes(` ${a} `));
 }
 const CHATTER = /^(hi|hello|hey|thanks|thank you|ok|okay|cool|nice|got it)[.! ]*$/;

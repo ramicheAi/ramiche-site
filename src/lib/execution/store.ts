@@ -27,6 +27,8 @@ export interface ExecutionStore {
   restart?(r: ExecutionRequest, previous: ExecutionResult, bindingHash: string): Promise<boolean>;
   /** Whether the founder asked to cancel this run. Optional; checked with each heartbeat. */
   cancelRequested?(r: ExecutionRequest): Promise<boolean>;
+  /** Whether this job id's row is genuinely running right now (never trusted from a result code alone). */
+  isRunning?(jobId: string): Promise<boolean>;
 }
 
 export class MemoryExecutionStore implements ExecutionStore {
@@ -178,6 +180,10 @@ export class JobsExecutionStore implements ExecutionStore {
     const ev = await this.db.hasEvent(executionJobId(r.idempotencyKey), "cancel_requested", r.executionId);
     if (ev.error) throw new Error(`cancel check failed: ${ev.error}`);
     return ev.found;
+  }
+  async isRunning(jobId: string): Promise<boolean> {
+    const cur = await this.db.getJob(jobId);
+    return !cur.error && cur.row?.status === "running";
   }
   /**
    * Founder cancel by jobs row id (the cancel route). Only a running M6 execution can be canceled; anything else is a

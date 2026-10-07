@@ -44,3 +44,32 @@ export function executionView(row: { status: string; error: string | null; input
   // Ended without a result event (its process was reaped): say so, with the recorded reason.
   return { state: "failed", executionId, result: null, message: row.error ?? "This execution stopped without a recorded result." };
 }
+
+
+export type CommandStatus = { error: string } | { jobId: null; view: null } | { jobId: string; view: ExecutionView };
+
+/**
+ * The command's current active job and its view, for the cross-tab resume lookup. A terminal view is trusted only
+ * after rechecking that no NEWER job for the command has since started (A finishes, then B starts, between the first
+ * lookup and reading A's snapshot): if one has, its view is read instead. Bounded, so a command stuck replacing its
+ * own active job cannot loop forever; it is then reported as still running (the client keeps following).
+ */
+export async function commandStatus(db: Pick<JobsDb, "getJob" | "findRunningByCommand">, commandId: string): Promise<CommandStatus> {
+  let jobId: string | null = null;
+  for (let i = 0; i < 3; i++) {
+    const found = await db.findRunningByCommand(commandId);
+    if (found.error) return { error: found.error };
+    if (!found.jobId) return { jobId: null, view: null };
+    jobId = found.jobId;
+    const snap = await statusSnapshot(db, found.jobId);
+    if (snap.error) return { error: snap.error };
+    if (!snap.row) continue;   // the row is gone by the time it was read: try again
+    const view = executionView(snap.row);
+    if (view.state === "running") return { jobId: found.jobId, view };
+    const recheck = await db.findRunningByCommand(commandId);
+    if (recheck.error) return { error: recheck.error };
+    if (recheck.jobId && recheck.jobId !== found.jobId) continue;   // a newer job started; read that one instead
+    return { jobId: found.jobId, view };
+  }
+  return { jobId: jobId as string, view: { state: "running", executionId: null } };
+}

@@ -157,7 +157,15 @@ export function startExecution(input: { record: ShadowRecord; founderUid: string
         // "in_progress" is different: a row already exists (another approval, racing refuseIfRunning, won it), so this
         // is the same active-job conflict the route's own guard handles, not a dead end for the caller.
         if (out.ok && out.result.status === "rejected") {
-          if (out.result.failure?.code === "in_progress") { settle({ ok: true, executionId: out.result.executionId, jobId: out.jobId }); return; }
+          if (out.result.failure?.code === "in_progress") {
+            // in_progress is ALSO how a failed restart reports itself (store.restart threw, no competing attempt).
+            // Never follow a job on the strength of this code alone: confirm the row is genuinely running first.
+            void d.executor.store.isRunning?.(out.jobId).then(
+              (active) => settle(active ? { ok: true, executionId: out.result.executionId, jobId: out.jobId } : { ok: false, code: "in_progress", message: out.result.failure!.message }),
+              () => settle({ ok: false, code: "in_progress", message: out.result.failure!.message }),
+            );
+            return;
+          }
           settle({ ok: false, code: out.result.failure?.code ?? "not_started", message: out.result.failure?.message ?? "The run did not start. Nothing was run." });
           return;
         }

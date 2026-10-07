@@ -185,3 +185,44 @@ describe("PR #57 Codex final: concurrent approvals (the second sees the active j
     await winner;
   }, 30_000);
 });
+
+describe("PR #57 Codex final: in_progress from a failed restart is never treated as started", () => {
+  it("store.restart throwing (no competing attempt) is refused, not followed as a running job", async () => {
+    const m = memoryJobsDb();
+    const store = new JobsExecutionStore(m.db);
+    // The first attempt fails (so a retry is actually retryable: a plain success is replayed, never restarted).
+    const text = "Claude Code, inspect METTLE and tell me what is blocking production. FAKE:" + JSON.stringify({ isError: true, result: "boom" });
+    const rs = shadow(text, "9e000000-0000-4000-8000-0000000000ea");
+    const p = await prepareExecution({ record: rs, founderUid: OWNER, choices: { capability: "L1" } }, deps(store));
+    if (!p.ok) throw new Error(p.message);
+    const first = await startExecution({ record: rs, founderUid: OWNER, seenBindingHash: p.bindingHash, choices: { capability: "L1" } }, deps(store, { heartbeatMs: 100 }));
+    expect(first.ok).toBe(true);
+    await vi.waitFor(() => expect(m.jobs.get(executionJobId(p.request.idempotencyKey))!.status).not.toBe("running"), { timeout: 20_000, interval: 100 });
+    // The retry's conditional update fails (a storage problem), not a competing attempt: the row stays terminal.
+    m.fail.updateJobIf = "connection reset";
+    const out = await startExecution({ record: rs, founderUid: OWNER, seenBindingHash: p.bindingHash, choices: { capability: "L1" } }, deps(store, { heartbeatMs: 100 }));
+    expect(out).toMatchObject({ ok: false, code: "in_progress" });
+    expect(m.jobs.get(executionJobId(p.request.idempotencyKey))!.status).not.toBe("running");
+  }, 30_000);
+});
+
+describe("PR #57 Codex final: commandStatus rechecks for a newer job after a terminal snapshot", () => {
+  it("job A finishes, job B starts before A's terminal snapshot is read: B's running view is returned, not A's stale terminal one", async () => {
+    const { commandStatus } = await import("./status");
+    const A = "00000000-0000-4000-8000-0000000000a1", B = "00000000-0000-4000-8000-0000000000b2";
+    const rowA = { status: "done", error: null, input: { executionId: A }, resultEvent: { executionId: A, status: "succeeded" } };
+    const rowB = { status: "running", error: null, input: { executionId: B }, resultEvent: null };
+    let findCalls = 0;
+    const db = {
+      findRunningByCommand: async () => { findCalls++; return { jobId: findCalls === 1 ? A : B, error: null }; },
+      getJob: async (id: string) => ({ row: id === A ? rowA : rowB, error: null }),
+    };
+    const v = await commandStatus(db as never, "cmd");
+    expect(v).toMatchObject({ jobId: B, view: { state: "running" } });
+  });
+  it("a command with no active job answers none; a read error is reported, not silently treated as none", async () => {
+    const { commandStatus } = await import("./status");
+    expect(await commandStatus({ findRunningByCommand: async () => ({ jobId: null, error: null }), getJob: async () => ({ row: null, error: null }) } as never, "cmd")).toEqual({ jobId: null, view: null });
+    expect(await commandStatus({ findRunningByCommand: async () => ({ jobId: null, error: "down" }), getJob: async () => ({ row: null, error: null }) } as never, "cmd")).toEqual({ error: "down" });
+  });
+});

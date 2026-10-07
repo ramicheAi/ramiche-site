@@ -1,6 +1,6 @@
 import { guardPrivateRead } from "@/lib/server/protected-mutation";
 import { noStoreJson } from "@/lib/server/cockpit-chat-data";
-import { executionView, statusSnapshot } from "@/lib/execution/status";
+import { commandStatus, executionView, statusSnapshot } from "@/lib/execution/status";
 import { supabaseJobsDb } from "@/lib/execution/supabase-jobs-db";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -24,12 +24,10 @@ export async function GET(req: Request) {
   const commandId = q.get("commandId");
   if (commandId !== null) {
     if (!UUID.test(commandId.toLowerCase())) return noStoreJson({ data: null, error: { code: "invalid", message: "commandId is invalid" } }, 400);
-    const found = await db.findRunningByCommand(commandId.toLowerCase());
-    if (found.error) return noStoreJson({ data: null, error: { code: "store_error", message: `The execution record could not be read: ${found.error}` } }, 503);
-    if (!found.jobId) return noStoreJson({ data: { jobId: null, state: "none" }, error: null }, 200);
-    const snap = await statusSnapshot(db, found.jobId);
-    if (snap.error || !snap.row) return noStoreJson({ data: null, error: { code: "store_error", message: "The execution record could not be read." } }, 503);
-    return noStoreJson({ data: { jobId: found.jobId, ...executionView(snap.row) }, error: null }, 200);
+    const cur = await commandStatus(db, commandId.toLowerCase());
+    if ("error" in cur) return noStoreJson({ data: null, error: { code: "store_error", message: `The execution record could not be read: ${cur.error}` } }, 503);
+    if (!cur.jobId) return noStoreJson({ data: { jobId: null, state: "none" }, error: null }, 200);
+    return noStoreJson({ data: { jobId: cur.jobId, ...cur.view }, error: null }, 200);
   }
   const jobId = (q.get("jobId") ?? "").toLowerCase();
   if (!UUID.test(jobId)) return noStoreJson({ data: null, error: { code: "invalid", message: "jobId is invalid" } }, 400);
