@@ -104,7 +104,10 @@ export function ExecutionFlow({ record, onOpenDetails }: { record: Pick<ShadowRe
   };
   // One request per click: the button disables until the server answers, and the job's state is then followed.
   const cancel = async () => {
-    if (st.s !== "running" || st.cancel !== "ready") return;
+    // Never without the attempt it is meant to stop: if the conflict or resume path hasn't supplied one yet (status
+    // has not polled), the button stays disabled rather than sending an unbound cancel that could stop a replacement
+    // attempt once one exists.
+    if (st.s !== "running" || st.cancel !== "ready" || !st.executionId) return;
     const { jobId, p, executionId } = st;
     setSt({ s: "running", p, jobId, executionId, cancel: "requested" });
     // Bound to the attempt shown on screen: if it has since changed (a retry under the same job), the server refuses
@@ -134,8 +137,8 @@ export function ExecutionFlow({ record, onOpenDetails }: { record: Pick<ShadowRe
         <div style={{ fontSize: 11, letterSpacing: 1, fontWeight: 700, color: "var(--accent, #00f0ff)" }}>CLAUDE CODE · RUNNING</div>
         <div style={{ fontSize: 14, color: "var(--t-hi, #fff)" }}>{st.cancel === "requested" ? "Stopping." : `Working on ${name}. You can leave this open or come back to it.`}</div>
         <div>
-          <button type="button" data-testid="execution-cancel" disabled={st.cancel !== "ready"} onClick={() => void cancel()}
-            style={{ minHeight: 44, padding: "0 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: st.cancel === "ready" ? "pointer" : "default", opacity: st.cancel === "ready" ? 1 : 0.5, background: "rgba(255,255,255,0.04)", color: "var(--t-hi, #fff)", border: "1px solid var(--line, #1e1e1e)" }}>
+          <button type="button" data-testid="execution-cancel" disabled={st.cancel !== "ready" || !st.executionId} onClick={() => void cancel()}
+            style={{ minHeight: 44, padding: "0 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: st.cancel === "ready" && st.executionId ? "pointer" : "default", opacity: st.cancel === "ready" && st.executionId ? 1 : 0.5, background: "rgba(255,255,255,0.04)", color: "var(--t-hi, #fff)", border: "1px solid var(--line, #1e1e1e)" }}>
             Cancel
           </button>
         </div>

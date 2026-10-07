@@ -259,3 +259,16 @@ describe("PR #57 Codex final: Cancel is bound to the attempt on screen", () => {
     expect(JSON.parse(call[1].body)).toEqual({ jobId: JOB, executionId: "e1" });
   });
 });
+
+describe("PR #57 Codex final round 4: Cancel needs a known attempt before it can be clicked", () => {
+  it("the already_running conflict path (executionId unknown yet) disables Cancel until status supplies one", async () => {
+    fq.mockImplementationOnce(() => json(200, { data: PREP, error: null }))
+      .mockImplementationOnce(() => json(409, { data: { jobId: JOB }, error: { code: "already_running", message: "A run for this command is already in progress." } }));
+    render(<ExecutionFlow record={REC} onOpenDetails={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Run with Claude Code" }));
+    await screen.findByTestId("execution-approval");
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+    const cancel = await screen.findByTestId("execution-cancel");
+    expect((cancel as HTMLButtonElement).disabled).toBe(true);
+  });
+});
