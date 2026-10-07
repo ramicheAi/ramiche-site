@@ -227,3 +227,19 @@ describe("PR #57 Codex on 16951a4: an approval conflict follows the live run", (
     expect(screen.getByTestId("execution-running")).toBeTruthy();
   });
 });
+
+describe("PR #57 Codex on a4c0c13: a conflict follows the run's own metadata", () => {
+  it("the followed run is named by its own result, not by this tab's rejected preparation", async () => {
+    const OTHER = { ...RESULT, project: "command-center" };
+    fq.mockImplementationOnce(() => json(200, { data: PREP, error: null }))
+      .mockImplementationOnce(() => json(409, { data: { jobId: JOB }, error: { code: "already_running", message: "A run for this command is already in progress." } }))
+      .mockImplementationOnce(() => json(200, { data: { jobId: JOB, state: "done", executionId: "e9", result: OTHER, message: null }, error: null }));
+    render(<ExecutionFlow record={REC} onOpenDetails={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Run with Claude Code" }));
+    await screen.findByTestId("execution-approval");
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+    const card = await screen.findByTestId("execution-result");
+    expect(card.textContent).toContain("command-center");
+    expect(card.textContent).not.toContain("METTLE");
+  });
+});

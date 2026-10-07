@@ -98,7 +98,7 @@ export function ExecutionFlow({ record, onOpenDetails }: { record: Pick<ShadowRe
     setSt({ s: "starting", p });
     const r = await post<{ started: true; jobId: string; executionId: string }>("/api/command-center/execution/approve", { commandId: record.id, capability: p.capability, project: p.project, bindingHash: p.bindingHash });
     // A run for this command is already in progress (another tab started it): follow that run, with its Cancel.
-    if (!r.ok && r.code === "already_running" && r.jobId) { setSt({ s: "running", p, jobId: r.jobId, executionId: null, cancel: "ready" }); return; }
+    if (!r.ok && r.code === "already_running" && r.jobId) { setSt({ s: "running", p: null, jobId: r.jobId, executionId: null, cancel: "ready" }); return; }
     if (!r.ok) { setSt({ s: "stopped", message: r.message, candidates: [] }); return; }
     setSt({ s: "running", p, jobId: r.data.jobId, executionId: r.data.executionId, cancel: "ready" });
   };
