@@ -160,8 +160,11 @@ export function startExecution(input: { record: ShadowRecord; founderUid: string
           if (out.result.failure?.code === "in_progress") {
             // in_progress is ALSO how a failed restart reports itself (store.restart threw, no competing attempt).
             // Never follow a job on the strength of this code alone, and never report THIS request's own (rejected)
-            // executionId as if it were the one actually running: read the row's real current attempt.
-            void d.executor.store.activeAttempt?.(out.jobId).then(
+            // executionId as if it were the one actually running: read the row's real current attempt. A store with
+            // no activeAttempt (MemoryExecutionStore, scripts) cannot confirm either way, so settle the refusal
+            // directly rather than calling .then on undefined (which would throw, unhandled, and never settle).
+            if (!d.executor.store.activeAttempt) { settle({ ok: false, code: "in_progress", message: out.result.failure!.message }); return; }
+            void d.executor.store.activeAttempt(out.jobId).then(
               (activeId) => settle(activeId ? { ok: true, executionId: activeId, jobId: out.jobId } : { ok: false, code: "in_progress", message: out.result.failure!.message }),
               () => settle({ ok: false, code: "in_progress", message: out.result.failure!.message }),
             );

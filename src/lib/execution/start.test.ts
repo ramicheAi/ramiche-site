@@ -284,3 +284,29 @@ describe("PR #57 Codex final round 5: the race loser follows the row's real atte
     await winner;
   }, 30_000);
 });
+
+describe("PR #57 Codex final round 6: settles even when the store has no activeAttempt", () => {
+  it("a store without activeAttempt (MemoryExecutionStore) still settles the race loser, never hangs", async () => {
+    const { MemoryExecutionStore } = await import("./store");
+    const memStore = new MemoryExecutionStore();
+    expect((memStore as unknown as { activeAttempt?: unknown }).activeAttempt).toBeUndefined();
+    const text = "Claude Code, inspect METTLE and tell me what is blocking production. FAKE:" + JSON.stringify({ actions: [{ sleep: 1200 }], result: "Inspected." });
+    const rs = shadow(text, "9e000000-0000-4000-8000-0000000000ed");
+    const memDeps = (over: Partial<ApproveDeps["executor"]> = {}): ApproveDeps => ({
+      surface: "harness", ownerUid: OWNER, approvalKey: KEY, remoteTip: tip, registry,
+      executor: { roots: [join(root, "checkouts")], execRoot: join(root, "exec"), store: memStore, claudeBin: FAKE, registry, heartbeatMs: 100, remoteTip: async (_r, b) => tip(registry[0], b), freeBytes: () => 1e12, telemetry: async () => {}, extraEnv: { FAKE_CLAUDE_RECORD: rec }, ...over },
+    });
+    const p = await prepareExecution({ record: rs, founderUid: OWNER, choices: { capability: "L1" } }, memDeps());
+    if (!p.ok) throw new Error(p.message);
+    const winner = startExecution({ record: rs, founderUid: OWNER, seenBindingHash: p.bindingHash, choices: { capability: "L1" } }, memDeps());
+    await new Promise((r) => setTimeout(r, 50));
+    const TIMEOUT = Symbol("timeout");
+    const loser = await Promise.race([
+      startExecution({ record: rs, founderUid: OWNER, seenBindingHash: p.bindingHash, choices: { capability: "L1" } }, memDeps()),
+      new Promise((r) => setTimeout(() => r(TIMEOUT), 3_000)),
+    ]);
+    expect(loser).not.toBe(TIMEOUT);
+    expect(loser).toMatchObject({ ok: false, code: "in_progress" });
+    await winner;
+  }, 30_000);
+});
