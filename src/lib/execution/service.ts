@@ -154,7 +154,10 @@ export function startExecution(input: { record: ShadowRecord; founderUid: string
     approveExecution(input, d).then(
       (out) => {
         // A run refused before its record existed (disk, stale head, checkout, store) is a refusal, not a started job.
+        // "in_progress" is different: a row already exists (another approval, racing refuseIfRunning, won it), so this
+        // is the same active-job conflict the route's own guard handles, not a dead end for the caller.
         if (out.ok && out.result.status === "rejected") {
+          if (out.result.failure?.code === "in_progress") { settle({ ok: true, executionId: out.result.executionId, jobId: out.jobId }); return; }
           settle({ ok: false, code: out.result.failure?.code ?? "not_started", message: out.result.failure?.message ?? "The run did not start. Nothing was run." });
           return;
         }

@@ -169,3 +169,19 @@ describe("PR #57 Codex on 9523c33: one active run per command, enforced at appro
     expect(await refuseIfRunning(m.db, rs.id)).toEqual({ ok: true });
   }, 30_000);
 });
+
+describe("PR #57 Codex final: concurrent approvals (the second sees the active job, not a dead end)", () => {
+  it("two approvals racing refuseIfRunning: the loser follows the winner's job instead of a generic failure", async () => {
+    const m = memoryJobsDb();
+    const store = new JobsExecutionStore(m.db);
+    const text = "Claude Code, inspect METTLE and tell me what is blocking production. FAKE:" + JSON.stringify({ actions: [{ sleep: 1200 }], result: "Inspected." });
+    const rs = shadow(text, "9e000000-0000-4000-8000-0000000000e9");
+    const p = await prepareExecution({ record: rs, founderUid: OWNER, choices: { capability: "L1" } }, deps(store));
+    if (!p.ok) throw new Error(p.message);
+    const winner = startExecution({ record: rs, founderUid: OWNER, seenBindingHash: p.bindingHash, choices: { capability: "L1" } }, deps(store, { heartbeatMs: 100 }));
+    await new Promise((r) => setTimeout(r, 50));
+    const loser = await startExecution({ record: rs, founderUid: OWNER, seenBindingHash: p.bindingHash, choices: { capability: "L1" } }, deps(store, { heartbeatMs: 100 }));
+    expect(loser).toMatchObject({ ok: true, jobId: executionJobId(p.request.idempotencyKey) });
+    await winner;
+  }, 30_000);
+});
