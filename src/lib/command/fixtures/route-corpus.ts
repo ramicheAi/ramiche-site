@@ -582,6 +582,9 @@ export const ROUTE_CORPUS: CorpusEntry[] = [
   { group: "deterministic", text: "Look through METTLE and find the biggest unfinished production issue.", expect: CC },
   { group: "deterministic", text: "Analyze the METTLE codebase and tell me what we need to fix first.", expect: CC },
   { group: "deterministic", text: "Find the highest priority problem in METTLE.", expect: CC },
+  { group: "deterministic", text: "Analyze the current METTLE codebase and find production blockers.", expect: CC },
+  { group: "deterministic", text: "Find the latest production news", expect: PX },
+  { group: "deterministic", text: "Research the current competitor pricing for swim apps", expect: PX },
   // analysis that is still a consequential act stays with the founder (the safety scan runs first)
   { group: "deterministic", text: "Inspect the deploy script and merge PR 41", expect: H },
   { group: "deterministic", text: "Analyze the production blockers and then deploy to prod", expect: H },

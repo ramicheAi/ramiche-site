@@ -214,3 +214,16 @@ describe("PR #57 Codex on d46d75a: a run that finishes during the resume lookup"
     expect(screen.queryByRole("button", { name: "Check again" })).toBeNull();
   });
 });
+
+describe("PR #57 Codex on 16951a4: an approval conflict follows the live run", () => {
+  it("409 already_running with a job: the card follows that job (status and Cancel), not a dead end", async () => {
+    fq.mockImplementationOnce(() => json(200, { data: PREP, error: null }))
+      .mockImplementationOnce(() => json(409, { data: { jobId: JOB }, error: { code: "already_running", message: "A run for this command is already in progress. Follow it, or cancel it first." } }));
+    render(<ExecutionFlow record={REC} onOpenDetails={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Run with Claude Code" }));
+    await screen.findByTestId("execution-approval");
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+    expect(await screen.findByTestId("execution-cancel")).toBeTruthy();
+    expect(screen.getByTestId("execution-running")).toBeTruthy();
+  });
+});

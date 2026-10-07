@@ -54,6 +54,9 @@ const IMPLEMENT = /^(?:please\s+)?(fix|implement|build|refactor|debug|add|write|
 const ANALYZE = /^(?:please\s+)?(inspect|analy[sz]e|look (?:through|over|into|at)|investigate|scan|assess|find|tell me (?:what|why|where|which))\b/;
 const ANALYZE_OBJECT = /\b(codebase|repo|repository|code|production|prod|blocking|blocks?|blocker|unfinished|priority|priorities|readiness|problem|problems|issue|issues|bug|bugs|risk|risks|fix first)\b/;
 const ANALYZE_WHAT = /^(?:what'?s|what is|whats)\s+(?:blocking|blocking|holding|stopping)\b/;
+// Strong codebase or blocker words take precedence over generic recency terms ("current", "latest"): "Analyze the current
+// METTLE codebase and find production blockers" is analysis, while "Find the latest production news" stays research.
+const ANALYZE_STRONG = /\b(codebase|repo|repository|code|blockers?|blocking|blocks?|priority|priorities|unfinished|problems?|issues?|bugs?|readiness)\b/;
 const CHATTER = /^(hi|hello|hey|thanks|thank you|ok|okay|cool|nice|got it)[.! ]*$/;
 const NO_MERGE = /\b(?:don'?t|do not|never|no)\s+merge\b|\bwithout me\b/;
 
@@ -143,6 +146,9 @@ export function routeCommand(input: RouteInput): ShadowDecision {
   if (job) return decide({ intent: "job_reference", handler: "existing_job", jobId: job[1], source: "deterministic", reasons: ["job_reference"] }, t, inMission);
   if (CHATTER.test(t)) return decide({ intent: "nothing", handler: "no_action", source: "deterministic", reasons: ["no_instruction"] }, t, inMission);
   if (REVIEW_ONLY.test(t)) return decide({ intent: "review", handler: "codex_review", source: "deterministic", reasons: ["review_only"] }, t, inMission);
+  if ((ANALYZE.test(t) || ANALYZE_WHAT.test(t)) && ANALYZE_STRONG.test(t)) {
+    return decide({ intent: "analysis", handler: "claude_code", source: "deterministic", reasons: ["repository_analysis_read_only"] }, t, inMission);
+  }
   if (RESEARCH.test(t)) return decide({ intent: "research", handler: "perplexity", source: "deterministic", reasons: ["current_web_research"] }, t, inMission);
   if (IMPLEMENT.test(t)) return decide({ intent: "implementation", handler: "claude_code", source: "deterministic", reasons: ["repository_work"] }, t, inMission);
   if ((ANALYZE.test(t) && ANALYZE_OBJECT.test(t)) || (ANALYZE_WHAT.test(t) && ANALYZE_OBJECT.test(t))) {

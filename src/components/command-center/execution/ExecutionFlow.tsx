@@ -24,14 +24,15 @@ type State =
   | { s: "stopped"; message: string; candidates: string[] };
 const TERMINAL_PROGRESS_MS = 3_000;
 
-async function post<T>(path: string, body: unknown): Promise<{ ok: true; data: T } | { ok: false; message: string; candidates: string[] }> {
+async function post<T>(path: string, body: unknown): Promise<{ ok: true; data: T } | { ok: false; message: string; candidates: string[]; code: string | null; jobId: string | null }> {
   try {
     const res = await cockpitFetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     const j = await res.json().catch(() => null);
     if (res.ok && j?.data) return { ok: true, data: j.data as T };
     const candidates = Array.isArray(j?.error?.candidates) ? (j.error.candidates as unknown[]).filter((c): c is string => typeof c === "string") : [];
-    return { ok: false, message: j?.error?.question ?? j?.error?.message ?? `Request failed (${res.status}).`, candidates };
-  } catch (e) { return { ok: false, message: e instanceof Error ? e.message : "Network error.", candidates: [] }; }
+    const jobId = typeof j?.data?.jobId === "string" ? j.data.jobId as string : null;
+    return { ok: false, message: j?.error?.question ?? j?.error?.message ?? `Request failed (${res.status}).`, candidates, code: typeof j?.error?.code === "string" ? j.error.code as string : null, jobId };
+  } catch (e) { return { ok: false, message: e instanceof Error ? e.message : "Network error.", candidates: [], code: null, jobId: null }; }
 }
 
 export function ExecutionFlow({ record, onOpenDetails }: { record: Pick<ShadowRecord, "id" | "decision">; onOpenDetails: () => void }) {
@@ -96,6 +97,8 @@ export function ExecutionFlow({ record, onOpenDetails }: { record: Pick<ShadowRe
   const approve = async (p: Prepared) => {
     setSt({ s: "starting", p });
     const r = await post<{ started: true; jobId: string; executionId: string }>("/api/command-center/execution/approve", { commandId: record.id, capability: p.capability, project: p.project, bindingHash: p.bindingHash });
+    // A run for this command is already in progress (another tab started it): follow that run, with its Cancel.
+    if (!r.ok && r.code === "already_running" && r.jobId) { setSt({ s: "running", p, jobId: r.jobId, executionId: null, cancel: "ready" }); return; }
     if (!r.ok) { setSt({ s: "stopped", message: r.message, candidates: [] }); return; }
     setSt({ s: "running", p, jobId: r.data.jobId, executionId: r.data.executionId, cancel: "ready" });
   };
