@@ -36,7 +36,7 @@ export const HANDLER_META: Record<Handler, { label: string; provider: CommandPro
 export type RouteSource = "explicit" | "deterministic" | "ambiguous";
 
 export type ShadowDecision = {
-  intent: "founder_authority" | "security_decision" | "implementation" | "review" | "research" | "conversation" | "job_reference" | "agent_task" | "nothing" | "unclear";
+  intent: "founder_authority" | "security_decision" | "implementation" | "analysis" | "review" | "research" | "conversation" | "job_reference" | "agent_task" | "nothing" | "unclear";
   handler: Handler | null;
   /** registry agent id when handler is cockpit_agent */
   agentId: string | null;

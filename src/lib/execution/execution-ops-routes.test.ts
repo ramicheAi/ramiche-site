@@ -123,3 +123,15 @@ describe("health's Claude login check never hands the cockpit's secrets to a chi
     expect(Object.keys(cp.seen[0]!).filter((k) => /PARALLAX|SUPABASE|GITHUB|GH_/.test(k))).toEqual([]);
   });
 });
+
+describe("status route (M6H): founder-only read of one job", () => {
+  it("a non-founder and a machine caller are denied; a malformed job id is refused", async () => {
+    const r = await import("@/app/api/command-center/execution/status/route");
+    const url = `${ORIGIN}/api/command-center/execution/status?jobId=3b1f6c2e-8d4a-4f7b-9c1e-2a5d7e9f0b99`;
+    sessionVerifier.mockResolvedValue({ uid: "someone-else", signInProvider: "password" });
+    expect([401, 403]).toContain((await r.GET(new NextRequest(url, { headers: { cookie: `__session=${COOKIE}` } }))).status);
+    sessionVerifier.mockResolvedValue({ uid: OWNER, signInProvider: "password" });
+    expect((await r.GET(new NextRequest(`${ORIGIN}/api/command-center/execution/status?jobId=nope`, { headers: { cookie: `__session=${COOKIE}` } }))).status).toBe(400);
+    expect([401, 403]).toContain((await r.GET(new NextRequest(url, { headers: { authorization: "Bearer fixture-openclaw-bearer-0123456789" } }))).status);
+  });
+});

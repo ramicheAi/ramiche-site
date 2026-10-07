@@ -576,9 +576,20 @@ export const ROUTE_CORPUS: CorpusEntry[] = [
   { group: "deterministic", text: "Review the change on branch p06/mission-m5", expect: CX },
   { group: "deterministic", text: "thanks!", expect: "no_action" },
   { group: "deterministic", text: "check on job 0a000000-0000-4000-8000-000000000001", expect: "existing_job" },
+  // read-only analysis of a project: Claude Code (L1 by intent), natural phrasings
+  { group: "deterministic", text: "Inspect METTLE and tell me what is blocking production.", expect: CC },
+  { group: "deterministic", text: "What's blocking METTLE from production?", expect: CC },
+  { group: "deterministic", text: "Look through METTLE and find the biggest unfinished production issue.", expect: CC },
+  { group: "deterministic", text: "Analyze the METTLE codebase and tell me what we need to fix first.", expect: CC },
+  { group: "deterministic", text: "Find the highest priority problem in METTLE.", expect: CC },
+  // analysis that is still a consequential act stays with the founder (the safety scan runs first)
+  { group: "deterministic", text: "Inspect the deploy script and merge PR 41", expect: H },
+  { group: "deterministic", text: "Analyze the production blockers and then deploy to prod", expect: H },
 
   // ── ambiguous (a question, never a guess) ─────────────────────────────────────────────────────────────────────
   { group: "ambiguous", text: "Mettle onboarding", expect: null },
   { group: "ambiguous", text: "the Galactik drop", expect: null },
   { group: "ambiguous", text: "what about Sid", expect: null },
+  { group: "ambiguous", text: "Analyze the market", expect: null },
+  { group: "ambiguous", text: "Look into it", expect: null },
 ];

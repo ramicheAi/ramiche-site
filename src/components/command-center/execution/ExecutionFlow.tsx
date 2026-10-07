@@ -4,17 +4,27 @@
  * decision is Claude Code work, then the smallest approval ("Claude Code wants to modify METTLE locally."), then the
  * result. The client only ever sends the command id, the founder's narrowing choices and the binding hash it was shown;
  * the server derives and checks everything else. Rendered only when execution is enabled (it is not in production).
+ *
+ * M6H: approval returns as soon as the run is recorded. The card then follows the job (status route, polled every 3 s)
+ * with a Cancel control, and shows the result when it lands. A reopened palette resumes the same job.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cockpitFetch } from "@/lib/cockpit-fetch";
 import type { ExecutionResult } from "@/lib/execution/contract-core";
 import type { ShadowRecord } from "@/lib/command/types";
 import { ExecutionApprovalCard, ExecutionResultCard } from "./ExecutionCards";
 
 type Prepared = { sentence: string; bindingHash: string; details: Record<string, string>; capability: string; project: string };
+type View = { state: "running" | "done" | "canceled" | "failed"; executionId: string | null; result: ExecutionResult | null; message: string | null };
 type State =
-  | { s: "idle" } | { s: "preparing" } | { s: "prepared"; p: Prepared } | { s: "running"; p: Prepared }
-  | { s: "done"; result: ExecutionResult; projectName: string; open: boolean } | { s: "stopped"; message: string; candidates: string[] };
+  | { s: "idle" } | { s: "preparing" } | { s: "prepared"; p: Prepared } | { s: "starting"; p: Prepared }
+  | { s: "running"; p: Prepared | null; jobId: string; cancel: "ready" | "requested" }
+  | { s: "done"; result: ExecutionResult; projectName: string; open: boolean } | { s: "canceled"; result: ExecutionResult | null; projectName: string }
+  | { s: "stopped"; message: string; candidates: string[] };
+const TERMINAL_PROGRESS_MS = 3_000;
+const resumeKey = (commandId: string) => `parallax-execution-job:${commandId}`;
+const readJob = (commandId: string) => { try { return sessionStorage.getItem(resumeKey(commandId)); } catch { return null; } };
+const writeJob = (commandId: string, jobId: string | null) => { try { if (jobId) sessionStorage.setItem(resumeKey(commandId), jobId); else sessionStorage.removeItem(resumeKey(commandId)); } catch { /* per-viewer convenience only */ } };
 
 async function post<T>(path: string, body: unknown): Promise<{ ok: true; data: T } | { ok: false; message: string; candidates: string[] }> {
   try {
@@ -28,6 +38,34 @@ async function post<T>(path: string, body: unknown): Promise<{ ok: true; data: T
 
 export function ExecutionFlow({ record, onOpenDetails }: { record: Pick<ShadowRecord, "id" | "decision">; onOpenDetails: () => void }) {
   const [st, setSt] = useState<State>({ s: "idle" });
+  // A run in progress (or just finished) survives a reopened palette: resume its job.
+  useEffect(() => {
+    const jobId = readJob(record.id);
+    if (jobId) setSt((cur) => (cur.s === "idle" ? { s: "running", p: null, jobId, cancel: "ready" } : cur));
+  }, [record.id]);
+  // Follow the running job until it has a result; poll only while it runs.
+  useEffect(() => {
+    if (st.s !== "running") return;
+    const { jobId } = st;
+    let stopped = false;
+    const tick = async () => {
+      try {
+        const res = await cockpitFetch(`/api/command-center/execution/status?jobId=${encodeURIComponent(jobId)}`);
+        const j = await res.json().catch(() => null);
+        if (stopped || !res.ok || !j?.data) return;
+        const v = j.data as View;
+        if (v.state === "running") return;
+        writeJob(record.id, null);
+        const name = (st.p?.details.Project ?? st.p?.project) || "Claude Code";
+        if (v.state === "done" && v.result) setSt({ s: "done", result: v.result, projectName: name, open: false });
+        else if (v.state === "canceled") setSt({ s: "canceled", result: v.result, projectName: name });
+        else setSt({ s: "stopped", message: v.message ?? "This execution failed.", candidates: [] });
+      } catch { /* the next tick tries again; a network blip never ends the follow */ }
+    };
+    void tick();
+    const id = setInterval(() => void tick(), TERMINAL_PROGRESS_MS);
+    return () => { stopped = true; clearInterval(id); };
+  }, [st, record.id]);
   if (record.decision.handler !== "claude_code") return null;
   // The founder may answer "which project?" with one tap: the server re-prepares with that choice (it still decides).
   const prepare = async (project?: string) => {
@@ -36,15 +74,48 @@ export function ExecutionFlow({ record, onOpenDetails }: { record: Pick<ShadowRe
     setSt(r.ok ? { s: "prepared", p: r.data } : { s: "stopped", message: r.message, candidates: project ? [] : r.candidates });
   };
   const approve = async (p: Prepared) => {
-    setSt({ s: "running", p });
-    const r = await post<{ result: ExecutionResult }>("/api/command-center/execution/approve", { commandId: record.id, capability: p.capability, project: p.project, bindingHash: p.bindingHash });
-    setSt(r.ok ? { s: "done", result: r.data.result, projectName: p.details.Project ?? p.project, open: false } : { s: "stopped", message: r.message, candidates: [] });
+    setSt({ s: "starting", p });
+    const r = await post<{ started: true; jobId: string; executionId: string }>("/api/command-center/execution/approve", { commandId: record.id, capability: p.capability, project: p.project, bindingHash: p.bindingHash });
+    if (!r.ok) { setSt({ s: "stopped", message: r.message, candidates: [] }); return; }
+    writeJob(record.id, r.data.jobId);
+    setSt({ s: "running", p, jobId: r.data.jobId, cancel: "ready" });
+  };
+  // One request per click: the button disables until the server answers, and the job's state is then followed.
+  const cancel = async () => {
+    if (st.s !== "running" || st.cancel !== "ready") return;
+    const { jobId, p } = st;
+    setSt({ s: "running", p, jobId, cancel: "requested" });
+    const r = await post<{ cancelRequested: true }>("/api/command-center/execution/cancel", { jobId });
+    if (!r.ok) setSt({ s: "running", p, jobId, cancel: "ready" });
   };
   if (st.s === "idle") return <button type="button" data-testid="execution-start" style={{ minHeight: 44, padding: "0 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }} onClick={() => void prepare()}>Run with Claude Code</button>;
   if (st.s === "preparing") return <div role="status" style={{ fontSize: 12 }}>Preparing the exact request. Nothing runs until you approve.</div>;
-  if (st.s === "prepared" || st.s === "running") {
+  if (st.s === "prepared" || st.s === "starting") {
     const p = st.p;
-    return <ExecutionApprovalCard sentence={p.sentence} details={p.details} busy={st.s === "running"} onApprove={() => void approve(p)} onCancel={() => setSt({ s: "idle" })} />;
+    return <ExecutionApprovalCard sentence={p.sentence} details={p.details} busy={st.s === "starting"} onApprove={() => void approve(p)} onCancel={() => setSt({ s: "idle" })} />;
+  }
+  if (st.s === "running") {
+    const name = st.p?.details.Project ?? st.p?.project ?? "the project";
+    return (
+      <div data-testid="execution-running" role="status" style={{ display: "grid", gap: 8, padding: "14px 16px", borderRadius: 10, border: "1px solid var(--line, #1e1e1e)" }}>
+        <div style={{ fontSize: 11, letterSpacing: 1, fontWeight: 700, color: "var(--accent, #00f0ff)" }}>CLAUDE CODE · RUNNING</div>
+        <div style={{ fontSize: 14, color: "var(--t-hi, #fff)" }}>{st.cancel === "requested" ? "Stopping…" : `Working on ${name}. You can leave this open or come back to it.`}</div>
+        <div>
+          <button type="button" data-testid="execution-cancel" disabled={st.cancel !== "ready"} onClick={() => void cancel()}
+            style={{ minHeight: 44, padding: "0 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: st.cancel === "ready" ? "pointer" : "default", opacity: st.cancel === "ready" ? 1 : 0.5, background: "rgba(255,255,255,0.04)", color: "var(--t-hi, #fff)", border: "1px solid var(--line, #1e1e1e)" }}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+  if (st.s === "canceled") {
+    return (
+      <div data-testid="execution-canceled" role="status" style={{ display: "grid", gap: 6, fontSize: 13 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>CANCELED · CLAUDE CODE</div>
+        <div>{st.projectName}: stopped at your request. Anything it changed is in its worktree.</div>
+      </div>
+    );
   }
   if (st.s === "done") {
     const toggle = () => setSt({ ...st, open: !st.open });

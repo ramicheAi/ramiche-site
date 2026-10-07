@@ -36,6 +36,8 @@ export interface ExecutionDeps {
   telemetry?: (f: ExecutionFacts) => Promise<void>;
   /** Tests only (fake CLI). */
   extraEnv?: Record<string, string>;
+  /** Called once the durable record of this attempt exists; the run continues on its own (M6H: non-blocking start). */
+  onStarted?: (req: ExecutionRequest) => void;
   /** Free bytes on the execution volume (default: statfs). Injectable for tests. */
   freeBytes?: (path: string) => number;
   /** Heartbeat and cancel-check interval while running (default 30 s). */
@@ -208,6 +210,8 @@ export async function runExecution(req: ExecutionRequest, approval: Approval | n
     if (!restarted) return reject(req, now(), "in_progress", "This execution is already being retried.");
   }
 
+  // The durable record of THIS attempt now exists (created, or reopened for a retry): callers may return to the founder.
+  try { deps.onStarted?.(req); } catch { /* a notification never changes the run */ }
   const finishWith = async (res: ExecutionResult) => { try { await deps.store.finish(req, res); } catch { res.warnings.push("the result could not be saved"); } return res; };
   // Canonical path: permission allow rules must match the resolved path too (macOS /var is /private/var).
   const dir = realpathSync(join(/*turbopackIgnore: true*/ deps.execRoot, req.project.slug));

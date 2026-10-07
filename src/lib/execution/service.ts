@@ -15,6 +15,7 @@ import { randomUUID } from "node:crypto";
 import { approve, approvalKey as defaultKey } from "./approval";
 import { bindingHash, CAPABILITIES, CAPABILITY_META, capabilityRank, EXECUTABLE_CAPABILITIES, type Capability, type ExecutionRequest, type ExecutionResult } from "./contract";
 import { runExecution, type ExecutionDeps } from "./executor";
+import { executionJobId } from "./store";
 import { GITHUB_AUTH_BLOCKED, GithubAuthUnavailable } from "./github-app";
 import { dispatchHalted } from "./halt";
 import { missionSuggestion, type MissionSuggestion } from "./mission";
@@ -105,7 +106,7 @@ export async function prepareExecution(input: { record: ShadowRecord; founderUid
 }
 
 export type Approved =
-  | { ok: true; result: ExecutionResult; mission: MissionSuggestion }
+  | { ok: true; result: ExecutionResult; mission: MissionSuggestion; jobId: string }
   | { ok: false; code: string; message: string };
 
 export interface ApproveDeps extends PrepareDeps {
@@ -133,7 +134,28 @@ export async function approveExecution(input: { record: ShadowRecord; founderUid
   if (!key) return { ok: false, code: "approval_key_unavailable", message: "Approvals cannot be signed on this host. Nothing ran." };
   const approval = approve(again.request, input.founderUid, key);
   const result = await runExecution(again.request, approval, { ...deps.executor, surface: deps.surface, ownerUid: deps.ownerUid, approvalKey: key });
-  return { ok: true, result, mission: missionSuggestion({ missionId: again.request.missionId, missionRecommended: input.record.decision.missionRecommended, result }) };
+  return { ok: true, result, jobId: executionJobId(again.request.idempotencyKey), mission: missionSuggestion({ missionId: again.request.missionId, missionRecommended: input.record.decision.missionRecommended, result }) };
+}
+
+export type Started = { ok: true; executionId: string; jobId: string } | Exclude<Approved, { ok: true }>;
+
+/**
+ * M6H: the founder approved. Resolves as soon as the run's durable record exists (or with the refusal, if it never
+ * starts), while the run itself continues in the background. The result is read from the job, not held by a request.
+ */
+export function startExecution(input: { record: ShadowRecord; founderUid: string; choices?: Choices; seenBindingHash: string }, deps: ApproveDeps): Promise<Started> {
+  return new Promise<Started>((resolve) => {
+    let settled = false;
+    const settle = (v: Started) => { if (!settled) { settled = true; resolve(v); } };
+    const d: ApproveDeps = {
+      ...deps,
+      executor: { ...deps.executor, onStarted: (req) => settle({ ok: true, executionId: req.executionId, jobId: executionJobId(req.idempotencyKey) }) },
+    };
+    approveExecution(input, d).then(
+      (out) => settle(out.ok ? { ok: true, executionId: out.result.executionId, jobId: out.jobId } : out),
+      (e) => settle({ ok: false, code: "execution_failed_to_start", message: `The run could not start (${e instanceof Error ? e.message : "error"}). Nothing was run.` }),
+    );
+  });
 }
 
 /** Whether the cockpit should offer execution at all (the UI hides it otherwise). */
