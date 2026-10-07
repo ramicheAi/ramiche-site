@@ -16,13 +16,16 @@ export function supabaseJobsDb(db: SupabaseClient): JobsDb {
       return { conflict: false, error: msg(error) };
     },
     async getJob(id) {
-      const job = await db.from("jobs").select("input, status, error, source").eq("id", id).maybeSingle();
+      // One request, one statement: the row and its execution_result events come from the same snapshot, so a retry
+      // cannot land between a status read and a result read (PR #57 Codex).
+      const job = await db.from("jobs").select("input, status, error, source, job_events(kind, detail, created_at)").eq("id", id).maybeSingle();
       if (job.error) return { row: null, error: msg(job.error) };
       if (!job.data) return { row: null, error: null };
-      const ev = await db.from("job_events").select("detail").eq("job_id", id).eq("kind", "execution_result").order("created_at", { ascending: false }).limit(1);
-      if (ev.error) return { row: null, error: msg(ev.error) };
+      const events = ((job.data as unknown as { job_events?: { kind: string; detail: unknown; created_at: string }[] }).job_events ?? [])
+        .filter((e) => e.kind === "execution_result")
+        .sort((x, y) => (x.created_at < y.created_at ? 1 : x.created_at > y.created_at ? -1 : 0));
       return {
-        row: { input: (job.data.input as Record<string, unknown>) ?? null, status: String(job.data.status), error: (job.data.error as string | null) ?? null, source: (job.data.source as string | null) ?? null, resultEvent: ((ev.data?.[0]?.detail as ExecutionResult | undefined) ?? null) },
+        row: { input: (job.data.input as Record<string, unknown>) ?? null, status: String(job.data.status), error: (job.data.error as string | null) ?? null, source: (job.data.source as string | null) ?? null, resultEvent: ((events[0]?.detail as ExecutionResult | undefined) ?? null) },
         error: null,
       };
     },

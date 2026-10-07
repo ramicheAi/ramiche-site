@@ -330,7 +330,8 @@ describe("P06 M6C: execution in the palette stays off in production", () => {
     expect(fetchSpy.mock.calls.map(([u]) => u)).toEqual(["/api/command-center/command/shadow"]);
   });
   it("when enabled (development), Claude Code work offers Run with Claude Code under the result", async () => {
-    fetchSpy.mockImplementation(() => ok("Claude Code, fix the METTLE roster import"));
+    // The palette first asks whether a run already exists for this command (answer: none), then routes the command.
+    fetchSpy.mockImplementation((url: string) => (String(url).includes("commandId=") ? Promise.resolve(new Response(JSON.stringify({ data: { jobId: null, state: "none" }, error: null }), { status: 200 })) : ok("Claude Code, fix the METTLE roster import")));
     render(<CommandPalette open onClose={vi.fn()} executionEnabled />);
     fireEvent.change(screen.getByPlaceholderText(/type intent/i), { target: { value: "Claude Code, fix the METTLE roster import" } });
     fireEvent.keyDown(window, { key: "Enter" });

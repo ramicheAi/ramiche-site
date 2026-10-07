@@ -142,3 +142,32 @@ describe("PR #57 Codex: no Start while the resume lookup is pending", () => {
     expect(screen.queryByRole("button", { name: "Run with Claude Code" })).toBeNull();
   });
 });
+
+describe("PR #57 Codex on a4f0f30", () => {
+  it("a failed resume check does not offer Start; the founder retries the check", async () => {
+    let n = 0;
+    fetchSpy.mockImplementation((url: string) => {
+      if (String(url).includes("commandId=")) return n++ === 0 ? json(500, { data: null, error: { code: "store_error", message: "down" } }) : json(200, { data: { jobId: null, state: "none" }, error: null });
+      throw new Error("unexpected " + url);
+    });
+    render(<ExecutionFlow record={REC} onOpenDetails={vi.fn()} />);
+    expect(await screen.findByRole("button", { name: "Check again" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Run with Claude Code" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Check again" }));
+    expect(await screen.findByRole("button", { name: "Run with Claude Code" })).toBeTruthy();
+  });
+  it("a cancel that raced a completion is reset when another tab's retry (a new attempt) is running", async () => {
+    fq.mockImplementationOnce(() => json(200, { data: PREP, error: null }))
+      .mockImplementationOnce(() => json(202, { data: { started: true, jobId: JOB, executionId: "e1" }, error: null }))
+      .mockImplementationOnce(() => json(200, { data: { jobId: JOB, state: "running", executionId: "e1", result: null, message: null }, error: null }))
+      .mockImplementationOnce(() => json(202, { data: { cancelRequested: true }, error: null }))
+      .mockImplementationOnce(() => json(200, { data: { jobId: JOB, state: "running", executionId: "e2", result: null, message: null }, error: null }));
+    render(<ExecutionFlow record={REC} onOpenDetails={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Run with Claude Code" }));
+    await screen.findByTestId("execution-approval");
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+    fireEvent.click(await screen.findByTestId("execution-cancel"));
+    expect(await screen.findByRole("button", { name: "Cancel" })).toBeTruthy();
+    expect((screen.getByTestId("execution-cancel") as HTMLButtonElement).disabled).toBe(false);
+  });
+});
