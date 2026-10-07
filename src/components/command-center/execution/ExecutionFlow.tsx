@@ -18,7 +18,7 @@ import { ExecutionApprovalCard, ExecutionResultCard } from "./ExecutionCards";
 type Prepared = { sentence: string; bindingHash: string; details: Record<string, string>; capability: string; project: string };
 type View = { state: "running" | "done" | "canceled" | "failed"; executionId: string | null; result: ExecutionResult | null; message: string | null };
 type State =
-  | { s: "idle" } | { s: "preparing" } | { s: "prepared"; p: Prepared } | { s: "starting"; p: Prepared }
+  | { s: "checking" } | { s: "idle" } | { s: "preparing" } | { s: "prepared"; p: Prepared } | { s: "starting"; p: Prepared }
   | { s: "running"; p: Prepared | null; jobId: string; cancel: "ready" | "requested" }
   | { s: "done"; result: ExecutionResult; projectName: string; open: boolean } | { s: "canceled"; result: ExecutionResult | null; projectName: string }
   | { s: "stopped"; message: string; candidates: string[] };
@@ -35,18 +35,21 @@ async function post<T>(path: string, body: unknown): Promise<{ ok: true; data: T
 }
 
 export function ExecutionFlow({ record, onOpenDetails }: { record: Pick<ShadowRecord, "id" | "decision">; onOpenDetails: () => void }) {
-  const [st, setSt] = useState<State>({ s: "idle" });
+  // Starting is not offered until the server has said whether a run already exists for this command: a second Start
+  // before the answer could run the same command twice (Codex P2 on 22c8ca4).
+  const [st, setSt] = useState<State>({ s: "checking" });
   // A run already in progress for this command (started in any tab) is followed from the server, not from this tab.
   useEffect(() => {
     if (record.decision.handler !== "claude_code") return;
     let gone = false;
     void (async () => {
+      let next: State = { s: "idle" };
       try {
         const res = await cockpitFetch(`/api/command-center/execution/status?commandId=${encodeURIComponent(record.id)}`);
         const j = await res.json().catch(() => null);
-        if (gone || !res.ok || !j?.data?.jobId || j.data.state !== "running") return;
-        setSt((cur) => (cur.s === "idle" ? { s: "running", p: null, jobId: j.data.jobId as string, cancel: "ready" } : cur));
-      } catch { /* nothing to resume: the start button stays */ }
+        if (res.ok && j?.data?.jobId && j.data.state === "running") next = { s: "running", p: null, jobId: j.data.jobId as string, cancel: "ready" };
+      } catch { /* the lookup failed: offer Start (the server still refuses a duplicate of a running attempt) */ }
+      if (!gone) setSt((cur) => (cur.s === "checking" ? next : cur));
     })();
     return () => { gone = true; };
   }, [record.id, record.decision.handler]);
@@ -93,6 +96,7 @@ export function ExecutionFlow({ record, onOpenDetails }: { record: Pick<ShadowRe
     const r = await post<{ cancelRequested: true }>("/api/command-center/execution/cancel", { jobId });
     if (!r.ok) setSt({ s: "running", p, jobId, cancel: "ready" });
   };
+  if (st.s === "checking") return <div role="status" style={{ fontSize: 12 }}>Checking for a run already in progress…</div>;
   if (st.s === "idle") return <button type="button" data-testid="execution-start" style={{ minHeight: 44, padding: "0 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }} onClick={() => void prepare()}>Run with Claude Code</button>;
   if (st.s === "preparing") return <div role="status" style={{ fontSize: 12 }}>Preparing the exact request. Nothing runs until you approve.</div>;
   if (st.s === "prepared" || st.s === "starting") {

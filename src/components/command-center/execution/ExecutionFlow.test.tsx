@@ -34,7 +34,7 @@ describe("execution flow", () => {
     fq.mockImplementationOnce(() => json(200, { data: PREP, error: null })).mockImplementationOnce(STARTED).mockImplementationOnce(() => STATUS({ state: "done", executionId: "e1", result: RESULT, message: null }));
     render(<ExecutionFlow record={REC} onOpenDetails={vi.fn()} />);
     expect(callsOf()).toHaveLength(0);
-    fireEvent.click(screen.getByRole("button", { name: "Run with Claude Code" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Run with Claude Code" }));
     expect((await screen.findByTestId("execution-approval")).textContent).toContain("Claude Code wants to modify METTLE locally.");
     expect(callsOf()[0][0]).toBe("/api/command-center/execution/prepare");
     expect(JSON.parse(callsOf()[0][1].body)).toEqual({ commandId: REC.id });
@@ -51,7 +51,7 @@ describe("execution flow", () => {
       .mockImplementationOnce(() => json(202, { data: { cancelRequested: true }, error: null }))
       .mockImplementationOnce(() => STATUS({ state: "canceled", executionId: "e1", result: { ...RESULT, status: "canceled" }, message: null }));
     render(<ExecutionFlow record={REC} onOpenDetails={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: "Run with Claude Code" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Run with Claude Code" }));
     await screen.findByTestId("execution-approval");
     fireEvent.click(screen.getByRole("button", { name: "Approve" }));
     const cancel = await screen.findByTestId("execution-cancel");
@@ -67,7 +67,7 @@ describe("execution flow", () => {
     fq.mockImplementationOnce(() => json(200, { data: PREP, error: null })).mockImplementationOnce(STARTED)
       .mockImplementationOnce(() => STATUS({ state: "failed", executionId: "e1", result: null, message: "Abandoned: its process was reaped" }));
     render(<ExecutionFlow record={REC} onOpenDetails={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: "Run with Claude Code" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Run with Claude Code" }));
     await screen.findByTestId("execution-approval");
     fireEvent.click(screen.getByRole("button", { name: "Approve" }));
     expect((await screen.findByTestId("execution-stopped")).textContent).toContain("Abandoned: its process was reaped");
@@ -76,12 +76,12 @@ describe("execution flow", () => {
   it("Cancel returns to the start without running; a refusal shows STOPPED with the server's smallest explanation", async () => {
     fq.mockImplementationOnce(() => json(200, { data: PREP, error: null })).mockImplementationOnce(() => json(403, { data: null, error: { code: "production_dispatch_disabled", message: "Execution from Universal Command is not enabled yet. Nothing was run." } }));
     render(<ExecutionFlow record={REC} onOpenDetails={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: "Run with Claude Code" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Run with Claude Code" }));
     await screen.findByTestId("execution-approval");
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(screen.getByRole("button", { name: "Run with Claude Code" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Run with Claude Code" })).toBeTruthy();
     expect(callsOf()).toHaveLength(1);
-    fireEvent.click(screen.getByRole("button", { name: "Run with Claude Code" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Run with Claude Code" }));
     fq.mockImplementationOnce(() => json(403, { data: null, error: { code: "production_dispatch_disabled", message: "Execution from Universal Command is not enabled yet. Nothing was run." } }));
     expect((await screen.findByTestId("execution-stopped")).textContent).toMatch(/STOPPED[\s\S]*not enabled yet/);
   });
@@ -97,7 +97,7 @@ describe("Codex review (PR #52): ask-rather-than-guess continues with one tap; r
     fq.mockImplementationOnce(() => json(422, { data: null, error: { code: "project_unresolved", message: "Which project is this for?", question: "Which project is this for?", candidates: ["mettle", "command-center"] } }))
       .mockImplementationOnce(() => json(200, { data: PREP, error: null }));
     render(<ExecutionFlow record={REC} onOpenDetails={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: "Run with Claude Code" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Run with Claude Code" }));
     expect((await screen.findByTestId("execution-stopped")).textContent).toContain("Which project is this for?");
     fireEvent.click(screen.getByRole("button", { name: "mettle" }));
     expect((await screen.findByTestId("execution-approval")).textContent).toContain("Claude Code wants to modify METTLE locally.");
@@ -108,7 +108,7 @@ describe("Codex review (PR #52): ask-rather-than-guess continues with one tap; r
     const onOpenDetails = vi.fn();
     fq.mockImplementationOnce(() => json(200, { data: PREP, error: null })).mockImplementationOnce(STARTED).mockImplementationOnce(() => STATUS({ state: "done", executionId: "e1", result: { ...RESULT, checks: [{ command: "npx vitest run", ok: true }], evidence: { logPath: "/x.log.jsonl", turns: 3, modelReported: "m" } }, message: null }));
     render(<ExecutionFlow record={REC} onOpenDetails={onOpenDetails} />);
-    fireEvent.click(screen.getByRole("button", { name: "Run with Claude Code" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Run with Claude Code" }));
     await screen.findByTestId("execution-approval");
     fireEvent.click(screen.getByRole("button", { name: "Approve" }));
     await screen.findByTestId("execution-result");
@@ -117,5 +117,28 @@ describe("Codex review (PR #52): ask-rather-than-guess continues with one tap; r
     const ev = screen.getByTestId("execution-evidence").textContent!;
     expect(ev).toMatch(/a\.ts[\s\S]*\/w[\s\S]*ok: npx vitest run[\s\S]*\/x\.log\.jsonl/);
     expect(onOpenDetails).not.toHaveBeenCalled();
+  });
+});
+
+describe("PR #57 Codex: no Start while the resume lookup is pending", () => {
+  it("while a run may already exist, Run with Claude Code is not offered; once the lookup settles it is", async () => {
+    let answer!: (r: Response) => void;
+    fetchSpy.mockImplementation((url: string) => {
+      if (String(url).includes("commandId=")) return new Promise<Response>((res) => { answer = res; });
+      throw new Error("unexpected " + url);
+    });
+    render(<ExecutionFlow record={REC} onOpenDetails={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Run with Claude Code" })).toBeNull();
+    answer(new Response(JSON.stringify({ data: { jobId: null, state: "none" }, error: null }), { status: 200 }));
+    expect(await screen.findByRole("button", { name: "Run with Claude Code" })).toBeTruthy();
+  });
+  it("a run that is already in progress is followed instead of offering a second one", async () => {
+    fetchSpy.mockImplementation((url: string) => {
+      if (String(url).includes("commandId=")) return json(200, { data: { jobId: JOB, state: "running", executionId: "e1", result: null, message: null }, error: null });
+      return json(200, { data: { jobId: JOB, state: "running", executionId: "e1", result: null, message: null }, error: null });
+    });
+    render(<ExecutionFlow record={REC} onOpenDetails={vi.fn()} />);
+    expect(await screen.findByTestId("execution-cancel")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Run with Claude Code" })).toBeNull();
   });
 });

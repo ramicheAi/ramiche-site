@@ -335,6 +335,7 @@ describe("P06 M6C: execution in the palette stays off in production", () => {
     fireEvent.change(screen.getByPlaceholderText(/type intent/i), { target: { value: "Claude Code, fix the METTLE roster import" } });
     fireEvent.keyDown(window, { key: "Enter" });
     await screen.findByTestId("shadow-result");
-    expect(screen.getByRole("button", { name: "Run with Claude Code" })).toBeTruthy();
+    // Start is offered once the server has said no run is already in progress for this command.
+    expect(await screen.findByRole("button", { name: "Run with Claude Code" })).toBeTruthy();
   });
 });
