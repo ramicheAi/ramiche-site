@@ -193,12 +193,18 @@ export class JobsExecutionStore implements ExecutionStore {
    * plain answer, never a silent no-op. The running executor stops at its next heartbeat; a run whose executor died
    * is stopped by the reaper's orphan pass.
    */
-  async requestCancelJob(jobId: string, founderUid: string): Promise<{ ok: true } | { ok: false; code: "not_found" | "not_running" | "store_error"; message: string }> {
+  async requestCancelJob(jobId: string, founderUid: string, executionId?: string): Promise<{ ok: true } | { ok: false; code: "not_found" | "not_running" | "attempt_changed" | "store_error"; message: string }> {
     const cur = await this.db.getJob(jobId);
     if (cur.error) return { ok: false, code: "store_error", message: `The execution record could not be read: ${cur.error}` };
     const input = cur.row?.input ?? null;
     if (!cur.row || cur.row.source !== EXECUTOR_SOURCE || typeof input?.executionId !== "string" || typeof input?.bindingHash !== "string") return { ok: false, code: "not_found", message: "No such execution." };
     if (cur.row.status !== "running") return { ok: false, code: "not_running", message: `This execution is already ${cur.row.status}.` };
+    // Bound to the attempt the founder actually SAW: if the caller names an attempt and the row has since moved to a
+    // different one (A finished, a retry reopened it as B, between the founder's click and this request), refuse
+    // rather than cancel the wrong, newly approved attempt (Codex final review).
+    if (executionId !== undefined && input.executionId !== executionId) {
+      return { ok: false, code: "attempt_changed", message: "This is no longer the run you were looking at. Review it again before cancelling." };
+    }
     // Bound to the attempt the founder was looking at: if it finishes and a retry starts before this write, the retry
     // (a different execution id) ignores it.
     const ev = await this.db.insertEvent({ job_id: jobId, kind: "cancel_requested", detail: { by: founderUid, executionId: input.executionId, at: new Date().toISOString() } });

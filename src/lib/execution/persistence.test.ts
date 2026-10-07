@@ -256,3 +256,19 @@ describe("supabase JobsDb getJob: one statement, newest result (PR #57 Codex)", 
     expect(c.calls).toContainEqual(["select", "input, status, error, source, job_events(kind, detail, created_at)"]);
   });
 });
+
+describe("requestCancelJob is bound to the attempt the founder saw (PR #57 Codex final)", () => {
+  it("refuses when the row's current attempt no longer matches the one named in the request", async () => {
+    const m = memoryJobsDb();
+    const s = new JobsExecutionStore(m.db);
+    const id = "3b1f6c2e-8d4a-4f7b-9c1e-2a5d7e9f0bcc";
+    m.jobs.set(id, { id, status: "running", source: EXECUTOR_SOURCE, input: { executionId: "attempt-b", bindingHash: "h".repeat(64) } });
+    expect(await s.requestCancelJob(id, "owner", "attempt-a")).toMatchObject({ ok: false, code: "attempt_changed" });
+    expect(m.events).toEqual([]);
+    expect(await s.requestCancelJob(id, "owner", "attempt-b")).toEqual({ ok: true });
+    expect(m.events).toHaveLength(1);
+    // No executionId named: the existing, looser behavior (any founder cancel on this job id) still works.
+    m.events.length = 0; m.jobs.get(id)!.status = "running";
+    expect(await s.requestCancelJob(id, "owner")).toEqual({ ok: true });
+  });
+});

@@ -107,7 +107,9 @@ export function ExecutionFlow({ record, onOpenDetails }: { record: Pick<ShadowRe
     if (st.s !== "running" || st.cancel !== "ready") return;
     const { jobId, p, executionId } = st;
     setSt({ s: "running", p, jobId, executionId, cancel: "requested" });
-    const r = await post<{ cancelRequested: true }>("/api/command-center/execution/cancel", { jobId });
+    // Bound to the attempt shown on screen: if it has since changed (a retry under the same job), the server refuses
+    // rather than cancelling the newly approved run.
+    const r = await post<{ cancelRequested: true }>("/api/command-center/execution/cancel", executionId ? { jobId, executionId } : { jobId });
     if (!r.ok) setSt((cur) => (cur.s === "running" && cur.jobId === jobId ? { ...cur, cancel: "ready" } : cur));
   };
   if (st.s === "checking") return <div role="status" style={{ fontSize: 12 }}>Checking for a run already in progress.</div>;

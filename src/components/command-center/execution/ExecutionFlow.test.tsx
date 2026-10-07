@@ -61,7 +61,7 @@ describe("execution flow", () => {
     fireEvent.click(cancel);
     fireEvent.click(cancel);   // a second click while the request is in flight must not send another cancel
     expect(callsOf().filter((c) => String(c[0]).endsWith("/cancel")).length).toBe(1);
-    expect(JSON.parse(callsOf().find((c) => String(c[0]).endsWith("/cancel"))![1].body)).toEqual({ jobId: JOB });
+    expect(JSON.parse(callsOf().find((c) => String(c[0]).endsWith("/cancel"))![1].body)).toEqual({ jobId: JOB, executionId: "e1" });
     expect((await screen.findByTestId("execution-result")).textContent).toContain("STOPPED");
   });
 
@@ -241,5 +241,21 @@ describe("PR #57 Codex on a4c0c13: a conflict follows the run's own metadata", (
     const card = await screen.findByTestId("execution-result");
     expect(card.textContent).toContain("command-center");
     expect(card.textContent).not.toContain("METTLE");
+  });
+});
+
+describe("PR #57 Codex final: Cancel is bound to the attempt on screen", () => {
+  it("sends the displayed executionId with the cancel request", async () => {
+    fq.mockImplementationOnce(() => json(200, { data: PREP, error: null }))
+      .mockImplementationOnce(() => json(202, { data: { started: true, jobId: JOB, executionId: "e1" }, error: null }))
+      .mockImplementationOnce(() => json(200, { data: { state: "running", executionId: "e1", result: null, message: null }, error: null }))
+      .mockImplementationOnce(() => json(202, { data: { cancelRequested: true }, error: null }));
+    render(<ExecutionFlow record={REC} onOpenDetails={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Run with Claude Code" }));
+    await screen.findByTestId("execution-approval");
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+    fireEvent.click(await screen.findByTestId("execution-cancel"));
+    const call = await vi.waitFor(() => { const c = callsOf().find((x) => String(x[0]).endsWith("/cancel")); if (!c) throw new Error("no cancel call yet"); return c; });
+    expect(JSON.parse(call[1].body)).toEqual({ jobId: JOB, executionId: "e1" });
   });
 });
