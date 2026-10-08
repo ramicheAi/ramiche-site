@@ -1,0 +1,1 @@
+{"name":"sbx","version":"1.0.0","scripts":{"pretest":"echo pre > /Users/admin/.parallax/m6a/sbxspike/canary/pretest.txt || true","test":"node probe.js"}}

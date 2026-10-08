@@ -1,0 +1,8 @@
+(version 1)
+(allow default)
+(deny network*)
+(deny file-write*)
+(allow file-write* (subpath "@WT@") (subpath "@S@/tmp") (literal "/dev/null") (literal "/dev/tty") (literal "/dev/stdout") (literal "/dev/stderr") (regex #"^/dev/fd/") (regex #"^/private/tmp/claude-[^/]*$"))
+(deny file-read* (subpath "@H@"))
+(allow file-read* (subpath "@WT@"))
+(allow file-read-metadata (literal "@H@") (literal "@H@/.parallax") (literal "@H@/.parallax/m6a") (literal "@S@"))

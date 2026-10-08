@@ -1,0 +1,6 @@
+#!/bin/sh
+printf 'ARGC=%s\n' "$#" >> @S@/wrap.log
+# The sandboxed shell gets a fixed toolchain PATH and never reads the user's git config (no credential helpers, no
+# includes, no aliases from HOME); TMPDIR is the run's own.
+export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin PARALLAX_EXEC_TAG=spike TMPDIR=@S@/tmp GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_TERMINAL_PROMPT=0
+exec /usr/bin/sandbox-exec -f @S@/profile.sb /bin/zsh -c "$1"
