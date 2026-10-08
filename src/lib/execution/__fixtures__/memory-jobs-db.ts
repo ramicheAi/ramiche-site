@@ -24,6 +24,10 @@ export function memoryJobsDb() {
       return { updated: true, error: null };
     },
     async hasEvent(jobId, kind, executionId) { if (fail.hasEvent) return { found: false, error: fail.hasEvent }; return { found: events.some((e) => e.job_id === jobId && e.kind === kind && (!executionId || (e.detail as { executionId?: unknown } | undefined)?.executionId === executionId)), error: null }; },
+    async findRunningByCommand(commandId) {
+      const j = [...jobs.values()].reverse().find((x) => x.status === "running" && (x.input as { commandId?: unknown } | null)?.commandId === commandId);
+      return { jobId: j ? String(j.id) : null, error: null };
+    },
     async listRunning(source) {
       if (fail.listRunning) return { rows: [], error: fail.listRunning };
       return { rows: [...jobs.values()].filter((j) => j.status === "running" && j.source === source).map((j) => ({ id: String(j.id), input: j.input as Record<string, unknown>, started_at: (j.started_at as string) ?? null, updated_at: (j.updated_at as string) ?? null }) as RunningJob), error: null };

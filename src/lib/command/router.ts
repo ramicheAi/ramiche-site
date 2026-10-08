@@ -19,6 +19,7 @@
  *   5. AMBIGUOUS  otherwise no handler is chosen and a question is returned. There is no classifier in M5.
  */
 import { AGENT_CORE } from "@/lib/agent-registry-core";
+import { KNOWN_PROJECT_ALIASES } from "./known-project-names";
 import { authorityFinding, canonicalCommand } from "./authority";
 import { HANDLER_META, HANDLERS, type Handler, type ShadowDecision } from "./types";
 
@@ -49,6 +50,24 @@ const JOB_REF = /\bjob\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-
 const REVIEW_ONLY = /^(?:please\s+)?(review|audit|code review)\b|\breview (?:this|the|my) (?:pr|pull request|diff|change|changes|code|branch|commit)\b/;
 const RESEARCH = /^(?:please\s+)?(research|look up|find out|search for|compare)\b|\b(latest|current|recent|today'?s|news|competitor|competitors|pricing|market rate)\b/;
 const IMPLEMENT = /^(?:please\s+)?(fix|implement|build|refactor|debug|add|write|update|migrate|create|wire|patch)\b/;
+// Read-only analysis of a codebase or a project's production state: Claude Code, L1 (never L2). The object cue keeps
+// vague requests ("analyze the market", "look into it") asking; a project name is resolved later by the execution layer.
+const ANALYZE = /^(?:please\s+)?(inspect|analy[sz]e|look (?:through|over|into|at)|investigate|scan|assess|find|tell me (?:what|why|where|which))\b/;
+const ANALYZE_OBJECT = /\b(codebase|repo|repository|code|production|prod|blocking|blocks?|blocker|unfinished|priority|priorities|readiness|problem|problems|issue|issues|bug|bugs|risk|risks|fix first)\b/;
+const ANALYZE_WHAT = /^(?:what'?s|what is|whats)\s+(?:blocking|blocking|holding|stopping)\b/;
+// Strong codebase or blocker words take precedence over generic recency terms ("current", "latest"): "Analyze the current
+// METTLE codebase and find production blockers" is analysis, while "Find the latest production news" stays research.
+const ANALYZE_STRONG = /\b(codebase|repo|repository|code|blockers?|blocking|blocks?|priority|priorities|unfinished|problems?|issues?|bugs?|readiness)\b/;
+// Precedence over explicit recency ("latest", "current") needs real evidence of a known project, not generic words:
+// "Find the latest issues in React" is current web research (React is not a registered project); "Analyze the latest
+// METTLE production issues" is repository work (METTLE is). The registry is the one already used to resolve a project
+// for execution (execution/projects.ts), so this is the same identity, not a second list of names.
+function namesRegisteredProject(t: string): boolean {
+  // Same word-boundary normalization execution's own project resolution uses (projects.ts `words`): punctuation
+  // ("METTLE's") never hides a registered project name from this check.
+  const padded = ` ${t.replace(/[^a-z0-9.\- ]+/g, " ").replace(/\s+/g, " ").trim()} `;
+  return KNOWN_PROJECT_ALIASES.some((a) => padded.includes(` ${a} `));
+}
 const CHATTER = /^(hi|hello|hey|thanks|thank you|ok|okay|cool|nice|got it)[.! ]*$/;
 const NO_MERGE = /\b(?:don'?t|do not|never|no)\s+merge\b|\bwithout me\b/;
 
@@ -138,8 +157,14 @@ export function routeCommand(input: RouteInput): ShadowDecision {
   if (job) return decide({ intent: "job_reference", handler: "existing_job", jobId: job[1], source: "deterministic", reasons: ["job_reference"] }, t, inMission);
   if (CHATTER.test(t)) return decide({ intent: "nothing", handler: "no_action", source: "deterministic", reasons: ["no_instruction"] }, t, inMission);
   if (REVIEW_ONLY.test(t)) return decide({ intent: "review", handler: "codex_review", source: "deterministic", reasons: ["review_only"] }, t, inMission);
+  if ((ANALYZE.test(t) || ANALYZE_WHAT.test(t)) && ANALYZE_STRONG.test(t) && namesRegisteredProject(t)) {
+    return decide({ intent: "analysis", handler: "claude_code", source: "deterministic", reasons: ["repository_analysis_read_only"] }, t, inMission);
+  }
   if (RESEARCH.test(t)) return decide({ intent: "research", handler: "perplexity", source: "deterministic", reasons: ["current_web_research"] }, t, inMission);
   if (IMPLEMENT.test(t)) return decide({ intent: "implementation", handler: "claude_code", source: "deterministic", reasons: ["repository_work"] }, t, inMission);
+  if ((ANALYZE.test(t) && ANALYZE_OBJECT.test(t)) || (ANALYZE_WHAT.test(t) && ANALYZE_OBJECT.test(t))) {
+    return decide({ intent: "analysis", handler: "claude_code", source: "deterministic", reasons: ["repository_analysis_read_only"] }, t, inMission);
+  }
 
   // 4/5. context never decides; ask
   return decide({

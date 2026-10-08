@@ -1,8 +1,8 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { guardProtectedMutation } from "@/lib/server/protected-mutation";
-import { executionRequestContext, checkoutRemoteTip, executionRoots } from "@/lib/execution/http";
-import { approveExecution } from "@/lib/execution/service";
+import { executionGate, executionRequestContext, checkoutRemoteTip, executionRoots } from "@/lib/execution/http";
+import { refuseIfRunning, startExecution } from "@/lib/execution/service";
 import { JobsExecutionStore } from "@/lib/execution/store";
 import { supabaseJobsDb } from "@/lib/execution/supabase-jobs-db";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -13,6 +13,7 @@ export const runtime = "nodejs";
 
 /**
  * POST /api/command-center/execution/approve { commandId, project?, capability?, branch?, bindingHash }  (founder only)
+ * Answers 202 with the job once the run is recorded (GET .../execution/status follows it).
  * Runs exactly what `prepare` showed, or nothing. Surface "production": refused while PRODUCTION_DISPATCH_ENABLED is
  * false (the gate answers before any read or write).
  */
@@ -21,10 +22,20 @@ export async function POST(req: Request) {
   if (!guard.ok) return guard.response;
   const c = await executionRequestContext(req, guard);
   if (!c.ok) return c.response;
+  // The active-run check is itself a database read: it re-checks the dispatch gate first, on its own, so a disabled
+  // or halted surface never reaches the store even if this check's own ordering ever changes independent of
+  // executionRequestContext's earlier one (Codex final review).
+  const gate = executionGate();
+  if (gate) return gate;
   const svc = getSupabaseAdmin();
   if (!svc) return noStoreJson({ data: null, error: { code: "not_configured", message: "Execution records are unavailable." } }, 503);
+  // One active run per command, whatever the branch head or project (Codex P2 on 9523c33).
+  const busy = await refuseIfRunning(supabaseJobsDb(svc), c.record.id);
+  if (!busy.ok) return noStoreJson({ data: busy.jobId ? { jobId: busy.jobId } : null, error: { code: busy.code, message: busy.message } }, busy.code === "already_running" ? 409 : 503);
   const roots = executionRoots();
-  const out = await approveExecution(
+  // M6H: the approval returns as soon as the run's durable record exists; the run continues on the server and the
+  // founder's screen follows its job (status route). A request that goes away loses nothing.
+  const out = await startExecution(
     { record: c.record, founderUid: c.uid, choices: c.choices, seenBindingHash: String(c.body.bindingHash ?? "") },
     {
       surface: "production", ownerUid: process.env.PARALLAX_OWNER_UID ?? "", remoteTip: checkoutRemoteTip(roots),
@@ -32,6 +43,6 @@ export async function POST(req: Request) {
     },
   );
   return out.ok
-    ? noStoreJson({ data: { result: out.result, mission: out.mission }, error: null }, 200)
+    ? noStoreJson({ data: { started: true, executionId: out.executionId, jobId: out.jobId }, error: null }, 202)
     : noStoreJson({ data: null, error: { code: out.code, message: out.message } }, out.code === "production_dispatch_disabled" ? 403 : 422);
 }

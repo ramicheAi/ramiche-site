@@ -238,12 +238,12 @@ describe("PR #55 Codex on 262c477", () => {
       }
       return r;
     } };
-    expect((await new JobsExecutionStore(racing).requestCancelJob(id, "owner")).ok).toBe(true);
+    expect((await new JobsExecutionStore(racing).requestCancelJob(id, "owner", rA.executionId)).ok).toBe(true);
     const storeB = (racing as unknown as { b: JobsExecutionStore }).b;
     expect(m.jobs.get(id)!.status).toBe("running");
     expect(await storeB.cancelRequested(rB)).toBe(false);   // the cancel named attempt A, not B
     // A cancel made while B runs does apply to B.
-    expect((await new JobsExecutionStore(m.db).requestCancelJob(id, "owner")).ok).toBe(true);
+    expect((await new JobsExecutionStore(m.db).requestCancelJob(id, "owner", rB.executionId)).ok).toBe(true);
     expect(await storeB.cancelRequested(rB)).toBe(true);
   }, 20_000);
 });

@@ -15,6 +15,7 @@ import { randomUUID } from "node:crypto";
 import { approve, approvalKey as defaultKey } from "./approval";
 import { bindingHash, CAPABILITIES, CAPABILITY_META, capabilityRank, EXECUTABLE_CAPABILITIES, type Capability, type ExecutionRequest, type ExecutionResult } from "./contract";
 import { runExecution, type ExecutionDeps } from "./executor";
+import { executionJobId, type JobsDb } from "./store";
 import { GITHUB_AUTH_BLOCKED, GithubAuthUnavailable } from "./github-app";
 import { dispatchHalted } from "./halt";
 import { missionSuggestion, type MissionSuggestion } from "./mission";
@@ -105,7 +106,7 @@ export async function prepareExecution(input: { record: ShadowRecord; founderUid
 }
 
 export type Approved =
-  | { ok: true; result: ExecutionResult; mission: MissionSuggestion }
+  | { ok: true; result: ExecutionResult; mission: MissionSuggestion; jobId: string }
   | { ok: false; code: string; message: string };
 
 export interface ApproveDeps extends PrepareDeps {
@@ -133,7 +134,63 @@ export async function approveExecution(input: { record: ShadowRecord; founderUid
   if (!key) return { ok: false, code: "approval_key_unavailable", message: "Approvals cannot be signed on this host. Nothing ran." };
   const approval = approve(again.request, input.founderUid, key);
   const result = await runExecution(again.request, approval, { ...deps.executor, surface: deps.surface, ownerUid: deps.ownerUid, approvalKey: key });
-  return { ok: true, result, mission: missionSuggestion({ missionId: again.request.missionId, missionRecommended: input.record.decision.missionRecommended, result }) };
+  return { ok: true, result, jobId: executionJobId(again.request.idempotencyKey), mission: missionSuggestion({ missionId: again.request.missionId, missionRecommended: input.record.decision.missionRecommended, result }) };
+}
+
+export type Started = { ok: true; executionId: string; jobId: string } | Exclude<Approved, { ok: true }>;
+
+/**
+ * M6H: the founder approved. Resolves as soon as the run's durable record exists (or with the refusal, if it never
+ * starts), while the run itself continues in the background. The result is read from the job, not held by a request.
+ */
+export function startExecution(input: { record: ShadowRecord; founderUid: string; choices?: Choices; seenBindingHash: string }, deps: ApproveDeps): Promise<Started> {
+  return new Promise<Started>((resolve) => {
+    let settled = false;
+    const settle = (v: Started) => { if (!settled) { settled = true; resolve(v); } };
+    const d: ApproveDeps = {
+      ...deps,
+      executor: { ...deps.executor, onStarted: (req) => settle({ ok: true, executionId: req.executionId, jobId: executionJobId(req.idempotencyKey) }) },
+    };
+    approveExecution(input, d).then(
+      (out) => {
+        // A run refused before its record existed (disk, stale head, checkout, store) is a refusal, not a started job.
+        // "in_progress" is different: a row already exists (another approval, racing refuseIfRunning, won it), so this
+        // is the same active-job conflict the route's own guard handles, not a dead end for the caller.
+        if (out.ok && out.result.status === "rejected") {
+          if (out.result.failure?.code === "in_progress") {
+            // in_progress is ALSO how a failed restart reports itself (store.restart threw, no competing attempt).
+            // Never follow a job on the strength of this code alone, and never report THIS request's own (rejected)
+            // executionId as if it were the one actually running: read the row's real current attempt. A store with
+            // no activeAttempt (MemoryExecutionStore, scripts) cannot confirm either way, so settle the refusal
+            // directly rather than calling .then on undefined (which would throw, unhandled, and never settle).
+            if (!d.executor.store.activeAttempt) { settle({ ok: false, code: "in_progress", message: out.result.failure!.message }); return; }
+            void d.executor.store.activeAttempt(out.jobId).then(
+              (activeId) => settle(activeId ? { ok: true, executionId: activeId, jobId: out.jobId } : { ok: false, code: "in_progress", message: out.result.failure!.message }),
+              () => settle({ ok: false, code: "in_progress", message: out.result.failure!.message }),
+            );
+            return;
+          }
+          settle({ ok: false, code: out.result.failure?.code ?? "not_started", message: out.result.failure?.message ?? "The run did not start. Nothing was run." });
+          return;
+        }
+        settle(out.ok ? { ok: true, executionId: out.result.executionId, jobId: out.jobId } : out);
+      },
+      (e) => settle({ ok: false, code: "execution_failed_to_start", message: `The run could not start (${e instanceof Error ? e.message : "error"}). Nothing was run.` }),
+    );
+  });
+}
+
+/**
+ * One active run per command: a second approval for a command that already has a running attempt is refused, whatever
+ * its branch head, project or capability (those change the idempotency key, so the key alone cannot stop it).
+ * Check-then-start: the window between this read and the record's write is small but not zero; closing it fully
+ * needs a unique partial index on running executor jobs per command (a schema change, not made here).
+ */
+export async function refuseIfRunning(db: Pick<JobsDb, "findRunningByCommand">, commandId: string): Promise<{ ok: true } | { ok: false; code: "already_running" | "store_error"; message: string; jobId?: string }> {
+  const found = await db.findRunningByCommand(commandId);
+  if (found.error) return { ok: false, code: "store_error", message: `The execution record could not be read, so nothing was started: ${found.error}` };
+  if (found.jobId) return { ok: false, code: "already_running", message: "A run for this command is already in progress. Follow it, or cancel it first.", jobId: found.jobId };
+  return { ok: true };
 }
 
 /** Whether the cockpit should offer execution at all (the UI hides it otherwise). */

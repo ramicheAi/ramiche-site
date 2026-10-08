@@ -25,10 +25,10 @@ The executor never writes Missions; a result is suggested as Mission evidence an
 | Real Claude cancel and timeout (L1) | PROVEN on the iMac in gui/501 on a throwaway sandbox repository |
 | Kill switch | PROVEN in tests: constant gate refuses before store, approval, remote, CLI, telemetry; no env can enable; HALT file stops runs without a redeploy |
 | Claude auth in the executor session | READY (logged in, first party, Max) |
-| Repository access for the stale-head check | M6G: the Keychain path is removed; the executor reads remote heads with its own read-only GitHub App identity. Pending the one-time App creation and install by the account owner |
-| Exact founder phrase routing | "Inspect METTLE and tell me what is blocking production." routes to no handler (asks who). Naming Claude Code works. Router semantics unchanged by design; M5C labels decide |
-| Founder Cancel control in the cockpit | NOT WIRED: `POST /api/command-center/execution/cancel {jobId}` exists and works with dispatch off, but the approval card does not yet show a Cancel button while a run is working (the approve call holds the request until the run ends and does not return the job id first) |
-| Long runs through the tunnel | RISK: the cockpit is served through a Cloudflare tunnel; a proxied request with no response for about 100 s ends with error 524. Approve holds the request for the whole run, so a run longer than that loses its on-screen result (the jobs row still records it). The real L1 analyze took 38 s |
+| Repository access for the stale-head check | M6G: the Keychain path is removed. The App ("Parallax Executor ramicheAi", Contents+Metadata read only) exists and is installed on mettle and ramiche-site; `check` passed against the protected setup file. Routing the key into the cockpit's own runtime is a production credential change awaiting founder approval (ops-handoff/M6G-RUNTIME-ROUTING-FOUNDER-APPROVAL.md) |
+| Natural founder phrase routing | READY: "Inspect METTLE and tell me what is blocking production." (and variants: "What's blocking X from production?", "Analyze the X codebase...", "Find the highest priority problem in X") routes to Claude Code as a read-only analysis, founder approval still required. A vague request ("Analyze the market") still asks. Corpus 0 dangerous false negatives; M5C replay drift 0 |
+| Founder Cancel control in the cockpit | READY: approve answers once the run is durably recorded (202 with the job), the card follows it (status polling, a snapshot read that waits for the row and its result to agree) and shows one Cancel control; a run already in progress for the command is found and followed from any tab |
+| Long runs through the tunnel | RESOLVED: approve no longer holds the request open for the run. A run of any length is followed by polling the job, so the Cloudflare tunnel's ~100 s response limit no longer loses the on-screen result |
 | M5C gate | NOT MET (see the M6F result) |
 
 ## PRECHECK (all must hold)
@@ -63,11 +63,14 @@ The executor never writes Missions; a result is suggested as Mission evidence an
 1. Health: "Ready · inspect and analyze".
 2. "Claude Code, inspect METTLE and tell me what is blocking production." The card reads "Claude Code wants to
    analyze METTLE (read only: changing files is not enabled yet)." Approve.
-3. Expect `DONE · Claude Code` with a result, 0 files changed, no worktree left. The jobs row ends `done` with an
+3. The card shows "CLAUDE CODE · RUNNING" with a Cancel control immediately (the request does not stay open for the
+   run). Then `DONE · Claude Code` with a result, 0 files changed, no worktree left. The jobs row ends `done` with an
    `execution_result` event.
-4. Cancel: only once the Cancel control is wired (see Readiness). Until then, cancel through the route with the job id
-   from the jobs table, and confirm the row ends `canceled` and no `claude` process is left.
-5. Ask for a change ("Claude Code, fix the METTLE roster import"): it is narrowed to read-only; an explicit L2 choice
+4. Cancel: start a second run, press Cancel while it reads "RUNNING". Confirm the row ends `canceled` and no `claude`
+   process is left.
+5. Open the palette in a second tab for the same command while a run is going: it shows "RUNNING" with Cancel too
+   (not a second Start button).
+6. Ask for a change ("Claude Code, fix the METTLE roster import"): it is narrowed to read-only; an explicit L2 choice
    is refused with "not enabled yet".
 
 ## OBSERVE (first 7 days)

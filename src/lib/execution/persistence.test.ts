@@ -191,7 +191,8 @@ describe("idempotent retries after abandonment or read failure (PR #50 review)",
       return chain as never;
     };
     expect(await supabaseJobsDb(mk([{ data: null, error: { message: "boom" } }])).getJob("j")).toEqual({ row: null, error: "boom" });
-    expect(await supabaseJobsDb(mk([{ data: { input: {}, status: "done", error: null }, error: null }, { data: null, error: { message: "events down" } }])).getJob("j")).toEqual({ row: null, error: "events down" });
+    // The row and its events are one request: an events failure is the request's failure.
+    expect(await supabaseJobsDb(mk([{ data: null, error: { message: "events down" } }])).getJob("j")).toEqual({ row: null, error: "events down" });
     expect(await supabaseJobsDb(mk([{ data: null, error: null }])).getJob("j")).toEqual({ row: null, error: null });
   });
 });
@@ -233,5 +234,38 @@ describe("reaper evidence and atomicity (PR #50 Codex)", () => {
     await reapAbandoned({ db: b.m.db, now: NOW, host: "other", isAlive: () => false });
     expect(b.m.jobs.get(b.id)!.status).toBe("running");
     expect(b.m.events.filter((e) => e.job_id === b.id).map((e) => e.kind)).toEqual(["reap_intent", "reap_withdrawn"]);
+  });
+});
+
+describe("supabase JobsDb getJob: one statement, newest result (PR #57 Codex)", () => {
+  it("reads the row and its execution_result events in one request, and returns the newest result", async () => {
+    function client(result: { data?: unknown; error?: unknown }) {
+      const calls: unknown[][] = [];
+      const chain: Record<string, (...a: unknown[]) => unknown> = {};
+      for (const m of ["from", "select", "eq", "order", "limit", "maybeSingle"]) chain[m] = (...a: unknown[]) => { calls.push([m, ...a]); return chain; };
+      (chain as { then?: unknown }).then = (res: (v: unknown) => unknown) => res(result);
+      return { db: chain as never, calls };
+    }
+    const older = { kind: "execution_result", detail: { executionId: "old" }, created_at: "2026-10-06T10:00:00Z" };
+    const newer = { kind: "execution_result", detail: { executionId: "new" }, created_at: "2026-10-06T11:00:00Z" };
+    const other = { kind: "cancel_requested", detail: {}, created_at: "2026-10-06T12:00:00Z" };
+    const c = client({ data: { input: { executionId: "new" }, status: "done", error: null, source: EXECUTOR_SOURCE, job_events: [older, other, newer] }, error: null });
+    const got = await supabaseJobsDb(c.db).getJob("j1");
+    expect(got.row?.resultEvent).toEqual({ executionId: "new" });
+    expect(c.calls.filter((x) => x[0] === "from")).toEqual([["from", "jobs"]]);   // a single request
+    expect(c.calls).toContainEqual(["select", "input, status, error, source, job_events(kind, detail, created_at)"]);
+  });
+});
+
+describe("requestCancelJob is bound to the attempt the founder saw (PR #57 Codex final)", () => {
+  it("refuses when the row's current attempt no longer matches the one named in the request", async () => {
+    const m = memoryJobsDb();
+    const s = new JobsExecutionStore(m.db);
+    const id = "3b1f6c2e-8d4a-4f7b-9c1e-2a5d7e9f0bcc";
+    m.jobs.set(id, { id, status: "running", source: EXECUTOR_SOURCE, input: { executionId: "attempt-b", bindingHash: "h".repeat(64) } });
+    expect(await s.requestCancelJob(id, "owner", "attempt-a")).toMatchObject({ ok: false, code: "attempt_changed" });
+    expect(m.events).toEqual([]);
+    expect(await s.requestCancelJob(id, "owner", "attempt-b")).toEqual({ ok: true });
+    expect(m.events).toHaveLength(1);
   });
 });

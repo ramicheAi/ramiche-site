@@ -50,8 +50,19 @@ const halted = () => noStoreJson({ data: null, error: { code: "execution_halted"
 const disabled = () => noStoreJson({ data: null, error: { code: "production_dispatch_disabled", message: "Execution from Universal Command is not enabled yet. Nothing was run." } }, 403);
 
 /** Shared front half of both routes, after the route's own owner guard: gate, body, the founder's shadow record. */
+/**
+ * The dispatch gate's own answer right now (the 403 response), or null when execution may proceed. Exported so a
+ * caller about to make its own database read (the active-run check in the approve route) can fail fast on its own,
+ * independent of executionRequestContext's earlier check: the same defense-in-depth this module already applies
+ * inside the executor and the service layer, not a single check relied on from one place.
+ */
+export function executionGate(): ReturnType<typeof halted> | null {
+  return executionAvailable() ? null : (dispatchHalted() ? halted() : disabled());
+}
+
 export async function executionRequestContext(req: Request, guard: Extract<Awaited<ReturnType<typeof guardProtectedMutation>>, { ok: true }>) {
-  if (!executionAvailable()) return { ok: false as const, response: dispatchHalted() ? halted() : disabled() };
+  const gate = executionGate();
+  if (gate) return { ok: false as const, response: gate };
   const c = commandContext(guard);
   if (!c.ok) return { ok: false as const, response: c.response };
   const body = await jsonObject(req);
