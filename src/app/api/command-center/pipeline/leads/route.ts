@@ -30,7 +30,13 @@ export async function GET(req: Request) {
 
   const { data, error } = await q;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ leads: data ?? [] });
+  return NextResponse.json({
+    leads: data ?? [],
+    meta: {
+      source: "supabase.pipeline_leads",
+      fetched_at: new Date().toISOString(),
+    },
+  });
 }
 
 /**
