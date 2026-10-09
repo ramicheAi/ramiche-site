@@ -30,11 +30,17 @@ export async function GET(req: Request) {
 
   const { data, error } = await q;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // A successful database read establishes source health at this instant. This
+  // is intentionally distinct from response serialization time and does not
+  // claim that unchanged lead rows were updated recently.
+  const sourceCheckedAt = new Date().toISOString();
+  const responseGeneratedAt = new Date().toISOString();
   return NextResponse.json({
     leads: data ?? [],
     meta: {
       source: "supabase.pipeline_leads",
-      fetched_at: new Date().toISOString(),
+      source_checked_at: sourceCheckedAt,
+      response_generated_at: responseGeneratedAt,
     },
   });
 }
