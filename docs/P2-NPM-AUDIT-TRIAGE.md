@@ -70,7 +70,8 @@ Two packages in the wider audit currently have no non-vulnerable published relea
 - ESLint: zero errors, 189 pre-existing warnings;
 - production audit: 15 high to 5 high;
 - full audit: 29 high to 18 high;
-- production build: inconclusive; two isolated P2 builds remained at `Creating an optimized production build` with no additional output and were terminated after bounded observation. This repeats the earlier intermittent baseline behavior and is not reported as a pass.
+- earlier production-build attempt: inconclusive; two isolated P2 builds remained at `Creating an optimized production build` with no additional output and were terminated after bounded observation. This repeated the earlier intermittent baseline behavior and was not reported as a pass;
+- later clean production-build verification: passed twice from an exact-lockfile install with Node 20.20.2 and npm 10.9.9; both builds exited 0, generated 105 pages, and completed postbuild.
 
 ## Next gates
 
