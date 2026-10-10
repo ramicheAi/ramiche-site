@@ -53,6 +53,7 @@ export interface RevenueFact {
   refunded_minor: number;
   fee_minor: number | null;
   stripe_object_id: string;
+  stripe_payment_id: string;
   stripe_balance_transaction_id: string | null;
   livemode: boolean;
 }
@@ -96,6 +97,11 @@ const EVENT_FIELD_SET = new Set<string>([
 const ATTRIBUTION_FIELD_SET = new Set<string>([
   "channel", "source", "medium", "campaign", "content", "term", "landing_path",
   "referrer_origin", "gclid", "fbclid",
+]);
+const CONSENT_FIELD_SET = new Set<string>(["analytics", "marketing", "captured_at", "source"]);
+const REVENUE_FIELD_SET = new Set<string>([
+  "currency", "gross_minor", "refunded_minor", "fee_minor", "stripe_object_id",
+  "stripe_payment_id", "stripe_balance_transaction_id", "livemode",
 ]);
 const REVENUE_EVENTS = new Set<AttributionEventName>([
   "payment.succeeded",
@@ -145,6 +151,9 @@ export function validateAttributionEvent(event: AttributionEvent): ContractIssue
   if (!event.consent || typeof event.consent !== "object") {
     issues.push({ field: "consent", message: "required object" });
   } else {
+    for (const key of Object.keys(event.consent)) {
+      if (!CONSENT_FIELD_SET.has(key)) issues.push({ field: `consent.${key}`, message: "unknown consent field" });
+    }
     if (!CONSENT_STATE_SET.has(event.consent.analytics)) issues.push({ field: "consent.analytics", message: "unknown consent state" });
     if (!CONSENT_STATE_SET.has(event.consent.marketing)) issues.push({ field: "consent.marketing", message: "unknown consent state" });
     if (event.consent.captured_at !== null && !isIsoTimestamp(event.consent.captured_at)) {
@@ -213,6 +222,9 @@ export function validateAttributionEvent(event: AttributionEvent): ContractIssue
 
   if (event.revenue) {
     const r = event.revenue;
+    for (const key of Object.keys(r)) {
+      if (!REVENUE_FIELD_SET.has(key)) issues.push({ field: `revenue.${key}`, message: "unknown revenue field" });
+    }
     if (event.source !== "stripe" && event.source !== "manual_reconciliation") {
       issues.push({ field: "source", message: "revenue facts must come from Stripe or explicit reconciliation" });
     }
@@ -232,6 +244,9 @@ export function validateAttributionEvent(event: AttributionEvent): ContractIssue
     const validReconciliationId = event.source === "manual_reconciliation" && /^recon_/.test(r.stripe_object_id);
     if (!validStripeId && !validReconciliationId) {
       issues.push({ field: "revenue.stripe_object_id", message: "must be a Stripe object id or explicit recon_ reference" });
+    }
+    if (typeof r.stripe_payment_id !== "string" || !r.stripe_payment_id.startsWith("pi_")) {
+      issues.push({ field: "revenue.stripe_payment_id", message: "must link to the original Stripe payment intent" });
     }
   }
 
@@ -258,6 +273,15 @@ export interface RevenueTruth {
   idempotency_conflicts: number;
 }
 
+function stableSerialize(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(",")}]`;
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${stableSerialize(record[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
 /**
  * Computes cash truth from validated Stripe facts. First write wins for the
  * same source event, matching a UNIQUE idempotency key in the future store.
@@ -273,11 +297,10 @@ export function computeRevenueTruth(events: AttributionEvent[], currency: string
   let conflicts = 0;
 
   for (const event of events) {
-    if (validateAttributionEvent(event).length || !event.revenue || event.revenue.currency !== currency
-      || event.revenue.livemode !== livemode || event.event_name === "payment.failed") continue;
+    if (validateAttributionEvent(event).length || !event.revenue) continue;
 
     const key = attributionIdempotencyKey(event);
-    const canonical = JSON.stringify(event);
+    const canonical = stableSerialize(event);
     const prior = seen.get(key);
     if (prior) {
       if (prior === canonical) duplicates++;
@@ -285,6 +308,8 @@ export function computeRevenueTruth(events: AttributionEvent[], currency: string
       continue;
     }
     seen.set(key, canonical);
+    if (event.revenue.currency !== currency || event.revenue.livemode !== livemode
+      || event.event_name === "payment.failed") continue;
     unique++;
     if (event.event_name === "payment.succeeded") gross += event.revenue.gross_minor;
     if (event.event_name === "refund.succeeded") refunds += event.revenue.refunded_minor;

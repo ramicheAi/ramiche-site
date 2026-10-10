@@ -38,6 +38,7 @@ const payment = (id: string, gross: number, fee: number | null): AttributionEven
       refunded_minor: 0,
       fee_minor: fee,
       stripe_object_id: "pi_123",
+      stripe_payment_id: "pi_123",
       stripe_balance_transaction_id: fee === null ? null : "txn_123",
       livemode: true,
     },
@@ -95,6 +96,7 @@ describe("P2 attribution contract", () => {
         refunded_minor: 2_500,
         fee_minor: 0,
         stripe_object_id: "re_123",
+        stripe_payment_id: "pi_123",
         stripe_balance_transaction_id: "txn_refund",
         livemode: true,
       },
@@ -149,6 +151,37 @@ describe("P2 attribution contract", () => {
     const event = { ...payment("manual_1", 10_000, 320), source: "manual_reconciliation" as const,
       revenue: { ...payment("manual_1", 10_000, 320).revenue!, stripe_object_id: "recon_case_42" } };
     expect(validateAttributionEvent(event)).toEqual([]);
+  });
+
+  it("rejects unknown nested consent and revenue fields", () => {
+    const event = payment("evt_pii", 10_000, 320) as AttributionEvent & {
+      consent: AttributionEvent["consent"] & { email: string };
+      revenue: NonNullable<AttributionEvent["revenue"]> & { customer_email: string };
+    };
+    event.consent.email = "minor@example.com";
+    event.revenue.customer_email = "minor@example.com";
+    expect(validateAttributionEvent(event).map((issue) => issue.field)).toEqual([
+      "consent.email", "revenue.customer_email",
+    ]);
+  });
+
+  it("detects cross-currency payload changes and ignores key ordering", () => {
+    const usd = payment("evt_global_conflict", 10_000, 320);
+    const eur = { ...usd, revenue: { ...usd.revenue!, currency: "eur" } };
+    expect(computeRevenueTruth([usd, eur], "usd", true).idempotency_conflicts).toBe(1);
+
+    const reordered = { ...usd, consent: { source: usd.consent.source, captured_at: null,
+      marketing: usd.consent.marketing, analytics: usd.consent.analytics } };
+    expect(computeRevenueTruth([usd, reordered], "usd", true)).toMatchObject({
+      duplicate_events: 1, idempotency_conflicts: 0,
+    });
+  });
+
+  it("requires every refund fact to link to its original payment intent", () => {
+    const refund = payment("evt_refund_link", 0, 0);
+    refund.event_name = "refund.succeeded";
+    refund.revenue = { ...refund.revenue!, stripe_object_id: "re_123", stripe_payment_id: "" };
+    expect(validateAttributionEvent(refund).map((issue) => issue.field)).toContain("revenue.stripe_payment_id");
   });
 
   it("rejects date-only values as timestamps", () => {
