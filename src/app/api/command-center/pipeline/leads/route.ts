@@ -34,15 +34,15 @@ export async function GET(req: Request) {
   // is intentionally distinct from response serialization time and does not
   // claim that unchanged lead rows were updated recently.
   const sourceCheckedAt = new Date().toISOString();
-  const responseGeneratedAt = new Date().toISOString();
+  const responseGeneratedAt = new Date();
   return NextResponse.json({
     leads: data ?? [],
     meta: {
       source: "supabase.pipeline_leads",
       source_checked_at: sourceCheckedAt,
-      response_generated_at: responseGeneratedAt,
+      response_generated_at: responseGeneratedAt.toISOString(),
     },
-  });
+  }, { headers: { Date: responseGeneratedAt.toUTCString() } });
 }
 
 /**

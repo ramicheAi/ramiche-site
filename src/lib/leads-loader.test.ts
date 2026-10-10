@@ -5,7 +5,7 @@ const NOW = Date.parse("2026-10-09T20:00:00.000Z");
 const NOW_ISO = new Date(NOW).toISOString();
 const response = (status: number, body: unknown) => Promise.resolve(new Response(JSON.stringify(body), {
   status,
-  headers: { "content-type": "application/json" },
+  headers: { "content-type": "application/json", date: NOW_ISO },
 }));
 const validLead: LiveLead = {
   id: "lead-1",
@@ -26,7 +26,7 @@ const payload = (leads: unknown[] = []) => ({
     response_generated_at: NOW_ISO,
   },
 });
-const options = { now: () => NOW };
+const options = {};
 
 afterEach(() => vi.useRealTimers());
 
@@ -37,6 +37,17 @@ describe("fetchLiveLeads", () => {
 
     expect(empty).toMatchObject({ ok: true, leads: [], sourceCheckedAt: NOW_ISO });
     expect(populated).toMatchObject({ ok: true, leads: [validLead], sourceCheckedAt: NOW_ISO });
+  });
+
+  it.each([
+    ["behind", NOW - 60 * 60_000],
+    ["ahead", NOW + 60 * 60_000],
+  ])("accepts fresh server provenance when the client clock is %s", async (_direction, clientTime) => {
+    vi.spyOn(Date, "now").mockReturnValue(clientTime);
+
+    const result = await fetchLiveLeads(vi.fn(() => response(200, payload([validLead]))), options);
+
+    expect(result).toMatchObject({ ok: true, leads: [validLead], sourceCheckedAt: NOW_ISO });
   });
 
   it("fails visibly on non-OK HTTP and network responses", async () => {
@@ -68,6 +79,17 @@ describe("fetchLiveLeads", () => {
     expect(arbitrary).toMatchObject({ ok: false, reason: "invalid", message: "Live CRM response has an untrusted source." });
     expect(invalid).toMatchObject({ ok: false, reason: "invalid", message: "Live CRM provenance is invalid or stale." });
     expect(stale).toMatchObject({ ok: false, reason: "invalid", message: "Live CRM provenance is invalid or stale." });
+  });
+
+  it("rejects provenance when the server time reference is missing", async () => {
+    const withoutServerDate = new Response(JSON.stringify(payload()), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+
+    const result = await fetchLiveLeads(vi.fn(() => Promise.resolve(withoutServerDate)), options);
+
+    expect(result).toMatchObject({ ok: false, reason: "invalid", message: "Live CRM provenance is invalid or stale." });
   });
 
   it("rejects malformed lead rows before they reach the UI", async () => {
