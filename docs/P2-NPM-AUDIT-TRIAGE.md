@@ -38,7 +38,7 @@ Narrow transitive overrides were added where the requesting dependency's major A
 - `browserslist` 4.29.3;
 - `fast-uri` 3.1.8;
 - `form-data` 2.5.6;
-- `ws` 8.21.0.
+- `ws` `^8.21.0` (the committed lockfile resolves 8.22.0).
 
 The exact lockfile was regenerated without lifecycle scripts or `--force`.
 
