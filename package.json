@@ -66,6 +66,9 @@
   },
   "overrides": {
     "@fastify/busboy": "^3.2.3",
+    "@firebase/firestore": {
+      "@grpc/grpc-js": "1.14.6"
+    },
     "google-gax": {
       "@grpc/grpc-js": "^1.14.6"
     },
