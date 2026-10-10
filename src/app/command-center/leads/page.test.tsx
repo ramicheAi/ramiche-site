@@ -17,7 +17,10 @@ const payload = (leads: unknown[] = []) => ({
 const lead = (id: string, company: string) => ({
   id, name: null, company, product: null, stage: "lead", source: "manual", value: 1200, notes: null, meta: null,
 });
-const jsonResponse = (status: number, body: unknown) => Promise.resolve(new Response(JSON.stringify(body), { status }));
+const jsonResponse = (status: number, body: unknown) => Promise.resolve(new Response(JSON.stringify(body), {
+  status,
+  headers: { date: nowIso() },
+}));
 
 beforeEach(() => vi.stubGlobal("fetch", vi.fn()));
 afterEach(() => {

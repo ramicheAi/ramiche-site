@@ -39,6 +39,8 @@ describe("GET /api/command-center/pipeline/leads", () => {
     expect(Date.parse(body.meta.source_checked_at)).toBeLessThanOrEqual(after);
     expect(Date.parse(body.meta.response_generated_at)).toBeGreaterThanOrEqual(before);
     expect(Date.parse(body.meta.response_generated_at)).toBeLessThanOrEqual(after);
+    expect(Date.parse(response.headers.get("date") ?? "")).toBeGreaterThanOrEqual(before - 999);
+    expect(Date.parse(response.headers.get("date") ?? "")).toBeLessThanOrEqual(after);
     expect(body.meta).not.toHaveProperty("fetched_at");
   });
 });

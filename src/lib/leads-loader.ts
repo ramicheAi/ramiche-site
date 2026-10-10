@@ -37,7 +37,6 @@ interface FetchLiveLeadsOptions {
   signal?: AbortSignal;
   timeoutMs?: number;
   maxAgeMs?: number;
-  now?: () => number;
 }
 
 const STAGES = new Set<LiveLead["stage"]>(["lead", "qualified", "proposal", "negotiation", "closed", "lost"]);
@@ -103,7 +102,7 @@ function validTimestamp(value: unknown, now: number, maxAgeMs: number): value is
 
 /** Loads live CRM data. Only fully validated, fresh responses can be marked verified. */
 export async function fetchLiveLeads(fetcher: FetchLike, options: FetchLiveLeadsOptions = {}): Promise<LiveLeadsResult> {
-  const { signal, timeoutMs = LIVE_LEADS_TIMEOUT_MS, maxAgeMs = LIVE_LEADS_MAX_AGE_MS, now = Date.now } = options;
+  const { signal, timeoutMs = LIVE_LEADS_TIMEOUT_MS, maxAgeMs = LIVE_LEADS_MAX_AGE_MS } = options;
   const controller = new AbortController();
   let timedOut = false;
   const abortFromCaller = () => controller.abort(signal?.reason);
@@ -130,12 +129,13 @@ export async function fetchLiveLeads(fetcher: FetchLike, options: FetchLiveLeads
     if (!isRecord(meta)) {
       return { ok: false, reason: "invalid", message: "Live CRM response is missing provenance." };
     }
-    const currentTime = now();
+    const serverTime = Date.parse(res.headers.get("date") ?? "");
     if (meta.source !== LIVE_LEADS_SOURCE) {
       return { ok: false, reason: "invalid", message: "Live CRM response has an untrusted source." };
     }
-    if (!validTimestamp(meta.source_checked_at, currentTime, maxAgeMs)
-      || !validTimestamp(meta.response_generated_at, currentTime, maxAgeMs)) {
+    if (!Number.isFinite(serverTime)
+      || !validTimestamp(meta.source_checked_at, serverTime, maxAgeMs)
+      || !validTimestamp(meta.response_generated_at, serverTime, maxAgeMs)) {
       return { ok: false, reason: "invalid", message: "Live CRM provenance is invalid or stale." };
     }
     if (Date.parse(meta.source_checked_at) > Date.parse(meta.response_generated_at) + 5_000) {
