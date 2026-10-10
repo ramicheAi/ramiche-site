@@ -1,6 +1,6 @@
 # P2 Revenue Attribution Design
 
-Status: implementation-ready design and inactive boundary contract. No tracking, vendor activation, database migration, production change, or historical backfill is included.
+Status: review draft with an inactive boundary contract. It is not merge-ready until clean build and review gates pass. No tracking, vendor activation, database migration, production change, or historical backfill is included.
 
 Date: 2026-10-10
 

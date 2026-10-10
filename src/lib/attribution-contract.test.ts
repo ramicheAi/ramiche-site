@@ -100,7 +100,7 @@ describe("P2 attribution contract", () => {
       },
     });
 
-    expect(computeRevenueTruth([paid, paid, refund], "usd")).toEqual({
+    expect(computeRevenueTruth([paid, paid, refund], "usd", true)).toEqual({
       currency: "usd",
       gross_collected_minor: 10_000,
       refunded_minor: 2_500,
@@ -108,10 +108,50 @@ describe("P2 attribution contract", () => {
       net_cash_minor: 7_180,
       unique_events: 2,
       duplicate_events: 1,
+      idempotency_conflicts: 0,
     });
   });
 
   it("reports net cash as unknown when Stripe fee truth is unavailable", () => {
-    expect(computeRevenueTruth([payment("evt_paid", 10_000, null)], "usd").net_cash_minor).toBeNull();
+    expect(computeRevenueTruth([payment("evt_paid", 10_000, null)], "usd", true).net_cash_minor).toBeNull();
+  });
+
+  it("rejects unapproved or nested properties so PII cannot cross the boundary", () => {
+    const event = base({ properties: { email: "minor@example.com", nested: { dob: "2012-01-01" } } as never });
+    expect(validateAttributionEvent(event).map((issue) => issue.field)).toEqual([
+      "properties.email", "properties.nested", "properties.nested",
+    ]);
+  });
+
+  it("does not let an invalid first delivery suppress a later valid retry", () => {
+    const valid = payment("evt_retry", 10_000, 320);
+    const invalid = { ...valid, revenue: { ...valid.revenue!, currency: "USD" } };
+    expect(computeRevenueTruth([invalid, valid], "usd", true).gross_collected_minor).toBe(10_000);
+  });
+
+  it("flags payload conflicts without double counting", () => {
+    const first = payment("evt_conflict", 10_000, 320);
+    const changed = { ...first, revenue: { ...first.revenue!, gross_minor: 20_000 } };
+    expect(computeRevenueTruth([first, changed], "usd", true)).toMatchObject({
+      gross_collected_minor: 10_000, idempotency_conflicts: 1,
+    });
+  });
+
+  it("ignores failed payments and keeps live and test cash separate", () => {
+    const failed = { ...payment("evt_failed", 50_000, null), event_name: "payment.failed" as const, revenue: null };
+    const test = { ...payment("evt_test", 20_000, 100), revenue: { ...payment("evt_test", 20_000, 100).revenue!, livemode: false } };
+    expect(computeRevenueTruth([failed, test, payment("evt_live", 10_000, 320)], "usd", true)).toMatchObject({
+      gross_collected_minor: 10_000, fees_minor: 320, net_cash_minor: 9_680,
+    });
+  });
+
+  it("allows an explicit manual reconciliation reference", () => {
+    const event = { ...payment("manual_1", 10_000, 320), source: "manual_reconciliation" as const,
+      revenue: { ...payment("manual_1", 10_000, 320).revenue!, stripe_object_id: "recon_case_42" } };
+    expect(validateAttributionEvent(event)).toEqual([]);
+  });
+
+  it("rejects date-only values as timestamps", () => {
+    expect(validateAttributionEvent(base({ occurred_at: "2026-10-10" })).map((issue) => issue.field)).toContain("occurred_at");
   });
 });

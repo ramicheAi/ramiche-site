@@ -81,14 +81,35 @@ export interface ContractIssue {
 }
 
 const EVENT_NAME_SET = new Set<string>(ATTRIBUTION_EVENT_NAMES);
+const EVENT_SOURCE_SET = new Set<string>(["site", "crm", "booking", "stripe", "manual_reconciliation"]);
+const CONSENT_STATE_SET = new Set<string>(["granted", "denied", "unknown", "not_applicable"]);
+const YOUTH_CONTEXT_SET = new Set<string>(["none", "possible", "confirmed"]);
+const PROPERTY_KEY_SET = new Set<string>([
+  "outcome", "reason_code", "qualification_version", "booking_status",
+  "product_id", "plan_id", "failure_code", "reconciliation_reason",
+]);
+const EVENT_FIELD_SET = new Set<string>([
+  "schema_version", "event_name", "source", "source_event_id", "occurred_at", "received_at",
+  "tenant_id", "lead_id", "booking_id", "checkout_id", "youth_context", "consent",
+  "attribution", "revenue", "properties",
+]);
+const ATTRIBUTION_FIELD_SET = new Set<string>([
+  "channel", "source", "medium", "campaign", "content", "term", "landing_path",
+  "referrer_origin", "gclid", "fbclid",
+]);
 const REVENUE_EVENTS = new Set<AttributionEventName>([
   "payment.succeeded",
   "payment.failed",
   "refund.succeeded",
 ]);
+const REVENUE_REQUIRED_EVENTS = new Set<AttributionEventName>([
+  "payment.succeeded",
+  "refund.succeeded",
+]);
 
-function isIsoTimestamp(value: string): boolean {
-  return Boolean(value && Number.isFinite(Date.parse(value)));
+function isIsoTimestamp(value: unknown): value is string {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(value)
+    && Number.isFinite(Date.parse(value));
 }
 
 function isIntegerAtLeastZero(value: number): boolean {
@@ -103,6 +124,11 @@ export function attributionIdempotencyKey(
 
 export function validateAttributionEvent(event: AttributionEvent): ContractIssue[] {
   const issues: ContractIssue[] = [];
+  const runtime = event as unknown as Record<string, unknown>;
+
+  for (const key of Object.keys(runtime)) {
+    if (!EVENT_FIELD_SET.has(key)) issues.push({ field: key, message: "unknown top-level field" });
+  }
 
   if (event.schema_version !== ATTRIBUTION_SCHEMA_VERSION) {
     issues.push({ field: "schema_version", message: "unsupported schema version" });
@@ -110,10 +136,28 @@ export function validateAttributionEvent(event: AttributionEvent): ContractIssue
   if (!EVENT_NAME_SET.has(event.event_name)) {
     issues.push({ field: "event_name", message: "unknown event name" });
   }
-  if (!event.source_event_id.trim()) {
+  if (!EVENT_SOURCE_SET.has(event.source)) {
+    issues.push({ field: "source", message: "unknown event source" });
+  }
+  if (!YOUTH_CONTEXT_SET.has(event.youth_context)) {
+    issues.push({ field: "youth_context", message: "unknown youth context" });
+  }
+  if (!event.consent || typeof event.consent !== "object") {
+    issues.push({ field: "consent", message: "required object" });
+  } else {
+    if (!CONSENT_STATE_SET.has(event.consent.analytics)) issues.push({ field: "consent.analytics", message: "unknown consent state" });
+    if (!CONSENT_STATE_SET.has(event.consent.marketing)) issues.push({ field: "consent.marketing", message: "unknown consent state" });
+    if (event.consent.captured_at !== null && !isIsoTimestamp(event.consent.captured_at)) {
+      issues.push({ field: "consent.captured_at", message: "must be null or an ISO timestamp" });
+    }
+    if (typeof event.consent.source !== "string" || !event.consent.source.trim()) {
+      issues.push({ field: "consent.source", message: "required" });
+    }
+  }
+  if (typeof event.source_event_id !== "string" || !event.source_event_id.trim()) {
     issues.push({ field: "source_event_id", message: "required for replay-safe ingestion" });
   }
-  if (!event.tenant_id.trim()) {
+  if (typeof event.tenant_id !== "string" || !event.tenant_id.trim()) {
     issues.push({ field: "tenant_id", message: "required" });
   }
   if (!isIsoTimestamp(event.occurred_at)) {
@@ -122,20 +166,49 @@ export function validateAttributionEvent(event: AttributionEvent): ContractIssue
   if (!isIsoTimestamp(event.received_at)) {
     issues.push({ field: "received_at", message: "must be an ISO timestamp" });
   }
+  for (const field of ["lead_id", "booking_id", "checkout_id"] as const) {
+    const value = event[field];
+    if (value !== null && (typeof value !== "string" || !value.trim())) {
+      issues.push({ field, message: "must be null or a non-empty identifier" });
+    }
+  }
 
-  if (event.attribution && event.consent.analytics !== "granted") {
+  if (event.attribution && event.consent?.analytics !== "granted") {
     issues.push({ field: "attribution", message: "requires analytics consent" });
   }
   if (event.youth_context !== "none" && event.attribution) {
     issues.push({ field: "attribution", message: "must be omitted for possible or confirmed youth context" });
   }
 
-  const expectsRevenue = REVENUE_EVENTS.has(event.event_name);
-  if (expectsRevenue !== Boolean(event.revenue)) {
+  const requiresRevenue = REVENUE_REQUIRED_EVENTS.has(event.event_name);
+  const permitsRevenue = REVENUE_EVENTS.has(event.event_name);
+  if (requiresRevenue && !event.revenue) {
     issues.push({
       field: "revenue",
-      message: expectsRevenue ? "required for payment and refund events" : "only allowed on payment and refund events",
+      message: "required for successful payment and refund events",
     });
+  } else if (!permitsRevenue && event.revenue) {
+    issues.push({ field: "revenue", message: "only allowed on payment and refund events" });
+  }
+
+  if (!event.properties || typeof event.properties !== "object" || Array.isArray(event.properties)) {
+    issues.push({ field: "properties", message: "must be a flat object" });
+  } else {
+    for (const [key, value] of Object.entries(event.properties)) {
+      if (!PROPERTY_KEY_SET.has(key)) issues.push({ field: `properties.${key}`, message: "key is not approved for storage" });
+      if (value !== null && !["string", "number", "boolean"].includes(typeof value)) {
+        issues.push({ field: `properties.${key}`, message: "must be a scalar value" });
+      }
+    }
+  }
+
+  if (runtime.attribution !== null && (typeof runtime.attribution !== "object" || Array.isArray(runtime.attribution))) {
+    issues.push({ field: "attribution", message: "must be null or an object" });
+  } else if (event.attribution) {
+    for (const [key, value] of Object.entries(event.attribution)) {
+      if (!ATTRIBUTION_FIELD_SET.has(key)) issues.push({ field: `attribution.${key}`, message: "unknown attribution field" });
+      if (value !== null && typeof value !== "string") issues.push({ field: `attribution.${key}`, message: "must be null or a string" });
+    }
   }
 
   if (event.revenue) {
@@ -155,8 +228,10 @@ export function validateAttributionEvent(event: AttributionEvent): ContractIssue
     if (r.fee_minor !== null && !isIntegerAtLeastZero(r.fee_minor)) {
       issues.push({ field: "revenue.fee_minor", message: "must be null or a non-negative safe integer" });
     }
-    if (!r.stripe_object_id.startsWith("pi_") && !r.stripe_object_id.startsWith("ch_") && !r.stripe_object_id.startsWith("re_")) {
-      issues.push({ field: "revenue.stripe_object_id", message: "must be a payment intent, charge, or refund id" });
+    const validStripeId = /^(pi|ch|re)_/.test(r.stripe_object_id);
+    const validReconciliationId = event.source === "manual_reconciliation" && /^recon_/.test(r.stripe_object_id);
+    if (!validStripeId && !validReconciliationId) {
+      issues.push({ field: "revenue.stripe_object_id", message: "must be a Stripe object id or explicit recon_ reference" });
     }
   }
 
@@ -180,30 +255,36 @@ export interface RevenueTruth {
   net_cash_minor: number | null;
   unique_events: number;
   duplicate_events: number;
+  idempotency_conflicts: number;
 }
 
 /**
  * Computes cash truth from validated Stripe facts. First write wins for the
  * same source event, matching a UNIQUE idempotency key in the future store.
  */
-export function computeRevenueTruth(events: AttributionEvent[], currency: string): RevenueTruth {
-  const seen = new Set<string>();
+export function computeRevenueTruth(events: AttributionEvent[], currency: string, livemode: boolean): RevenueTruth {
+  const seen = new Map<string, string>();
   let gross = 0;
   let refunds = 0;
   let fees = 0;
   let feesComplete = true;
   let duplicates = 0;
   let unique = 0;
+  let conflicts = 0;
 
   for (const event of events) {
+    if (validateAttributionEvent(event).length || !event.revenue || event.revenue.currency !== currency
+      || event.revenue.livemode !== livemode || event.event_name === "payment.failed") continue;
+
     const key = attributionIdempotencyKey(event);
-    if (seen.has(key)) {
-      duplicates++;
+    const canonical = JSON.stringify(event);
+    const prior = seen.get(key);
+    if (prior) {
+      if (prior === canonical) duplicates++;
+      else conflicts++;
       continue;
     }
-    seen.add(key);
-
-    if (validateAttributionEvent(event).length || !event.revenue || event.revenue.currency !== currency) continue;
+    seen.set(key, canonical);
     unique++;
     if (event.event_name === "payment.succeeded") gross += event.revenue.gross_minor;
     if (event.event_name === "refund.succeeded") refunds += event.revenue.refunded_minor;
@@ -219,5 +300,6 @@ export function computeRevenueTruth(events: AttributionEvent[], currency: string
     net_cash_minor: feesComplete ? gross - refunds - fees : null,
     unique_events: unique,
     duplicate_events: duplicates,
+    idempotency_conflicts: conflicts,
   };
 }
