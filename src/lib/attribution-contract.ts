@@ -228,7 +228,7 @@ export function validateAttributionEvent(event: AttributionEvent): ContractIssue
     if (event.source !== "stripe" && event.source !== "manual_reconciliation") {
       issues.push({ field: "source", message: "revenue facts must come from Stripe or explicit reconciliation" });
     }
-    if (!/^[a-z]{3}$/.test(r.currency)) {
+    if (typeof r.currency !== "string" || !/^[a-z]{3}$/.test(r.currency)) {
       issues.push({ field: "revenue.currency", message: "must be a lowercase ISO 4217 code" });
     }
     if (!isIntegerAtLeastZero(r.gross_minor)) {
@@ -240,13 +240,21 @@ export function validateAttributionEvent(event: AttributionEvent): ContractIssue
     if (r.fee_minor !== null && !isIntegerAtLeastZero(r.fee_minor)) {
       issues.push({ field: "revenue.fee_minor", message: "must be null or a non-negative safe integer" });
     }
-    const validStripeId = /^(pi|ch|re)_/.test(r.stripe_object_id);
-    const validReconciliationId = event.source === "manual_reconciliation" && /^recon_/.test(r.stripe_object_id);
+    const validStripeId = typeof r.stripe_object_id === "string" && /^(pi|ch|re)_/.test(r.stripe_object_id);
+    const validReconciliationId = event.source === "manual_reconciliation"
+      && typeof r.stripe_object_id === "string" && /^recon_/.test(r.stripe_object_id);
     if (!validStripeId && !validReconciliationId) {
       issues.push({ field: "revenue.stripe_object_id", message: "must be a Stripe object id or explicit recon_ reference" });
     }
     if (typeof r.stripe_payment_id !== "string" || !r.stripe_payment_id.startsWith("pi_")) {
       issues.push({ field: "revenue.stripe_payment_id", message: "must link to the original Stripe payment intent" });
+    }
+    if (r.stripe_balance_transaction_id !== null
+      && (typeof r.stripe_balance_transaction_id !== "string" || !r.stripe_balance_transaction_id.startsWith("txn_"))) {
+      issues.push({ field: "revenue.stripe_balance_transaction_id", message: "must be null or a Stripe balance transaction id" });
+    }
+    if (typeof r.livemode !== "boolean") {
+      issues.push({ field: "revenue.livemode", message: "must be a boolean" });
     }
   }
 
@@ -271,6 +279,7 @@ export interface RevenueTruth {
   unique_events: number;
   duplicate_events: number;
   idempotency_conflicts: number;
+  orphan_or_excess_refunds: number;
 }
 
 function stableSerialize(value: unknown): string {
@@ -295,6 +304,8 @@ export function computeRevenueTruth(events: AttributionEvent[], currency: string
   let duplicates = 0;
   let unique = 0;
   let conflicts = 0;
+  let orphanRefunds = 0;
+  const applicable: AttributionEvent[] = [];
 
   for (const event of events) {
     if (validateAttributionEvent(event).length || !event.revenue) continue;
@@ -308,11 +319,33 @@ export function computeRevenueTruth(events: AttributionEvent[], currency: string
       continue;
     }
     seen.set(key, canonical);
-    if (event.revenue.currency !== currency || event.revenue.livemode !== livemode
-      || event.event_name === "payment.failed") continue;
+    if (event.revenue.currency === currency && event.revenue.livemode === livemode
+      && event.event_name !== "payment.failed") applicable.push(event);
+  }
+
+  const collectedByPayment = new Map<string, number>();
+  const refundedByPayment = new Map<string, number>();
+  for (const event of applicable) {
+    if (event.event_name !== "payment.succeeded" || !event.revenue) continue;
+    collectedByPayment.set(event.revenue.stripe_payment_id,
+      (collectedByPayment.get(event.revenue.stripe_payment_id) ?? 0) + event.revenue.gross_minor);
     unique++;
-    if (event.event_name === "payment.succeeded") gross += event.revenue.gross_minor;
-    if (event.event_name === "refund.succeeded") refunds += event.revenue.refunded_minor;
+    gross += event.revenue.gross_minor;
+    if (event.revenue.fee_minor === null) feesComplete = false;
+    else fees += event.revenue.fee_minor;
+  }
+  for (const event of applicable) {
+    if (event.event_name !== "refund.succeeded" || !event.revenue) continue;
+    const paymentId = event.revenue.stripe_payment_id;
+    const collected = collectedByPayment.get(paymentId) ?? 0;
+    const nextRefunded = (refundedByPayment.get(paymentId) ?? 0) + event.revenue.refunded_minor;
+    if (collected === 0 || nextRefunded > collected) {
+      orphanRefunds++;
+      continue;
+    }
+    refundedByPayment.set(paymentId, nextRefunded);
+    unique++;
+    refunds += event.revenue.refunded_minor;
     if (event.revenue.fee_minor === null) feesComplete = false;
     else fees += event.revenue.fee_minor;
   }
@@ -326,5 +359,6 @@ export function computeRevenueTruth(events: AttributionEvent[], currency: string
     unique_events: unique,
     duplicate_events: duplicates,
     idempotency_conflicts: conflicts,
+    orphan_or_excess_refunds: orphanRefunds,
   };
 }

@@ -111,6 +111,7 @@ describe("P2 attribution contract", () => {
       unique_events: 2,
       duplicate_events: 1,
       idempotency_conflicts: 0,
+      orphan_or_excess_refunds: 0,
     });
   });
 
@@ -182,6 +183,32 @@ describe("P2 attribution contract", () => {
     refund.event_name = "refund.succeeded";
     refund.revenue = { ...refund.revenue!, stripe_object_id: "re_123", stripe_payment_id: "" };
     expect(validateAttributionEvent(refund).map((issue) => issue.field)).toContain("revenue.stripe_payment_id");
+  });
+
+  it("rejects nested data and invalid types in approved revenue fields", () => {
+    const event = payment("evt_bad_runtime", 10_000, 320) as AttributionEvent;
+    event.revenue!.livemode = "true" as never;
+    event.revenue!.stripe_balance_transaction_id = { email: "minor@example.com" } as never;
+    expect(validateAttributionEvent(event).map((issue) => issue.field)).toEqual([
+      "revenue.stripe_balance_transaction_id", "revenue.livemode",
+    ]);
+  });
+
+  it("quarantines orphan and excess refunds from cash truth", () => {
+    const paid = payment("evt_paid_cap", 10_000, 320);
+    const refund = (id: string, amount: number, paymentId: string): AttributionEvent => base({
+      event_name: "refund.succeeded", source: "stripe", source_event_id: id,
+      revenue: { currency: "usd", gross_minor: 0, refunded_minor: amount, fee_minor: 0,
+        stripe_object_id: `re_${id}`, stripe_payment_id: paymentId,
+        stripe_balance_transaction_id: "txn_refund", livemode: true },
+    });
+    expect(computeRevenueTruth([
+      paid, refund("orphan", 2_500, "pi_missing"),
+      refund("valid", 8_000, "pi_123"), refund("excess", 3_000, "pi_123"),
+    ], "usd", true)).toMatchObject({
+      gross_collected_minor: 10_000, refunded_minor: 8_000,
+      net_cash_minor: 1_680, orphan_or_excess_refunds: 2,
+    });
   });
 
   it("rejects date-only values as timestamps", () => {
