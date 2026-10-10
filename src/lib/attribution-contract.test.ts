@@ -112,6 +112,7 @@ describe("P2 attribution contract", () => {
       duplicate_events: 1,
       idempotency_conflicts: 0,
       orphan_or_excess_refunds: 0,
+      duplicate_or_conflicting_payments: 0,
     });
   });
 
@@ -209,6 +210,21 @@ describe("P2 attribution contract", () => {
       gross_collected_minor: 10_000, refunded_minor: 8_000,
       net_cash_minor: 1_680, orphan_or_excess_refunds: 2,
     });
+  });
+
+  it("counts each Stripe payment intent once across distinct source events", () => {
+    const first = payment("evt_payment_a", 10_000, 320);
+    const second = payment("evt_payment_b", 10_000, 320);
+    expect(computeRevenueTruth([first, second], "usd", true)).toMatchObject({
+      gross_collected_minor: 10_000, fees_minor: 320,
+      duplicate_or_conflicting_payments: 1,
+    });
+  });
+
+  it("enforces event-specific Stripe object identifiers", () => {
+    const invalidPayment = payment("evt_wrong_object", 10_000, 320);
+    invalidPayment.revenue!.stripe_object_id = "re_123";
+    expect(validateAttributionEvent(invalidPayment).map((issue) => issue.field)).toContain("revenue.stripe_object_id");
   });
 
   it("rejects date-only values as timestamps", () => {

@@ -240,11 +240,12 @@ export function validateAttributionEvent(event: AttributionEvent): ContractIssue
     if (r.fee_minor !== null && !isIntegerAtLeastZero(r.fee_minor)) {
       issues.push({ field: "revenue.fee_minor", message: "must be null or a non-negative safe integer" });
     }
-    const validStripeId = typeof r.stripe_object_id === "string" && /^(pi|ch|re)_/.test(r.stripe_object_id);
+    const validStripeId = typeof r.stripe_object_id === "string"
+      && (event.event_name === "refund.succeeded" ? /^re_/.test(r.stripe_object_id) : /^(pi|ch)_/.test(r.stripe_object_id));
     const validReconciliationId = event.source === "manual_reconciliation"
       && typeof r.stripe_object_id === "string" && /^recon_/.test(r.stripe_object_id);
     if (!validStripeId && !validReconciliationId) {
-      issues.push({ field: "revenue.stripe_object_id", message: "must be a Stripe object id or explicit recon_ reference" });
+      issues.push({ field: "revenue.stripe_object_id", message: "must match the payment/refund event or be an explicit recon_ reference" });
     }
     if (typeof r.stripe_payment_id !== "string" || !r.stripe_payment_id.startsWith("pi_")) {
       issues.push({ field: "revenue.stripe_payment_id", message: "must link to the original Stripe payment intent" });
@@ -280,6 +281,7 @@ export interface RevenueTruth {
   duplicate_events: number;
   idempotency_conflicts: number;
   orphan_or_excess_refunds: number;
+  duplicate_or_conflicting_payments: number;
 }
 
 function stableSerialize(value: unknown): string {
@@ -305,6 +307,7 @@ export function computeRevenueTruth(events: AttributionEvent[], currency: string
   let unique = 0;
   let conflicts = 0;
   let orphanRefunds = 0;
+  let paymentFactConflicts = 0;
   const applicable: AttributionEvent[] = [];
 
   for (const event of events) {
@@ -324,9 +327,21 @@ export function computeRevenueTruth(events: AttributionEvent[], currency: string
   }
 
   const collectedByPayment = new Map<string, number>();
+  const paymentFacts = new Map<string, string>();
   const refundedByPayment = new Map<string, number>();
   for (const event of applicable) {
     if (event.event_name !== "payment.succeeded" || !event.revenue) continue;
+    const paymentFact = stableSerialize({
+      currency: event.revenue.currency,
+      gross_minor: event.revenue.gross_minor,
+      fee_minor: event.revenue.fee_minor,
+      livemode: event.revenue.livemode,
+    });
+    if (paymentFacts.has(event.revenue.stripe_payment_id)) {
+      paymentFactConflicts++;
+      continue;
+    }
+    paymentFacts.set(event.revenue.stripe_payment_id, paymentFact);
     collectedByPayment.set(event.revenue.stripe_payment_id,
       (collectedByPayment.get(event.revenue.stripe_payment_id) ?? 0) + event.revenue.gross_minor);
     unique++;
@@ -360,5 +375,6 @@ export function computeRevenueTruth(events: AttributionEvent[], currency: string
     duplicate_events: duplicates,
     idempotency_conflicts: conflicts,
     orphan_or_excess_refunds: orphanRefunds,
+    duplicate_or_conflicting_payments: paymentFactConflicts,
   };
 }
