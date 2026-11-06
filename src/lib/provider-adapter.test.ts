@@ -81,7 +81,7 @@ function mockFetch(responder: Responder) {
 const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { "content-type": "application/json" } });
 const ok = (content: string, extra: object = {}) => json({ choices: [{ message: { content }, finish_reason: "stop" }], ...extra });
 
-const ENV_KEYS = /^(CLAUDE_MAX|LM_STUDIO|CC_CLAUDE|CC_LMSTUDIO|CC_STRICT|OPENCLAW_CHAT|GEMINI_API|DEEPSEEK_API|OPENROUTER_API)/;
+const ENV_KEYS = /^(CLAUDE_MAX|LM_STUDIO|CC_CLAUDE|CC_LMSTUDIO|CC_STRICT|OPENCLAW_CHAT|GEMINI_API|DEEPSEEK_API|OPENROUTER_API|CF_ACCESS)/;
 function resetEnv(extra: Record<string, string> = {}) {
   for (const k of Object.keys(process.env)) if (ENV_KEYS.test(k)) delete process.env[k];
   Object.assign(process.env, extra);
@@ -600,6 +600,9 @@ describe("stream route through the adapter", () => {
     const r = await postStream({ message: "hi", agentName: "atlas" }, ALL, host({ g: () => new Response(gem("Hel") + gem("lo"), { status: 200 }) }));
     expect(r.ctype).toContain("text/event-stream");
     expect(r.text.match(/event: chunk/g)).toHaveLength(2);
+    // No Supabase configured in this test → the reply is streamed but not
+    // persisted, and the done frame has to say so rather than imply a saved row.
+    expect(r.text).toContain('"persisted":false');
     expect(r.text).toContain('"delta":"Hel"');
     expect(r.text).toContain("event: done");
     expect(r.text).toContain('"source":"gemini"');
@@ -663,5 +666,82 @@ describe("boundary and hygiene", () => {
     const src = read("src/lib/provider-adapter.ts");
     expect(src).toMatch(/claudeTierMap\(\)/);
     expect(src).not.toMatch(/\b(shuri|proximon|kiyosaki|themaestro|prophets)\b/);
+  });
+});
+
+/* ── 11. Cloudflare Access on the Claude Max proxy ───────────────────── */
+describe("executeCompletion: Cloudflare Access service token", () => {
+  const msgs = [{ role: "user" as const, content: "hi" }];
+  const base = { provider: "claude-max" as const, model: "m", messages: msgs };
+
+  afterEach(() => {
+    delete process.env.CF_ACCESS_CLIENT_ID;
+    delete process.env.CF_ACCESS_CLIENT_SECRET;
+  });
+
+  it("adds the CF-Access header pair alongside the proxy bearer token", async () => {
+    process.env.CF_ACCESS_CLIENT_ID = "id.access";
+    process.env.CF_ACCESS_CLIENT_SECRET = "secret-value";
+    mockFetch(() => ok("x"));
+    await executeCompletion({ context: CTX, ...base, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+    expect(recs[0].headers).toEqual({
+      "Content-Type": "application/json",
+      Authorization: "Bearer not-needed",
+      "CF-Access-Client-Id": "id.access",
+      "CF-Access-Client-Secret": "secret-value",
+    });
+  });
+
+  it("adds no CF-Access headers when the token is absent", async () => {
+    mockFetch(() => ok("x"));
+    await executeCompletion({ context: CTX, ...base, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+    expect(recs[0].headers).not.toHaveProperty("CF-Access-Client-Id");
+    expect(recs[0].headers).not.toHaveProperty("CF-Access-Client-Secret");
+  });
+
+  it("adds no CF-Access headers to a local LM Studio call even when configured", async () => {
+    process.env.CF_ACCESS_CLIENT_ID = "id.access";
+    process.env.CF_ACCESS_CLIENT_SECRET = "secret-value";
+    mockFetch(() => ok("x"));
+    await executeCompletion({ context: CTX, provider: "lm-studio", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+    expect(recs[0].headers).not.toHaveProperty("CF-Access-Client-Id");
+    expect(recs[0].headers).not.toHaveProperty("CF-Access-Client-Secret");
+  });
+
+  it("reports a Cloudflare Access login redirect as an interception, not as invalid JSON", async () => {
+    mockFetch(
+      () =>
+        new Response(null, {
+          status: 302,
+          headers: {
+            location: "https://calm-firefly-c94b.cloudflareaccess.com/cdn-cgi/access/login/claude.parallaxvinc.com",
+          },
+        })
+    );
+    const r = await executeCompletion({ context: CTX, ...base, maxTokens: 1, temperature: 0, timeoutMs: 1000, captureErrorBody: true });
+    expect(r).toMatchObject({ ok: false, kind: "http", httpStatus: 302 });
+    if (r.ok) throw new Error("unreachable");
+    expect(r.bodySnippet).toContain("Cloudflare Access");
+    expect(r.bodySnippet).toContain("CF_ACCESS_CLIENT_ID");
+  });
+
+  it("reports a 200 HTML page from the proxy as an interception, not as a valid empty reply", async () => {
+    mockFetch(
+      () =>
+        new Response("<!doctype html><title>Sign in</title>", {
+          status: 200,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        })
+    );
+    const r = await executeCompletion({ context: CTX, ...base, maxTokens: 1, temperature: 0, timeoutMs: 1000, captureErrorBody: true });
+    expect(r).toMatchObject({ ok: false, kind: "http", httpStatus: 200 });
+    if (r.ok) throw new Error("unreachable");
+    expect(r.bodySnippet).toMatch(/HTML page/);
+  });
+
+  it("still maps a genuine provider 5xx to an http failure", async () => {
+    mockFetch(() => new Response('{"error":{"message":"overloaded"}}', { status: 529, headers: { "content-type": "application/json" } }));
+    const r = await executeCompletion({ context: CTX, ...base, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+    expect(r).toMatchObject({ ok: false, kind: "http", httpStatus: 529 });
   });
 });

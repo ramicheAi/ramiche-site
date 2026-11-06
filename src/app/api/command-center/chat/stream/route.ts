@@ -6,6 +6,7 @@ import type { ExecutionCorrelation } from "@/lib/execution-events";
 import { resolveChatTargets } from "@/lib/chat-routing";
 import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
 import { personaMap } from "@/lib/agent-registry";
+import { sanitizeDbError } from "@/lib/chat-persistence";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -22,7 +23,8 @@ export const maxDuration = 90;
  * Wire format (text/event-stream):
  *   event: meta            data: { agent, source, threadParentId? }
  *   event: chunk           data: { agent, delta }
- *   event: done            data: { agent, source, messageId? }
+ *   event: persist_error   data: { agent, message }   (only when the write failed)
+ *   event: done            data: { agent, source, messageId?, persisted }
  *   event: error           data: { error }
  *
  * Single-target only. Multi-agent group fan-out still uses the non-stream
@@ -113,6 +115,8 @@ export async function POST(req: NextRequest) {
 
       const finalize = async (text: string, source: ReplySource) => {
         let agentMessageId: string | null = null;
+        let persisted = false;
+        let persistError: string | null = null;
         if (svc && channelId && text.trim()) {
           const agentUUID =
             AGENT_DM_UUID[target] || "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
@@ -132,8 +136,14 @@ export async function POST(req: NextRequest) {
             .single();
           if (error) {
             console.error("[chat/stream] reply insert failed:", error);
+            persistError = sanitizeDbError(error).message;
           } else if (data?.id) {
             agentMessageId = data.id as string;
+            persisted = true;
+          } else {
+            // No error and no id: never claim a message that cannot be found.
+            console.error("[chat/stream] reply insert returned no id");
+            persistError = "insert returned no row id";
           }
         }
         if (svc && userMessageId) {
@@ -145,7 +155,13 @@ export async function POST(req: NextRequest) {
             })
             .eq("id", userMessageId);
         }
-        send("done", { agent: target, source, messageId: agentMessageId });
+        // Surfaced BEFORE done so a client cannot mistake an unsaved reply for a
+        // persisted one. The text is still sent as chunks above; it just has to
+        // be shown as unsaved until a reload confirms otherwise.
+        if (persistError) {
+          send("persist_error", { agent: target, message: persistError });
+        }
+        send("done", { agent: target, source, messageId: agentMessageId, persisted });
         controller.close();
       };
 
