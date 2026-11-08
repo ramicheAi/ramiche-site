@@ -11,9 +11,18 @@
  *   stale — corrected May 2026.
  * - OPENCLAW_GATEWAY_TOKEN or OPENCLAW_GATEWAY_PASSWORD — Bearer value (see
  *   gateway.auth.token in openclaw.json).
+ * - CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET — Cloudflare Access service
+ *   token, required only when the gateway hostname sits behind Access
+ *   (e.g. https://openclaw.parallaxvinc.com). Server-only; see
+ *   `src/lib/cloudflare-access.ts`.
  */
 
 import { openclawSessionKeyMap } from "@/lib/agent-registry";
+import {
+  cloudflareAccessHeaders,
+  detectAccessBlock,
+  hostLabel,
+} from "@/lib/cloudflare-access";
 
 const DEFAULT_BASE = "http://127.0.0.1:24511";
 
@@ -47,11 +56,17 @@ export async function gatewayToolsInvoke(body: {
   }
 
   try {
+    // Cloudflare Access service token, when the gateway hostname is behind Access.
+    // Absent headers are not an error here: a local/LAN gateway needs none. If the
+    // host IS behind Access and the token is missing, the request returns a login
+    // page and `detectAccessBlock` below turns that into an explicit error.
+    const access = cloudflareAccessHeaders();
     const res = await fetch(`${baseUrl()}/tools/invoke`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${auth}`,
+        ...(access.configured ? access.headers : {}),
       },
       body: JSON.stringify({
         tool: body.tool,
@@ -62,6 +77,13 @@ export async function gatewayToolsInvoke(body: {
       }),
       signal: AbortSignal.timeout(120_000),
     });
+
+    // Must run BEFORE parsing: an intercepted request arrives as a 200 HTML login
+    // page, which parses to `{}` and used to surface as "no reply text".
+    const blocked = detectAccessBlock(res, hostLabel(baseUrl()));
+    if (blocked.blocked) {
+      return { ok: false, error: blocked.detail };
+    }
 
     const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
 

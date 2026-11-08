@@ -13,6 +13,11 @@ import {
   lmStudioModel,
 } from "@/lib/provider-adapter";
 import { processImageMarkers } from "@/lib/image-gen/markers";
+import {
+  sanitizeDbError,
+  summarizePersistence,
+  type PersistenceFailure,
+} from "@/lib/chat-persistence";
 
 export const dynamic = "force-dynamic";
 // Pro-tier ceiling. Group-chat fan-out with synthesis + Phase E critic can
@@ -1172,11 +1177,19 @@ export async function POST(req: NextRequest) {
       response: string;
       source: ReplySource;
       messageId?: string | null;
+      /** True only when a Supabase row was actually written for this reply. */
+      persisted: boolean;
       attachments?: Array<{ url: string; name: string; type: string }>;
     }[] = [];
     const fallbackOnlyTargets: string[] = [];
     const rejectedTargets: string[] = [];
     const allAttempts: Record<string, ProviderAttempt[]> = {};
+    // Persistence bookkeeping for the whole turn. A write is counted as
+    // "attempted" only when Supabase is configured for this deployment AND the
+    // turn resolved to a channel, so a local/dev run with no database is not
+    // reported as a persistence failure.
+    let persistenceAttempted = 0;
+    const persistenceFailures: PersistenceFailure[] = [];
 
     for (let i = 0; i < targets.length; i++) {
       const target = targets[i];
@@ -1228,8 +1241,10 @@ export async function POST(req: NextRequest) {
       // bubble of the same reply (Ramon spotted this with Aetherion's 12:04
       // message appearing twice).
       let insertedId: string | null = null;
+      let replyPersisted = false;
       const insertedAttachments: typeof generatedAttachments = generatedAttachments;
       if (svc && channelId) {
+        persistenceAttempted += 1;
         const agentUUID = AGENT_DM_UUID[target] || "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
         const { data: insertedRow, error: insertErr } = await svc
           .from("messages")
@@ -1251,8 +1266,18 @@ export async function POST(req: NextRequest) {
           .single();
         if (insertErr) {
           console.error(`[chat] agent reply insert failed for ${target}:`, insertErr);
+          persistenceFailures.push({ agent: target, ...sanitizeDbError(insertErr) });
         } else if (insertedRow?.id) {
           insertedId = insertedRow.id as string;
+          replyPersisted = true;
+        } else {
+          // No error and no id: treat as a failed write rather than claiming a
+          // message that cannot be found later.
+          console.error(`[chat] agent reply insert returned no id for ${target}`);
+          persistenceFailures.push({
+            agent: target,
+            message: "insert returned no row id",
+          });
         }
       }
       responses.push({
@@ -1260,6 +1285,7 @@ export async function POST(req: NextRequest) {
         response: finalText,
         source: r.source,
         messageId: insertedId,
+        persisted: replyPersisted,
         attachments: insertedAttachments,
       });
     }
@@ -1298,6 +1324,7 @@ export async function POST(req: NextRequest) {
     // `metadata.kind = "synthesis"` so the UI/Phase C can recognise it later.
     let synthesisResult: Awaited<ReturnType<typeof generateSynthesis>> | null = null;
     let synthesisMessageId: string | null = null;
+    let synthesisPersisted = false;
     // Phase E — bookkeeping for the critic pass. Stored in metadata so the UI
     // can show "Reviewed → revised" and so we can audit critique quality over
     // time. Stays null when the critic is off or approves without changes.
@@ -1342,6 +1369,7 @@ export async function POST(req: NextRequest) {
       // even when the API response itself never returns. Phase E becomes
       // best-effort polish on top of an already-shipped artifact.
       if (synthesisResult?.text && svc && channelId) {
+        persistenceAttempted += 1;
         const atlasUUID = AGENT_DM_UUID["atlas"] || "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
         const { data: synthRow, error: synthErr } = await svc
           .from("messages")
@@ -1363,8 +1391,16 @@ export async function POST(req: NextRequest) {
           .single();
         if (synthErr) {
           console.error("[chat] synthesis insert failed:", synthErr);
+          persistenceFailures.push({ agent: "synthesis", ...sanitizeDbError(synthErr) });
+        } else if (synthRow?.id) {
+          synthesisMessageId = synthRow.id as string;
+          synthesisPersisted = true;
         } else {
-          synthesisMessageId = synthRow?.id || null;
+          console.error("[chat] synthesis insert returned no id");
+          persistenceFailures.push({
+            agent: "synthesis",
+            message: "insert returned no row id",
+          });
         }
       }
 
@@ -1542,6 +1578,50 @@ export async function POST(req: NextRequest) {
         .eq("id", userMessageId);
     }
 
+    const persistence = summarizePersistence(persistenceAttempted, persistenceFailures);
+    const synthesisPayload = synthesisResult
+      ? {
+          text: synthesisResult.text,
+          plan: synthesisResult.plan,
+          source: synthesisResult.source,
+          persisted: synthesisPersisted,
+          // Phase E — included so the UI can render a "Reviewed" badge (or
+          // "Reviewed → revised") and so debug tooling can inspect what the
+          // critic flagged + which fixes were applied.
+          ...(appliedCritique ? { critique: appliedCritique } : {}),
+          ...(originalPlanBeforeRefine
+            ? { original_plan: originalPlanBeforeRefine }
+            : {}),
+          // Diagnostic — always surfaced so we can debug critic gating
+          // without trawling Vercel runtime logs.
+          critic_state: criticState,
+        }
+      : null;
+
+    // A reply that was generated but never written is not a delivered message.
+    // Returning 200 here is what let a dead database look like a working chat:
+    // the client rendered the text optimistically, the row never existed, and
+    // the reply vanished on the next reload. Fail loudly instead, while still
+    // handing back the generated text so the caller can show it as unsaved.
+    if (!persistence.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "The agents replied, but none of the replies could be saved to chat history. " +
+            "This turn is not persisted and will disappear on reload.",
+          responses,
+          response: combined,
+          agent: first?.agent ?? targets[0],
+          source: first?.source ?? "fallback",
+          targets,
+          persistence,
+          synthesis: synthesisPayload,
+        },
+        { status: 503 }
+      );
+    }
+
     return NextResponse.json({
       ok: true,
       responses,
@@ -1549,23 +1629,8 @@ export async function POST(req: NextRequest) {
       agent: first?.agent ?? targets[0],
       source: first?.source ?? "fallback",
       targets,
-      synthesis: synthesisResult
-        ? {
-            text: synthesisResult.text,
-            plan: synthesisResult.plan,
-            source: synthesisResult.source,
-            // Phase E — included so the UI can render a "Reviewed" badge (or
-            // "Reviewed → revised") and so debug tooling can inspect what the
-            // critic flagged + which fixes were applied.
-            ...(appliedCritique ? { critique: appliedCritique } : {}),
-            ...(originalPlanBeforeRefine
-              ? { original_plan: originalPlanBeforeRefine }
-              : {}),
-            // Diagnostic — always surfaced so we can debug critic gating
-            // without trawling Vercel runtime logs.
-            critic_state: criticState,
-          }
-        : null,
+      persistence,
+      synthesis: synthesisPayload,
     });
   } catch (e) {
     console.error("Chat API error:", e);

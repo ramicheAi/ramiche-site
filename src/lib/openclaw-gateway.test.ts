@@ -14,6 +14,8 @@ describe("openclaw-gateway", () => {
     vi.stubEnv("OPENCLAW_GATEWAY_URL", "");
     vi.stubEnv("OPENCLAW_CHAT_SESSION_KEY", "");
     vi.stubEnv("OPENCLAW_AGENT_SESSION_KEYS", "");
+    vi.stubEnv("CF_ACCESS_CLIENT_ID", "");
+    vi.stubEnv("CF_ACCESS_CLIENT_SECRET", "");
   });
 
   afterEach(() => {
@@ -264,5 +266,122 @@ describe("openclaw-gateway", () => {
     const r = await gatewaySessionsSpawn({ task: "x" });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error).toContain("spawn blocked");
+  });
+
+  /* ── Cloudflare Access service token ──────────────────────────────── */
+  it("sends the CF-Access header pair when the service token is configured", async () => {
+    vi.stubEnv("OPENCLAW_GATEWAY_TOKEN", "tok");
+    vi.stubEnv("OPENCLAW_GATEWAY_URL", "https://openclaw.parallaxvinc.com");
+    vi.stubEnv("CF_ACCESS_CLIENT_ID", "id.access");
+    vi.stubEnv("CF_ACCESS_CLIENT_SECRET", "secret-value");
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: () => "application/json" },
+      json: async () => ({ ok: true, result: {} }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await gatewayToolsInvoke({ tool: "ping" });
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    const headers = init.headers as Record<string, string>;
+    expect(headers["CF-Access-Client-Id"]).toBe("id.access");
+    expect(headers["CF-Access-Client-Secret"]).toBe("secret-value");
+    // The gateway's own auth header is still present and separate.
+    expect(headers.Authorization).toBe("Bearer tok");
+  });
+
+  it("sends no CF-Access headers when the token is absent (local gateway)", async () => {
+    vi.stubEnv("OPENCLAW_GATEWAY_TOKEN", "tok");
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true, result: {} }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await gatewayToolsInvoke({ tool: "ping" });
+    const headers = (fetchMock.mock.calls[0][1] as RequestInit).headers as Record<string, string>;
+    expect(headers).not.toHaveProperty("CF-Access-Client-Id");
+    expect(headers).not.toHaveProperty("CF-Access-Client-Secret");
+  });
+
+  it("sends no CF-Access headers when only half the token is configured", async () => {
+    vi.stubEnv("OPENCLAW_GATEWAY_TOKEN", "tok");
+    vi.stubEnv("CF_ACCESS_CLIENT_ID", "id.access");
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true, result: {} }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await gatewayToolsInvoke({ tool: "ping" });
+    const headers = (fetchMock.mock.calls[0][1] as RequestInit).headers as Record<string, string>;
+    expect(headers).not.toHaveProperty("CF-Access-Client-Id");
+  });
+
+  it("reports an Access login 302 as interception instead of parsing the login page", async () => {
+    vi.stubEnv("OPENCLAW_GATEWAY_TOKEN", "tok");
+    vi.stubEnv("OPENCLAW_GATEWAY_URL", "https://openclaw.parallaxvinc.com");
+    const jsonSpy = vi.fn();
+    vi.stubGlobal("fetch", () =>
+      Promise.resolve({
+        ok: false,
+        status: 302,
+        headers: {
+          get: (name: string) =>
+            name.toLowerCase() === "location"
+              ? "https://calm-firefly-c94b.cloudflareaccess.com/cdn-cgi/access/login/openclaw.parallaxvinc.com"
+              : null,
+        },
+        json: jsonSpy,
+      })
+    );
+    const r = await gatewayToolsInvoke({ tool: "t" });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error).toContain("Cloudflare Access");
+      expect(r.error).toContain("CF_ACCESS_CLIENT_ID");
+      // The old bug: parsing the HTML page yielded {} and surfaced as "no reply text".
+      expect(r.error).not.toMatch(/no reply text/i);
+    }
+    expect(jsonSpy).not.toHaveBeenCalled();
+  });
+
+  it("reports a 200 HTML login page as interception, not as a missing reply", async () => {
+    vi.stubEnv("OPENCLAW_GATEWAY_TOKEN", "tok");
+    vi.stubEnv("OPENCLAW_GATEWAY_URL", "https://openclaw.parallaxvinc.com");
+    vi.stubGlobal("fetch", () =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        url: "",
+        headers: { get: (name: string) => (name.toLowerCase() === "content-type" ? "text/html" : null) },
+        json: async () => {
+          throw new SyntaxError("Unexpected token '<'");
+        },
+      })
+    );
+    const r = await gatewayToolsInvoke({ tool: "t" });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error).toMatch(/HTML page/);
+      expect(r.error).not.toMatch(/no reply text/i);
+    }
+  });
+
+  it("leaves a genuine provider error untouched", async () => {
+    vi.stubEnv("OPENCLAW_GATEWAY_TOKEN", "tok");
+    vi.stubGlobal("fetch", () =>
+      Promise.resolve({
+        ok: false,
+        status: 500,
+        statusText: "Err",
+        headers: { get: () => "application/json" },
+        json: async () => ({ error: { message: "model overloaded" } }),
+      })
+    );
+    const r = await gatewayToolsInvoke({ tool: "t" });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toBe("model overloaded");
   });
 });

@@ -23,6 +23,7 @@
 
 import { claudeTierMap, type ClaudeTier } from "@/lib/agent-registry";
 import { gatewaySessionsSend } from "@/lib/openclaw-gateway";
+import { cloudflareAccessHeaders, detectAccessBlock, hostLabel } from "@/lib/cloudflare-access";
 import {
   recordExecution,
   type ExecutionContext,
@@ -217,6 +218,10 @@ async function runCompletion(req: CompletionRequest, executionId: string): Promi
   if (isClaude) {
     const token = req.proxy ? req.proxy.token : cleanEnv("CLAUDE_MAX_PROXY_TOKEN") || "not-needed";
     if (token !== null) headers.Authorization = `Bearer ${token}`;
+    // Cloudflare Access service token, when the proxy hostname is behind Access
+    // (https://claude.parallaxvinc.com). A local proxy (127.0.0.1:3456) needs none.
+    const access = cloudflareAccessHeaders();
+    if (access.configured) Object.assign(headers, access.headers);
   }
 
   // Key order matches the chat call sites: claude-max sends `model` first, LM Studio appends it last.
@@ -246,6 +251,24 @@ async function runCompletion(req: CompletionRequest, executionId: string): Promi
       body: JSON.stringify(body),
       ...(signal ? { signal } : {}),
     });
+
+    // A host behind Cloudflare Access answers with a login redirect, which `fetch`
+    // follows into a 200 HTML page. Detect that before the JSON branch so the
+    // failure names the real cause instead of "invalid JSON".
+    const blocked = detectAccessBlock(res, hostLabel(url));
+    if (blocked.blocked) {
+      return {
+        ok: false,
+        provider: req.provider,
+        model: req.model,
+        kind: "http",
+        executionId,
+        httpStatus: res.status,
+        bodySnippet: blocked.detail,
+        latencyMs: Date.now() - started,
+      };
+    }
+
     if (!res.ok) {
       const max = typeof req.captureErrorBody === "number" ? req.captureErrorBody : 200;
       const snippet = req.captureErrorBody ? (await res.text().catch(() => "")).slice(0, max) : undefined;
