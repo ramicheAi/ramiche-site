@@ -95,24 +95,33 @@ const NAV = [
 
 /* ── DEFAULT DATA (fallback when Supabase unavailable) ──────────────────────── */
 /* type: "project" = Project Chats, "team" = Team Chats (with agent members) */
+/**
+ * CC-ORG-INTELLIGENCE-01 / CC-ORG-FOUNDATION-02 Phase B: every channel below
+ * is tagged `bootstrapMode: true` — additive, no behavior change. It marks
+ * that these channels have no server-verified membership (channel_principal
+ * / channel_policy) yet, so `members` here is still trusted client input,
+ * same as before this tag existed. See docs/CC-ORG-AUTHORIZATION-DESIGN-01.md
+ * and chat-routing.ts resolveChatTargets() for the fail-closed path this
+ * flag will eventually gate once a channel is marked non-bootstrap.
+ */
 const DEFAULT_CHANNELS = [
   // Project Chats
-  { id: "22222222-2222-2222-2222-222222222222", name: "#general", unread: 3, description: "Team announcements", active: true, type: "project" as const },
-  { id: "33333333-3333-3333-3333-333333333333", name: "#mettle", unread: 12, description: "METTLE — Athlete SaaS (#1 priority)", type: "project" as const },
-  { id: "55555555-5555-5555-5555-555555555555", name: "#verified-agents", unread: 0, description: "Verified Agent Business (#2 priority)", type: "project" as const },
-  { id: "44444444-4444-4444-4444-444444444444", name: "#parallax", unread: 0, description: "Parallax — Brand System", type: "project" as const },
-  { id: "66666666-6666-6666-6666-666666666666", name: "#dev", unread: 7, description: "Development discussions", type: "project" as const },
+  { id: "22222222-2222-2222-2222-222222222222", name: "#general", unread: 3, description: "Team announcements", active: true, type: "project" as const, bootstrapMode: true },
+  { id: "33333333-3333-3333-3333-333333333333", name: "#mettle", unread: 12, description: "METTLE — Athlete SaaS (#1 priority)", type: "project" as const, bootstrapMode: true },
+  { id: "55555555-5555-5555-5555-555555555555", name: "#verified-agents", unread: 0, description: "Verified Agent Business (#2 priority)", type: "project" as const, bootstrapMode: true },
+  { id: "44444444-4444-4444-4444-444444444444", name: "#parallax", unread: 0, description: "Parallax — Brand System", type: "project" as const, bootstrapMode: true },
+  { id: "66666666-6666-6666-6666-666666666666", name: "#dev", unread: 7, description: "Development discussions", type: "project" as const, bootstrapMode: true },
   // Team Chats (with agent members — Atlas included in all)
-  { id: "77777777-7777-7777-7777-777777777777", name: "#security-team", unread: 0, description: "Security Team", type: "team" as const, members: ["atlas", "widow", "themis", "triage"] },
-  { id: "88888888-8888-8888-8888-888888888888", name: "#finance-team", unread: 0, description: "Finance Team", type: "team" as const, members: ["atlas", "kiyosaki", "simons", "mercury"] },
-  { id: "99999999-9999-9999-9999-999999999999", name: "#sales-team", unread: 0, description: "Sales Team", type: "team" as const, members: ["atlas", "mercury", "vee", "echo", "haven"] },
-  { id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", name: "#strategy-team", unread: 0, description: "Strategy Team", type: "team" as const, members: ["atlas", "drstrange", "themis", "kiyosaki"] },
-  { id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", name: "#legal-team", unread: 0, description: "Legal Team", type: "team" as const, members: ["atlas", "themis"] },
-  { id: "cccccccc-cccc-cccc-cccc-cccccccccccc", name: "#content-team", unread: 0, description: "Content Team", type: "team" as const, members: ["atlas", "ink", "vee", "echo", "aetherion"] },
-  { id: "dddddddd-dddd-dddd-dddd-dddddddddddd", name: "#wellness-team", unread: 0, description: "Wellness Team", type: "team" as const, members: ["atlas", "selah", "prophets", "haven", "michael"] },
-  { id: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee", name: "#studio-team", unread: 0, description: "Studio Team", type: "team" as const, members: ["atlas", "themaestro", "aetherion", "nova"] },
-  { id: "ffffffff-ffff-ffff-ffff-ffffffffffff", name: "#creative-team", unread: 0, description: "Creative Team", type: "team" as const, members: ["atlas", "aetherion", "shuri", "nova", "ink"] },
-  { id: "11111111-1111-1111-1111-111111111111", name: "#engineering-team", unread: 0, description: "Engineering Team", type: "team" as const, members: ["atlas", "shuri", "proximon", "triage", "nova"] },
+  { id: "77777777-7777-7777-7777-777777777777", name: "#security-team", unread: 0, description: "Security Team", type: "team" as const, members: ["atlas", "widow", "themis", "triage"], bootstrapMode: true },
+  { id: "88888888-8888-8888-8888-888888888888", name: "#finance-team", unread: 0, description: "Finance Team", type: "team" as const, members: ["atlas", "kiyosaki", "simons", "mercury"], bootstrapMode: true },
+  { id: "99999999-9999-9999-9999-999999999999", name: "#sales-team", unread: 0, description: "Sales Team", type: "team" as const, members: ["atlas", "mercury", "vee", "echo", "haven"], bootstrapMode: true },
+  { id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", name: "#strategy-team", unread: 0, description: "Strategy Team", type: "team" as const, members: ["atlas", "drstrange", "themis", "kiyosaki"], bootstrapMode: true },
+  { id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", name: "#legal-team", unread: 0, description: "Legal Team", type: "team" as const, members: ["atlas", "themis"], bootstrapMode: true },
+  { id: "cccccccc-cccc-cccc-cccc-cccccccccccc", name: "#content-team", unread: 0, description: "Content Team", type: "team" as const, members: ["atlas", "ink", "vee", "echo", "aetherion"], bootstrapMode: true },
+  { id: "dddddddd-dddd-dddd-dddd-dddddddddddd", name: "#wellness-team", unread: 0, description: "Wellness Team", type: "team" as const, members: ["atlas", "selah", "prophets", "haven", "michael"], bootstrapMode: true },
+  { id: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee", name: "#studio-team", unread: 0, description: "Studio Team", type: "team" as const, members: ["atlas", "themaestro", "aetherion", "nova"], bootstrapMode: true },
+  { id: "ffffffff-ffff-ffff-ffff-ffffffffffff", name: "#creative-team", unread: 0, description: "Creative Team", type: "team" as const, members: ["atlas", "aetherion", "shuri", "nova", "ink"], bootstrapMode: true },
+  { id: "11111111-1111-1111-1111-111111111111", name: "#engineering-team", unread: 0, description: "Engineering Team", type: "team" as const, members: ["atlas", "shuri", "proximon", "triage", "nova"], bootstrapMode: true },
 ];
 
 /* ── DM Channel UUID Map (Supabase channel_id is UUID, not string) ── */
@@ -2862,6 +2871,13 @@ export default function CommandCenterChatPage() {
     const agentName = isDM ? activeAgent!.id : undefined;
     const channelMembers = (!isDM && activeChannel && "members" in activeChannel) ? (activeChannel as Record<string, unknown>).members as string[] | undefined : undefined;
     const channelName = isDM ? `DM: ${activeAgent!.name}` : (activeChannel?.name || "general");
+    // CC-ORG-INTELLIGENCE-01 / CC-ORG-FOUNDATION-02 Phase B: pass through
+    // whatever bootstrapMode the active channel carries; every channel today
+    // is bootstrapMode: true (see DEFAULT_CHANNELS above), so this is a
+    // no-op today and only matters once a channel is marked non-bootstrap.
+    const bootstrapMode = (!isDM && activeChannel && "bootstrapMode" in activeChannel)
+      ? ((activeChannel as Record<string, unknown>).bootstrapMode as boolean | undefined) ?? true
+      : true;
 
     const runRelay = (userMessageId?: string) => {
       const errorTargetId = userMessageId ?? tempId;
@@ -2878,6 +2894,7 @@ export default function CommandCenterChatPage() {
           mentionedAgents: mentionedAgents.length > 0 ? mentionedAgents : undefined,
           userMessageId,
           threadParentId: threadPid ?? undefined,
+          bootstrapMode,
         }),
       })
         .then(async (r) => {
