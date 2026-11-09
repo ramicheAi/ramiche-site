@@ -1,11 +1,34 @@
+import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { callProxyJSON } from "@/lib/lead-gen";
 import type { CallDiscovery } from "@/lib/voice/discovery-schema";
+import { isFounderGuardEnforced, MACHINE_ROUTES_ENV, MACHINE_SECRET_ENV } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+const ROUTE_KEY = "voice-call-webhook";
+
+/**
+ * Vapi sends its webhook secret as `x-vapi-secret`, not `Authorization: Bearer` --
+ * a different convention from `verifyMachineCredential`'s, so this checks it directly
+ * rather than force-fitting the shared helper onto the wrong header. Reuses the same
+ * `COMMAND_CENTER_MACHINE_SECRET`/`CC_MACHINE_ROUTES` opt-in pair for consistency with
+ * every other machine caller on this guard.
+ */
+function verifyVapiSecret(req: Request): boolean {
+  const secret = process.env[MACHINE_SECRET_ENV]?.trim();
+  if (!secret || secret.length < 32) return false;
+  const routes = process.env[MACHINE_ROUTES_ENV]?.trim().toLowerCase().split(",").map((k) => k.trim()) ?? [];
+  if (!routes.includes("all") && !routes.includes(ROUTE_KEY)) return false;
+  const given = req.headers.get("x-vapi-secret");
+  if (!given) return false;
+  const a = Buffer.from(given, "utf8");
+  const b = Buffer.from(secret, "utf8");
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 /**
  * Vapi end-of-call webhook. Vapi POSTs here when a call finishes (configured via
@@ -13,6 +36,18 @@ export const runtime = "nodejs";
  * structured discovery brief with the local proxy, and write it to the lead's meta
  * so the web-client-delivery skill can build from it. ALWAYS returns 200 so Vapi
  * doesn't retry-storm.
+ *
+ * CC-SECURITY-RELEASE-GATE-03A: no check existed here before. Opt-in, off by default,
+ * same convention as every other route on `founder-authority.ts` -- this change alone
+ * rejects nothing. To enable: set `COMMAND_CENTER_MACHINE_SECRET`, add
+ * "voice-call-webhook" to `CC_MACHINE_ROUTES`, AND configure that same secret as this
+ * assistant's `server.secret` in Vapi (voice-provider.ts) so Vapi actually sends
+ * `x-vapi-secret` -- the code half alone does nothing without the Vapi-side half, so
+ * both must land together before enabling. Checked only on the message that actually
+ * writes anything (below), not on every status callback Vapi sends during a call, so
+ * enabling this never breaks the harmless ack path for message types with no effect.
+ * A rejected call is acked with `captured: false`, never a non-200, to preserve the
+ * no-retry-storm contract above.
  */
 export async function POST(req: Request) {
   try {
@@ -22,6 +57,10 @@ export async function POST(req: Request) {
 
     // Only act on the final report; ack everything else.
     if (type && type !== "end-of-call-report") return NextResponse.json({ ok: true });
+
+    if (isFounderGuardEnforced(ROUTE_KEY) && !verifyVapiSecret(req)) {
+      return NextResponse.json({ ok: true, captured: false, reason: "unauthorized" });
+    }
 
     const call = (msg.call && typeof msg.call === "object" ? msg.call : {}) as Record<string, unknown>;
     const artifact = (msg.artifact && typeof msg.artifact === "object" ? msg.artifact : {}) as Record<string, unknown>;
