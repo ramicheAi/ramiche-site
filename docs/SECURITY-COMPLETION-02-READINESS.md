@@ -74,7 +74,7 @@ follow the five-step runbook in the doc. **Do not** enable or run anything autom
 ## 2. PR #71 — founder authorization
 
 Head before this mission: `e9c73f11`. Originally 7 files, +631/-4, opt-in guard on one route.
-Now 13 files changed plus 4 new (17 total paths), and eight privileged routes are wired.
+Now 23 paths changed (+2049/-17), and eight privileged routes are wired.
 
 ### Requirements coverage
 
