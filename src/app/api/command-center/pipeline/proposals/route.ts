@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { parseBody, sanitize, badRequest } from "@/lib/api-security";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,8 @@ export async function GET(req: Request) {
  * its stage to 'proposal'.
  */
 export async function POST(req: Request) {
+  const denied = requireFounderAuthority(req, "pipeline-proposals");
+  if (denied) return denied;
   const { db, err } = svc();
   if (err) return err;
 

@@ -4,6 +4,7 @@ import { geocode, searchBusinesses } from "@/lib/prospector";
 import { qualifyProspect, normalizeName } from "@/lib/lead-fit";
 import { learnedTargets } from "@/lib/icp-learning";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -78,5 +79,24 @@ async function run() {
   return NextResponse.json({ imported: data?.length ?? 0, scanned, errors, targets: targets.map((t) => `${t.vertical}·${t.city}`) });
 }
 
-export async function POST() { return run(); }
-export async function GET() { return run(); }
+/**
+ * POST only. This used to also run on GET -- a plain browser navigation, an <img>
+ * tag, or a crawler following a link could trigger a real scan-and-insert pass with
+ * no auth at all. GET is now a safe, read-only no-op (CC-SECURITY-REMEDIATION-05
+ * item 3). Scheduler/cron callers must switch to POST with the machine credential
+ * (set CC_MACHINE_ROUTES=prospector-daily and send Authorization: Bearer
+ * <COMMAND_CENTER_MACHINE_SECRET>); this is a machine-triggered job, not a
+ * browser action, so no founder PIN session is expected to be present.
+ */
+export async function POST(request: Request) {
+  const denied = requireFounderAuthority(request, "prospector-daily");
+  if (denied) return denied;
+  return run();
+}
+
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    hint: "POST here to run the daily auto-prospector. GET no longer triggers a run.",
+  });
+}

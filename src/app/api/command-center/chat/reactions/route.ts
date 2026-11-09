@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { CC_REACTION_USER_ID, isAllowedReactionEmoji } from "@/lib/chat-reactions";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * Requires `message_reactions` table — see docs/supabase-cc-chat-migrations.sql
  */
 export async function POST(req: NextRequest) {
+  const denied = requireFounderAuthority(req, "chat-reactions");
+  if (denied) return denied;
   try {
     const body = (await req.json()) as { messageId?: string; emoji?: string; userId?: string };
     const messageId = body.messageId?.trim();

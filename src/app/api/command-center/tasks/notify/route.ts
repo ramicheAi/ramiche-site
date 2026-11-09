@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fsUrl, toFirestoreFields, fromFirestoreFields } from "@/lib/firestore-bridge-rest";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,8 @@ type NotifyBody = {
 
 /** Appends a task-outcome line to Firestore `command-center/notifications` (main hub feed). */
 export async function POST(req: NextRequest) {
+  const denied = requireFounderAuthority(req, "tasks-notify");
+  if (denied) return denied;
   try {
     const body = (await req.json()) as NotifyBody;
     const kind = body.kind as NotifyKind | undefined;

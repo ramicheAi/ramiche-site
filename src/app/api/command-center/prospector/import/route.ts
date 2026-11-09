@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { parseBody, sanitize, badRequest } from "@/lib/api-security";
 import { normalizeName } from "@/lib/lead-fit";
 import { cityStateFromAddress } from "@/lib/geo-parse";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,8 @@ export const dynamic = "force-dynamic";
  * the batch — so re-running a search never double-imports a business.
  */
 export async function POST(req: Request) {
+  const denied = requireFounderAuthority(req, "prospector-import");
+  if (denied) return denied;
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 

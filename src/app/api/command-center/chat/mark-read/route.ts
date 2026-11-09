@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,8 @@ export const dynamic = "force-dynamic";
  * Requires SUPABASE_SERVICE_ROLE_KEY — run migration in docs/supabase-cc-chat-migrations.sql first.
  */
 export async function POST(req: NextRequest) {
+  const denied = requireFounderAuthority(req, "chat-mark-read");
+  if (denied) return denied;
   try {
     const { userMessageId } = (await req.json()) as { userMessageId?: string };
     if (!userMessageId) {

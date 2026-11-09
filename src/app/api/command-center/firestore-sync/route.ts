@@ -10,6 +10,7 @@ import { join } from "path";
 import { resolveOpenclawCronDir } from "@/lib/openclaw-paths";
 import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
 import { getFirestore, type Firestore, FieldValue } from "firebase-admin/firestore";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -378,7 +379,9 @@ async function syncMeridian(db: Firestore): Promise<SyncResult> {
 
 /* ── GET: Sync Status ──────────────────────────────────────────────── */
 
-export async function GET() {
+export async function GET(request: Request) {
+  const denied = requireFounderAuthority(request, "firestore-sync");
+  if (denied) return denied;
   const db = getAdminDb();
   if (!db) {
     return NextResponse.json(
@@ -434,7 +437,9 @@ export async function GET() {
 
 /* ── POST: Perform Sync ────────────────────────────────────────────── */
 
-export async function POST() {
+export async function POST(request: Request) {
+  const denied = requireFounderAuthority(request, "firestore-sync");
+  if (denied) return denied;
   const db = getAdminDb();
   if (!db) {
     return NextResponse.json(

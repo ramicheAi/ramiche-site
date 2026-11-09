@@ -18,6 +18,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { CLAUDE_MAX_DEFAULT_URL, executeCompletion } from "@/lib/provider-adapter";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 
@@ -190,12 +191,16 @@ async function getOrCreateToday(opts: { mood?: string; force?: boolean }): Promi
   return { ...chosen, verse_date: date, context_summary: context.slice(0, 1200) };
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const denied = requireFounderAuthority(req, "wellness-verse");
+  if (denied) return denied;
   const verse = await getOrCreateToday({});
   return NextResponse.json(verse);
 }
 
 export async function POST(req: Request) {
+  const denied = requireFounderAuthority(req, "wellness-verse");
+  if (denied) return denied;
   let mood: string | undefined;
   try {
     const body = await req.json();

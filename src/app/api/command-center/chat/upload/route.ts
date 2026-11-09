@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,8 @@ const BUCKET = "chat-attachments";
  * Create bucket `chat-attachments` (public) in Supabase; see docs/supabase-cc-chat-migrations.sql.
  */
 export async function POST(req: NextRequest) {
+  const denied = requireFounderAuthority(req, "chat-upload");
+  if (denied) return denied;
   try {
     const svc = getSupabaseService();
     if (!svc) {

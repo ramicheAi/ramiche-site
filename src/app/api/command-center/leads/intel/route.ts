@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { callProxyJSON, startBackgroundGen } from "@/lib/lead-gen";
 import { parseBody, badRequest } from "@/lib/api-security";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -13,6 +14,8 @@ export const runtime = "nodejs";
  * meta.intel / meta.intelStatus for the result.
  */
 export async function POST(req: Request) {
+  const denied = requireFounderAuthority(req, "leads-intel");
+  if (denied) return denied;
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 

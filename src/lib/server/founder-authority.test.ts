@@ -126,7 +126,9 @@ describe("session token", () => {
       authorized: false,
       reason: "not_configured",
     });
-    expect(getFounderRevokeBefore({ [FOUNDER_REVOKE_BEFORE_ENV]: "short" } as unknown as NodeJS.ProcessEnv)).toBe(0);
+    expect(
+      getFounderRevokeBefore({ [FOUNDER_REVOKE_BEFORE_ENV]: "short" } as unknown as NodeJS.ProcessEnv),
+    ).toBe(Number.POSITIVE_INFINITY);
   });
 
   it("mints a token carrying the 8h absolute lifetime", () => {
@@ -164,7 +166,30 @@ describe("revocation cut-off", () => {
         { [FOUNDER_REVOKE_BEFORE_ENV]: "2026-11-08T00:00:00Z" } as unknown as NodeJS.ProcessEnv,
       ),
     ).toBe(Date.parse("2026-11-08T00:00:00Z"));
-    expect(getFounderRevokeBefore({ [FOUNDER_REVOKE_BEFORE_ENV]: "not-a-date" } as unknown as NodeJS.ProcessEnv)).toBe(0);
+    expect(
+      getFounderRevokeBefore({ [FOUNDER_REVOKE_BEFORE_ENV]: "not-a-date" } as unknown as NodeJS.ProcessEnv),
+    ).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  it("CC-SECURITY-REMEDIATION-05 item 4: a set-but-unparseable cut-off fails closed and revokes every session, not none", () => {
+    // Pre-fix, this returned 0 ("nothing revoked"): an operator who set the kill switch
+    // during an incident but typo'd the timestamp would have silently left every
+    // outstanding session valid. Reproduced here and fixed: it must revoke everything.
+    const env = { [FOUNDER_REVOKE_BEFORE_ENV]: "definitely-not-a-timestamp" } as unknown as NodeJS.ProcessEnv;
+    expect(getFounderRevokeBefore(env)).toBe(Number.POSITIVE_INFINITY);
+
+    const now = Date.now();
+    const freshlyIssuedToken = signFounderSession(SECRET, now + 60_000, now);
+    expect(verifyFounderSessionToken(freshlyIssuedToken, SECRET, now, getFounderRevokeBefore(env))).toEqual({
+      authorized: false,
+      reason: "revoked",
+    });
+  });
+
+  it("an unset or empty cut-off still means nothing is revoked (no incident, no change)", () => {
+    expect(getFounderRevokeBefore({} as unknown as NodeJS.ProcessEnv)).toBe(0);
+    expect(getFounderRevokeBefore({ [FOUNDER_REVOKE_BEFORE_ENV]: "" } as unknown as NodeJS.ProcessEnv)).toBe(0);
+    expect(getFounderRevokeBefore({ [FOUNDER_REVOKE_BEFORE_ENV]: "   " } as unknown as NodeJS.ProcessEnv)).toBe(0);
   });
 });
 

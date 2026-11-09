@@ -18,6 +18,7 @@ import {
   summarizePersistence,
   type PersistenceFailure,
 } from "@/lib/chat-persistence";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 // Pro-tier ceiling. Group-chat fan-out with synthesis + Phase E critic can
@@ -1062,6 +1063,8 @@ Output the refined synthesis only — do not narrate the changes.`;
 }
 
 export async function POST(req: NextRequest) {
+  const denied = requireFounderAuthority(req, "chat");
+  if (denied) return denied;
   // Phase E budget guard: wall-clock anchor used to skip the critic pass if
   // synthesis already burned most of the route's 60s maxDuration window.
   const postStartedAt = Date.now();

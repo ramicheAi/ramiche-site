@@ -2,11 +2,14 @@ import { NextResponse } from "next/server";
 
 import { geocode, searchBusinesses } from "@/lib/prospector";
 import { parseBody, sanitize, badRequest } from "@/lib/api-security";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 
 /** POST { category, location, onlyNoWebsite?, limit? } -> { area, results } */
 export async function POST(req: Request) {
+  const denied = requireFounderAuthority(req, "prospector-search");
+  if (denied) return denied;
   const { data: body, error: parseError } = await parseBody(req);
   if (parseError || !body) return badRequest(parseError || "Invalid request");
 

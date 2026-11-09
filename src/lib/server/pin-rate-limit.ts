@@ -73,12 +73,32 @@ function lockDuration(baseMs: number, maxMs: number, level: number): number {
 }
 
 /**
- * Client key for rate limiting. Uses the leftmost `x-forwarded-for` entry (the client, as
- * set by the platform proxy), then `x-real-ip`, then a single shared bucket. The fallback is
- * deliberately shared rather than unique: an address we cannot see must not get a fresh
- * allowance per request.
+ * Client key for rate limiting.
+ *
+ * Prefers `x-vercel-forwarded-for`: Vercel's own platform-set header, which is not
+ * client-overridable even when a client sends its own copy of the name, unlike the
+ * generic `x-forwarded-for` chain where the leftmost entry can be whatever a caller
+ * put there before the first hop that matters. Falls back to `x-forwarded-for` (first
+ * entry) and `x-real-ip` for environments where the Vercel-specific header is absent
+ * (e.g. local dev, other hosts), then a single shared bucket. The fallback is
+ * deliberately shared rather than unique: an address we cannot see must not get a
+ * fresh allowance per request.
+ *
+ * TRUST BOUNDARY, reviewed for CC-SECURITY-REMEDIATION-05 item 4: per-client lockout is
+ * only as strong as this key. If none of these headers can be trusted in a given
+ * deployment topology (e.g. an upstream proxy in front of Vercel that itself forwards a
+ * caller-supplied value), an attacker can rotate the key per guess and never trip the
+ * per-client lockout -- only the global 50-failures/10-minute circuit breaker below would
+ * still catch a sustained attack, just later and coarser. That global breaker is the real
+ * backstop this rate limiter relies on when client-key trust is in doubt; it is not
+ * defeated by key rotation since it is keyed on nothing client-supplied.
  */
 export function pinClientKey(request: Request): string {
+  const vercelForwarded = request.headers.get("x-vercel-forwarded-for")?.trim();
+  if (vercelForwarded) {
+    const first = vercelForwarded.split(",")[0]?.trim();
+    if (first) return first;
+  }
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) {
     const first = forwarded.split(",")[0]?.trim();

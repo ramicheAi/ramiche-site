@@ -4,6 +4,7 @@ import { promisify } from "util";
 import { NextRequest, NextResponse } from "next/server";
 import { VOICE_CONFIG } from "@/lib/voice-config";
 import { expandVoicePath } from "@/lib/voice-path";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -77,6 +78,8 @@ async function elevenLabsTTS(text: string, voiceId: string): Promise<ArrayBuffer
 }
 
 export async function POST(req: NextRequest) {
+  const denied = requireFounderAuthority(req, "voice-speak");
+  if (denied) return denied;
   let outWav: string | null = null;
   try {
     const body = (await req.json()) as { text?: string; voice?: string; voiceId?: string };

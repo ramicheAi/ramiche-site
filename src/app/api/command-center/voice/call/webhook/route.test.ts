@@ -18,6 +18,7 @@ describe("voice/call/webhook authorization (CC-SECURITY-RELEASE-GATE-03A)", () =
     delete process.env.COMMAND_CENTER_MACHINE_SECRET;
     delete process.env.CC_MACHINE_ROUTES;
     delete process.env.CC_FOUNDER_GUARD_ENFORCE;
+    delete process.env.VAPI_SERVER_SECRET;
   });
 
   afterEach(() => {
@@ -99,5 +100,60 @@ describe("voice/call/webhook authorization (CC-SECURITY-RELEASE-GATE-03A)", () =
     const { POST } = await import("./route");
     const res = await POST(req({ message: { type: "status-update" } }));
     expect(await res.json()).toEqual({ ok: true });
+  });
+});
+
+describe("voice/call/webhook: dedicated VAPI_SERVER_SECRET (CC-SECURITY-REMEDIATION-05 item 5)", () => {
+  const original = { ...process.env };
+
+  beforeEach(() => {
+    vi.resetModules();
+    delete process.env.COMMAND_CENTER_MACHINE_SECRET;
+    delete process.env.CC_MACHINE_ROUTES;
+    delete process.env.CC_FOUNDER_GUARD_ENFORCE;
+    delete process.env.VAPI_SERVER_SECRET;
+  });
+
+  afterEach(() => {
+    process.env = { ...original };
+  });
+
+  it("merely setting VAPI_SERVER_SECRET turns enforcement on, with no CC_FOUNDER_GUARD_ENFORCE entry", async () => {
+    process.env.VAPI_SERVER_SECRET = SECRET;
+    const { POST } = await import("./route");
+    const res = await POST(req({ message: { type: "end-of-call-report" } }));
+    expect(await res.json()).toEqual({ ok: true, captured: false, reason: "unauthorized" });
+  });
+
+  it("the correct dedicated secret is accepted", async () => {
+    process.env.VAPI_SERVER_SECRET = SECRET;
+    const { POST } = await import("./route");
+    const res = await POST(req({ message: { type: "end-of-call-report" } }, { "x-vapi-secret": SECRET }));
+    const body = await res.json();
+    expect(body.reason).not.toBe("unauthorized");
+  });
+
+  it("a shorter-than-32-char dedicated secret is treated as not configured, falling back (and here failing closed, nothing else set)", async () => {
+    process.env.VAPI_SERVER_SECRET = "short";
+    const { POST } = await import("./route");
+    const res = await POST(req({ message: { type: "end-of-call-report" } }));
+    // Not enforced via the dedicated path (too short to count as configured) and the
+    // legacy shared-secret path is also unset, so this stays open -- proof the "too
+    // short" value never silently granted access either.
+    const body = await res.json();
+    expect(body.reason).not.toBe("unauthorized");
+  });
+
+  it("the dedicated secret takes priority over a simultaneously-configured legacy shared secret", async () => {
+    process.env.VAPI_SERVER_SECRET = SECRET;
+    process.env.COMMAND_CENTER_MACHINE_SECRET = "c".repeat(32);
+    process.env.CC_MACHINE_ROUTES = "voice-call-webhook";
+    const { POST } = await import("./route");
+    // The legacy secret, even though validly configured, must NOT be accepted once a
+    // dedicated secret exists -- only the dedicated one should verify.
+    const res = await POST(
+      req({ message: { type: "end-of-call-report" } }, { "x-vapi-secret": "c".repeat(32) }),
+    );
+    expect((await res.json()).reason).toBe("unauthorized");
   });
 });

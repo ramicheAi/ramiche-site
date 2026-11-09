@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { GAP_LABEL, type GapId } from "@/lib/services-catalog";
 import { callProxyJSON, startBackgroundGen } from "@/lib/lead-gen";
 import { parseBody, badRequest } from "@/lib/api-security";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -14,6 +15,8 @@ export const runtime = "nodejs";
  * Fire-and-forget: returns { status:"generating" }; poll meta.kit / meta.kitStatus.
  */
 export async function POST(req: Request) {
+  const denied = requireFounderAuthority(req, "leads-kit");
+  if (denied) return denied;
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 

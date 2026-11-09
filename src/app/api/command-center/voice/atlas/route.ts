@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { CLAUDE_MAX_DEFAULT_URL, executeCompletion, type ChatMessage } from "@/lib/provider-adapter";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -22,6 +23,8 @@ interface Turn {
 }
 
 export async function POST(req: Request) {
+  const denied = requireFounderAuthority(req, "voice-atlas");
+  if (denied) return denied;
   try {
     const body = (await req.json().catch(() => ({}))) as { text?: string; history?: Turn[] };
     const text = (body.text || "").trim();

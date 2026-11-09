@@ -5,6 +5,7 @@ import {
   isOpenClawGatewayConfigured,
   resolveChatSessionKey,
 } from "@/lib/openclaw-gateway";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -49,6 +50,8 @@ function sanitizeReply(text: string): string {
  * something useful.
  */
 export async function POST(req: NextRequest) {
+  const denied = requireFounderAuthority(req, "briefing-compose");
+  if (denied) return denied;
   let body: ComposeBody;
   try {
     body = (await req.json()) as ComposeBody;

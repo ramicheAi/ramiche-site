@@ -26,6 +26,21 @@ describe("client key", () => {
     expect(pinClientKey(request({ "x-real-ip": "198.51.100.4" }))).toBe("198.51.100.4");
     expect(pinClientKey(request())).toBe("unknown-client");
   });
+
+  it("CC-SECURITY-REMEDIATION-05 item 4: prefers Vercel's own x-vercel-forwarded-for over the client-influenceable x-forwarded-for chain", () => {
+    expect(
+      pinClientKey(
+        request({
+          "x-vercel-forwarded-for": "203.0.113.9",
+          "x-forwarded-for": "9.9.9.9, 10.0.0.1",
+        }),
+      ),
+    ).toBe("203.0.113.9");
+  });
+
+  it("falls back to x-forwarded-for when x-vercel-forwarded-for is absent", () => {
+    expect(pinClientKey(request({ "x-forwarded-for": "203.0.113.9, 10.0.0.1" }))).toBe("203.0.113.9");
+  });
 });
 
 describe("per-client brute-force protection", () => {

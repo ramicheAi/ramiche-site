@@ -6,6 +6,7 @@ import { recommendBundle } from "@/lib/services-catalog";
 import { qualifyPostResearch } from "@/lib/lead-qualification";
 import { isChain } from "@/lib/lead-fit";
 import { parseBody, badRequest } from "@/lib/api-security";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,8 @@ export const dynamic = "force-dynamic";
  * service bundle, stores both on the lead, advances it to 'qualified'.
  */
 export async function POST(req: Request) {
+  const denied = requireFounderAuthority(req, "pipeline-diagnose");
+  if (denied) return denied;
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 

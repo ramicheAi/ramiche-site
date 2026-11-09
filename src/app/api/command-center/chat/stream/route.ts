@@ -7,6 +7,7 @@ import { resolveChatTargets } from "@/lib/chat-routing";
 import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
 import { personaMap } from "@/lib/agent-registry";
 import { sanitizeDbError } from "@/lib/chat-persistence";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -59,6 +60,8 @@ function sseEvent(name: string, data: unknown) {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = requireFounderAuthority(req, "chat-stream");
+  if (denied) return denied;
   let body: {
     message?: string;
     channelId?: string;

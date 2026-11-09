@@ -25,6 +25,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { generateImage, type ImageGenProvider } from "@/lib/image-gen";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -87,6 +88,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = requireFounderAuthority(req, "image-gen");
+  if (denied) return denied;
   let body: {
     prompt?: string;
     agentId?: string;

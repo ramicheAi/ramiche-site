@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { execSync } from "child_process";
 import { existsSync } from "fs";
 import { join } from "path";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -62,7 +63,9 @@ function majorVersion(semver: string): number {
   return match ? parseInt(match[1], 10) : 0;
 }
 
-export async function POST() {
+export async function POST(request: Request) {
+  const denied = requireFounderAuthority(request, "security");
+  if (denied) return denied;
   const results: ScanResult[] = [];
   const start = Date.now();
 

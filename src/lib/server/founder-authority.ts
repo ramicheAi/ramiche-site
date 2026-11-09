@@ -62,8 +62,15 @@ export function getFounderSessionSecret(env: NodeJS.ProcessEnv = process.env): s
 
 /**
  * Reads the revocation cut-off. Accepts epoch milliseconds or any ISO-8601 timestamp.
- * Missing, empty or unparseable means "nothing revoked" so a typo cannot silently
- * fail open with a *false* value; an invalid value is logged and ignored.
+ * Missing or empty means "nothing revoked" -- no incident, no change from today.
+ *
+ * A value that IS set but fails to parse is a different situation: the only reason to
+ * set this env var at all is to revoke sessions during an incident, so a typo here is
+ * far more likely to mean "the operator tried to lock everyone out and fat-fingered the
+ * timestamp" than "nothing is wrong." Treating that as "nothing revoked" would silently
+ * defeat the kill switch at the exact moment it's needed. Fail closed instead: revoke
+ * every session until the value is fixed. The cost is a forced re-entry of the PIN; the
+ * alternative is a believed-revoked session that still works.
  */
 export function getFounderRevokeBefore(env: NodeJS.ProcessEnv = process.env): number {
   const raw = env[FOUNDER_REVOKE_BEFORE_ENV]?.trim();
@@ -71,8 +78,11 @@ export function getFounderRevokeBefore(env: NodeJS.ProcessEnv = process.env): nu
   if (/^\d{1,16}$/.test(raw)) return Number(raw);
   const parsed = Date.parse(raw);
   if (Number.isNaN(parsed)) {
-    console.error(`[founder-authority] ${FOUNDER_REVOKE_BEFORE_ENV} is not a timestamp; ignoring it`);
-    return 0;
+    console.error(
+      `[founder-authority] ${FOUNDER_REVOKE_BEFORE_ENV} is set but not a valid timestamp ("${raw}"); ` +
+        `failing closed -- revoking every session until this is fixed`,
+    );
+    return Number.POSITIVE_INFINITY;
   }
   return parsed;
 }

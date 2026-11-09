@@ -349,7 +349,7 @@ describe("wellness/verse contract", () => {
     if (after) setEnv(after);
     let n = 0;
     install((url) => bibleApi(url) ?? claude(n++));
-    const r = await mod.GET();
+    const r = await mod.GET(new Request("https://command.parallaxvinc.com/api/command-center/wellness/verse"));
     return { status: r.status, json: await r.json() };
   };
   const claudeCalls = () => calls.filter((c) => !c.url.includes("bible-api.com"));

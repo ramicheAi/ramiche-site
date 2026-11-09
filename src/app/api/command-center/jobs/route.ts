@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { runJob } from "@/lib/jobs";
 import { parseBody, sanitize, badRequest } from "@/lib/api-security";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +50,8 @@ export async function GET(req: Request) {
  * Creates a queued job and dispatches it to an agent (fire-and-forget).
  */
 export async function POST(req: Request) {
+  const denied = requireFounderAuthority(req, "jobs");
+  if (denied) return denied;
   const { db, err } = svc();
   if (err) return err;
   const { data: body, error: parseError } = await parseBody(req);
