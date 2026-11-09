@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { approveSynthesisMessage } from "@/lib/cc-approve-synthesis";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -17,6 +18,11 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  // CC-SECURITY-COMPLETION-02: founder authority (no-op until CC_FOUNDER_GUARD_ENFORCE
+  // lists "chat-approve"). Placed first so no side effect can run for an unauthorized caller.
+  const denied = requireFounderAuthority(req, "chat-approve");
+  if (denied) return denied;
+
   try {
     const { messageId } = (await req.json()) as { messageId?: string };
     const result = await approveSynthesisMessage(String(messageId || ""));

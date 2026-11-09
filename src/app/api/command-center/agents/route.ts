@@ -3,6 +3,7 @@ import { readFile, writeFile } from "fs/promises";
 import { join } from "path";
 import { execSync } from "child_process";
 import { directoryAgents } from "@/lib/agent-registry";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 
@@ -117,6 +118,11 @@ interface PostBody {
 
 /** Persist model change to `agents/directory.json` when workspace is writable (local OpenClaw). */
 export async function POST(req: NextRequest) {
+  // CC-SECURITY-COMPLETION-02: founder authority (no-op until CC_FOUNDER_GUARD_ENFORCE
+  // lists "agents"). Placed first so no side effect can run for an unauthorized caller.
+  const denied = requireFounderAuthority(req, "agents");
+  if (denied) return denied;
+
   let body: PostBody;
   try {
     body = (await req.json()) as PostBody;

@@ -72,7 +72,7 @@ function touchSession(): void {
   } catch { /* ignore */ }
 }
 
-function PinGate({ onUnlock }: { onUnlock: () => void }) {
+function PinGate({ onUnlock, notice }: { onUnlock: () => void; notice?: string | null }) {
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -207,6 +207,14 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
           Local dev: default PIN is 2451 when CC_PIN_HASH / CC_PIN are unset.
         </p>
       )}
+      {notice && (
+        <p
+          role="status"
+          style={{ color: '#fbbf24', fontSize: 12, maxWidth: 340, textAlign: 'center', marginBottom: 12, lineHeight: 1.5 }}
+        >
+          {notice}
+        </p>
+      )}
       {serverMsg && (
         <p style={{ color: '#f87171', fontSize: 12, maxWidth: 320, textAlign: 'center', marginBottom: 16, lineHeight: 1.5 }}>
           {serverMsg}
@@ -262,6 +270,8 @@ export default function CommandCenterLayout({
   const [authed, setAuthed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
+  const [recoveryNotice, setRecoveryNotice] = useState<string | null>(null);
+
   const lock = useCallback(() => {
     try {
       sessionStorage.removeItem(STORAGE_KEY);
@@ -270,6 +280,53 @@ export default function CommandCenterLayout({
     }
     setAuthed(false);
   }, []);
+
+  /**
+   * CC-SECURITY-COMPLETION-02 browser recovery: sessionStorage can say "unlocked" while
+   * the server-signed cookie has expired or been revoked. Ask the server (read-only) and,
+   * on 401, drop the local claim and show the PIN gate with an explanation instead of
+   * leaving every privileged call to fail silently with 401.
+   */
+  useEffect(() => {
+    if (!authed) return;
+    let cancelled = false;
+    const checkServerSession = async () => {
+      try {
+        const res = await fetch('/api/command-center/auth/state', { cache: 'no-store' });
+        if (cancelled) return;
+        if (res.status === 200) return;
+        if (res.status === 401) {
+          let reason = '';
+          try {
+            const j = (await res.json()) as { reason?: string };
+            reason = j.reason ?? '';
+          } catch {
+            /* ignore */
+          }
+          sessionStorage.removeItem(STORAGE_KEY);
+          setRecoveryNotice(
+            reason === 'expired'
+              ? 'Your founder session expired. Enter the PIN to unlock again.'
+              : reason === 'revoked'
+                ? 'Your founder session was revoked. Enter the PIN to unlock again.'
+                : 'The server no longer recognises this session. Enter the PIN to unlock again.'
+          );
+          setAuthed(false);
+        }
+      } catch {
+        /* network failure must not lock the founder out of a working page */
+      }
+    };
+    void checkServerSession();
+    const onFocus = () => void checkServerSession();
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
+  }, [authed]);
 
   useEffect(() => {
     setHydrated(true);
@@ -344,7 +401,15 @@ export default function CommandCenterLayout({
   }
 
   if (!authed) {
-    return <PinGate onUnlock={() => setAuthed(true)} />;
+    return (
+      <PinGate
+        notice={recoveryNotice}
+        onUnlock={() => {
+          setRecoveryNotice(null);
+          setAuthed(true);
+        }}
+      />
+    );
   }
 
   return <CommandCenterShell onLock={lock}>{children}</CommandCenterShell>;

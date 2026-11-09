@@ -17,6 +17,7 @@
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,11 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  // CC-SECURITY-COMPLETION-02: founder authority (no-op until CC_FOUNDER_GUARD_ENFORCE
+  // lists "gate"). Placed first so no side effect can run for an unauthorized caller.
+  const denied = requireFounderAuthority(req, "gate");
+  if (denied) return denied;
+
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 

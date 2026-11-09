@@ -14,10 +14,13 @@ import { POST as PIN_POST } from "../auth/pin/route";
 const SECRET = "k".repeat(48);
 const BODY = { folder: "f", name: "n", agent: "a", action: "reject", decided_by: "Ramon" };
 
+const HOST = "localhost";
+
 function yoloReq(headers: Record<string, string> = {}) {
+  // CC-SECURITY-COMPLETION-02: a cookie-authenticated mutation must also be same-origin.
   return new Request("http://localhost/api/command-center/yolo-approve", {
     method: "POST",
-    headers: { "content-type": "application/json", ...headers },
+    headers: { "content-type": "application/json", host: HOST, origin: `http://${HOST}`, ...headers },
     body: JSON.stringify(BODY),
   });
 }
@@ -88,6 +91,7 @@ describe("POST /api/command-center/yolo-approve founder guard (worked example)",
     const pinRes = await PIN_POST(
       new NextRequest("http://localhost/api/command-center/auth/pin", {
         method: "POST",
+        headers: { "x-forwarded-for": "198.51.100.7" },
         body: JSON.stringify({ pin: "8642" }),
       }),
     );

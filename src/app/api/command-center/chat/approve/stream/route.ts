@@ -32,6 +32,7 @@ import {
   approveSynthesisMessageStreamed,
   type ApproveEvent,
 } from "@/lib/cc-approve-synthesis";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -45,6 +46,11 @@ function sseFrame(name: string, data: unknown): string {
 }
 
 export async function POST(req: NextRequest) {
+  // CC-SECURITY-COMPLETION-02: founder authority (no-op until CC_FOUNDER_GUARD_ENFORCE
+  // lists "chat-approve-stream"). Placed first so no side effect can run for an unauthorized caller.
+  const denied = requireFounderAuthority(req, "chat-approve-stream");
+  if (denied) return denied;
+
   let messageId = "";
   try {
     const body = (await req.json()) as { messageId?: string };
