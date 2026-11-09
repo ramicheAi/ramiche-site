@@ -146,8 +146,13 @@ window focus, and on visibility change while the UI believes it is unlocked. On 
 - `revoked` → "Your founder session was revoked. Enter the PIN to unlock again."
 - anything else → "The server no longer recognises this session. Enter the PIN to unlock again."
 
-A network failure does not lock the founder out of a page that still works. The endpoint never
-mints, refreshes or extends a session, and reveals nothing about the PIN.
+A network failure does not lock the founder out of a page that still works. Neither does a 401
+that is not a real session loss: the decision is made by `src/app/command-center/session-recovery.ts`,
+which refuses to clear the local unlock when the guard is off for every route, or when enforcement
+is on but `COMMAND_CENTER_SESSION_SECRET` is missing. Both of those states would otherwise clear
+`sessionStorage`, ask for the PIN, and loop forever because the PIN route cannot mint a cookie.
+Only "guard on, secret configured, session missing/expired/revoked" is treated as recovery. The
+endpoint never mints, refreshes or extends a session, and reveals nothing about the PIN.
 
 ## 5. Live behavior after this PR merges
 
@@ -189,8 +194,8 @@ calling the Command Center's write surface closed.
 
 ## 7. Tests
 
-Baseline `main` + #70's SQL: 53 files / 524 passed / 4 skipped. This branch: **58 files / 624
-passed / 4 skipped** (+100 tests), `tsc --noEmit` clean, eslint 0 errors (6 pre-existing
+Baseline `main` + #70's SQL: 53 files / 524 passed / 4 skipped. This branch: **60 files / 635
+passed / 4 skipped** (+111 tests), `tsc --noEmit` clean, eslint 0 errors (6 pre-existing
 warnings).
 
 - `src/lib/server/founder-authority.test.ts` — valid accepted; tampered expiry and signature
@@ -210,6 +215,14 @@ warnings).
 - `src/app/api/command-center/yolo-approve/route.test.ts` — default unguarded; enforced for
   another key only; no/forged/expired/foreign cookie → 401; missing secret → 503; end to end
   PIN → cookie → route.
+- `src/app/command-center/session-recovery.test.ts` — the recovery decision: no recovery on a
+  200; no recovery while enforcement is off (would loop in today's default state); no recovery
+  when enforcement is on but the secret is missing (would loop); recovery with a specific notice
+  for expired and revoked; a generic notice for missing/malformed/forged; no guessing when the
+  response has no enforcement field.
+- `src/app/api/command-center/auth/state/route.test.ts` — enforcement on/off/all spellings;
+  valid session with expiry; expired, revoked and forged reasons distinguished; `not_configured`
+  when the secret is missing; never sets a cookie; `no-store`.
 - `src/app/api/command-center/guard-wiring.test.ts` — for each of the eight routes × six cases:
   default unchanged; no cookie → 401; forged cookie → 401; cross-origin valid session → 403;
   same-origin valid session proceeds; missing secret → 503. Side-effect modules are spied on and

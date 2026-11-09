@@ -85,17 +85,25 @@ Now 13 files changed plus 4 new (17 total paths), and eight privileged routes ar
 | Origin/CSRF for cookie mutations | Origin→Referer vs proxy Host; missing = reject; 403 | `founder-authority.test.ts`, eight-route matrix |
 | Safe expiry, revocation, rotation | 8h absolute TTL, clock-skew rules, `CC_FOUNDER_REVOKE_BEFORE` cut-off, secret rotation | revocation tests (epoch/ISO/invalid) |
 | Unauthorized requests cannot cause side effects | guard is the first statement; side-effect modules spied and asserted zero calls | `guard-wiring.test.ts` |
-| Browser recovery | `auth/state` endpoint; layout checks on mount/focus/visibility, clears sessionStorage, shows specific notice | `layout.tsx` effect + PinGate notice |
+| Browser recovery | `auth/state` endpoint; layout checks on mount/focus/visibility, clears sessionStorage, shows specific notice; **does not clear when the guard is off or the secret is missing** (that would loop) | `session-recovery.ts` + tests, `layout.tsx`, state route tests |
 | Missing/invalid/expired/forged tests | all four, per route and unit-level | 58 files / 624 passed / 4 skipped |
 | Machine-to-machine preserved | `COMMAND_CENTER_MACHINE_SECRET` bearer, constant time, only on `CC_MACHINE_ROUTES` (default empty) | machine cases in unit + wiring tests |
 
 ### Evidence
 
-- `vitest run`: **58 files, 624 passed, 4 skipped** (baseline 53 / 524 / 4 → **+100 tests**).
+- `vitest run`: **60 files, 635 passed, 4 skipped** (baseline 53 / 524 / 4 → **+111 tests**).
 - `tsc --noEmit`: clean.
 - `eslint`: 0 errors, 6 pre-existing warnings (unused vars and two `setState`-in-effect warnings in
   files this PR already owned).
 - The guard is off by default; a merge changes no route's access control.
+
+### Bug caught during this review
+
+The first version of the browser recovery treated every 401 from `auth/state` as session loss. In
+today's default state (guard off, no signing secret) that would clear `sessionStorage`, show the
+PIN gate, and loop forever, because the PIN route cannot mint a cookie without a secret. Fixed by
+`decideSessionRecovery()`, which recovers only when the guard is on, the secret is configured, and
+the session is genuinely missing/expired/revoked. Six cases are pinned by tests.
 
 ### Blocker before enabling enforcement globally
 

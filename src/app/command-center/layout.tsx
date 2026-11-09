@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { decideSessionRecovery, type SessionStatePayload } from './session-recovery';
 // Parallax OS stylesheet layer — load order mirrors the prototype HTML.
 import './po/po-theme.css';
 import './po/po-holo.css';
@@ -294,25 +295,20 @@ export default function CommandCenterLayout({
       try {
         const res = await fetch('/api/command-center/auth/state', { cache: 'no-store' });
         if (cancelled) return;
-        if (res.status === 200) return;
-        if (res.status === 401) {
-          let reason = '';
-          try {
-            const j = (await res.json()) as { reason?: string };
-            reason = j.reason ?? '';
-          } catch {
-            /* ignore */
-          }
-          sessionStorage.removeItem(STORAGE_KEY);
-          setRecoveryNotice(
-            reason === 'expired'
-              ? 'Your founder session expired. Enter the PIN to unlock again.'
-              : reason === 'revoked'
-                ? 'Your founder session was revoked. Enter the PIN to unlock again.'
-                : 'The server no longer recognises this session. Enter the PIN to unlock again.'
-          );
-          setAuthed(false);
+        if (res.status !== 401) return;
+        let payload: SessionStatePayload | null = null;
+        try {
+          payload = (await res.json()) as SessionStatePayload;
+        } catch {
+          /* a non-JSON 401 is treated as "no evidence", never as a lockout */
         }
+        // Only a real recovery: guard on, secret configured, session gone. With the guard
+        // off or the secret missing this would clear sessionStorage and re-prompt forever.
+        const decision = decideSessionRecovery(res.status, payload);
+        if (!decision.recover) return;
+        sessionStorage.removeItem(STORAGE_KEY);
+        setRecoveryNotice(decision.notice);
+        setAuthed(false);
       } catch {
         /* network failure must not lock the founder out of a working page */
       }
