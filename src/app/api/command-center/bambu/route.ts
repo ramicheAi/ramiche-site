@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import mqtt from "mqtt";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -306,7 +307,9 @@ function connectMqtt(host: string, accessCode: string, serial: string): { ok: bo
 
 /* ── GET ───────────────────────────────────────────────────────────── */
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const denied = requireFounderAuthority(req, "bambu");
+  if (denied) return denied;
   try {
     const state = readState();
     const mqttConnected = mqttClient !== null && mqttClient.connected;
@@ -353,6 +356,8 @@ interface CompleteJobPayload { action: "complete-job"; status: "completed" | "fa
 type ActionPayload = ConnectPayload | DisconnectPayload | UpdateStatusPayload | AddJobPayload | CompleteJobPayload;
 
 export async function POST(req: NextRequest) {
+  const denied = requireFounderAuthority(req, "bambu");
+  if (denied) return denied;
   try {
     const body = (await req.json()) as ActionPayload;
     const state = readState();

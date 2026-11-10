@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { cityStateFromAddress } from "@/lib/geo-parse";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -11,7 +12,9 @@ export const runtime = "nodejs";
  * Currently: backfill meta.city from meta.address on legacy leads that are missing it.
  * Idempotent and safe to re-run.
  */
-export async function POST() {
+export async function POST(req: Request) {
+  const denied = requireFounderAuthority(req, "pipeline-maintenance");
+  if (denied) return denied;
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 /* ==============================================================================
    SIMONS ORACLE API — Proxies chat to Anthropic API
@@ -27,6 +28,8 @@ Risk management: Position sizing via Kelly Criterion, maximum drawdown limits, c
 Disclaimer: You are an AI providing quantitative analysis and financial education, not a licensed financial advisor. Past performance does not guarantee future results. All trading involves risk of loss.`;
 
 export async function POST(req: NextRequest) {
+  const denied = requireFounderAuthority(req, "oracle");
+  if (denied) return denied;
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {

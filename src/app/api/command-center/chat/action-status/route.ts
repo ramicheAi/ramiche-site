@@ -19,6 +19,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -46,6 +47,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = requireFounderAuthority(req, "chat-action-status");
+  if (denied) return denied;
   try {
     const body = (await req.json()) as {
       synthesisId?: string;

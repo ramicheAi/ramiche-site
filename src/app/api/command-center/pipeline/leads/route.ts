@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { parseBody, sanitize, badRequest } from "@/lib/api-security";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,8 @@ export async function GET(req: Request) {
  * Create (or upsert by id) a lead. Logs a stage_change / created event.
  */
 export async function POST(req: Request) {
+  const denied = requireFounderAuthority(req, "pipeline-leads");
+  if (denied) return denied;
   const { db, err } = svc();
   if (err) return err;
 

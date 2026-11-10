@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,8 @@ function getSupabaseService() {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = requireFounderAuthority(req, "chat-pin");
+  if (denied) return denied;
   try {
     const body = (await req.json()) as { messageId?: string; pinned?: boolean };
     const messageId = body.messageId?.trim();

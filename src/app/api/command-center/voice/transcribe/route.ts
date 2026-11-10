@@ -5,6 +5,7 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 import { NextRequest, NextResponse } from "next/server";
 import { VOICE_CONFIG } from "@/lib/voice-config";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -93,6 +94,8 @@ async function transcribeLocalWhisper(audioPath: string): Promise<{ text: string
 }
 
 export async function POST(req: NextRequest) {
+  const denied = requireFounderAuthority(req, "voice-transcribe");
+  if (denied) return denied;
   let tmpAudio: string | null = null;
   try {
     const fd = await req.formData();

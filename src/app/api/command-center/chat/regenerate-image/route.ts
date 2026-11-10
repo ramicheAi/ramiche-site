@@ -22,6 +22,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
 import { processImageMarkers } from "@/lib/image-gen/markers";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 90;
@@ -43,6 +44,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const TENANT_ID = "11111111-1111-1111-1111-111111111111";
 
 export async function POST(req: NextRequest) {
+  const denied = requireFounderAuthority(req, "chat-regenerate-image");
+  if (denied) return denied;
   let body: {
     prompt?: string;
     agentId?: string;

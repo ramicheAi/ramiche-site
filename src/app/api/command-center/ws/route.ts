@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { fsUrl } from "@/lib/bridge-handlers";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -104,7 +105,9 @@ function isValidType(t: string): t is BusMessage["type"] {
  *   recipient (required) — agent id or "ramon"
  *   since    (optional) — epoch ms; only return messages after this timestamp
  */
-export async function GET(req: NextRequest): Promise<NextResponse> {
+export async function GET(req: NextRequest): Promise<Response> {
+  const denied = requireFounderAuthority(req, "ws");
+  if (denied) return denied;
   const { searchParams } = req.nextUrl;
   const recipient = searchParams.get("recipient");
   const sinceRaw = searchParams.get("since");
@@ -138,7 +141,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
  * POST — Submit a message to the bus.
  * Body: { from, to, type, payload, metadata? }
  */
-export async function POST(req: NextRequest): Promise<NextResponse> {
+export async function POST(req: NextRequest): Promise<Response> {
+  const denied = requireFounderAuthority(req, "ws");
+  if (denied) return denied;
   let body: IncomingMessage;
   try {
     body = (await req.json()) as IncomingMessage;

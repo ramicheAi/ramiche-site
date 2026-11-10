@@ -5,6 +5,7 @@ import { parseBody, badRequest } from "@/lib/api-security";
 import { placeVapiCall, vapiConfigured, toE164, type PlaceCallInput } from "@/lib/voice/voice-provider";
 import type { LeadContext } from "@/lib/voice/call-script";
 import type { GapId } from "@/lib/services-catalog";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -20,6 +21,11 @@ export const runtime = "nodejs";
  *                          CLOSER script grounded in that business.
  */
 export async function POST(req: Request) {
+  // CC-SECURITY-COMPLETION-02: founder authority (no-op until CC_FOUNDER_GUARD_ENFORCE
+  // lists "voice-call"). Placed first so no side effect can run for an unauthorized caller.
+  const denied = requireFounderAuthority(req, "voice-call");
+  if (denied) return denied;
+
   const { data: body, error: parseError } = await parseBody(req);
   if (parseError || !body) return badRequest(parseError || "Invalid request");
 

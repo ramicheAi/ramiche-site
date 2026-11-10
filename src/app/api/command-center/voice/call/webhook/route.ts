@@ -1,11 +1,60 @@
+import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { callProxyJSON } from "@/lib/lead-gen";
 import type { CallDiscovery } from "@/lib/voice/discovery-schema";
+import { isFounderGuardEnforced, MACHINE_ROUTES_ENV, MACHINE_SECRET_ENV } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+const ROUTE_KEY = "voice-call-webhook";
+/**
+ * CC-SECURITY-REMEDIATION-05 item 5: a credential dedicated to this one integration,
+ * instead of the general-purpose `COMMAND_CENTER_MACHINE_SECRET` shared by every
+ * machine caller. Compromise of that shared secret (via any other integration) would
+ * otherwise also compromise this one, and vice versa. Setting this alone turns
+ * enforcement on for this route -- the same self-gating pattern as
+ * `TELEGRAM_WEBHOOK_SECRET` -- with no need to also touch `CC_FOUNDER_GUARD_ENFORCE`.
+ */
+const VAPI_SECRET_ENV = "VAPI_SERVER_SECRET";
+const MIN_SECRET_LENGTH = 32;
+
+function timingSafeCompare(given: string | null, expected: string): boolean {
+  if (!given) return false;
+  const a = Buffer.from(given, "utf8");
+  const b = Buffer.from(expected, "utf8");
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** True once a dedicated secret is configured -- its presence alone is the opt-in. */
+function dedicatedVapiSecretConfigured(): boolean {
+  const dedicated = process.env[VAPI_SECRET_ENV]?.trim();
+  return !!dedicated && dedicated.length >= MIN_SECRET_LENGTH;
+}
+
+/**
+ * Vapi sends its webhook secret as `x-vapi-secret`, not `Authorization: Bearer` --
+ * a different convention from `verifyMachineCredential`'s, so this checks it directly
+ * rather than force-fitting the shared helper onto the wrong header.
+ *
+ * Prefers the dedicated `VAPI_SERVER_SECRET` when configured. Falls back to the
+ * shared `COMMAND_CENTER_MACHINE_SECRET`/`CC_MACHINE_ROUTES` opt-in pair (the
+ * original CC-SECURITY-RELEASE-GATE-03A mechanism) when it is not, so an existing
+ * rollout that already set the shared secret for this route keeps working unchanged.
+ */
+function verifyVapiSecret(req: Request): boolean {
+  const dedicated = process.env[VAPI_SECRET_ENV]?.trim();
+  if (dedicated && dedicated.length >= MIN_SECRET_LENGTH) {
+    return timingSafeCompare(req.headers.get("x-vapi-secret"), dedicated);
+  }
+  const secret = process.env[MACHINE_SECRET_ENV]?.trim();
+  if (!secret || secret.length < MIN_SECRET_LENGTH) return false;
+  const routes = process.env[MACHINE_ROUTES_ENV]?.trim().toLowerCase().split(",").map((k) => k.trim()) ?? [];
+  if (!routes.includes("all") && !routes.includes(ROUTE_KEY)) return false;
+  return timingSafeCompare(req.headers.get("x-vapi-secret"), secret);
+}
 
 /**
  * Vapi end-of-call webhook. Vapi POSTs here when a call finishes (configured via
@@ -13,6 +62,22 @@ export const runtime = "nodejs";
  * structured discovery brief with the local proxy, and write it to the lead's meta
  * so the web-client-delivery skill can build from it. ALWAYS returns 200 so Vapi
  * doesn't retry-storm.
+ *
+ * CC-SECURITY-RELEASE-GATE-03A: no check existed here before. Opt-in, off by default --
+ * this change alone rejects nothing. Two ways to enable, either is sufficient:
+ *   (preferred) set `VAPI_SERVER_SECRET` (>=32 chars) and configure that same value as
+ *     this assistant's `server.secret` in Vapi (voice-provider.ts). Enforcement turns
+ *     on automatically the moment the env var is set -- no `CC_FOUNDER_GUARD_ENFORCE`
+ *     entry needed, same self-gating pattern as the Telegram webhook secret.
+ *   (legacy) set `COMMAND_CENTER_MACHINE_SECRET`, add "voice-call-webhook" to
+ *     `CC_MACHINE_ROUTES`, AND list "voice-call-webhook" in `CC_FOUNDER_GUARD_ENFORCE`,
+ *     using the same secret as `server.secret` in Vapi.
+ * Either way, the code half alone does nothing without the matching Vapi-side
+ * `server.secret` -- both must land together before enabling. Checked only on the
+ * message that actually writes anything (below), not on every status callback Vapi
+ * sends during a call, so enabling this never breaks the harmless ack path for message
+ * types with no effect. A rejected call is acked with `captured: false`, never a
+ * non-200, to preserve the no-retry-storm contract above.
  */
 export async function POST(req: Request) {
   try {
@@ -22,6 +87,11 @@ export async function POST(req: Request) {
 
     // Only act on the final report; ack everything else.
     if (type && type !== "end-of-call-report") return NextResponse.json({ ok: true });
+
+    const enforced = dedicatedVapiSecretConfigured() || isFounderGuardEnforced(ROUTE_KEY);
+    if (enforced && !verifyVapiSecret(req)) {
+      return NextResponse.json({ ok: true, captured: false, reason: "unauthorized" });
+    }
 
     const call = (msg.call && typeof msg.call === "object" ? msg.call : {}) as Record<string, unknown>;
     const artifact = (msg.artifact && typeof msg.artifact === "object" ? msg.artifact : {}) as Record<string, unknown>;

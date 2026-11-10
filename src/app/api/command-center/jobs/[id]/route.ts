@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { runJob } from "@/lib/jobs";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 /**
  * POST /api/command-center/jobs/[id] -> re-run a finished job (sets it back to queued + dispatches).
  */
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = requireFounderAuthority(req, "jobs-id");
+  if (denied) return denied;
   const { db, err } = svc();
   if (err) return err;
   const { id } = await params;

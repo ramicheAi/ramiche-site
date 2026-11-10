@@ -74,9 +74,16 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/command-center", `${proto}://${fwdHost}`));
   }
 
-  // SECURITY: the command center + its data APIs (leads, pipeline, financials) are
-  // ONLY reachable via the command.* domain, localhost, or the tailnet — NEVER the
-  // public *.vercel.app alias. Without this, anyone could GET the lead list publicly.
+  // CC-SECURITY-REMEDIATION-05 item 7: this is NOT a security boundary, despite how
+  // it reads. `fwdHost` comes straight from the client-supplied `x-forwarded-host` /
+  // `Host` header -- a raw request sent directly to the public *.vercel.app alias can
+  // set either to "command.anything" or "anything.ts.net" and pass this check with no
+  // actual presence on the command.* domain, localhost, or the tailnet. It reduces
+  // noise from untargeted internet scanners that don't know to spoof the header, and
+  // nothing more; it does not gate access, and never did. The real boundary for
+  // Command Center's privileged routes is `requireFounderAuthority()`
+  // (src/lib/server/founder-authority.ts), wired into all 46 POST handlers --
+  // enforced only once `CC_FOUNDER_GUARD_ENFORCE` is turned on per route.
   if (pathname.startsWith("/command-center") || pathname.startsWith("/api/command-center")) {
     const trusted =
       fwdHost.startsWith("command.") ||
