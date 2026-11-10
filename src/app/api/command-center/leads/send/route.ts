@@ -4,6 +4,7 @@ import nodemailer from "nodemailer";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { PARALLAX } from "@/lib/parallax-co";
 import { parseBody, badRequest, isValidEmail } from "@/lib/api-security";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -17,6 +18,11 @@ export const runtime = "nodejs";
  * Env: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, EMAIL_FROM (e.g. hello@parallaxvinc.com)
  */
 export async function POST(req: Request) {
+  // CC-SECURITY-COMPLETION-02: founder authority (no-op until CC_FOUNDER_GUARD_ENFORCE
+  // lists "leads-send"). Placed first so no side effect can run for an unauthorized caller.
+  const denied = requireFounderAuthority(req, "leads-send");
+  if (denied) return denied;
+
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 

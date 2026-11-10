@@ -3,6 +3,7 @@ import {
   gatewayToolsInvoke,
   isOpenClawGatewayConfigured,
 } from "@/lib/openclaw-gateway";
+import { requireFounderAuthority } from "@/lib/server/founder-authority";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -80,6 +81,11 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  // CC-SECURITY-COMPLETION-02: founder authority (no-op until CC_FOUNDER_GUARD_ENFORCE
+  // lists "settings"). Placed first so no side effect can run for an unauthorized caller.
+  const denied = requireFounderAuthority(req, "settings");
+  if (denied) return denied;
+
   let body: GatewayActionBody = {};
   try {
     body = (await req.json()) as GatewayActionBody;

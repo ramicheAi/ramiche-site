@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { decideSessionRecovery, type SessionStatePayload } from './session-recovery';
 // Parallax OS stylesheet layer — load order mirrors the prototype HTML.
 import './po/po-theme.css';
 import './po/po-holo.css';
@@ -72,7 +73,7 @@ function touchSession(): void {
   } catch { /* ignore */ }
 }
 
-function PinGate({ onUnlock }: { onUnlock: () => void }) {
+function PinGate({ onUnlock, notice }: { onUnlock: () => void; notice?: string | null }) {
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -207,6 +208,14 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
           Local dev: default PIN is 2451 when CC_PIN_HASH / CC_PIN are unset.
         </p>
       )}
+      {notice && (
+        <p
+          role="status"
+          style={{ color: '#fbbf24', fontSize: 12, maxWidth: 340, textAlign: 'center', marginBottom: 12, lineHeight: 1.5 }}
+        >
+          {notice}
+        </p>
+      )}
       {serverMsg && (
         <p style={{ color: '#f87171', fontSize: 12, maxWidth: 320, textAlign: 'center', marginBottom: 16, lineHeight: 1.5 }}>
           {serverMsg}
@@ -262,6 +271,8 @@ export default function CommandCenterLayout({
   const [authed, setAuthed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
+  const [recoveryNotice, setRecoveryNotice] = useState<string | null>(null);
+
   const lock = useCallback(() => {
     try {
       sessionStorage.removeItem(STORAGE_KEY);
@@ -270,6 +281,48 @@ export default function CommandCenterLayout({
     }
     setAuthed(false);
   }, []);
+
+  /**
+   * CC-SECURITY-COMPLETION-02 browser recovery: sessionStorage can say "unlocked" while
+   * the server-signed cookie has expired or been revoked. Ask the server (read-only) and,
+   * on 401, drop the local claim and show the PIN gate with an explanation instead of
+   * leaving every privileged call to fail silently with 401.
+   */
+  useEffect(() => {
+    if (!authed) return;
+    let cancelled = false;
+    const checkServerSession = async () => {
+      try {
+        const res = await fetch('/api/command-center/auth/state', { cache: 'no-store' });
+        if (cancelled) return;
+        if (res.status !== 401) return;
+        let payload: SessionStatePayload | null = null;
+        try {
+          payload = (await res.json()) as SessionStatePayload;
+        } catch {
+          /* a non-JSON 401 is treated as "no evidence", never as a lockout */
+        }
+        // Only a real recovery: guard on, secret configured, session gone. With the guard
+        // off or the secret missing this would clear sessionStorage and re-prompt forever.
+        const decision = decideSessionRecovery(res.status, payload);
+        if (!decision.recover) return;
+        sessionStorage.removeItem(STORAGE_KEY);
+        setRecoveryNotice(decision.notice);
+        setAuthed(false);
+      } catch {
+        /* network failure must not lock the founder out of a working page */
+      }
+    };
+    void checkServerSession();
+    const onFocus = () => void checkServerSession();
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
+  }, [authed]);
 
   useEffect(() => {
     setHydrated(true);
@@ -344,7 +397,15 @@ export default function CommandCenterLayout({
   }
 
   if (!authed) {
-    return <PinGate onUnlock={() => setAuthed(true)} />;
+    return (
+      <PinGate
+        notice={recoveryNotice}
+        onUnlock={() => {
+          setRecoveryNotice(null);
+          setAuthed(true);
+        }}
+      />
+    );
   }
 
   return <CommandCenterShell onLock={lock}>{children}</CommandCenterShell>;
