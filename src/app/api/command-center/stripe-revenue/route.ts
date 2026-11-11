@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { requireCommandCenterOwner, ownerDenialResponse } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -29,7 +30,12 @@ function monthKey(timestamp: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  // Defense-in-depth (CC-P06-SECURITY-RECONCILIATION-01): real revenue/MRR
+  // data. Also covers /api/command-center/revenue, which re-exports this GET.
+  const guard = await requireCommandCenterOwner(req);
+  if (!guard.ok) return ownerDenialResponse(guard);
+
   const stripe = getStripe();
 
   if (!stripe) {

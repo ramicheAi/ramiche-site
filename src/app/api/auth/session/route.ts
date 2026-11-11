@@ -12,6 +12,7 @@ import {
   verifySessionCookie,
   revokeSession,
 } from "@/lib/firebase-admin";
+import { configuredOwnerUid, isHumanProvider, isOwnerUid } from "@/lib/server/command-center-auth";
 
 /** Firebase-style session cookie name (METTLE Task 1a / middleware). */
 const COOKIE_NAME = "__session";
@@ -59,7 +60,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ authenticated: false }, { status: 401 });
   }
 
-  return NextResponse.json({ authenticated: true, uid: user.uid, email: user.email });
+  // isOwner: the Command Center owner boundary (CC-P06-SECURITY-RECONCILIATION-01).
+  // Computed here (Node runtime) so Edge middleware never needs firebase-admin or
+  // the owner uid directly — it only reads this boolean back over the same
+  // internal fetch it already makes for `authenticated`.
+  const owner = configuredOwnerUid();
+  const isOwner = !!owner && isHumanProvider(user.signInProvider) && isOwnerUid(user.uid, owner);
+
+  return NextResponse.json({ authenticated: true, uid: user.uid, email: user.email, isOwner });
 }
 
 // ── DELETE: Revoke session ───────────────────────────────────
