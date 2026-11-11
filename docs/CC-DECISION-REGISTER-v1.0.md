@@ -140,22 +140,26 @@
 
 ### CC-BDR-001: active production origin
 
-- **Status:** Blocked
+- **Status:** Partially resolved, still blocked on immutable artifact proof
 - **Question:** Does Cloudflare tunnel to the iMac/local Next process, Vercel, or another origin for the current Command Center?
-- **Needed evidence:** Cloudflare tunnel route and immutable deployment SHA.
-- **Why blocked:** Vercel team scope returned 403 and Cloudflare control-plane access was unavailable.
+- **Observed 2026-11-11:** the `command-center` Cloudflare Tunnel routes the hostname to `http://127.0.0.1:3000` on the iMac. The active origin is local Next.js, not the PR Preview. The origin checkout HEAD is `cabe7180e7ecd392707134c1c6dc4bca519cee4f`, but the checkout is dirty and therefore does not identify the exact built tree.
+- **Negative check:** the known `ramiche-site.vercel.app` alias returns 404 for Command Center paths, including with fabricated Access headers. This is not proof that no other origin hostname exists.
+- **Remaining evidence:** a clean reproducible deployment revision and an exhaustive provider-backed origin/alias inventory.
+- **Ledger:** `docs/CC-STAGE-0-EVIDENCE-CLOSURE-2026-11-11.md`.
 
 ### CC-BDR-002: Access claim and session policy
 
 - **Status:** Blocked
 - **Question:** Which identity claim is stable, what is the exact audience, and what are the current Access session and bypass rules?
-- **Needed evidence:** redacted authenticated claim sample and policy export.
+- **Observed 2026-11-11:** exact application audience, issuer/team domain, protected-resource metadata, and public JWKS discovery endpoint are recorded in the Stage 0 ledger.
+- **Remaining evidence:** redacted authenticated human claim sample plus ordered policy export covering identity providers, session duration, device posture, bypass/include/exclude rules, and service tokens. Public redirect metadata does not close this decision.
 
 ### CC-BDR-003: existing RAMICHE OS project publication contract
 
-- **Status:** Blocked
+- **Status:** Resolved for architecture, runtime bridge remains blocked
 - **Question:** Which current context, journal, or project-state publisher should the Project reconciler consume?
-- **Needed evidence:** owning repository contract and running bridge status.
+- **Decision:** RAMICHE OS owns the versioned project registry and structured task, outcome, evidence, and receipt contracts. `bin/cc_board.py` is the existing read-only projection. The shared journal adapter is supporting self-reported activity only and may not set canonical status. The structured journal writer is not activated and is not a Stage 4 prerequisite.
+- **Running bridge status:** `com.openclaw.bridge-sync` runs once per minute, but recent cycles accept 0/11 collections and return HTTP 401. `public/status.json` still advances `lastSync`, which is false freshness. Treat the bridge as unavailable until a separately approved repair is verified.
 - **Guardrail:** Do not rebuild an owned capability inside `ramiche-site`.
 
 ## Approval checklist
@@ -163,7 +167,8 @@
 Founder approval should address these separately:
 
 - [ ] Accept or amend CC-ADR-001 through CC-ADR-017.
-- [ ] Authorize read-only Cloudflare policy and tunnel inspection.
+- [x] Authorize read-only Cloudflare tunnel inspection. Completed without configuration changes.
+- [ ] Provide or authorize authenticated read-only Cloudflare Access policy inspection and a redacted claim capture.
 - [ ] Authorize Vercel team read access if Vercel remains in the topology.
 - [ ] Authorize Stage 1 identity implementation.
 - [ ] Authorize Stage 2 chat BFF and schema design.

@@ -835,8 +835,9 @@ Chromium emulation is supporting evidence only. It does not certify Safari or re
 - Record deployed origin, immutable SHA, Access application audience, claim shape, and active environment topology.
 - Capture the current mobile incident in a reproducible test.
 - Mark contradictory documents historical.
+- Run mobile lifecycle evidence at 390px and, where authentication is available, on real iPhone Safari or the installed PWA. Cover initial load, Access return, channel selection, reload, close/reopen, background/foreground, offline/reconnect, and typed failure state. Do not send or change production data merely to prove rehydration.
 
-**Gate:** evidence package reviewed, origin lock proven, direct-origin negative test passed, and claim contract recorded. No implementation before this gate except the approved Stage 0 evidence work itself.
+**Gate:** evidence package reviewed, origin lock proven, direct-origin negative test passed, claim contract recorded, and mobile lifecycle defect captured without production mutation. No implementation before this gate except the approved Stage 0 evidence work itself.
 
 ### Stage 1: identity foundation
 
@@ -844,8 +845,9 @@ Chromium emulation is supporting evidence only. It does not certify Safari or re
 - Implement app session, authorization middleware, CSRF, audit receipts, and break-glass.
 - Introduce the least-privilege database runtime contract. Keep `service_role` out of request handling.
 - Keep the legacy PIN until SSO canary passes.
+- Prove mobile Access return, background/foreground, reload, browser restart, and session-expiry recovery at 390px plus a real-phone canary. The phone must never enter a blank authenticated shell or a redirect loop.
 
-**Gate:** security review, invalid-token suite, canary, rollback drill.
+**Gate:** security review, invalid-token suite, mobile lifecycle canary, rollback drill.
 
 ### Stage 2: private chat BFF and rehydration
 
@@ -853,6 +855,7 @@ Chromium emulation is supporting evidence only. It does not certify Safari or re
 - Persist last conversation, draft, and cursor.
 - Remove direct browser reads/writes to private tables.
 - Add typed unavailable state.
+- Prove Content Team selection, reload, close/reopen, background/foreground, offline/reconnect, and second-device continuation on mobile without duplicate or missing rows.
 
 **Gate:** reported Content Team conversation rehydrates on real phone and second device.
 
@@ -860,8 +863,9 @@ Chromium emulation is supporting evidence only. It does not certify Safari or re
 
 - Add idempotency, turn state, event log, resumable stream, partial completion, and cancellation.
 - Split routing, execution, synthesis, verification, and persistence modules.
+- Prove mobile interruption, resume cursor, cancellation, partial completion, retry, and duplicate suppression across background/foreground and network loss.
 
-**Gate:** failure-injection suite and no duplicate sends.
+**Gate:** failure-injection suite, mobile lifecycle acceptance, and no duplicate sends.
 
 ### Stage 4: project source registry and projection
 
@@ -869,12 +873,14 @@ Chromium emulation is supporting evidence only. It does not certify Safari or re
 - Register authoritative sources per project.
 - Build adapters, receipts, reconciler, projection, conflicts, and freshness.
 - Retire static runtime truth.
+- Prove on mobile that stale, unavailable, conflict, and source-as-of states survive reload, background/foreground, and reconnect without reverting to LIVE.
 
-**Gate:** every project field has an owner and freshness status; false LIVE contract test passes.
+**Gate:** every project field has an owner and freshness status; false LIVE contract test and mobile lifecycle acceptance pass.
 
 ### Stage 5: mobile-first shell
 
 - Implement phone navigation, safe-area and dynamic viewport contract, lifecycle recovery, outbox, and responsive information hierarchy.
+- Re-run all earlier identity, chat, turn-engine, and Projects lifecycle cases on the integrated shell. Stage 5 is consolidation, not the first mobile acceptance point.
 
 **Gate:** real-device acceptance plus 390px and 1920px regression.
 
@@ -886,6 +892,7 @@ Chromium emulation is supporting evidence only. It does not certify Safari or re
 - project projection in compare mode against legacy;
 - measured expansion;
 - remove legacy paths only after rollback window.
+- require the mobile lifecycle suite at every canary expansion and after rollback rehearsal.
 
 No stage authorizes a production deploy, database migration, Cloudflare change, or merge without separate founder approval.
 
