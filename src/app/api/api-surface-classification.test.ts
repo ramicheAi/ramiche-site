@@ -31,13 +31,13 @@ const SURFACE: Record<string, Cls> = {
   "auth/session": "SESSION",
   "stripe/connect": "SESSION",
   "stripe/webhook": "PROVIDER_SIG",
-  "meet-results/cron": "OPEN_FINDING", // fail-open when CRON_SECRET unset, plain !== compare, ?secret= accepted
+  "meet-results/cron": "CC_MACHINE_EXT", // CRON_SECRET bearer, fail closed (fixed CC-STAGED-IMAC-ACCEPTANCE-06)
   "health": "PUBLIC",
   "free-audit": "PUBLIC",
   "studio-inquiry": "PUBLIC",
   "stripe/checkout": "PUBLIC",
   "stripe/agents-checkout": "PUBLIC",
-  "stripe/portal": "OPEN_FINDING", // IDOR: any customerId returns a billing-portal URL; return_url from Origin
+  "stripe/portal": "SESSION", // Firebase ID token + customer-email match (fixed CC-STAGED-IMAC-ACCEPTANCE-06)
   "power-challenge/checkout": "PUBLIC",
   "power-challenge/admin": "SESSION", // x-admin-pin
   "power-challenge/export": "SESSION", // admin credential
