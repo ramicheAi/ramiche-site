@@ -74,6 +74,16 @@ const nextConfig: NextConfig = {
   ],
   headers: async () => [
     {
+      // Agent-generated builds under public/ are untrusted active content. Serve them in an
+      // opaque-origin sandbox so they can never act as the owner (same-origin fetch + cookie).
+      source: "/yolo-builds/:path*",
+      headers: [
+        { key: "Content-Security-Policy", value: "sandbox allow-scripts; default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data: https:; media-src 'self' data: blob: https:; connect-src 'none'; form-action 'none'; base-uri 'none'" },
+        { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+        { key: "Referrer-Policy", value: "no-referrer" },
+      ],
+    },
+    {
       source: "/(.*)",
       headers: securityHeaders,
     },
