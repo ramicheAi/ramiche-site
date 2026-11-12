@@ -24,6 +24,19 @@ describe("GET /api/command-center/channels", () => {
     getSupabaseAdmin.mockReset();
   });
 
+  it("an unauthenticated caller is rejected before touching the database", async () => {
+    const res = await GET_(new Request("http://localhost/api/command-center/channels"));
+    expect(res.status).toBe(401);
+    expect(getSupabaseAdmin).not.toHaveBeenCalled();
+  });
+
+  it("an authenticated non-owner is rejected (403)", async () => {
+    verifySessionCookie.mockResolvedValue({ uid: "someone-else", signInProvider: "password" });
+    const res = await GET_(req());
+    expect(res.status).toBe(403);
+    expect(getSupabaseAdmin).not.toHaveBeenCalled();
+  });
+
   it("503s when the service role is not configured", async () => {
     getSupabaseAdmin.mockReturnValue(null);
     const res = await GET_(req());

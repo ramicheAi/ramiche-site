@@ -2355,6 +2355,13 @@ export default function CommandCenterChatPage() {
     const sb = supabase;
     const channelId = viewMode === "dm" && activeAgent ? getDmChannelId(activeAgent.id) : activeChannel?.id;
     if (!channelId) return;
+    // Guards against a slow fetch for a channel the owner has already
+    // switched away from landing LATE and overwriting the now-active
+    // channel's messages with a stale channel's history (CC-RECOVERY-
+    // INTEGRATION-01 review: "conversation switching cannot display stale
+    // messages from another channel"). Set in the cleanup below, which runs
+    // before this effect re-fires for the newly selected channel/agent.
+    let cancelled = false;
     const loadMessages = async () => {
       // Server-authorized history read (D1): anon/authenticated have zero
       // privileges on public.messages since the P05-B3 lockdown, so the old
@@ -2373,6 +2380,8 @@ export default function CommandCenterChatPage() {
       } catch (err) {
         setHistoryError(err instanceof Error ? err.message : "history request failed");
       }
+
+      if (cancelled) return; // channel/agent changed again while this fetch was in flight
 
       if (data) {
         const currentAgents = agentsRef.current;
@@ -2432,6 +2441,7 @@ export default function CommandCenterChatPage() {
         } else {
           console.warn("message_reactions load skipped:", reactErr.message);
         }
+        if (cancelled) return; // channel/agent changed again during the reactions fetch
         const withReactions: Message[] = mapped.map((m) => {
           const rows = byMid.get(m.id) ?? [];
           const agg = aggregateReactions(rows, CC_REACTION_USER_ID);
@@ -2462,6 +2472,9 @@ export default function CommandCenterChatPage() {
     loadMessages();
 
     // No polling — realtime subscription + REST polling fallback handle live updates.
+    return () => {
+      cancelled = true;
+    };
   }, [activeChannel, activeAgent, viewMode]);
 
   /* ── real-time subscription for new messages ── */

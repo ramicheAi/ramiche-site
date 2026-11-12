@@ -26,6 +26,19 @@ describe("GET /api/command-center/conversations/[id]/messages", () => {
     getSupabaseAdmin.mockReset();
   });
 
+  it("an unauthenticated caller (no session cookie) is rejected before touching the database", async () => {
+    const res = await GET(new Request(`http://localhost/api/command-center/conversations/${CHANNEL_ID}/messages`), ctx());
+    expect(res.status).toBe(401);
+    expect(getSupabaseAdmin).not.toHaveBeenCalled();
+  });
+
+  it("an authenticated non-owner is rejected (403), never served another identity's history", async () => {
+    verifySessionCookie.mockResolvedValue({ uid: "someone-else", signInProvider: "password" });
+    const res = await GET(req(), ctx());
+    expect(res.status).toBe(403);
+    expect(getSupabaseAdmin).not.toHaveBeenCalled();
+  });
+
   it("rejects a malformed channel id before touching the database", async () => {
     const res = await GET(req("/api/command-center/conversations/not-a-uuid/messages"), ctx("not-a-uuid"));
     expect(res.status).toBe(400);

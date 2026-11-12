@@ -160,3 +160,35 @@ describe('D5 mobile lifecycle: no resume reconciliation', () => {
     expect(PAGE).toMatch(/visibilitychange/)
   })
 })
+
+describe('D6 conversation switching must not race (CC-RECOVERY-INTEGRATION-01 pre-merge review)', () => {
+  // FIXED: a slow history fetch for a channel the owner has already switched
+  // away from used to be able to land late and overwrite the NOW-active
+  // channel's messages, because the loadMessages effect had no cleanup/
+  // cancellation guard at all. Verified by code shape here (the effect is
+  // 6000+ lines deep in a client component, which this repo's own convention
+  // for this file tests by source inspection, not by mounting it — see the
+  // D1-D5 contracts above).
+  it('CONTRACT: the history-loading effect cancels itself when the channel/agent changes again before it resolves', () => {
+    const loadMessagesEffect = PAGE.slice(
+      PAGE.indexOf('Guards against a slow fetch for a channel the owner has already'),
+      PAGE.indexOf('}, [activeChannel, activeAgent, viewMode]);') + 1
+    )
+    expect(loadMessagesEffect).toMatch(/let cancelled = false/)
+    expect(loadMessagesEffect).toMatch(/if \(cancelled\) return/)
+    expect(loadMessagesEffect).toMatch(/return \(\) => \{\s*cancelled = true;\s*\}/)
+  })
+})
+
+describe('Cross-device restoration — explicitly pending, not claimed', () => {
+  it('CONTRACT: the persisted-conversation mechanism is browser localStorage, not a cross-device/server-side preference', () => {
+    // D3's fix is real but scoped to ONE browser: it reads/writes
+    // localStorage, which never syncs across devices or browser profiles.
+    // A second device/browser restores "most recently active" the same way
+    // it always did. That gap is real and intentionally not closed here —
+    // closing it needs a durable, server-side "last viewed conversation"
+    // record per owner, which is a feature, not this PR's R1-R4 scope.
+    expect(PAGE).toMatch(/localStorage\.getItem\(LAST_CONVERSATION_KEY\)/)
+    expect(PAGE).toMatch(/localStorage\.setItem\(LAST_CONVERSATION_KEY/)
+  })
+})
