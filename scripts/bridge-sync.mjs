@@ -741,24 +741,12 @@ async function syncAll() {
     console.error("[bridge] rsync projects error:", e.message);
   }
 
-  // Also write status.json locally for the secondary frontend fallback
-  try {
-    const statusPath = join(WORKSPACE, "../../ramiche-site/public/status.json");
-    const recentlyActiveList = agents.recentlyActive ? agents.recentlyActive.split(",").filter(Boolean) : [];
-    const statusData = {
-      agents: Object.entries(agents.directory?.agents || {}).map(([name, a]) => ({
-        name,
-        model: a.model,
-        role: a.role,
-        status: recentlyActiveList.includes(name) ? "active" : "idle",
-        task: "Standing by",
-      })),
-      lastSync: timestamp,
-    };
-    writeFileSync(statusPath, JSON.stringify(statusData, null, 2));
-  } catch (e) {
-    console.error("[bridge] status.json write error:", e.message);
-  }
+  // Collection names paired 1:1 with the pushToFirestore calls below, so the
+  // acceptance count below can be attributed per collection, not just totalled.
+  const COLLECTION_NAMES = [
+    "agents", "crons", "activity", "agentActivity", "projects", "links",
+    "missions", "schedule", "notifications", "opportunities", "tasks",
+  ];
 
   const results = await Promise.all([
     pushToFirestore("agents", { ...agents, display: agents.display, lastSync: timestamp }),
@@ -775,7 +763,39 @@ async function syncAll() {
   ]);
 
   const ok = results.filter(Boolean).length;
-  console.log(`[bridge] synced ${ok}/${results.length} collections`);
+  const failedCollections = COLLECTION_NAMES.filter((_, i) => !results[i]);
+  console.log(`[bridge] synced ${ok}/${results.length} collections${failedCollections.length ? ` (failed: ${failedCollections.join(", ")})` : ""}`);
+
+  // Write status.json ONLY after push results are known, and record what was
+  // actually accepted — not just that the loop ticked. A process that ticks
+  // every 60s while every push 401s must never render as "LIVE" downstream
+  // (see docs/bridge/CC-BRIDGE-PROJECT-TRUTH-01.md section 2 — this was the
+  // root cause of "LIVE" badges showing during 284,629 consecutive 0/11 cycles).
+  try {
+    const statusPath = join(WORKSPACE, "../../ramiche-site/public/status.json");
+    const recentlyActiveList = agents.recentlyActive ? agents.recentlyActive.split(",").filter(Boolean) : [];
+    const statusData = {
+      agents: Object.entries(agents.directory?.agents || {}).map(([name, a]) => ({
+        name,
+        model: a.model,
+        role: a.role,
+        status: recentlyActiveList.includes(name) ? "active" : "idle",
+        task: "Standing by",
+      })),
+      // attemptedAt is process-liveness only; it must never be read as sync success.
+      attemptedAt: timestamp,
+      accepted: ok,
+      total: results.length,
+      allAccepted: ok === results.length,
+      failedCollections,
+      // acceptedAt is set ONLY when every collection was actually accepted —
+      // this is the field a "LIVE" badge is allowed to key off, never attemptedAt.
+      acceptedAt: ok === results.length ? timestamp : null,
+    };
+    writeFileSync(statusPath, JSON.stringify(statusData, null, 2));
+  } catch (e) {
+    console.error("[bridge] status.json write error:", e.message);
+  }
 
   // Poll for pending chat messages and route to agents
   await pollPendingMessages();

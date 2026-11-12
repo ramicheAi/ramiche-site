@@ -48,11 +48,16 @@ export default function ProjectTracker() {
   const fetchProjects = useCallback(() => {
     // Live merged data: shared-projects metadata + filesystem TASKS.md
     fetch("/api/command-center/projects")
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error(`projects fetch failed: ${r.status}`);
+        return r.json();
+      })
       .then(data => {
         if (Array.isArray(data?.projects) && data.projects.length > 0) {
           setProjects(data.projects);
         }
+        // A non-2xx response throws above and never reaches this line, so
+        // "LIVE" only ever reflects an actual successful fetch.
         setLastSync(new Date().toISOString());
       })
       .catch(() => {})

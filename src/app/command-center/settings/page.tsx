@@ -119,8 +119,10 @@ function SettingsContent() {
           setAgents(data.agents);
           setSource(data.source || "static");
         }
+        // Only a successful response counts as a sync — a failed fetch must
+        // never advance the "LIVE" badge (see PR #84 / project-truth fixes).
+        setLastSync(new Date().toLocaleTimeString());
       }
-      setLastSync(new Date().toLocaleTimeString());
     } catch { /* retry next cycle */ }
     finally { setLoading(false); }
   }, []);
