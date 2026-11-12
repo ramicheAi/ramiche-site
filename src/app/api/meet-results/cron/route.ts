@@ -4,10 +4,12 @@
 
 import { NextResponse } from "next/server";
 
+import { timingSafeSecretEqual, bearerToken } from "@/lib/server/command-center-auth";
+
 const PROJECT_ID =
   process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "apex-athlete-73755";
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
-const CRON_SECRET = process.env.CRON_SECRET;
+const CRON_SECRET = process.env.CRON_SECRET?.trim();
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://ramiche-site.vercel.app";
 const MAX_RETRIES = 3;
 
@@ -66,11 +68,13 @@ async function fetchRoster(orgId: string): Promise<RosterAthlete[]> {
 // ── Main cron handler ───────────────────────────────────────────────
 
 export async function GET(req: Request) {
-  // Auth: accept CRON_SECRET via header or query param; skip if not configured
-  const authHeader = req.headers.get("authorization");
-  const url = new URL(req.url);
-  const querySecret = url.searchParams.get("secret");
-  if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}` && querySecret !== CRON_SECRET) {
+  // SECURITY (CC-STAGED-IMAC-ACCEPTANCE-06 triage): this used to SKIP auth
+  // entirely when CRON_SECRET was unset ("skip if not configured") and also
+  // accepted the secret via a `?secret=` query string, which lands in access
+  // logs, browser history and Referer headers. CRON_SECRET was confirmed
+  // absent from Vercel production, so this was live and fail-open on the
+  // deployed app. It now fails CLOSED when unset, header-only, timing-safe.
+  if (!timingSafeSecretEqual(bearerToken(req.headers), CRON_SECRET)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
