@@ -6,13 +6,14 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { fsUrl, toFirestoreFields, fromFirestoreFields } from "@/lib/firestore-bridge-rest";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 const BRIDGE_SECRET = (process.env.BRIDGE_API_SECRET || "").trim().replace(/\\n$/, "");
 
 export const dynamic = "force-dynamic";
 
 // GET: Read current bridge state
-export async function GET(req: NextRequest) {
+async function GET_handler(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type") || "all";
   const validTypes = ["agents", "crons", "activity", "agentActivity", "projects", "links", "missions", "schedule", "notifications", "opportunities", "tasks"];
@@ -72,7 +73,7 @@ export async function GET(req: NextRequest) {
 }
 
 // PATCH: Update task status (move, approve, create) from Command Center UI
-export async function PATCH(req: NextRequest) {
+async function PATCH_handler(req: NextRequest) {
   try {
     const body = await req.json();
     const { action, taskId, fromCol, toCol, task } = body;
@@ -231,3 +232,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
+
+// Owner-only at the handler (CC-SECURITY-RECONCILIATION-02, independent review B1/B2).
+export const GET = ownerOnly(GET_handler);
+export const PATCH = ownerOnly(PATCH_handler);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash, timingSafeEqual } from "crypto";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ function pinVerificationAvailable(): boolean {
 }
 
 /** Preflight for the UI — no secrets. */
-export async function GET() {
+async function GET_handler() {
   const ready = pinVerificationAvailable();
   const devOnly =
     process.env.NODE_ENV === "development" &&
@@ -38,7 +39,7 @@ export async function GET() {
   });
 }
 
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   let pin = "";
   try {
     const body = (await req.json()) as { pin?: string };
@@ -86,3 +87,7 @@ export async function POST(req: NextRequest) {
   const dev = pin === "2451";
   return NextResponse.json(dev ? { ok: true } : { ok: false }, { status: dev ? 200 : 401 });
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);
+export const POST = ownerOnly(POST_handler);

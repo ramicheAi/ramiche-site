@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { fsUrl } from "@/lib/bridge-handlers";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -104,7 +105,7 @@ function isValidType(t: string): t is BusMessage["type"] {
  *   recipient (required) — agent id or "ramon"
  *   since    (optional) — epoch ms; only return messages after this timestamp
  */
-export async function GET(req: NextRequest): Promise<NextResponse> {
+async function GET_handler(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = req.nextUrl;
   const recipient = searchParams.get("recipient");
   const sinceRaw = searchParams.get("since");
@@ -138,7 +139,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
  * POST — Submit a message to the bus.
  * Body: { from, to, type, payload, metadata? }
  */
-export async function POST(req: NextRequest): Promise<NextResponse> {
+async function POST_handler(req: NextRequest): Promise<NextResponse> {
   let body: IncomingMessage;
   try {
     body = (await req.json()) as IncomingMessage;
@@ -192,3 +193,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     queueDepth: commsPersistEnabled() ? undefined : messageQueue.length,
   });
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);
+export const POST = ownerOnly(POST_handler);

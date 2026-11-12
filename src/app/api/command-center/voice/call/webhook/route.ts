@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { bearerToken, timingSafeSecretEqual } from "@/lib/server/command-center-auth";
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { callProxyJSON } from "@/lib/lead-gen";
@@ -15,6 +16,13 @@ export const runtime = "nodejs";
  * doesn't retry-storm.
  */
 export async function POST(req: Request) {
+  // Machine route: authenticated by VAPI_WEBHOOK_SECRET (x-vapi-secret or Bearer).
+  // Fails closed while the secret is unset. Unauthorized requests get 401 (they are
+  // not Vapi, so no retry-storm concern).
+  const supplied = req.headers.get("x-vapi-secret")?.trim() || bearerToken(req.headers);
+  if (!timingSafeSecretEqual(supplied, process.env.VAPI_WEBHOOK_SECRET?.trim())) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
   try {
     const raw = (await req.json().catch(() => ({}))) as Record<string, unknown>;
     const msg = (raw.message && typeof raw.message === "object" ? raw.message : raw) as Record<string, unknown>;

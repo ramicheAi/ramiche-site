@@ -5,6 +5,7 @@ import { parseBody, badRequest } from "@/lib/api-security";
 import { placeVapiCall, vapiConfigured, toE164, type PlaceCallInput } from "@/lib/voice/voice-provider";
 import type { LeadContext } from "@/lib/voice/call-script";
 import type { GapId } from "@/lib/services-catalog";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -19,7 +20,7 @@ export const runtime = "nodejs";
  * - { leadId }          -> loads the lead + its diagnose gaps and runs the full
  *                          CLOSER script grounded in that business.
  */
-export async function POST(req: Request) {
+async function POST_handler(req: Request) {
   const { data: body, error: parseError } = await parseBody(req);
   if (parseError || !body) return badRequest(parseError || "Invalid request");
 
@@ -80,3 +81,6 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ placed: true, callId: result.callId, status: result.status, to: toE164(call.toNumber) });
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const POST = ownerOnly(POST_handler);

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { parseBody, sanitize, badRequest } from "@/lib/api-security";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ function svc() {
 }
 
 /** GET /api/command-center/pipeline/leads?stage=qualified&limit=100 */
-export async function GET(req: Request) {
+async function GET_handler(req: Request) {
   const { db, err } = svc();
   if (err) return err;
 
@@ -49,7 +50,7 @@ export async function GET(req: Request) {
  * POST /api/command-center/pipeline/leads
  * Create (or upsert by id) a lead. Logs a stage_change / created event.
  */
-export async function POST(req: Request) {
+async function POST_handler(req: Request) {
   const { db, err } = svc();
   if (err) return err;
 
@@ -93,3 +94,7 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ lead: data });
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);
+export const POST = ownerOnly(POST_handler);

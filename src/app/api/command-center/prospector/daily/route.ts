@@ -4,6 +4,7 @@ import { geocode, searchBusinesses } from "@/lib/prospector";
 import { qualifyProspect, normalizeName } from "@/lib/lead-fit";
 import { learnedTargets } from "@/lib/icp-learning";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -78,5 +79,9 @@ async function run() {
   return NextResponse.json({ imported: data?.length ?? 0, scanned, errors, targets: targets.map((t) => `${t.vertical}·${t.city}`) });
 }
 
-export async function POST() { return run(); }
-export async function GET() { return run(); }
+async function POST_handler() { return run(); }
+async function GET_handler() { return run(); }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const POST = ownerOnly(POST_handler);
+export const GET = ownerOnly(GET_handler);

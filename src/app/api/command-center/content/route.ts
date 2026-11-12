@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { readdirSync, readFileSync, existsSync, statSync } from "fs";
 import { join } from "path";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -81,7 +82,7 @@ function extractContentFromDirectory(dir: string): ContentItem[] {
   return items;
 }
 
-export async function GET() {
+async function GET_handler() {
   try {
     if (!existsSync(CONTENT_PIPELINE_DIR)) {
       return NextResponse.json({
@@ -107,3 +108,6 @@ export async function GET() {
     }, { status: 500 });
   }
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);

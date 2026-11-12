@@ -3,9 +3,11 @@
  *
  * Env:
  *   TELEGRAM_BOT_TOKEN — required for editMessageReplyMarkup / answerCallbackQuery
- *   TELEGRAM_WEBHOOK_SECRET — optional; set via setWebhook secret_token, sent as
+ *   TELEGRAM_WEBHOOK_SECRET — REQUIRED (requests are rejected while unset); set via setWebhook secret_token, sent as
  *     header X-Telegram-Bot-Api-Secret-Token on each update
  */
+
+import { timingSafeSecretEqual } from "@/lib/server/command-center-auth";
 
 function cleanEnv(name: string): string | undefined {
   const raw = process.env[name];
@@ -79,7 +81,7 @@ export async function telegramAnswerCallbackQuery(
 }
 
 export function verifyTelegramWebhookSecret(req: { headers: Headers }): boolean {
+  // Fail CLOSED: an unset/blank secret rejects every request (it used to accept all).
   const expected = cleanEnv("TELEGRAM_WEBHOOK_SECRET");
-  if (!expected) return true;
-  return req.headers.get("X-Telegram-Bot-Api-Secret-Token") === expected;
+  return timingSafeSecretEqual(req.headers.get("X-Telegram-Bot-Api-Secret-Token"), expected);
 }

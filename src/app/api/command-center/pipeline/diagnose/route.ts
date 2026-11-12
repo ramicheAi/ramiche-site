@@ -6,6 +6,7 @@ import { recommendBundle } from "@/lib/services-catalog";
 import { qualifyPostResearch } from "@/lib/lead-qualification";
 import { isChain } from "@/lib/lead-fit";
 import { parseBody, badRequest } from "@/lib/api-security";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ export const dynamic = "force-dynamic";
  * POST { leadId } -> audits the lead's digital presence, builds a value-priced
  * service bundle, stores both on the lead, advances it to 'qualified'.
  */
-export async function POST(req: Request) {
+async function POST_handler(req: Request) {
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 
@@ -108,3 +109,6 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ lead: updated, audit, recommendation: rec, acv });
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const POST = ownerOnly(POST_handler);

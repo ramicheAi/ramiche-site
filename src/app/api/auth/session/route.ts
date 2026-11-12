@@ -12,6 +12,8 @@ import {
   verifySessionCookie,
   revokeSession,
 } from "@/lib/firebase-admin";
+import { checkBrowserMutation } from "@/lib/server/command-center-csrf";
+import { configuredOwnerUid, isHumanProvider, isOwnerUid } from "@/lib/server/command-center-auth";
 
 /** Firebase-style session cookie name (METTLE Task 1a / middleware). */
 const COOKIE_NAME = "__session";
@@ -19,6 +21,9 @@ const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
 
 // ── POST: Exchange ID token for session cookie ───────────────
 export async function POST(req: NextRequest) {
+  // Login CSRF: a cross-site form post must not be able to swap the victim's session.
+  const csrf = checkBrowserMutation("POST", req.headers);
+  if (!csrf.ok) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   try {
     const { idToken } = await req.json();
     if (!idToken || typeof idToken !== "string") {
@@ -59,11 +64,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ authenticated: false }, { status: 401 });
   }
 
-  return NextResponse.json({ authenticated: true, uid: user.uid, email: user.email });
+  // isOwner: the Command Center owner boundary (CC-P06-SECURITY-RECONCILIATION-01).
+  // Computed here (Node runtime) so Edge middleware never needs firebase-admin or
+  // the owner uid directly — it only reads this boolean back over the same
+  // internal fetch it already makes for `authenticated`.
+  const owner = configuredOwnerUid();
+  const isOwner = !!owner && isHumanProvider(user.signInProvider) && isOwnerUid(user.uid, owner);
+
+  return NextResponse.json({ authenticated: true, uid: user.uid, email: user.email, isOwner });
 }
 
 // ── DELETE: Revoke session ───────────────────────────────────
 export async function DELETE(req: NextRequest) {
+  const csrf = checkBrowserMutation("DELETE", req.headers);
+  if (!csrf.ok) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const cookie = req.cookies.get(COOKIE_NAME)?.value;
   if (cookie) {
     const user = await verifySessionCookie(cookie);

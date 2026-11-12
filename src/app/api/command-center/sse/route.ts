@@ -6,6 +6,7 @@ import { resolveOpenclawCronDir } from "@/lib/openclaw-paths";
 import { cpus, totalmem, freemem } from "os";
 import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
 import { getFirestore, type Firestore, FieldValue } from "firebase-admin/firestore";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -300,7 +301,7 @@ function buildSnapshot() {
 
 /* ── SSE Handler ─────────────────────────────────────────────────────── */
 
-export async function GET(req: NextRequest) {
+async function GET_handler(req: NextRequest) {
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -427,3 +428,6 @@ export async function GET(req: NextRequest) {
     },
   });
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);

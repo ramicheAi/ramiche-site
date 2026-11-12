@@ -9,6 +9,7 @@ import {
   parseCronSchedule,
   type RawCronJob,
 } from "@/lib/calendar-cron";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -80,7 +81,7 @@ function respond(
   );
 }
 
-export async function GET() {
+async function GET_handler() {
   const workspace = process.env.OPENCLAW_WORKSPACE ?? "/Users/admin/.openclaw/workspace";
   const cronDir = resolveOpenclawCronDir();
   const cronPath = join(cronDir, "jobs.json");
@@ -140,3 +141,6 @@ export async function GET() {
     );
   }
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);

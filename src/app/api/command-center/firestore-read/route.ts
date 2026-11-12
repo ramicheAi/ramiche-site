@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -215,7 +216,7 @@ function stripMeta(
 
 /* ── GET Handler ───────────────────────────────────────────────────── */
 
-export async function GET(req: NextRequest) {
+async function GET_handler(req: NextRequest) {
   const collection = req.nextUrl.searchParams.get("collection");
 
   if (!collection || !VALID_COLLECTIONS.has(collection)) {
@@ -289,3 +290,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: String(e), ok: false }, { status: 500 });
   }
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);

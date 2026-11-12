@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -9,7 +10,7 @@ export const runtime = "nodejs";
  * statically trace the workspace fallback path or the gateway lib's transitive
  * imports into this route's serverless bundle.
  */
-export async function POST(request: Request): Promise<Response> {
+async function POST_handler(request: Request): Promise<Response> {
   try {
     const { handleYoloApprove } = await import("./handler");
     return await handleYoloApprove(request);
@@ -21,3 +22,6 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const POST = ownerOnly(POST_handler);

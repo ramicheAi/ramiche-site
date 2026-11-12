@@ -5,6 +5,7 @@ import {
   isOpenClawGatewayConfigured,
   resolveChatSessionKey,
 } from "@/lib/openclaw-gateway";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -48,7 +49,7 @@ function sanitizeReply(text: string): string {
  * isn't configured, errors out, or takes too long, so the dock always speaks
  * something useful.
  */
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   let body: ComposeBody;
   try {
     body = (await req.json()) as ComposeBody;
@@ -120,7 +121,7 @@ export async function POST(req: NextRequest) {
   });
 }
 
-export async function GET() {
+async function GET_handler() {
   return NextResponse.json({
     ok: true,
     endpoint: "POST /api/command-center/briefing/compose",
@@ -128,3 +129,7 @@ export async function GET() {
     gatewayConfigured: isOpenClawGatewayConfigured(),
   });
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const POST = ownerOnly(POST_handler);
+export const GET = ownerOnly(GET_handler);

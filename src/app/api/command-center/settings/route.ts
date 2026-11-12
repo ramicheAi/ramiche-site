@@ -3,6 +3,7 @@ import {
   gatewayToolsInvoke,
   isOpenClawGatewayConfigured,
 } from "@/lib/openclaw-gateway";
+import { requireCommandCenterOwner, ownerDenialResponse } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -29,8 +30,10 @@ export const runtime = "nodejs";
  *   - "cron-enable"      → tool: cron, action: enable, args: { name }
  *   - "cron-disable"     → tool: cron, action: disable, args: { name }
  *
- * Auth: relies on the PIN gate at the page boundary (layout.tsx). If you wire
- * server-issued session cookies, validate them here before invoking.
+ * Auth: now requireCommandCenterOwner() in-handler, in addition to
+ * middleware.ts (CC-P06-SECURITY-RECONCILIATION-01) — this surface can
+ * restart the OpenClaw gateway and enable/disable crons, so it must not
+ * depend on the page-boundary PIN or on middleware alone.
  *
  * Rate limiting: lightweight in-memory "last restart" gate so we can't
  * inadvertently hammer `gateway restart`.
@@ -62,7 +65,10 @@ function badAction(action: string | undefined) {
   );
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const guard = await requireCommandCenterOwner(req);
+  if (!guard.ok) return ownerDenialResponse(guard);
+
   if (!isOpenClawGatewayConfigured()) {
     return NextResponse.json({ ok: false, configured: false, reachable: false });
   }
@@ -80,6 +86,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const guard = await requireCommandCenterOwner(req);
+  if (!guard.ok) return ownerDenialResponse(guard);
+
   let body: GatewayActionBody = {};
   try {
     body = (await req.json()) as GatewayActionBody;
