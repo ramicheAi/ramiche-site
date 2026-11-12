@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import mqtt from "mqtt";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -306,7 +307,7 @@ function connectMqtt(host: string, accessCode: string, serial: string): { ok: bo
 
 /* ── GET ───────────────────────────────────────────────────────────── */
 
-export async function GET() {
+async function GET_handler() {
   try {
     const state = readState();
     const mqttConnected = mqttClient !== null && mqttClient.connected;
@@ -352,7 +353,7 @@ interface CompleteJobPayload { action: "complete-job"; status: "completed" | "fa
 
 type ActionPayload = ConnectPayload | DisconnectPayload | UpdateStatusPayload | AddJobPayload | CompleteJobPayload;
 
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   try {
     const body = (await req.json()) as ActionPayload;
     const state = readState();
@@ -452,3 +453,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });
   }
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);
+export const POST = ownerOnly(POST_handler);

@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from 'fs';
 import path from 'path';
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 const PROJECT_ROOT = process.cwd();
 const PIPELINE_DIR = path.join(PROJECT_ROOT, 'public', 'projects');
@@ -186,7 +187,7 @@ function parsePipeline(projectName: string, content: string): PipelineTask[] {
   return tasks;
 }
 
-export async function GET(req: NextRequest) {
+async function GET_handler(req: NextRequest) {
   try {
     // Read all PIPELINE.md files
     const pipelineFiles = fs.readdirSync(PIPELINE_DIR)
@@ -231,3 +232,6 @@ export async function GET(req: NextRequest) {
 }
 
 export const dynamic = 'force-dynamic';
+
+// Reads internal project pipeline files: owner-only (CC-SECURITY-RELEASE-READINESS-03).
+export const GET = ownerOnly(GET_handler);

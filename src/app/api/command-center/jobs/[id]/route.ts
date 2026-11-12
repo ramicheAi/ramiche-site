@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { runJob } from "@/lib/jobs";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ function svc() {
 }
 
 /** GET /api/command-center/jobs/[id] -> job + recent events */
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function GET_handler(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { db, err } = svc();
   if (err) return err;
   const { id } = await params;
@@ -33,7 +34,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 /**
  * POST /api/command-center/jobs/[id] -> re-run a finished job (sets it back to queued + dispatches).
  */
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function POST_handler(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { db, err } = svc();
   if (err) return err;
   const { id } = await params;
@@ -48,3 +49,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   void runJob(id).catch(() => {});
   return NextResponse.json({ ok: true, id });
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);
+export const POST = ownerOnly(POST_handler);

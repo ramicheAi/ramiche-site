@@ -54,6 +54,28 @@ export async function verifyIdToken(
   }
 }
 
+/**
+ * Verify an ID token WITH revocation check and return the provider + auth time.
+ * Used by the Command Center owner sign-in, which must know the sign-in
+ * provider before it mints any session cookie.
+ */
+export async function verifyIdTokenForOwnerLogin(
+  idToken: string
+): Promise<{ uid: string; email?: string; signInProvider?: string } | null> {
+  getAdminApp();
+  if (!adminAuth) return null;
+  try {
+    const decoded = await adminAuth.verifyIdToken(idToken, true);
+    return {
+      uid: decoded.uid,
+      email: decoded.email,
+      signInProvider: decoded.firebase?.sign_in_provider,
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ── Create Session Cookie ────────────────────────────────────
 export async function createSessionCookie(
   idToken: string,
@@ -71,12 +93,19 @@ export async function createSessionCookie(
 // ── Verify Session Cookie ────────────────────────────────────
 export async function verifySessionCookie(
   cookie: string
-): Promise<{ uid: string; email?: string } | null> {
+): Promise<{ uid: string; email?: string; signInProvider?: string; issuedAt?: number } | null> {
   getAdminApp();
   if (!adminAuth) return null;
   try {
+    // checkRevoked=true: a revoked/expired-via-revocation session fails here,
+    // not silently — required for the Command Center owner boundary.
     const decoded = await adminAuth.verifySessionCookie(cookie, true);
-    return { uid: decoded.uid, email: decoded.email };
+    return {
+      uid: decoded.uid,
+      email: decoded.email,
+      signInProvider: decoded.firebase?.sign_in_provider,
+      issuedAt: decoded.iat,
+    };
   } catch {
     return null;
   }

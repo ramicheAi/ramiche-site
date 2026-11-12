@@ -4,15 +4,15 @@
 // For local dev: could call openclaw CLI directly
 
 import { NextRequest, NextResponse } from "next/server";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "apex-athlete-73755";
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
-const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET;
 
 export const dynamic = "force-dynamic";
 
 // GET: List cron jobs from Firestore (bridge-synced)
-export async function GET() {
+async function GET_handler() {
   try {
     const res = await fetch(`${FIRESTORE_BASE}/command-center/crons`, {
       headers: { "Content-Type": "application/json" },
@@ -27,12 +27,8 @@ export async function GET() {
 }
 
 // POST: Create/Delete/Toggle cron (writes action to Firestore queue for bridge to pick up)
-export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get("x-bridge-secret");
-  if (!BRIDGE_SECRET || authHeader !== BRIDGE_SECRET) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
+async function POST_handler(req: NextRequest) {
+  // Authorization: owner session via ownerOnly() below. The browser no longer holds or sends a bridge secret.
   try {
     const body = await req.json();
     const { action, cronId, data } = body;
@@ -63,3 +59,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);
+export const POST = ownerOnly(POST_handler);

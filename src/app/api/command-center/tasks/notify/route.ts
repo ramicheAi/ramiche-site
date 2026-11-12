@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fsUrl, toFirestoreFields, fromFirestoreFields } from "@/lib/firestore-bridge-rest";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ type NotifyBody = {
 };
 
 /** Appends a task-outcome line to Firestore `command-center/notifications` (main hub feed). */
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   try {
     const body = (await req.json()) as NotifyBody;
     const kind = body.kind as NotifyKind | undefined;
@@ -87,3 +88,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const POST = ownerOnly(POST_handler);

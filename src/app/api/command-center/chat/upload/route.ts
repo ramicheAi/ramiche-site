@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ const BUCKET = "chat-attachments";
  * Multipart upload to Supabase Storage (public bucket).
  * Create bucket `chat-attachments` (public) in Supabase; see docs/supabase-cc-chat-migrations.sql.
  */
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   try {
     const svc = getSupabaseService();
     if (!svc) {
@@ -49,3 +50,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const POST = ownerOnly(POST_handler);
