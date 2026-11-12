@@ -17,6 +17,9 @@ import { verifySessionCookie } from "@/lib/firebase-admin";
 import { SESSION_COOKIE, configuredOwnerUid, isHumanProvider, isOwnerUid } from "./command-center-auth";
 import { checkBrowserMutation } from "./command-center-csrf";
 
+/** Max age of a session cookie the owner boundary accepts. */
+export const OWNER_SESSION_MAX_AGE_S = 12 * 60 * 60;
+
 export type GuardResult =
   | { ok: true; uid: string }
   | { ok: false; status: 401 | 403 | 503; reason: string };
@@ -50,7 +53,7 @@ export async function requireCommandCenterOwner(req: Request): Promise<GuardResu
   const csrf = checkBrowserMutation(req.method, req.headers);
   if (!csrf.ok) return { ok: false, status: 403, reason: csrf.reason };
 
-  let decoded: { uid: string; signInProvider?: string } | null = null;
+  let decoded: { uid: string; signInProvider?: string; issuedAt?: number } | null = null;
   try {
     decoded = await verifySessionCookie(cookie);
   } catch {
@@ -59,6 +62,11 @@ export async function requireCommandCenterOwner(req: Request): Promise<GuardResu
   if (!decoded) return { ok: false, status: 401, reason: "invalid_session" };
   if (!isHumanProvider(decoded.signInProvider)) {
     return { ok: false, status: 401, reason: "invalid_session" };
+  }
+  // Owner sessions are short-lived (12h). The shared /api/auth/session still mints
+  // 30-day cookies for METTLE, so the owner boundary enforces its own max age.
+  if (typeof decoded.issuedAt === "number" && Date.now() / 1000 - decoded.issuedAt > OWNER_SESSION_MAX_AGE_S) {
+    return { ok: false, status: 401, reason: "session_expired" };
   }
   if (!isOwnerUid(decoded.uid, owner)) {
     return { ok: false, status: 403, reason: "not_owner" };

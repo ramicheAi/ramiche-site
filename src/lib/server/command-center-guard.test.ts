@@ -104,6 +104,14 @@ describe("requireCommandCenterOwner", () => {
     expect(result).toEqual({ ok: false, status: 401, reason: "missing_session" });
   });
 
+  it("rejects an owner cookie older than 12h even though it still verifies (30-day METTLE cookie)", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    verifySessionCookie.mockResolvedValue({ uid: OWNER_UID, signInProvider: "password", issuedAt: now - 13 * 3600 });
+    expect(await requireCommandCenterOwner(reqWithCookie("old"))).toEqual({ ok: false, status: 401, reason: "session_expired" });
+    verifySessionCookie.mockResolvedValue({ uid: OWNER_UID, signInProvider: "password", issuedAt: now - 3600 });
+    expect((await requireCommandCenterOwner(reqWithCookie("fresh"))).ok).toBe(true);
+  });
+
   it("a malformed/forged-looking cookie value is denied", async () => {
     verifySessionCookie.mockResolvedValue(null);
     for (const v of ["x", "..", "a.b.c", "Bearer abc", "%00"]) {

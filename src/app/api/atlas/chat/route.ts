@@ -22,6 +22,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic    = "force-dynamic";
 export const maxDuration = 15;
@@ -72,7 +73,7 @@ function getSupabase() {
 }
 
 // ── GET ───────────────────────────────────────────────────────────
-export async function GET(req: NextRequest) {
+async function GET_handler(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const action    = searchParams.get("action") || "status";
   const channelId = searchParams.get("channelId");
@@ -193,7 +194,7 @@ export async function GET(req: NextRequest) {
 }
 
 // ── POST ──────────────────────────────────────────────────────────
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   const supabase = getSupabase();
   if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
 
@@ -298,3 +299,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
+
+// Owner-only at the handler (CC-SECURITY-RECONCILIATION-02, independent review B1/B2).
+export const GET = ownerOnly(GET_handler);
+export const POST = ownerOnly(POST_handler);

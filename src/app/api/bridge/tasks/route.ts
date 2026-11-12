@@ -2,6 +2,7 @@
 // POST: Approve/reject/create tasks from Command Center UI
 
 import { NextRequest, NextResponse } from "next/server";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "apex-athlete-73755";
 const API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "";
@@ -11,7 +12,7 @@ function fsUrl(path: string) { const b = `${FIRESTORE_BASE}/${path}`; return API
 
 export const dynamic = "force-dynamic";
 
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   const authHeader = req.headers.get("x-bridge-secret");
   if (!BRIDGE_SECRET || authHeader !== BRIDGE_SECRET) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -96,7 +97,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET(req: NextRequest) {
+async function GET_handler(req: NextRequest) {
   const authHeader = req.headers.get("x-bridge-secret");
   if (!BRIDGE_SECRET || authHeader !== BRIDGE_SECRET) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -128,3 +129,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ items: [], error: String(e) });
   }
 }
+
+// Owner-only at the handler (CC-SECURITY-RECONCILIATION-02, independent review B1/B2).
+export const GET = ownerOnly(GET_handler);
+export const POST = ownerOnly(POST_handler);

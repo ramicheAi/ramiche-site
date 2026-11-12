@@ -24,9 +24,20 @@ const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] as 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((n) => {
     const p = join(dir, n);
-    return statSync(p).isDirectory() ? walk(p) : n === "route.ts" ? [p] : [];
+    // any route.* extension, so a route.js / route.tsx cannot go unclassified
+    return statSync(p).isDirectory() ? walk(p) : /^route\.(ts|tsx|js|jsx|mjs)$/.test(n) ? [p] : [];
   });
 }
+// Routes OUTSIDE /api/command-center that read or write Command Center data (independent
+// review B1/B2). Owner-only for the listed methods; bridge POST is a secret-gated machine sync.
+const API_ROOT = join(__dirname, "..");
+const EXTRA_HUMAN: Array<[string, string[]]> = [
+  ["bridge/route.ts", ["GET", "PATCH"]],
+  ["bridge/tasks/route.ts", ["GET", "POST"]],
+  ["bridge/chat/route.ts", ["GET", "POST"]],
+  ["bridge/crons/route.ts", ["GET", "POST"]],
+  ["atlas/chat/route.ts", ["GET", "POST"]],
+];
 const files = walk(ROOT).sort();
 const routePath = (f: string) => "/api/command-center/" + relative(ROOT, f).split(sep).slice(0, -1).join("/");
 const isMachine = (f: string) => routePath(f) in MACHINE_ROUTES;
@@ -140,6 +151,60 @@ describe("HUMAN routes deny at the handler (no middleware involved)", () => {
       })
     );
     expect(res.status).toBe(403);
+  });
+});
+
+describe("Command Center data routes outside /api/command-center are owner-only too", () => {
+  const original = process.env[OWNER_UID_ENV];
+  beforeEach(() => {
+    process.env[OWNER_UID_ENV] = OWNER;
+    verifySessionCookie.mockReset();
+    verifySessionCookie.mockResolvedValue(null);
+  });
+  afterEach(() => {
+    process.env[OWNER_UID_ENV] = original;
+  });
+
+  it.each(EXTRA_HUMAN)("%s", async (rel, methods) => {
+    const mod = (await import(/* @vite-ignore */ join(API_ROOT, rel))) as Record<string, unknown>;
+    for (const m of methods) {
+      const fn = mod[m] as (r: Request, c: unknown) => Promise<Response>;
+      expect((await fn(mk(m), ctx)).status, `${m} no-session`).toBe(401);
+      verifySessionCookie.mockResolvedValue({ uid: "someone-else", signInProvider: "password" });
+      expect((await fn(mk(m, { cookie: "__session=x", "sec-fetch-site": "same-origin" }), ctx)).status, `${m} non-owner`).toBe(403);
+      verifySessionCookie.mockResolvedValue(null);
+    }
+  });
+});
+
+describe("the owner is actually let through (no wrapper drops params / locks the owner out)", () => {
+  const original = process.env[OWNER_UID_ENV];
+  beforeEach(() => {
+    process.env[OWNER_UID_ENV] = OWNER;
+    verifySessionCookie.mockReset();
+    verifySessionCookie.mockResolvedValue({ uid: OWNER, signInProvider: "password" });
+  });
+  afterEach(() => {
+    process.env[OWNER_UID_ENV] = original;
+  });
+
+  // Only the routes that depend on route context (params) are exercised as the owner:
+  // running every handler would execute real side effects (shell, fs, outbound calls).
+  // Generic context forwarding is unit-tested in command-center-guard.test.ts.
+  it.each(["jobs/[id]/route.ts", "yolo-builds/preview/[...path]/route.ts"])("%s forwards route context for the owner", async (rel) => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 404 })));
+    const mod = (await import(/* @vite-ignore */ join(ROOT, rel))) as Record<string, unknown>;
+    for (const m of METHODS.filter((x) => typeof mod[x] === "function")) {
+      const fn = mod[m] as (r: Request, c: unknown) => Promise<Response>;
+      try {
+        const res = await fn(mk(m, { cookie: "__session=owner", "sec-fetch-site": "same-origin" }), ctx);
+        const body = await res.clone().json().catch(() => null);
+        expect(body && (body as { error?: string }).error === "denied", `${m} owner denied`).toBeFalsy();
+      } catch {
+        /* handler logic threw after passing the guard */
+      }
+    }
+    vi.unstubAllGlobals();
   });
 });
 

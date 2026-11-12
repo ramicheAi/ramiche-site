@@ -93,7 +93,7 @@ export async function createSessionCookie(
 // ── Verify Session Cookie ────────────────────────────────────
 export async function verifySessionCookie(
   cookie: string
-): Promise<{ uid: string; email?: string; signInProvider?: string } | null> {
+): Promise<{ uid: string; email?: string; signInProvider?: string; issuedAt?: number } | null> {
   getAdminApp();
   if (!adminAuth) return null;
   try {
@@ -104,6 +104,7 @@ export async function verifySessionCookie(
       uid: decoded.uid,
       email: decoded.email,
       signInProvider: decoded.firebase?.sign_in_provider,
+      issuedAt: decoded.iat,
     };
   } catch {
     return null;

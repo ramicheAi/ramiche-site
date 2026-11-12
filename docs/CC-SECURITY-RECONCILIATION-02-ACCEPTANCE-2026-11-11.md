@@ -152,3 +152,23 @@ Optional hardening: set `CC_ALLOWED_ORIGINS=https://command.parallaxvinc.com`. T
 3. Land the dependency remediation PR (or record an accepted disposition).
 4. Do not promote to the iMac with the hand-edited plist; use the immutable release procedure in PR #76.
 5. Do not describe `main` as production-equivalent: production has p06 owner identity plus unmerged p06 features that this PR does not bring over.
+
+## 10. Independent clean-context security review (commit `552b6ea7`)
+
+A fresh reviewer that did not write the code attacked the owner boundary, route coverage, CSRF, redirects, machine routes and tests. It found no bypass of the gate itself and confirmed the inventory tests pass. It did raise two blocking issues outside `/api/command-center` plus several smaller ones. Disposition:
+
+| ID | Finding | Disposition |
+|---|---|---|
+| B1 | `/api/atlas/chat` GET/POST unauthenticated, reads and writes the Command Center chat store (service-role key) | **Fixed**: owner-only at the handler; test added |
+| B2 | `/api/bridge` GET/PATCH unauthenticated, read/write Command Center Firestore docs | **Fixed**: GET/PATCH owner-only; `bridge/tasks`, `bridge/chat`, `bridge/crons` owner-only on all methods; root POST stays secret-gated machine sync. **Not fixed, UNVERIFIED**: the Firestore REST calls carry no credentials, so live Firestore rules may allow public read/write on `command-center/*` whatever the app does. Rules are not in the repo. Needs a human check of the Firebase console. |
+| N5 | 12h owner session not enforced (shared endpoint mints 30-day cookies) | **Fixed**: owner boundary rejects cookies older than 12h (`session_expired`) |
+| N6 | Login CSRF on the shared `/api/auth/session` POST/DELETE | **Fixed**: same-origin evidence required; METTLE browser calls are same-origin |
+| N10 | Test gaps | Partly fixed: any `route.*` extension discovered; routes outside `/api/command-center` covered; context forwarding tested. Still open: the matcher/runtime config is exercised only by the real-server run in section 2, not by a test. |
+| N1 | Project data served from `public/projects/**` is already public | Open, accepted as not secret unless Ramon says otherwise |
+| N2 | Agent-built HTML served same-origin by `yolo-builds/preview` | Open residual risk; recommend a sandbox origin or CSP `sandbox` |
+| N3 | `prospector/daily` GET has side effects (not CSRF-covered, `SameSite=Lax`) | Open; make POST-only |
+| N4 | Scheduled prospector call (if any) now gets 401 | Open; no scheduler found on the MacBook, iMac launchd jobs not checked |
+| N7 | Missing/broken `FIREBASE_SERVICE_ACCOUNT` shows as `invalid_session`, not "not configured" | Open; present on the iMac release (name only) |
+| N8 | Origin check depends on `Host` | Mitigated by `CC_ALLOWED_ORIGINS` (recommended); iMac tunnel config verified to have no host override |
+| N9 | Telegram Approve button does not check who pressed it | Open; allowlist the owner Telegram user id |
+| extra | `src/app/command-center/legacy/page.tsx` hardcodes the bridge secret (`x-bridge-secret`) in client code, so the `bridge/*` secret is effectively public | Open **blocker for the secret-gated bridge POST**; rotate `BRIDGE_API_SECRET` and remove it from the bundle (secret change is outside this task) |

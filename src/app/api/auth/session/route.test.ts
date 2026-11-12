@@ -53,10 +53,18 @@ describe("/api/auth/session — shared METTLE endpoint stays functional and neve
   it("POST (METTLE exchange) still mints the 30-day cookie for any valid identity", async () => {
     m.createSessionCookie.mockResolvedValue("cookie-value");
     const res = await POST(
-      new NextRequest("http://localhost/api/auth/session", { method: "POST", body: JSON.stringify({ idToken: "tok" }) })
+      new NextRequest("http://localhost/api/auth/session", { method: "POST", headers: { "sec-fetch-site": "same-origin" }, body: JSON.stringify({ idToken: "tok" }) })
     );
     expect(res.status).toBe(200);
     expect(res.headers.get("set-cookie")).toContain("__session=cookie-value");
     expect(res.headers.get("set-cookie")).toContain(`Max-Age=${30 * 24 * 60 * 60}`);
+  });
+
+  it("POST/DELETE reject cross-site and ambiguous-origin requests (login CSRF)", async () => {
+    for (const headers of [{ "sec-fetch-site": "cross-site" }, {}] as Record<string, string>[]) {
+      const res = await POST(new NextRequest("http://localhost/api/auth/session", { method: "POST", headers, body: JSON.stringify({ idToken: "tok" }) }));
+      expect(res.status).toBe(403);
+    }
+    expect(m.createSessionCookie).not.toHaveBeenCalled();
   });
 });
