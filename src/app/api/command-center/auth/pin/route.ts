@@ -31,12 +31,23 @@ export const dynamic = "force-dynamic";
  * POST { pin: string } — on a trusted device, verify PIN (rate-limited,
  * server-side lockout) and mint the `cc_unlock` session cookie.
  */
+// Independent review finding: CC_PIN_ALLOW_DEV=1 alone (or NODE_ENV left as
+// "development") was enough to accept the hardcoded "2451" PIN, and Vercel
+// previews are a realistic place for that flag to get set and forgotten.
+// VERCEL_ENV is set by the platform itself (never user-configurable the way
+// NODE_ENV/CC_PIN_ALLOW_DEV are), so requiring it to be anything other than
+// "production" closes the one realistic path to this fallback ever being
+// live on a real production deployment, without affecting local dev (where
+// VERCEL_ENV is unset) or genuine preview deployments.
+function devFallbackAllowed(): boolean {
+  if (process.env.VERCEL_ENV === "production") return false;
+  return process.env.NODE_ENV === "development" || process.env.CC_PIN_ALLOW_DEV === "1";
+}
+
 function pinVerificationAvailable(): boolean {
   const hashEnv = process.env.CC_PIN_HASH?.trim();
   const plainEnv = process.env.CC_PIN?.trim();
-  const allowDevFallback =
-    process.env.NODE_ENV === "development" || process.env.CC_PIN_ALLOW_DEV === "1";
-  return !!(hashEnv || plainEnv || allowDevFallback);
+  return !!(hashEnv || plainEnv || devFallbackAllowed());
 }
 
 function pinMatches(pin: string): boolean {
@@ -58,9 +69,7 @@ function pinMatches(pin: string): boolean {
     const b = Buffer.from(plainEnv, "utf8");
     return a.length === b.length && timingSafeEqual(a, b);
   }
-  const allowDevFallback =
-    process.env.NODE_ENV === "development" || process.env.CC_PIN_ALLOW_DEV === "1";
-  return allowDevFallback && pin === "2451";
+  return devFallbackAllowed() && pin === "2451";
 }
 
 // Parses the raw `cookie` header rather than relying on NextRequest.cookies

@@ -70,7 +70,7 @@ create or replace function public.cc_trusted_device_claim_pin_attempt(
 returns table(allowed boolean, attempts int, locked_until timestamptz)
 language plpgsql
 security definer
-set search_path = public
+set search_path = pg_catalog, pg_temp
 as $$
 declare
   v_attempts int;
@@ -90,6 +90,18 @@ begin
   if v_locked_until is not null and v_locked_until > now() then
     return query select false, v_attempts, v_locked_until;
     return;
+  end if;
+
+  -- Independent review finding (the lockout never actually expired): an
+  -- EXPIRED lockout (locked_until is set, but in the past) must reset the
+  -- attempt count before this claim, not add to the stale count that
+  -- already tripped the lock once. Without this, the very next attempt
+  -- after a lockout window ends immediately re-locks for another full
+  -- window regardless of whether the PIN is now correct, forever — one
+  -- lockout cycle permanently bricks the PIN path for that device, the
+  -- opposite of "unlock after the window passes."
+  if v_locked_until is not null and v_locked_until <= now() then
+    v_attempts := 0;
   end if;
 
   v_attempts := v_attempts + 1;
@@ -117,7 +129,7 @@ create or replace function public.cc_trusted_device_reset_pin_attempts(p_device_
 returns void
 language sql
 security definer
-set search_path = public
+set search_path = pg_catalog, pg_temp
 as $$
   update public.cc_trusted_devices
     set failed_pin_attempts = 0, locked_until = null, last_used_at = now()

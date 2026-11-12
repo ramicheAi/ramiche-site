@@ -83,6 +83,47 @@ findings were also fixed in the same pass: the unlock-signing-secret check now r
 evaluated (closes a 503-vs-401 oracle for a correct guess during a misconfiguration window), and a
 failed attempt-reset after a correct PIN now fails loud (503) instead of silently proceeding.
 
+## Round 3 — exercised against real Postgres 17, not just reviewed as SQL
+
+Supabase branching needs a Pro-plan upgrade this project doesn't have (confirmed via the API, not
+assumed), so both migrations were instead exercised against an isolated local Postgres 17 instance
+(matching production's engine) in a throwaway scratch directory, torn down afterward. This found one
+real, genuine logic bug the SQL-only review missed:
+
+- **CRITICAL-equivalent logic bug (confirmed with a live `FOR UPDATE` concurrency test and fixed):**
+  `cc_trusted_device_claim_pin_attempt` checked whether `locked_until` was in the future, but never
+  reset the attempt counter when a lockout had merely EXPIRED (still set, just in the past). The next
+  claim after a lockout window ended added to the stale count that already tripped the lock once,
+  immediately re-locking for another full window — regardless of whether the PIN was now correct.
+  **One lockout cycle permanently bricked the PIN unlock for that device**, forever, until a fresh
+  Firebase sign-in + re-enrollment — the opposite of "unlock after the window passes," and a real
+  self-inflicted denial-of-service against the feature's own purpose. Fixed by resetting the counter
+  to 0 before incrementing when the lock has expired. Reproduced the exact bug and the exact fix
+  against live Postgres: inserted a device row with `locked_until` one minute in the past and
+  `failed_pin_attempts=5`; before the fix this would have re-locked, after the fix the claim correctly
+  returns `allowed=true, attempts=1, locked_until=null`.
+- **The HIGH-severity concurrency fix from round 2 was independently re-verified with REAL concurrent
+  connections, not mocks**: 20 simultaneous `psql` processes racing the same device row (starting at 3
+  attempts) produced exactly one `allowed=true` (the 4th attempt) and nineteen consistent
+  `allowed=false, attempts=5` results, with the final row state landing at exactly 5/locked — proving
+  the `SELECT ... FOR UPDATE` row lock genuinely serializes concurrent claims under real Postgres, not
+  just in a mocked test.
+- **Rollback tested against both migrations**, including with pre-existing data present (3 seeded
+  "pre-migration" messages, one pre-existing device row) — both forward migrations apply cleanly, both
+  rollbacks remove exactly what they claim and nothing else, and pre-existing rows were confirmed
+  completely unaffected (`client_message_id`/`relay_claimed` default correctly to null/false on rows
+  that existed before the migration ran).
+- **Hardening applied in the same pass**: both `SECURITY DEFINER` functions' `search_path` narrowed
+  from `public` to `pg_catalog, pg_temp` (defense-in-depth against schema-injection, even though the
+  functions already fully-qualify every table reference); the dev-fallback PIN `"2451"` now also
+  requires `VERCEL_ENV !== "production"` in addition to the existing `CC_PIN_ALLOW_DEV`/`NODE_ENV`
+  checks, closing the one realistic way it could go live — a forgotten `CC_PIN_ALLOW_DEV=1`  — since
+  `VERCEL_ENV` is platform-set, never user-configurable the way the other two are.
+- **Independently confirmed held, not just asserted**: the reset function cannot clear another
+  device's lockout (tested: locked device A, reset device B, confirmed device A's lock untouched);
+  `requireFreshFirebaseOwnerSession` never accepts an unlock-only session (confirmed by direct test);
+  this PR makes zero changes to `firebase-admin.ts` or any METTLE-facing auth path (confirmed by diff).
+
 Findings reviewed and consciously NOT changed, because they're existing, disclosed tradeoffs rather
 than new regressions this PR introduced:
 - **Auto-enrollment with no opt-in prompt.** This is literally what the founder's decision asked for
