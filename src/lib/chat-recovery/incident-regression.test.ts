@@ -83,7 +83,7 @@ describe('D1 denied read: browser reads private tables that are locked down', ()
   it('CONTRACT: chat page reads history only through an authorized server API, never the anon client', () => {
     expect(PAGE).not.toMatch(/\.from\("messages"\)\s*\n?\s*\.select/)
     expect(PAGE).not.toMatch(/\.from\("channels"\)\s*\n?\s*\.select/)
-    expect(PAGE).toMatch(/fetch\(`\/api\/command-center\/conversations\/\$\{channelId\}\/messages/)
+    expect(PAGE).toMatch(/fetch\(\s*`\/api\/command-center\/conversations\/\$\{channelId\}\/messages/)
     expect(PAGE).toMatch(/fetch\("\/api\/command-center\/channels"/)
   })
 })
@@ -141,16 +141,25 @@ describe('D3 wrong conversation on restart: active channel is not durably restor
 })
 
 describe('D4 no idempotency or durable acceptance on send', () => {
+  // Still open: POST /api/command-center/chat (the agent-relay route) has no
+  // client-generated idempotency key. Out of this PR's R1-R4 scope.
   it.fails('CONTRACT: POST /api/command-center/chat requires a client-generated idempotency key', () => {
     expect(CHAT_ROUTE).toMatch(/(clientMessageId|client_message_id|Idempotency-Key)/i)
   })
 
-  it.fails('CONTRACT: an authorized history GET exists (route exposes a paginated list, not only health)', () => {
-    // Today GET only reports liveness. The contract route is
-    // /api/command-center/conversations/[id]/messages (see CC-CHAT-RECOVERY-CONTRACTS.md).
+  // FIXED (CC-RECOVERY-INTEGRATION-01, R1): the authorized history route now
+  // exists with a real GET, exposing a paginated list — not just liveness.
+  // (The original regex, `/export async function GET/`, would never match
+  // the shipped `export const GET = ownerOnly(...)` shape even though the
+  // route is real; fixed to check the actual shape rather than one literal
+  // export style — independent review finding.)
+  it('CONTRACT: an authorized history GET exists (route exposes a paginated list, not only health)', () => {
     const historyRoute = join(ROOT, 'src/app/api/command-center/conversations/[id]/messages/route.ts')
     expect(readdirSync(join(ROOT, 'src/app/api/command-center'))).toContain('conversations')
-    expect(readFileSync(historyRoute, 'utf8')).toMatch(/export async function GET/)
+    const routeSrc = readFileSync(historyRoute, 'utf8')
+    expect(routeSrc).toMatch(/async function GET_handler/)
+    expect(routeSrc).toMatch(/export const GET = ownerOnly\(GET_handler\)/)
+    expect(routeSrc).toMatch(/\.limit\(/) // paginated, not a liveness-only stub
   })
 })
 

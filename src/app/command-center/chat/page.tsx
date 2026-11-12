@@ -1749,6 +1749,14 @@ export default function CommandCenterChatPage() {
    * next successful read.
    */
   const [historyError, setHistoryError] = useState<string | null>(null);
+  /**
+   * Separate from `historyError`: the channel LIST and the current channel's
+   * message HISTORY are different resources. Sharing one state meant a
+   * failed channel-list load could be silently hidden the moment the
+   * (unrelated) history fetch for whatever channel ended up active
+   * succeeded — independent review finding, CC-RECOVERY-INTEGRATION-01.
+   */
+  const [channelListError, setChannelListError] = useState<string | null>(null);
 
   /* ── Phase C+F — approval state for synthesis cards.
         approvingSynthId   = id of the synthesis message currently approving
@@ -2256,10 +2264,10 @@ export default function CommandCenterChatPage() {
         const channelsRes = await fetch("/api/command-center/channels", { cache: "no-store" });
         if (!channelsRes.ok) {
           const body = await channelsRes.json().catch(() => ({}));
-          setHistoryError(body?.error?.message || `channel list request failed (${channelsRes.status})`);
+          setChannelListError(body?.error?.message || `channel list request failed (${channelsRes.status})`);
           if (!pendingDmRef.current) setActiveChannel(DEFAULT_CHANNELS[1]);
         } else {
-          setHistoryError(null);
+          setChannelListError(null);
           const { data: channelsData } = (await channelsRes.json()) as { data?: Record<string, unknown>[] };
 
           if (channelsData && channelsData.length > 0) {
@@ -2369,16 +2377,26 @@ export default function CommandCenterChatPage() {
       // on every denied read — rendered as "no messages," not "denied."
       let data: Record<string, unknown>[] | null = null;
       try {
-        const res = await fetch(`/api/command-center/conversations/${channelId}/messages`, { cache: "no-store" });
+        // order=desc + reverse (not the ascending default): a channel with
+        // more than 100 messages must show its NEWEST 100, not its oldest —
+        // ascending+limit would silently drop everything after the first
+        // page ever written (independent review finding).
+        const res = await fetch(
+          `/api/command-center/conversations/${channelId}/messages?limit=100&order=desc`,
+          { cache: "no-store" }
+        );
+        if (cancelled) return; // channel/agent changed again — don't touch state for a channel we left
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           setHistoryError(body?.error?.message || `history request failed (${res.status})`);
         } else {
           setHistoryError(null);
-          ({ data } = await res.json());
+          const json = await res.json();
+          if (cancelled) return;
+          data = Array.isArray(json.data) ? [...json.data].reverse() : json.data;
         }
       } catch (err) {
-        setHistoryError(err instanceof Error ? err.message : "history request failed");
+        if (!cancelled) setHistoryError(err instanceof Error ? err.message : "history request failed");
       }
 
       if (cancelled) return; // channel/agent changed again while this fetch was in flight
@@ -2711,10 +2729,24 @@ export default function CommandCenterChatPage() {
       return;
     }
     let cancelled = false;
+    let tickCount = 0;
 
     const tick = async () => {
       if (cancelled) return;
-      if (realtimeStatusRef.current === "connected") return; // WS alive — skip
+      tickCount += 1;
+      // Realtime reporting "connected" proves the WebSocket subscribed; it
+      // does NOT prove postgres_changes events are actually being delivered
+      // — Supabase Realtime still enforces RLS/grants on the replication
+      // stream, and public.messages has zero anon/authenticated privileges
+      // (independent review finding, CC-RECOVERY-INTEGRATION-01). Skipping
+      // every tick while "connected" would mean a silently-not-delivering
+      // subscription hides new messages until a manual reload. Keep a slow
+      // (~21s) reconciliation poll running even while "connected" as a
+      // safety net; the fast 3s path still applies when it's not.
+      const SLOW_RECONCILE_EVERY_N_TICKS = 7;
+      if (realtimeStatusRef.current === "connected" && tickCount % SLOW_RECONCILE_EVERY_N_TICKS !== 0) {
+        return;
+      }
       try {
         // Server-authorized read (D1), same reasoning as loadMessages above —
         // the anon client has no privileges on public.messages. order=desc
@@ -2842,6 +2874,7 @@ export default function CommandCenterChatPage() {
 
   /* ── handlers ── */
   const handleChannelSelect = (channel: Channel) => {
+    if (channel.id !== activeChannel?.id) setMessages([]); // never show the previous channel's messages while this one loads
     setActiveChannel(channel);
     writeLastConversationId(channel.id); // D3: survive reload/restart, see loadData above
     setActiveAgent(null);
@@ -2858,6 +2891,7 @@ export default function CommandCenterChatPage() {
   };
 
   const handleAgentSelect = (agent: Agent) => {
+    if (agent.id !== activeAgent?.id) setMessages([]); // never show the previous conversation's messages while this one loads
     setActiveAgent(agent);
     setActiveChannel(null);
     setViewMode("dm");
@@ -3141,30 +3175,41 @@ export default function CommandCenterChatPage() {
     };
 
     if (supabase) {
-      const { data: inserted, error } = await supabase
-        .from("messages")
-        .insert({
-          channel_id: targetChannelId,
-          sender_user_id: "00000000-0000-0000-0000-000000000001",
-          sender_type: "user",
-          content: trimmed || "(attachment)",
-          tenant_id: "11111111-1111-1111-1111-111111111111",
-          attachments: uploads.length > 0 ? uploads : [],
-          status: "sent",
-          thread_parent_id: threadPid,
-          metadata: {
-            targetAgent: isDM ? activeAgent!.id : undefined,
-            isDM: isDM,
-            dmChannelId: isDM ? targetChannelId : undefined,
-            channelName: isDM ? `DM: ${activeAgent!.name}` : (activeChannel?.name || "general"),
-            source: "command-center-ui",
-          },
-        })
-        .select("id")
-        .single();
+      // Server-authorized write (CC-RECOVERY-INTEGRATION-01 pre-merge
+      // review, write-side twin of the read fix above): anon has zero
+      // INSERT privilege on public.messages since the P05-B3 lockdown, so
+      // this used to insert directly with the anon client and fail.
+      let inserted: { id?: string } | null = null;
+      let sendError: unknown = null;
+      try {
+        const res = await fetch(`/api/command-center/conversations/${targetChannelId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            content: trimmed,
+            attachments: uploads.length > 0 ? uploads : [],
+            threadParentId: threadPid,
+            metadata: {
+              targetAgent: isDM ? activeAgent!.id : undefined,
+              isDM: isDM,
+              dmChannelId: isDM ? targetChannelId : undefined,
+              channelName: isDM ? `DM: ${activeAgent!.name}` : (activeChannel?.name || "general"),
+              source: "command-center-ui",
+            },
+          }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          sendError = body?.error || `send failed (${res.status})`;
+        } else {
+          inserted = body.data;
+        }
+      } catch (err) {
+        sendError = err;
+      }
 
-      if (error) {
-        console.error("Supabase send failed:", error);
+      if (sendError || !inserted?.id) {
+        console.error("Chat send failed:", sendError);
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
         setWaitingForResponse(false);
         setTypingUsers([]);
@@ -3172,7 +3217,7 @@ export default function CommandCenterChatPage() {
         return;
       }
 
-      const realId = inserted.id as string;
+      const realId = inserted.id;
       lastPendingUserMessageIdRef.current = realId;
       setMessages((prev) =>
         prev.map((m) =>
@@ -4819,9 +4864,14 @@ export default function CommandCenterChatPage() {
             padding: "16px 20px",
           }}
         >
-          {historyError && (
+          {(channelListError || historyError) && (
             // CC-CHAT-MOBILE-RECOVERY-01 (D2): a denied/failed read is shown
             // as an explicit error, never silently rendered as "no messages."
+            // Two independent banners: a channel-list failure and a
+            // history failure are different resources and must not hide
+            // each other (independent review finding, CC-RECOVERY-
+            // INTEGRATION-01 — a later successful history fetch used to
+            // clear away an unrelated, still-real channel-list error).
             <div
               role="alert"
               style={{
@@ -4833,9 +4883,13 @@ export default function CommandCenterChatPage() {
                 color: "#fca5a5",
                 fontSize: 12,
                 fontFamily: FONT_FAMILY,
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
               }}
             >
-              Couldn&apos;t load this conversation&apos;s history: {historyError}
+              {channelListError && <span>Couldn&apos;t load the channel list: {channelListError}</span>}
+              {historyError && <span>Couldn&apos;t load this conversation&apos;s history: {historyError}</span>}
             </div>
           )}
           {Object.entries(groupedMessages).map(([date, dateMessages]) => (
