@@ -16,6 +16,7 @@ export const MACHINE_ROUTES = {
   "/api/command-center/chat/webhook": { caller: "OpenClaw gateway / automations", secretEnv: "OPENCLAW_CC_WEBHOOK_TOKEN | OPENCLAW_GATEWAY_TOKEN", carrier: "Authorization: Bearer" },
   "/api/command-center/push": { caller: "Agents / external systems", secretEnv: "CC_PUSH_SECRET", carrier: "x-cc-push-secret | Authorization: Bearer" },
   "/api/command-center/telegram/webhook": { caller: "Telegram Bot API", secretEnv: "TELEGRAM_WEBHOOK_SECRET", carrier: "X-Telegram-Bot-Api-Secret-Token" },
+  "/api/command-center/prospector/cron": { caller: "launchd/cron prospector scheduler", secretEnv: "PROSPECTOR_CRON_SECRET", carrier: "x-cron-secret | Authorization: Bearer" },
   "/api/command-center/voice/call/webhook": { caller: "Vapi end-of-call report", secretEnv: "VAPI_WEBHOOK_SECRET", carrier: "x-vapi-secret | Authorization: Bearer" },
 } as const;
 

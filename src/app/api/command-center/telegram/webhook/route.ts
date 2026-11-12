@@ -3,6 +3,7 @@ import { approveSynthesisMessage } from "@/lib/cc-approve-synthesis";
 import {
   telegramAnswerCallbackQuery,
   verifyTelegramWebhookSecret,
+  isAuthorizedTelegramApprover,
   TG_CB_APPROVE_PREFIX,
 } from "@/lib/telegram-cc-bot";
 
@@ -12,6 +13,7 @@ export const maxDuration = 120;
 type TgCallbackQuery = {
   id: string;
   data?: string;
+  from?: { id?: number; is_bot?: boolean };
   message?: { chat?: { id?: number }; message_id?: number };
 };
 
@@ -80,6 +82,12 @@ export async function POST(req: NextRequest) {
   }
 
   if (!data.startsWith(TG_CB_APPROVE_PREFIX)) {
+    return NextResponse.json({ ok: true });
+  }
+
+  // Authorization: only an explicitly configured approver may trigger execution.
+  if (!isAuthorizedTelegramApprover(cq.from)) {
+    await telegramAnswerCallbackQuery(cq.id, "Not authorized to approve.", true);
     return NextResponse.json({ ok: true });
   }
 

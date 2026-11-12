@@ -155,6 +155,7 @@ describe("middleware — Command Center owner gate (direct verification, no self
       "/api/command-center/push",
       "/api/command-center/telegram/webhook",
       "/api/command-center/voice/call/webhook",
+      "/api/command-center/prospector/cron",
     ]) {
       expect(passes(await middleware(req(`http://localhost${path}`, { method: "POST" })))).toBe(true);
     }
