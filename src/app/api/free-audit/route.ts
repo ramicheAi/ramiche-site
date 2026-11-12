@@ -45,13 +45,16 @@ export async function POST(req: Request) {
     // dedupe by email — update rather than create a second lead
     const { data: existing } = await db
       .from("pipeline_leads")
-      .select("id")
+      .select("id, meta")
       .eq("contact_email", email)
       .maybeSingle();
 
     let leadId: string;
     if (existing) {
-      await db.from("pipeline_leads").update({ company: business, name: b.name || null, meta }).eq("id", existing.id);
+      // Unauthenticated endpoint: never overwrite what we already know about a lead (company, name,
+      // opt-out/DNC/call history, enrichment). Only record that another audit was requested.
+      const prior = (existing.meta && typeof existing.meta === "object" ? existing.meta : {}) as Record<string, unknown>;
+      await db.from("pipeline_leads").update({ meta: { ...prior, requestedAudit: true, lastAuditRequestAt: new Date().toISOString() } }).eq("id", existing.id);
       leadId = existing.id;
     } else {
       const { data: created, error } = await db

@@ -128,6 +128,18 @@ const nextConfig: NextConfig = {
         { key: "Referrer-Policy", value: "no-referrer" },
       ],
     },
+    {
+      // The owner-only preview API route serves the same untrusted builds. Next keeps the FIRST
+      // value set for a header key, and the global rule already set a CSP, so a CSP set in the route
+      // handler is dropped; the rule must live here (last wins) to reach the wire. Opaque-origin
+      // opaque-origin sandbox so they can never act as the owner (same-origin fetch + cookie).
+      source: "/api/command-center/yolo-builds/preview/:path*",
+      headers: [
+        { key: "Content-Security-Policy", value: "sandbox allow-scripts; default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data: https:; media-src 'self' data: blob: https:; connect-src 'none'; form-action 'none'; base-uri 'none'" },
+        { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+        { key: "Referrer-Policy", value: "no-referrer" },
+      ],
+    },
   ],
 };
 
