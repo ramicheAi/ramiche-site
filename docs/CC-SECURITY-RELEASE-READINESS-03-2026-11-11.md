@@ -12,7 +12,7 @@ No secret values appear in this document. Nothing here was merged, deployed, rot
 | #79 | next 16.4.1, @sentry/nextjs 10.75.2 only | 7220c098 | main |
 | #80 | Remove BRIDGE_API_SECRET from the browser | e3a35aa3 | #78 |
 | #81 | Telegram approver, prospector scheduler, preview sandbox, API inventory, cookie tests, this doc | see PR | #80 |
-| branch `candidate/release-03` (no PR) | #81 + #79, integration build target | 20106afa | main |
+| branch `candidate/release-03` (no PR) | #81 + #79, integration build target | 920fc157 | main |
 
 ## 2. Vulnerabilities
 
@@ -75,7 +75,7 @@ Presence only, from the `41d183a0` env files:
 
 Vercel env presence is unverified: the Vercel API returned 403 to this session.
 
-## 7. Real-server acceptance (candidate 20106afa, `next start`, localhost, test secrets)
+## 7. Real-server acceptance (candidate 920fc157, `next start`, localhost, test secrets)
 
 tsc 0 errors; vitest 811 passed / 4 skipped; `next build` OK; `npm audit` 0 critical.
 HTTP results: unauthenticated API 401, including with forged `Host`/`X-Forwarded-Host`; unauthenticated page 307 to an
@@ -110,12 +110,21 @@ instance (the first manual step in section 9).
 
 ## 10. Candidate release and rollback
 
-Immutable build input: commit `20106afaf34a4f5bc3e6c0b8317dab2154eb92db`, lockfile sha256 prefix `b6966b8db996d225`,
+Immutable build input: commit `920fc157f34a4f5bc3e6c0b8317dab2154eb92db`, lockfile sha256 prefix `b6966b8db996d225`,
 Node 26.0.0, npm 11.12.1, Next BUILD_ID `FuXxFKNqq5F6BlQnCcsxn`. Not staged on the iMac, not promoted.
-Promotion plan (needs approval): build from that SHA in a fresh directory `cockpit-releases/20106afa`, copy the two env
+Promotion plan (needs approval): build from that SHA in a fresh directory `cockpit-releases/920fc157`, copy the two env
 files, run the section 7 curl battery against a spare port, then repoint launchd. Rollback: repoint to
 `cockpit-releases/41d183a0` (kept intact) and `launchctl kickstart -k`; no data migration is involved.
 
 ## 11. Verdicts
 
-See the final report. Independent review disposition is appended below once complete.
+Independent clean-context review (Opus, no prior context) of 20106afa: no blocker, verdict safe to merge. Dispositions:
+
+1. `public/yolo-builds` also served agent HTML unsandboxed, same-origin with the owner cookie: **FIXED** in 920fc157 (sandbox CSP rule in `next.config.ts`, ordered last; verified on a real `next start` serving a static file: response carries `sandbox allow-scripts`). The coach page iframe (`AnalyticsTabContainer.tsx`) loads these files and may need a visual check, since scripts now run in an opaque origin.
+2. Supabase Realtime `cc-push` broadcast channel readable/writable with the public anon key: **OPEN**, pre-existing; needs Realtime Authorization or a project setting (not checkable from here). Founder or Supabase dashboard action.
+3. Public `/api/free-audit` can overwrite any lead by email (including consent flag): **OPEN**, pre-existing, outside the CC boundary; recommend a separate fix PR before any outbound campaign.
+4. METTLE middleware session check fetches a URL derived from `req.url` (Host-influenced), unlocking only the `/coach` and `/athlete` page shells: **OPEN**, pre-existing, METTLE scope.
+5. Host-derived root redirect lacked `no-store`: **FIXED** in 920fc157.
+6. Chat webhook falls back to the gateway token (shared secret): **OPEN**, note; set `OPENCLAW_CC_WEBHOOK_TOKEN` to separate.
+
+The candidate differs from #81 + #79 only by this document.
