@@ -8,7 +8,6 @@ export const runtime = "nodejs";
 
 const WS = process.env.OPENCLAW_WORKSPACE ?? "/Users/admin/.openclaw/workspace";
 const BUILDS_DIR_WS = join(WS, "builds");
-const BUILDS_DIR_PUBLIC = join(process.cwd(), "public/yolo-builds");
 
 const MIME: Record<string, string> = {
   ".html": "text/html",
@@ -36,11 +35,9 @@ async function GET_handler(
     return new NextResponse("Forbidden", { status: 403 });
   }
 
-  // Try workspace first, then public
-  let filePath = join(BUILDS_DIR_WS, relPath);
-  if (!existsSync(filePath)) {
-    filePath = join(BUILDS_DIR_PUBLIC, relPath);
-  }
+  // Workspace only. Builds must never live under public/: Next serves public/ files
+  // statically with the global CSP (no sandbox), reachable via encoded paths.
+  const filePath = join(BUILDS_DIR_WS, relPath);
   if (!existsSync(filePath)) {
     return new NextResponse("Not found", { status: 404 });
   }
