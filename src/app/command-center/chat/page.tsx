@@ -115,6 +115,31 @@ const DEFAULT_CHANNELS = [
   { id: "11111111-1111-1111-1111-111111111111", name: "#engineering-team", unread: 0, description: "Engineering Team", type: "team" as const, members: ["atlas", "shuri", "proximon", "triage", "nova"] },
 ];
 
+/**
+ * CC-CHAT-MOBILE-RECOVERY-01 (D3): the active conversation must survive a
+ * reload/restart instead of always resetting to "most recently active" or a
+ * hardcoded default — that rule is exactly how the Content Team channel
+ * (not the most recently active one) went invisible after a refresh.
+ */
+const LAST_CONVERSATION_KEY = "cc:lastConversation";
+
+function readLastConversationId(): string | null {
+  try {
+    return localStorage.getItem(LAST_CONVERSATION_KEY) || null;
+  } catch {
+    return null; // private mode / blocked storage — fall through to normal selection
+  }
+}
+
+function writeLastConversationId(id: string | null) {
+  try {
+    if (id) localStorage.setItem(LAST_CONVERSATION_KEY, id);
+    else localStorage.removeItem(LAST_CONVERSATION_KEY);
+  } catch {
+    /* best effort only */
+  }
+}
+
 /* ── DM Channel UUID Map (Supabase channel_id is UUID, not string) ── */
 const DM_CHANNEL_MAP: Record<string, string> = {
   atlas: "aa000001-0000-0000-0000-000000000000",
@@ -1716,6 +1741,15 @@ export default function CommandCenterChatPage() {
   /** Last relay error — rendered as a red bubble below the failing user message. */
   const [relayError, setRelayError] = useState<{ id: string; message: string } | null>(null);
 
+  /**
+   * A denied/failed history or channel-list read, distinct from "no messages
+   * yet." The anon Supabase client resolves (never throws) on a permission
+   * denial, so without this a locked-down read and a genuinely empty channel
+   * are indistinguishable (CC-CHAT-MOBILE-RECOVERY-01, D2). Cleared on the
+   * next successful read.
+   */
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
   /* ── Phase C+F — approval state for synthesis cards.
         approvingSynthId   = id of the synthesis message currently approving
         approveError       = inline error if the /approve stream fails
@@ -2214,35 +2248,52 @@ export default function CommandCenterChatPage() {
         return;
       }
       try {
-        // Load channels
-        const { data: channelsData } = await supabase
-          .from("channels")
-          .select("*")
-          .order("last_activity_at", { ascending: false });
+        // Load channels through the owner-gated server API, not the anon
+        // Supabase client: anon/authenticated have had zero privileges on
+        // public.channels since the P05-B3 lockdown, and the old anon read
+        // resolved to an empty/undefined result on denial instead of
+        // throwing — indistinguishable from "no channels exist" (D1/D2).
+        const channelsRes = await fetch("/api/command-center/channels", { cache: "no-store" });
+        if (!channelsRes.ok) {
+          const body = await channelsRes.json().catch(() => ({}));
+          setHistoryError(body?.error?.message || `channel list request failed (${channelsRes.status})`);
+          if (!pendingDmRef.current) setActiveChannel(DEFAULT_CHANNELS[1]);
+        } else {
+          setHistoryError(null);
+          const { data: channelsData } = (await channelsRes.json()) as { data?: Record<string, unknown>[] };
 
-        if (channelsData && channelsData.length > 0) {
-          const mapped = channelsData.map((ch: Record<string, unknown>) => ({
-            id: ch.id as string,
-            name: `#${(ch.slug as string) || (ch.name as string)}`,
-            unread: 0,
-            description: (ch.description as string) || "",
-            active: false,
-            type: ((ch.type as string) || "project") as "project" | "team",
-            ...((ch.type === "team" && ch.members) ? { members: ch.members as string[] } : {}),
-          }));
-          // Merge: use Supabase channels + fill in missing types from defaults
-          const hasTeam = mapped.some(c => c.type === "team");
-          const hasProject = mapped.some(c => c.type === "project");
-          const merged = [
-            ...(hasProject ? [] : DEFAULT_CHANNELS.filter(c => c.type === "project")),
-            ...mapped,
-            ...(hasTeam ? [] : DEFAULT_CHANNELS.filter(c => c.type === "team")),
-          ];
-          setChannels(merged as Channel[]);
-          if (!pendingDmRef.current) setActiveChannel((mapped[0] || merged[0]) as Channel);
-        } else if (!pendingDmRef.current) {
-          // Fallback to defaults if no Supabase data
-          setActiveChannel(DEFAULT_CHANNELS[1]);
+          if (channelsData && channelsData.length > 0) {
+            const mapped = channelsData.map((ch: Record<string, unknown>) => ({
+              id: ch.id as string,
+              name: `#${(ch.slug as string) || (ch.name as string)}`,
+              unread: 0,
+              description: (ch.description as string) || "",
+              active: false,
+              type: ((ch.type as string) || "project") as "project" | "team",
+              ...((ch.type === "team" && ch.members) ? { members: ch.members as string[] } : {}),
+            }));
+            // Merge: use Supabase channels + fill in missing types from defaults
+            const hasTeam = mapped.some(c => c.type === "team");
+            const hasProject = mapped.some(c => c.type === "project");
+            const merged = [
+              ...(hasProject ? [] : DEFAULT_CHANNELS.filter(c => c.type === "project")),
+              ...mapped,
+              ...(hasTeam ? [] : DEFAULT_CHANNELS.filter(c => c.type === "team")),
+            ];
+            setChannels(merged as Channel[]);
+            if (!pendingDmRef.current) {
+              // D3: restore the conversation the owner was last actually
+              // looking at, before falling back to "most recent" or a
+              // default — a hardcoded startup pick is exactly how a
+              // channel that wasn't most-recently-active went invisible.
+              const lastId = readLastConversationId();
+              const restored = lastId ? merged.find((c) => c.id === lastId) : undefined;
+              setActiveChannel((restored || mapped[0] || merged[0]) as Channel);
+            }
+          } else if (!pendingDmRef.current) {
+            // Fallback to defaults only on a genuinely empty list, not on a failed request.
+            setActiveChannel(DEFAULT_CHANNELS[1]);
+          }
         }
 
         // Load agents - always keep all 20 from DEFAULT_AGENTS
@@ -2305,12 +2356,23 @@ export default function CommandCenterChatPage() {
     const channelId = viewMode === "dm" && activeAgent ? getDmChannelId(activeAgent.id) : activeChannel?.id;
     if (!channelId) return;
     const loadMessages = async () => {
-      const { data } = await sb
-        .from("messages")
-        .select("*")
-        .eq("channel_id", channelId)
-        .order("created_at", { ascending: true })
-        .limit(100);
+      // Server-authorized history read (D1): anon/authenticated have zero
+      // privileges on public.messages since the P05-B3 lockdown, so the old
+      // direct `sb.from("messages")` call here resolved with `data: null`
+      // on every denied read — rendered as "no messages," not "denied."
+      let data: Record<string, unknown>[] | null = null;
+      try {
+        const res = await fetch(`/api/command-center/conversations/${channelId}/messages`, { cache: "no-store" });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          setHistoryError(body?.error?.message || `history request failed (${res.status})`);
+        } else {
+          setHistoryError(null);
+          ({ data } = await res.json());
+        }
+      } catch (err) {
+        setHistoryError(err instanceof Error ? err.message : "history request failed");
+      }
 
       if (data) {
         const currentAgents = agentsRef.current;
@@ -2635,20 +2697,28 @@ export default function CommandCenterChatPage() {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(channelId)) {
       return;
     }
-    const sb = supabase;
     let cancelled = false;
 
     const tick = async () => {
       if (cancelled) return;
       if (realtimeStatusRef.current === "connected") return; // WS alive — skip
       try {
-        const { data, error } = await sb
-          .from("messages")
-          .select("*")
-          .eq("channel_id", channelId)
-          .order("created_at", { ascending: false })
-          .limit(50); // was 20 — bump so high-traffic channels don't lose tail
-        if (error || !data || cancelled) return;
+        // Server-authorized read (D1), same reasoning as loadMessages above —
+        // the anon client has no privileges on public.messages. order=desc
+        // matches the previous "most recent 50, then reverse" behavior.
+        const res = await fetch(
+          `/api/command-center/conversations/${channelId}/messages?limit=50&order=desc`,
+          { cache: "no-store" }
+        );
+        if (cancelled) return;
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          setHistoryError(body?.error?.message || `history poll failed (${res.status})`);
+          return;
+        }
+        setHistoryError(null);
+        const { data } = await res.json();
+        if (!data || cancelled) return;
         const fresh = [...data].reverse(); // oldest → newest
         setMessages((prev) => {
           // CRITICAL: dedupe ONLY against the current `prev` state, NOT a
@@ -2760,6 +2830,7 @@ export default function CommandCenterChatPage() {
   /* ── handlers ── */
   const handleChannelSelect = (channel: Channel) => {
     setActiveChannel(channel);
+    writeLastConversationId(channel.id); // D3: survive reload/restart, see loadData above
     setActiveAgent(null);
     setViewMode("channel");
     setThreadMessage(null);
@@ -2831,7 +2902,11 @@ export default function CommandCenterChatPage() {
     setMentionPick(null);
 
     const isDM = viewMode === "dm" && activeAgent;
-    const targetChannelId = isDM ? getDmChannelId(activeAgent!.id) : (activeChannel?.id || "22222222-2222-2222-2222-222222222222");
+    // No hardcoded channel fallback (CC-CHAT-MOBILE-RECOVERY-01, D3): the
+    // guard above (`!activeChannel && !(dm && agent)` -> return) means
+    // activeChannel is guaranteed set on the non-DM branch here, so a send
+    // can never silently land in some other channel the owner wasn't on.
+    const targetChannelId = isDM ? getDmChannelId(activeAgent!.id) : activeChannel!.id;
     const tempId = `pending-${Date.now()}`;
     const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const threadPid = opts?.threadParentId ?? null;
@@ -4731,6 +4806,25 @@ export default function CommandCenterChatPage() {
             padding: "16px 20px",
           }}
         >
+          {historyError && (
+            // CC-CHAT-MOBILE-RECOVERY-01 (D2): a denied/failed read is shown
+            // as an explicit error, never silently rendered as "no messages."
+            <div
+              role="alert"
+              style={{
+                marginBottom: 16,
+                padding: "10px 14px",
+                borderRadius: 8,
+                border: "1px solid rgba(252,165,165,0.35)",
+                background: "rgba(248,113,113,0.08)",
+                color: "#fca5a5",
+                fontSize: 12,
+                fontFamily: FONT_FAMILY,
+              }}
+            >
+              Couldn&apos;t load this conversation&apos;s history: {historyError}
+            </div>
+          )}
           {Object.entries(groupedMessages).map(([date, dateMessages]) => (
             <div key={date}>
               {/* Date Separator — matches command center section dividers */}
