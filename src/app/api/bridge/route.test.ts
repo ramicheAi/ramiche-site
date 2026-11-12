@@ -23,7 +23,7 @@ describe("POST /api/bridge (machine sync, secret-gated)", () => {
   it("rejects missing, wrong, prefix and empty secrets", async () => {
     process.env.BRIDGE_API_SECRET = SECRET;
     const { POST } = await load();
-    for (const h of [{}, { "x-bridge-secret": "wrong" }, { "x-bridge-secret": SECRET.slice(0, -1) }, { "x-bridge-secret": "" }]) {
+    for (const h of <Array<Record<string, string>>>[{}, { "x-bridge-secret": "wrong" }, { "x-bridge-secret": SECRET.slice(0, -1) }, { "x-bridge-secret": "" }]) {
       expect((await post(POST, h)).status).toBe(401);
     }
   });
