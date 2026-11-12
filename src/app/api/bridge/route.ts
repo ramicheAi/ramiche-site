@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fsUrl, toFirestoreFields, fromFirestoreFields } from "@/lib/firestore-bridge-rest";
 import { ownerOnly } from "@/lib/server/command-center-guard";
+import { timingSafeSecretEqual } from "@/lib/server/command-center-auth";
 
 const BRIDGE_SECRET = (process.env.BRIDGE_API_SECRET || "").trim().replace(/\\n$/, "");
 
@@ -190,8 +191,9 @@ async function PATCH_handler(req: NextRequest) {
 
 // POST: Sync data from local machine
 export async function POST(req: NextRequest) {
+  // Machine sync (launchd bridge-sync, scripts): secret-gated, timing-safe, fails closed when unset.
   const authHeader = (req.headers.get("x-bridge-secret") || "").trim().replace(/\\n$/, "");
-  if (!BRIDGE_SECRET || authHeader !== BRIDGE_SECRET) {
+  if (!timingSafeSecretEqual(authHeader, BRIDGE_SECRET)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
