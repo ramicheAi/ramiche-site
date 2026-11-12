@@ -50,7 +50,19 @@ async function GET_handler(
 
   const body = readFileSync(filePath);
   return new NextResponse(body, {
-    headers: { "Content-Type": contentType, "Cache-Control": "public, max-age=3600" },
+    headers: {
+      "Content-Type": contentType,
+      // Agent-generated content is untrusted. Never cacheable by shared caches (it is owner-only).
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
+      // Opaque-origin sandbox: scripts may run for previewing, but with no access to the
+      // Command Center origin (cookies, storage, same-origin fetch), no top navigation,
+      // no forms/popups, and no network egress beyond images/fonts/media from https or data.
+      "Content-Security-Policy":
+        "sandbox allow-scripts; default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data: https:; media-src 'self' data: blob: https:; connect-src 'none'; form-action 'none'; frame-ancestors 'self'; base-uri 'none'",
+      "Cross-Origin-Resource-Policy": "same-origin",
+      "Referrer-Policy": "no-referrer",
+    },
   });
 }
 
