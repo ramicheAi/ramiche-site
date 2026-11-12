@@ -181,4 +181,128 @@ describe("POST /api/command-center/conversations/[id]/messages", () => {
     const res = await POST(postReq({ content: "hello" }), ctx());
     expect(res.status).toBe(503);
   });
+
+  it("rejects a malformed clientMessageId before touching the database", async () => {
+    const res = await POST(postReq({ content: "hello", clientMessageId: "not-a-uuid" }), ctx());
+    expect(res.status).toBe(400);
+    expect(getSupabaseAdmin).not.toHaveBeenCalled();
+  });
+
+  const CLIENT_MESSAGE_ID = "22222222-2222-2222-2222-222222222222";
+
+  it("sends the clientMessageId through to the insert when provided", async () => {
+    const query: Record<string, unknown> = { data: { id: "m-new", created_at: "2026-11-12T00:00:00Z" }, error: null };
+    query.insert = vi.fn(() => query);
+    query.select = vi.fn(() => query);
+    query.single = vi.fn(() => query);
+    getSupabaseAdmin.mockReturnValue({ from: vi.fn(() => query) });
+
+    const res = await POST(postReq({ content: "hello", clientMessageId: CLIENT_MESSAGE_ID }), ctx());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.replay).toBe(false);
+    expect(query.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ client_message_id: CLIENT_MESSAGE_ID })
+    );
+  });
+
+  describe("idempotency: a retry with the same clientMessageId", () => {
+    function mockUniqueViolationThenLookup(existingContent: string) {
+      // First `.from("messages")` call: the insert, which hits the unique
+      // constraint on client_message_id (this IS the acceptance criterion
+      // "concurrent retries cannot create duplicates" — the uniqueness is
+      // enforced by the DB index from the prepared migration, not by any
+      // application-level check; this mock simulates what that constraint
+      // returns).
+      const insertQuery: Record<string, unknown> = {
+        data: null,
+        error: { code: "23505", message: 'duplicate key value violates unique constraint "messages_client_message_id_key"' },
+      };
+      insertQuery.insert = vi.fn(() => insertQuery);
+      insertQuery.select = vi.fn(() => insertQuery);
+      insertQuery.single = vi.fn(() => insertQuery);
+
+      // Second `.from("messages")` call: the post-conflict lookup by key.
+      const lookupQuery: Record<string, unknown> = {
+        data: { id: "m-original", created_at: "2026-11-12T00:00:00Z", content: existingContent },
+        error: null,
+      };
+      lookupQuery.select = vi.fn(() => lookupQuery);
+      lookupQuery.eq = vi.fn(() => lookupQuery);
+      lookupQuery.maybeSingle = vi.fn(() => lookupQuery);
+
+      const fromMock = vi.fn()
+        .mockReturnValueOnce(insertQuery)
+        .mockReturnValueOnce(lookupQuery);
+      getSupabaseAdmin.mockReturnValue({ from: fromMock });
+      return { insertQuery, lookupQuery, fromMock };
+    }
+
+    // This is the direct proof of: "same request retried with the same key
+    // produces one persisted message" AND "lost-response recovery is
+    // tested" (the retry here IS what a lost-ack-then-resend looks like at
+    // the HTTP layer — the client never learns the first attempt succeeded,
+    // resends the identical request, and must get back the ORIGINAL row).
+    it("same key + same content returns the original row as a replay, not a new row", async () => {
+      mockUniqueViolationThenLookup("hello");
+      const res = await POST(postReq({ content: "hello", clientMessageId: CLIENT_MESSAGE_ID }), ctx());
+      const body = await res.json();
+      expect(res.status).toBe(200);
+      expect(body.data.id).toBe("m-original");
+      expect(body.replay).toBe(true);
+    });
+
+    // "Same key with different content is rejected": never silently keep
+    // whichever write happened to land first, and never silently accept a
+    // second, different message under an already-used key.
+    it("same key + different content is rejected with 409, not silently accepted or silently dropped", async () => {
+      mockUniqueViolationThenLookup("a different message entirely");
+      const res = await POST(postReq({ content: "hello", clientMessageId: CLIENT_MESSAGE_ID }), ctx());
+      const body = await res.json();
+      expect(res.status).toBe(409);
+      expect(body.error.code).toBe("idempotency_key_reused");
+    });
+
+    it("if the unique-violation row can't be found on lookup, reports a failure rather than guessing", async () => {
+      const insertQuery: Record<string, unknown> = { data: null, error: { code: "23505", message: "duplicate key" } };
+      insertQuery.insert = vi.fn(() => insertQuery);
+      insertQuery.select = vi.fn(() => insertQuery);
+      insertQuery.single = vi.fn(() => insertQuery);
+      const lookupQuery: Record<string, unknown> = { data: null, error: null };
+      lookupQuery.select = vi.fn(() => lookupQuery);
+      lookupQuery.eq = vi.fn(() => lookupQuery);
+      lookupQuery.maybeSingle = vi.fn(() => lookupQuery);
+      const fromMock = vi.fn().mockReturnValueOnce(insertQuery).mockReturnValueOnce(lookupQuery);
+      getSupabaseAdmin.mockReturnValue({ from: fromMock });
+
+      const res = await POST(postReq({ content: "hello", clientMessageId: CLIENT_MESSAGE_ID }), ctx());
+      expect(res.status).toBe(502);
+    });
+  });
+
+  it("falls back to an insert without the idempotency key if the migration hasn't been applied yet (undefined_column)", async () => {
+    // Exercises the documented, approval-gated tradeoff: this route must not
+    // hard-fail chat sends just because the prepared migration isn't live.
+    const failedInsert: Record<string, unknown> = { data: null, error: { code: "42703", message: 'column "client_message_id" does not exist' } };
+    failedInsert.insert = vi.fn(() => failedInsert);
+    failedInsert.select = vi.fn(() => failedInsert);
+    failedInsert.single = vi.fn(() => failedInsert);
+
+    const fallbackInsert: Record<string, unknown> = { data: { id: "m-fallback", created_at: "2026-11-12T00:00:00Z" }, error: null };
+    fallbackInsert.insert = vi.fn(() => fallbackInsert);
+    fallbackInsert.select = vi.fn(() => fallbackInsert);
+    fallbackInsert.single = vi.fn(() => fallbackInsert);
+
+    const fromMock = vi.fn().mockReturnValueOnce(failedInsert).mockReturnValueOnce(fallbackInsert);
+    getSupabaseAdmin.mockReturnValue({ from: fromMock });
+
+    const res = await POST(postReq({ content: "hello", clientMessageId: CLIENT_MESSAGE_ID }), ctx());
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.data.id).toBe("m-fallback");
+    // The fallback insert must not retry with the key that doesn't exist yet.
+    expect(fallbackInsert.insert).toHaveBeenCalledWith(
+      expect.not.objectContaining({ client_message_id: expect.anything() })
+    );
+  });
 });

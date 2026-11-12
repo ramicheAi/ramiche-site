@@ -103,6 +103,22 @@ async function POST_handler(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: { message: "content too long" } }, { status: 400 });
   }
 
+  // Idempotency key (CC-RECOVERY-DELIVERY-CONVERGENCE-01): a client-generated
+  // UUID identifying one logical send attempt. Optional only because the
+  // migration that backs it (20261112180000_messages_client_idempotency_key)
+  // is prepared but NOT YET APPLIED to production — see
+  // ops-handoff/CC-CHAT-IDEMPOTENCY-MIGRATION-SAFETY-2026-11-12.md. Once
+  // applied, the client always sends one; a caller that omits it gets no
+  // duplicate protection, same as today's behavior. Validated before any
+  // database call, same as every other input check above.
+  let clientMessageId: string | undefined;
+  if (body.clientMessageId !== undefined) {
+    if (typeof body.clientMessageId !== "string" || !UUID_RE.test(body.clientMessageId)) {
+      return NextResponse.json({ error: { message: "clientMessageId must be a UUID" } }, { status: 400 });
+    }
+    clientMessageId = body.clientMessageId;
+  }
+
   const db = getSupabaseAdmin();
   if (!db) {
     return NextResponse.json(
@@ -113,28 +129,73 @@ async function POST_handler(req: Request, { params }: { params: Promise<{ id: st
 
   const threadParentId = typeof body.threadParentId === "string" ? body.threadParentId : null;
   const metadata = body.metadata && typeof body.metadata === "object" ? body.metadata : {};
+  const finalContent = content || "(attachment)";
 
-  const { data: inserted, error } = await db
+  const insertRow = {
+    channel_id: id,
+    sender_user_id: OWNER_USER_ID,
+    sender_type: "user",
+    content: finalContent,
+    tenant_id: TENANT_ID,
+    attachments: Array.isArray(body.attachments) ? body.attachments : [],
+    status: "sent",
+    thread_parent_id: threadParentId,
+    metadata,
+  };
+
+  let { data: inserted, error } = await db
     .from("messages")
-    .insert({
-      channel_id: id,
-      sender_user_id: OWNER_USER_ID,
-      sender_type: "user",
-      content: content || "(attachment)",
-      tenant_id: TENANT_ID,
-      attachments: Array.isArray(body.attachments) ? body.attachments : [],
-      status: "sent",
-      thread_parent_id: threadParentId,
-      metadata,
-    })
+    .insert(clientMessageId ? { ...insertRow, client_message_id: clientMessageId } : insertRow)
     .select("id, created_at")
     .single();
+
+  // Migration not yet applied: the column doesn't exist yet (undefined_column).
+  // Fall back to the pre-idempotency insert rather than hard-failing chat —
+  // shipping this route must not depend on an unapproved schema change being
+  // live. No duplicate protection until the migration lands; this is the
+  // documented, approval-gated tradeoff, not a silent downgrade (logged).
+  if (error?.code === "42703" && clientMessageId) {
+    console.error("[chat] client_message_id column missing — idempotency migration not yet applied, inserting without a key");
+    ({ data: inserted, error } = await db.from("messages").insert(insertRow).select("id, created_at").single());
+  }
+
+  if (error?.code === "23505" && clientMessageId) {
+    // Unique violation on client_message_id: this exact send was already
+    // persisted (our own prior attempt, or a concurrent retry that won the
+    // race — Postgres's unique index is what actually makes "concurrent
+    // retries cannot create duplicates" true, not any application-level
+    // check). Look the existing row up and decide replay vs. reject.
+    const { data: existing, error: lookupError } = await db
+      .from("messages")
+      .select("id, created_at, content")
+      .eq("client_message_id", clientMessageId)
+      .maybeSingle();
+
+    if (lookupError || !existing) {
+      // The insert failed on this exact constraint but the row can't be
+      // found — report as a failure rather than silently proceeding.
+      return NextResponse.json({ error: sanitizeDbError(lookupError ?? error) }, { status: 502 });
+    }
+    if (existing.content !== finalContent) {
+      // Same idempotency key, different content: never silently keep the
+      // first write or silently accept the second — reject explicitly.
+      return NextResponse.json(
+        { error: { code: "idempotency_key_reused", message: "clientMessageId was already used for different content" } },
+        { status: 409 }
+      );
+    }
+    // Same key, same content: this is a retry of an already-accepted send.
+    // Return the original row's id, not a new one — and flag it as a replay
+    // so the caller knows NOT to dispatch the agent relay a second time for
+    // what is still the same logical turn.
+    return NextResponse.json({ data: { id: existing.id, created_at: existing.created_at }, replay: true });
+  }
 
   if (error) {
     return NextResponse.json({ error: sanitizeDbError(error) }, { status: 502 });
   }
 
-  return NextResponse.json({ data: inserted });
+  return NextResponse.json({ data: inserted, replay: false });
 }
 
 // Owner-only: this is the authorized boundary that replaces the anon client's

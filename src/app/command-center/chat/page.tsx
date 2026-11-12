@@ -2955,6 +2955,12 @@ export default function CommandCenterChatPage() {
     // can never silently land in some other channel the owner wasn't on.
     const targetChannelId = isDM ? getDmChannelId(activeAgent!.id) : activeChannel!.id;
     const tempId = `pending-${Date.now()}`;
+    // Stable per-logical-send-attempt key (CC-RECOVERY-DELIVERY-CONVERGENCE-01):
+    // generated once here, sent on every attempt for this logical message. A
+    // retry that reuses this id lets the server recognize "already persisted"
+    // instead of inserting a second row — see
+    // src/app/api/command-center/conversations/[id]/messages/route.ts.
+    const clientMessageId = crypto.randomUUID();
     const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const threadPid = opts?.threadParentId ?? null;
 
@@ -3181,6 +3187,7 @@ export default function CommandCenterChatPage() {
       // this used to insert directly with the anon client and fail.
       let inserted: { id?: string } | null = null;
       let sendError: unknown = null;
+      let isReplay = false;
       try {
         const res = await fetch(`/api/command-center/conversations/${targetChannelId}/messages`, {
           method: "POST",
@@ -3189,6 +3196,7 @@ export default function CommandCenterChatPage() {
             content: trimmed,
             attachments: uploads.length > 0 ? uploads : [],
             threadParentId: threadPid,
+            clientMessageId,
             metadata: {
               targetAgent: isDM ? activeAgent!.id : undefined,
               isDM: isDM,
@@ -3203,6 +3211,7 @@ export default function CommandCenterChatPage() {
           sendError = body?.error || `send failed (${res.status})`;
         } else {
           inserted = body.data;
+          isReplay = body.replay === true;
         }
       } catch (err) {
         sendError = err;
@@ -3234,7 +3243,16 @@ export default function CommandCenterChatPage() {
           m.id === tempId ? { ...m, id: realId, deliveryStatus: "sent" } : m
         )
       );
-      runRelay(realId);
+      // A replay response means THIS exact clientMessageId was already
+      // accepted by a prior attempt (our own earlier call whose response we
+      // never saw, or a race with a concurrent retry) and the agent relay
+      // for that logical turn already ran. Dispatching again here would be
+      // a second agent turn for one accepted message — "agent dispatch at
+      // most once for one accepted logical turn" (CC-RECOVERY-DELIVERY-
+      // CONVERGENCE-01 acceptance criterion).
+      if (!isReplay) {
+        runRelay(realId);
+      }
     } else {
       lastPendingUserMessageIdRef.current = null;
       setMessages((prev) =>
