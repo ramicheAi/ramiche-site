@@ -42,6 +42,21 @@ export async function POST(req: Request) {
       const customerId = session.customer as string;
       const email = session.customer_details?.email || "";
       console.log(`[Stripe] Checkout completed: plan=${planId}, customer=${customerId}`);
+
+      // Server-side owner mapping for /api/stripe/portal (CC-STAGED-RELEASE-CLOSURE-07):
+      // when the checkout session carried a verified Firebase uid (set only if the
+      // caller sent their own ID token at checkout), stamp it onto the CUSTOMER's own
+      // metadata. The portal route then trusts this uid as the primary authorization
+      // check, never the (attacker-suppliable) email on the Checkout Session itself.
+      const firebaseUid = session.metadata?.firebaseUid;
+      if (firebaseUid && customerId) {
+        try {
+          await stripe.customers.update(customerId, { metadata: { firebaseUid } });
+        } catch (e) {
+          console.warn("[Stripe] failed to stamp firebaseUid onto customer:", e);
+        }
+      }
+
       await adminWriteSubscription(customerId, {
         planId,
         status: "active",
