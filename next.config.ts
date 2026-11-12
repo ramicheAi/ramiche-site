@@ -7,7 +7,7 @@ import { withSentryConfig } from "@sentry/nextjs";
 // global CSP (no sandbox) and header rules match the raw path, so encoded URLs bypass the sandbox
 // rule. Fail the build/start on any host that has content there (CC-FINAL-MERGE-GATE-05).
 {
-  const d = path.join(process.cwd(), "public", "yolo-builds");
+  const d = path.join(__dirname, "public", "yolo-builds");
   if (existsSync(d) && readdirSync(d).length > 0) {
     throw new Error("public/yolo-builds must be empty: agent builds are served only via the owner-gated preview API");
   }

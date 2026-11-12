@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFileSync, existsSync, realpathSync } from "fs";
+import { readFileSync, existsSync, realpathSync, statSync } from "fs";
 import { join, extname, sep } from "path";
 import { ownerOnly } from "@/lib/server/command-center-guard";
 
@@ -42,6 +42,7 @@ async function GET_handler(
     return new NextResponse("Not found", { status: 404 });
   }
 
+  let realFile = filePath;
   // Contain symlinks: the resolved file must stay inside the builds directory.
   try {
     const base = realpathSync(BUILDS_DIR_WS);
@@ -49,6 +50,8 @@ async function GET_handler(
     if (real !== base && !real.startsWith(base + sep)) {
       return new NextResponse("Forbidden", { status: 403 });
     }
+    if (!statSync(real).isFile()) return new NextResponse("Not found", { status: 404 });
+    realFile = real;
   } catch {
     return new NextResponse("Not found", { status: 404 });
   }
@@ -56,7 +59,7 @@ async function GET_handler(
   const ext = extname(filePath).toLowerCase();
   const contentType = MIME[ext] || "application/octet-stream";
 
-  const body = readFileSync(filePath);
+  const body = readFileSync(realFile); // read the resolved path that was checked
   return new NextResponse(body, {
     headers: {
       "Content-Type": contentType,
