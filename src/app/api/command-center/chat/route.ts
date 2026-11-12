@@ -1077,6 +1077,7 @@ async function POST_handler(req: NextRequest) {
       mentionedAgents,
       userMessageId,
       threadParentId,
+      bootstrapMode,
     } = body as {
       message?: string;
       channelId?: string;
@@ -1088,6 +1089,12 @@ async function POST_handler(req: NextRequest) {
       userMessageId?: string;
       /** When set, agent replies are stored as thread children of this message */
       threadParentId?: string;
+      /**
+       * CC-ORG-INTELLIGENCE-01 / CC-ORG-FOUNDATION-02 Phase B. Defaults to
+       * `true` (bootstrap) when the client sends nothing, which is every
+       * client today — see chat-routing.ts resolveChatTargets().
+       */
+      bootstrapMode?: boolean;
     };
 
     if (!message) {
@@ -1104,7 +1111,12 @@ async function POST_handler(req: NextRequest) {
     const correlation: ExecutionCorrelation | undefined = userMessageId
       ? { type: "chat_message", id: userMessageId }
       : undefined;
-    const targets = resolveChatTargets({ mentionedAgents, agentName, channelMembers });
+    const targets = resolveChatTargets({
+      mentionedAgents,
+      agentName,
+      channelMembers,
+      bootstrapMode: bootstrapMode ?? true,
+    });
     const groupMode = targets.length > 1;
     const singleTargetStrict = targets.length === 1;
 

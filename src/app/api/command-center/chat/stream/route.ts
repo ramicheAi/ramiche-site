@@ -69,6 +69,12 @@ async function POST_handler(req: NextRequest) {
     mentionedAgents?: string[];
     userMessageId?: string;
     threadParentId?: string;
+    /**
+     * CC-ORG-INTELLIGENCE-01 / CC-ORG-FOUNDATION-02 Phase B. Defaults to
+     * `true` (bootstrap) when the client sends nothing, which is every
+     * client today — see chat-routing.ts resolveChatTargets().
+     */
+    bootstrapMode?: boolean;
   } = {};
   try {
     body = await req.json();
@@ -85,6 +91,7 @@ async function POST_handler(req: NextRequest) {
     mentionedAgents: body.mentionedAgents,
     agentName: body.agentName,
     channelMembers: body.channelMembers,
+    bootstrapMode: body.bootstrapMode ?? true,
   });
   // Streaming endpoint is single-target by design.
   const target = targets[0] ?? "atlas";
