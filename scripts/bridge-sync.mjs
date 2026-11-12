@@ -68,6 +68,11 @@ function run(cmd) {
  */
 async function pushToFirestore(type, data) {
   try {
+    // Bounded: the receiver now does an extra Firestore round-trip per push
+    // (its own readback verification), so an unbounded sender fetch could
+    // hang Promise.all([...11 pushes]) indefinitely on a single stuck
+    // request, which would also make the next setInterval tick overlap this
+    // one (independent review finding).
     const res = await fetch(BRIDGE_URL, {
       method: "POST",
       headers: {
@@ -75,6 +80,7 @@ async function pushToFirestore(type, data) {
         "x-bridge-secret": BRIDGE_SECRET,
       },
       body: JSON.stringify({ type, data }),
+      signal: AbortSignal.timeout(15_000),
     });
     if (!res.ok) {
       const errBody = await res.text().catch(() => "");
@@ -751,7 +757,27 @@ async function pollTriggerQueue() {
 
 // ── Main Sync Loop ───────────────────────────────────────────────────
 
+let syncInFlight = false;
+
 async function syncAll() {
+  // A hung sender fetch (now bounded above, but a slow Firestore round-trip
+  // on an outage can still take several seconds per collection) must not let
+  // the next 60s tick start a second, overlapping cycle — two concurrent
+  // runs would race on the same status.json write (independent review
+  // finding).
+  if (syncInFlight) {
+    console.error("[bridge] sync still in flight, skipping this tick");
+    return;
+  }
+  syncInFlight = true;
+  try {
+    await syncAllOnce();
+  } finally {
+    syncInFlight = false;
+  }
+}
+
+async function syncAllOnce() {
   const timestamp = new Date().toISOString();
   console.log(`[bridge] sync started at ${timestamp}`);
 
@@ -816,6 +842,20 @@ async function syncAll() {
   try {
     const statusPath = join(WORKSPACE, "../../ramiche-site/public/status.json");
     const recentlyActiveList = agents.recentlyActive ? agents.recentlyActive.split(",").filter(Boolean) : [];
+    const allVerified = persistedVerifiedCount === results.length;
+    // Preserve the previous cycle's lastSync when THIS cycle isn't fully
+    // verified, instead of collapsing it to null. The alias previously went
+    // null on any single flaky collection, which reads as "never synced"
+    // to an old reader even when 10 of 11 collections verified fine
+    // (independent review finding) — it must still never claim success it
+    // didn't earn, so it only ever carries a timestamp this script itself
+    // verified in some past cycle, never today's unverified one.
+    let previousLastSync = null;
+    if (!allVerified) {
+      try {
+        previousLastSync = JSON.parse(readFileSync(statusPath, "utf8")).lastSync ?? null;
+      } catch { /* no previous file, or unreadable — stays null */ }
+    }
     const statusData = {
       agents: Object.entries(agents.directory?.agents || {}).map(([name, a]) => ({
         name,
@@ -835,15 +875,17 @@ async function syncAll() {
       // acceptedAt is set ONLY when every collection was independently
       // verified persisted — this is the one field a "LIVE" badge may key
       // off, never attemptedAt and never a bare receiver acknowledgment.
-      acceptedAt: persistedVerifiedCount === results.length ? timestamp : null,
+      acceptedAt: allVerified ? timestamp : null,
       // Deprecated compatibility alias: this file is read by things outside
       // this repo (an iMac-side script, Obsidian tooling, etc. — unverifiable
       // from here), and `lastSync` was the ONLY timestamp key before this
-      // change. Keep it, set to the new acceptedAt semantics (not the old
-      // "ticked" semantics), so a reader we can't see doesn't silently go
-      // stale/break (independent review finding). Remove once nothing reads
-      // it; new readers should use acceptedAt/attemptedAt directly.
-      lastSync: persistedVerifiedCount === results.length ? timestamp : null,
+      // change. Carries the new acceptedAt semantics (fully verified, not
+      // merely "ticked") on a fully-verified cycle; on a partially-verified
+      // one it keeps the last cycle that WAS fully verified, rather than
+      // collapsing to null and reading as "never synced" over one flaky
+      // collection. Remove once nothing reads it; new readers should use
+      // acceptedAt/attemptedAt/persistedVerified directly.
+      lastSync: allVerified ? timestamp : previousLastSync,
     };
     writeFileSync(statusPath, JSON.stringify(statusData, null, 2));
   } catch (e) {

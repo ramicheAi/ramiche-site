@@ -160,6 +160,50 @@ describe("POST /api/bridge (persisted-verification: accepted != verified)", () =
     expect(JSON.stringify(body)).not.toContain("internal-detail");
   });
 
+  it("persistedVerified is true when a later write trims trailing zeros in the fractional seconds (not fixed-width)", async () => {
+    // Independent review finding: Firestore's REST updateTime trims trailing
+    // zeros (0/3/6/9 fractional digits), so a genuinely later timestamp like
+    // "...00.500001Z" can sort BELOW an earlier one trimmed to "...00.500Z"
+    // as a plain string, because "Z" > "0" lexicographically. Numeric
+    // comparison must get this right.
+    process.env.BRIDGE_API_SECRET = SECRET;
+    const fetchMock = vi.fn();
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ updateTime: "2026-11-12T10:00:00.500Z" }), { status: 200 })); // PATCH, trimmed
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ updateTime: "2026-11-12T10:00:00.500001Z" }), { status: 200 })); // readback, genuinely later
+    vi.stubGlobal("fetch", fetchMock);
+    const { POST } = await load();
+    const res = await postValid(POST);
+    const body = await res.json();
+    expect(body.persistedVerified).toBe(true);
+    expect(body.verifyError).toBeUndefined();
+  });
+
+  it("persistedVerified is false when a trimmed readback is genuinely earlier, not just differently-formatted", async () => {
+    process.env.BRIDGE_API_SECRET = SECRET;
+    const fetchMock = vi.fn();
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ updateTime: "2026-11-12T10:00:00.500001Z" }), { status: 200 })); // PATCH
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ updateTime: "2026-11-12T10:00:00.500Z" }), { status: 200 })); // readback, genuinely earlier
+    vi.stubGlobal("fetch", fetchMock);
+    const { POST } = await load();
+    const res = await postValid(POST);
+    const body = await res.json();
+    expect(body.persistedVerified).toBe(false);
+    expect(body.verifyError).toBe("readback_mismatch");
+  });
+
+  it("an upstream Firestore write failure never echoes the raw upstream error body", async () => {
+    process.env.BRIDGE_API_SECRET = SECRET;
+    const fetchMock = vi.fn();
+    fetchMock.mockResolvedValueOnce(new Response("permission denied: service account lacks access to project internal-xyz", { status: 403 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { POST } = await load();
+    const res = await postValid(POST);
+    const body = await res.json();
+    expect(res.status).toBe(403);
+    expect(JSON.stringify(body)).not.toContain("service account");
+    expect(JSON.stringify(body)).not.toContain("internal-xyz");
+  });
+
   it("a failed write (non-2xx PATCH) never attempts verification and reports the write's own error status", async () => {
     process.env.BRIDGE_API_SECRET = SECRET;
     const fetchMock = vi.fn();

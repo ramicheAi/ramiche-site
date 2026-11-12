@@ -130,4 +130,29 @@ describe("deriveSyncState", () => {
     expect(result.status).toBe("failed");
     expect(result.required).toBe(0);
   });
+
+  // Independent review finding: ageMs = nowMs - lastAttemptedAtMs can be NaN
+  // if either timestamp is itself NaN (e.g. Date.parse of a malformed
+  // string upstream). `NaN < 0` and `NaN > budget` are both false, so this
+  // used to fall through every stale/failed check into "live".
+  it("a non-finite age (NaN timestamp input) never falls through to LIVE", () => {
+    const result = deriveSyncState({
+      lastCycle: cols(11, 11),
+      lastAttemptedAtMs: Number.NaN,
+      nowMs: NOW,
+      freshnessBudgetMs: BUDGET,
+    });
+    expect(result.status).toBe("unknown");
+    expect(result.ageMs).toBeNull();
+  });
+
+  it("a non-finite freshness budget never falls through to LIVE", () => {
+    const result = deriveSyncState({
+      lastCycle: cols(11, 11),
+      lastAttemptedAtMs: NOW,
+      nowMs: NOW,
+      freshnessBudgetMs: Number.NaN,
+    });
+    expect(result.status).toBe("unknown");
+  });
 });

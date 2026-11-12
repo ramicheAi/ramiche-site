@@ -60,6 +60,15 @@ export function deriveSyncState(input: DeriveSyncStateInput): DeriveSyncStateRes
   const acceptedRequired = required.filter((c) => c.accepted);
   const accepted = lastCycle.filter((c) => c.accepted).length;
 
+  // A non-finite age (NaN from a corrupt/non-numeric timestamp input, or
+  // Infinity) must never fall through the `ageMs < 0` / `ageMs > budget`
+  // checks below as "fresh" — both comparisons are false for NaN, which
+  // used to fail OPEN into "live" (independent review finding). Same for a
+  // non-finite freshness budget.
+  if (!Number.isFinite(ageMs) || !Number.isFinite(freshnessBudgetMs)) {
+    return { status: "unknown", accepted, required: required.length, ageMs: null };
+  }
+
   // Clock skew / future timestamp — never trust it as fresh.
   if (ageMs < 0) {
     return { status: "unknown", accepted, required: required.length, ageMs };

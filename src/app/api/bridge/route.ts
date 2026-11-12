@@ -29,6 +29,33 @@ function secretFingerprint(secret: string): string {
   return createHash("sha256").update(normalized, "utf8").digest("hex").slice(0, 8);
 }
 
+/**
+ * Firestore's REST `updateTime` trims trailing zeros in its fractional
+ * seconds (0, 3, 6 or 9 digits), so two genuinely-ordered timestamps like
+ * "...00.500Z" and "...00.500001Z" do NOT always compare correctly as
+ * plain strings ("Z" sorts above "0"). Parse to milliseconds-since-epoch
+ * plus the leftover sub-millisecond digits as an integer, and compare
+ * numerically (independent review finding).
+ */
+function parseFirestoreTimestamp(ts: string): { ms: number; subMs: number } | undefined {
+  const match = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d+))?Z$/.exec(ts);
+  if (!match) return undefined;
+  const whole = Date.parse(`${match[1]}Z`);
+  if (!Number.isFinite(whole)) return undefined;
+  const frac = (match[2] || "").padEnd(9, "0"); // nanoseconds, zero-padded
+  const ms = whole + Number(frac.slice(0, 3));
+  const subMs = Number(frac.slice(3)); // remaining micro/nanosecond digits
+  return { ms, subMs };
+}
+
+function timestampGte(a: string, b: string): boolean {
+  const pa = parseFirestoreTimestamp(a);
+  const pb = parseFirestoreTimestamp(b);
+  if (!pa || !pb) return a >= b; // fall back to lexicographic if unparseable
+  if (pa.ms !== pb.ms) return pa.ms > pb.ms;
+  return pa.subMs >= pb.subMs;
+}
+
 const BRIDGE_SECRET = (process.env.BRIDGE_API_SECRET || "").trim().replace(/\\n$/, "");
 
 // Logged ONCE at module load, not per-request: an unauthenticated caller
@@ -256,8 +283,15 @@ export async function POST(req: NextRequest) {
     });
 
     if (!res.ok) {
+      // Log the raw Firestore error server-side only; never echo it in the
+      // response. A pass-through of Firestore's own 401/403 also used to be
+      // indistinguishable from this route's own bridge-secret 401, which
+      // sends anyone debugging a fingerprint mismatch down the wrong path —
+      // always answer with this route's own fixed 502 (independent review
+      // finding).
       const errText = await res.text();
-      return NextResponse.json({ error: errText }, { status: res.status });
+      console.error(`[bridge] POST ${type} upstream write failed (${res.status}):`, errText);
+      return NextResponse.json({ error: "upstream_write_failed" }, { status: res.status });
     }
 
     // A 2xx from Firestore's PATCH endpoint means Firestore ACCEPTED the write
@@ -299,7 +333,7 @@ export async function POST(req: NextRequest) {
           // "unverified" on every concurrent write to a shared collection
           // like `tasks`).
           const readTime = typeof doc?.updateTime === "string" ? doc.updateTime : undefined;
-          persistedVerified = !!readTime && readTime >= updateTime;
+          persistedVerified = !!readTime && timestampGte(readTime, updateTime);
           if (!persistedVerified) verifyError = "readback_mismatch";
         } else {
           verifyError = `readback_${readback.status}`;
@@ -324,7 +358,8 @@ export async function POST(req: NextRequest) {
       ...(verifyError ? { verifyError } : {}),
     });
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    console.error(`[bridge] POST exception:`, e);
+    return NextResponse.json({ error: "internal_error" }, { status: 500 });
   }
 }
 
