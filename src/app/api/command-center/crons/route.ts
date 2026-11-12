@@ -8,7 +8,6 @@ import { ownerOnly } from "@/lib/server/command-center-guard";
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "apex-athlete-73755";
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
-const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET;
 
 export const dynamic = "force-dynamic";
 
@@ -29,11 +28,7 @@ async function GET_handler() {
 
 // POST: Create/Delete/Toggle cron (writes action to Firestore queue for bridge to pick up)
 async function POST_handler(req: NextRequest) {
-  const authHeader = req.headers.get("x-bridge-secret");
-  if (!BRIDGE_SECRET || authHeader !== BRIDGE_SECRET) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
+  // Authorization: owner session via ownerOnly() below. The browser no longer holds or sends a bridge secret.
   try {
     const body = await req.json();
     const { action, cronId, data } = body;
