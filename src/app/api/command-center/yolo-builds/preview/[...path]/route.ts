@@ -8,7 +8,6 @@ export const runtime = "nodejs";
 
 const WS = process.env.OPENCLAW_WORKSPACE ?? "/Users/admin/.openclaw/workspace";
 const BUILDS_DIR_WS = join(WS, "builds");
-const BUILDS_DIR_PUBLIC = join(process.cwd(), "public/yolo-builds");
 
 const MIME: Record<string, string> = {
   ".html": "text/html",
@@ -36,11 +35,9 @@ async function GET_handler(
     return new NextResponse("Forbidden", { status: 403 });
   }
 
-  // Try workspace first, then public
-  let filePath = join(BUILDS_DIR_WS, relPath);
-  if (!existsSync(filePath)) {
-    filePath = join(BUILDS_DIR_PUBLIC, relPath);
-  }
+  // Workspace only. Builds must never live under public/: Next serves public/ files
+  // statically with the global CSP (no sandbox), reachable via encoded paths.
+  const filePath = join(BUILDS_DIR_WS, relPath);
   if (!existsSync(filePath)) {
     return new NextResponse("Not found", { status: 404 });
   }
@@ -50,7 +47,19 @@ async function GET_handler(
 
   const body = readFileSync(filePath);
   return new NextResponse(body, {
-    headers: { "Content-Type": contentType, "Cache-Control": "public, max-age=3600" },
+    headers: {
+      "Content-Type": contentType,
+      // Agent-generated content is untrusted. Never cacheable by shared caches (it is owner-only).
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
+      // Opaque-origin sandbox: scripts may run for previewing, but with no access to the
+      // Command Center origin (cookies, storage, same-origin fetch), no top navigation,
+      // no forms/popups, and no network egress beyond images/fonts/media from https or data.
+      "Content-Security-Policy":
+        "sandbox allow-scripts; default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data: https:; media-src 'self' data: blob: https:; connect-src 'none'; form-action 'none'; frame-ancestors 'self'; base-uri 'none'",
+      "Cross-Origin-Resource-Policy": "same-origin",
+      "Referrer-Policy": "no-referrer",
+    },
   });
 }
 

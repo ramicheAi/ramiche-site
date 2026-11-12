@@ -107,7 +107,9 @@ export async function middleware(req: NextRequest) {
   const fwdHost = (req.headers.get("x-forwarded-host") || req.headers.get("host") || "").toLowerCase();
   if (pathname === "/" && fwdHost.startsWith("command.")) {
     const proto = req.headers.get("x-forwarded-proto") || "https";
-    return NextResponse.redirect(new URL("/command-center", `${proto}://${fwdHost}`));
+    const r = NextResponse.redirect(new URL("/command-center", `${proto}://${fwdHost}`));
+    r.headers.set("Cache-Control", "no-store"); // host-derived: never cacheable
+    return r;
   }
 
   if (pathname.startsWith("/command-center") || pathname.startsWith("/api/command-center")) {

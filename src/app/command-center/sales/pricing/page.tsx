@@ -12,6 +12,7 @@ export default function PricingCalculatorPage() {
       accent="var(--c-amber)"
     >
       <iframe
+        sandbox="allow-scripts"
         src="/api/command-center/yolo-builds/preview/2026-03-17-mercury-pricing-calculator/index.html"
         style={{
           width: "100%",

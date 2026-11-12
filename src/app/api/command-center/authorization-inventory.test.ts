@@ -14,6 +14,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { verifySessionCookie } = vi.hoisted(() => ({ verifySessionCookie: vi.fn() }));
 vi.mock("@/lib/firebase-admin", () => ({ verifySessionCookie }));
+// The scheduler route would otherwise run the real prospector (network + DB) on a valid secret.
+vi.mock("@/lib/server/prospector-daily", () => ({ runProspectorDaily: async () => new Response("{}", { status: 200 }) }));
 
 import { MACHINE_ROUTES } from "@/lib/server/command-center-routes";
 import { OWNER_UID_ENV } from "@/lib/server/command-center-auth";
@@ -37,6 +39,8 @@ const EXTRA_HUMAN: Array<[string, string[]]> = [
   ["bridge/chat/route.ts", ["GET", "POST"]],
   ["bridge/crons/route.ts", ["GET", "POST"]],
   ["atlas/chat/route.ts", ["GET", "POST"]],
+  ["pipeline-tasks/route.ts", ["GET"]],
+  ["test-supabase/route.ts", ["GET"]],
 ];
 const files = walk(ROOT).sort();
 const routePath = (f: string) => "/api/command-center/" + relative(ROOT, f).split(sep).slice(0, -1).join("/");
@@ -209,7 +213,7 @@ describe("the owner is actually let through (no wrapper drops params / locks the
 });
 
 describe("MACHINE routes verify their own secret on EVERY exported method", () => {
-  const envKeys = ["OPENCLAW_CC_WEBHOOK_TOKEN", "OPENCLAW_GATEWAY_TOKEN", "CC_PUSH_SECRET", "TELEGRAM_WEBHOOK_SECRET", "VAPI_WEBHOOK_SECRET"];
+  const envKeys = ["OPENCLAW_CC_WEBHOOK_TOKEN", "OPENCLAW_GATEWAY_TOKEN", "CC_PUSH_SECRET", "TELEGRAM_WEBHOOK_SECRET", "VAPI_WEBHOOK_SECRET", "PROSPECTOR_CRON_SECRET"];
   const saved: Record<string, string | undefined> = {};
   beforeEach(() => envKeys.forEach((k) => (saved[k] = process.env[k])));
   afterEach(() => envKeys.forEach((k) => (saved[k] === undefined ? delete process.env[k] : (process.env[k] = saved[k]))));
@@ -222,12 +226,14 @@ describe("MACHINE routes verify their own secret on EVERY exported method", () =
     "/api/command-center/push": (s) => ({ "x-cc-push-secret": s }),
     "/api/command-center/telegram/webhook": (s) => ({ "X-Telegram-Bot-Api-Secret-Token": s }),
     "/api/command-center/voice/call/webhook": (s) => ({ "x-vapi-secret": s }),
+    "/api/command-center/prospector/cron": (s) => ({ "x-cron-secret": s }),
   };
   const envFor: Record<string, string> = {
     "/api/command-center/chat/webhook": "OPENCLAW_CC_WEBHOOK_TOKEN",
     "/api/command-center/push": "CC_PUSH_SECRET",
     "/api/command-center/telegram/webhook": "TELEGRAM_WEBHOOK_SECRET",
     "/api/command-center/voice/call/webhook": "VAPI_WEBHOOK_SECRET",
+    "/api/command-center/prospector/cron": "PROSPECTOR_CRON_SECRET",
   };
 
   it.each(machine.map((f) => [routePath(f), f]))("%s", async (p, f) => {

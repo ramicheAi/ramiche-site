@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
-export async function GET() {
+async function GET_handler() {
   if (!supabase) {
     return NextResponse.json({ error: "Supabase client is null — env vars missing" });
   }
@@ -18,3 +19,6 @@ export async function GET() {
     messages: { count: messages.data?.length ?? 0, error: messages.error, data: messages.data },
   });
 }
+
+// Diagnostic route that dumps Command Center chat rows: owner-only.
+export const GET = ownerOnly(GET_handler);
