@@ -1,0 +1,9 @@
+-- ROLLBACK for 20261112180000_messages_client_idempotency_key.sql.
+-- Renamed .sql.txt so Supabase's migration runner never auto-applies it;
+-- run manually (`psql ... -f this_file`) only if the forward migration must
+-- be reverted. Not needed for the forward migration to be safe — it's just
+-- the reverse of two additive operations.
+
+drop index if exists public.messages_client_message_id_key;
+alter table public.messages drop column if exists client_message_id;
+alter table public.messages drop column if exists relay_claimed;

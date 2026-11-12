@@ -115,6 +115,31 @@ const DEFAULT_CHANNELS = [
   { id: "11111111-1111-1111-1111-111111111111", name: "#engineering-team", unread: 0, description: "Engineering Team", type: "team" as const, members: ["atlas", "shuri", "proximon", "triage", "nova"] },
 ];
 
+/**
+ * CC-CHAT-MOBILE-RECOVERY-01 (D3): the active conversation must survive a
+ * reload/restart instead of always resetting to "most recently active" or a
+ * hardcoded default — that rule is exactly how the Content Team channel
+ * (not the most recently active one) went invisible after a refresh.
+ */
+const LAST_CONVERSATION_KEY = "cc:lastConversation";
+
+function readLastConversationId(): string | null {
+  try {
+    return localStorage.getItem(LAST_CONVERSATION_KEY) || null;
+  } catch {
+    return null; // private mode / blocked storage — fall through to normal selection
+  }
+}
+
+function writeLastConversationId(id: string | null) {
+  try {
+    if (id) localStorage.setItem(LAST_CONVERSATION_KEY, id);
+    else localStorage.removeItem(LAST_CONVERSATION_KEY);
+  } catch {
+    /* best effort only */
+  }
+}
+
 /* ── DM Channel UUID Map (Supabase channel_id is UUID, not string) ── */
 const DM_CHANNEL_MAP: Record<string, string> = {
   atlas: "aa000001-0000-0000-0000-000000000000",
@@ -1716,6 +1741,23 @@ export default function CommandCenterChatPage() {
   /** Last relay error — rendered as a red bubble below the failing user message. */
   const [relayError, setRelayError] = useState<{ id: string; message: string } | null>(null);
 
+  /**
+   * A denied/failed history or channel-list read, distinct from "no messages
+   * yet." The anon Supabase client resolves (never throws) on a permission
+   * denial, so without this a locked-down read and a genuinely empty channel
+   * are indistinguishable (CC-CHAT-MOBILE-RECOVERY-01, D2). Cleared on the
+   * next successful read.
+   */
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  /**
+   * Separate from `historyError`: the channel LIST and the current channel's
+   * message HISTORY are different resources. Sharing one state meant a
+   * failed channel-list load could be silently hidden the moment the
+   * (unrelated) history fetch for whatever channel ended up active
+   * succeeded — independent review finding, CC-RECOVERY-INTEGRATION-01.
+   */
+  const [channelListError, setChannelListError] = useState<string | null>(null);
+
   /* ── Phase C+F — approval state for synthesis cards.
         approvingSynthId   = id of the synthesis message currently approving
         approveError       = inline error if the /approve stream fails
@@ -2214,35 +2256,52 @@ export default function CommandCenterChatPage() {
         return;
       }
       try {
-        // Load channels
-        const { data: channelsData } = await supabase
-          .from("channels")
-          .select("*")
-          .order("last_activity_at", { ascending: false });
+        // Load channels through the owner-gated server API, not the anon
+        // Supabase client: anon/authenticated have had zero privileges on
+        // public.channels since the P05-B3 lockdown, and the old anon read
+        // resolved to an empty/undefined result on denial instead of
+        // throwing — indistinguishable from "no channels exist" (D1/D2).
+        const channelsRes = await fetch("/api/command-center/channels", { cache: "no-store" });
+        if (!channelsRes.ok) {
+          const body = await channelsRes.json().catch(() => ({}));
+          setChannelListError(body?.error?.message || `channel list request failed (${channelsRes.status})`);
+          if (!pendingDmRef.current) setActiveChannel(DEFAULT_CHANNELS[1]);
+        } else {
+          setChannelListError(null);
+          const { data: channelsData } = (await channelsRes.json()) as { data?: Record<string, unknown>[] };
 
-        if (channelsData && channelsData.length > 0) {
-          const mapped = channelsData.map((ch: Record<string, unknown>) => ({
-            id: ch.id as string,
-            name: `#${(ch.slug as string) || (ch.name as string)}`,
-            unread: 0,
-            description: (ch.description as string) || "",
-            active: false,
-            type: ((ch.type as string) || "project") as "project" | "team",
-            ...((ch.type === "team" && ch.members) ? { members: ch.members as string[] } : {}),
-          }));
-          // Merge: use Supabase channels + fill in missing types from defaults
-          const hasTeam = mapped.some(c => c.type === "team");
-          const hasProject = mapped.some(c => c.type === "project");
-          const merged = [
-            ...(hasProject ? [] : DEFAULT_CHANNELS.filter(c => c.type === "project")),
-            ...mapped,
-            ...(hasTeam ? [] : DEFAULT_CHANNELS.filter(c => c.type === "team")),
-          ];
-          setChannels(merged as Channel[]);
-          if (!pendingDmRef.current) setActiveChannel((mapped[0] || merged[0]) as Channel);
-        } else if (!pendingDmRef.current) {
-          // Fallback to defaults if no Supabase data
-          setActiveChannel(DEFAULT_CHANNELS[1]);
+          if (channelsData && channelsData.length > 0) {
+            const mapped = channelsData.map((ch: Record<string, unknown>) => ({
+              id: ch.id as string,
+              name: `#${(ch.slug as string) || (ch.name as string)}`,
+              unread: 0,
+              description: (ch.description as string) || "",
+              active: false,
+              type: ((ch.type as string) || "project") as "project" | "team",
+              ...((ch.type === "team" && ch.members) ? { members: ch.members as string[] } : {}),
+            }));
+            // Merge: use Supabase channels + fill in missing types from defaults
+            const hasTeam = mapped.some(c => c.type === "team");
+            const hasProject = mapped.some(c => c.type === "project");
+            const merged = [
+              ...(hasProject ? [] : DEFAULT_CHANNELS.filter(c => c.type === "project")),
+              ...mapped,
+              ...(hasTeam ? [] : DEFAULT_CHANNELS.filter(c => c.type === "team")),
+            ];
+            setChannels(merged as Channel[]);
+            if (!pendingDmRef.current) {
+              // D3: restore the conversation the owner was last actually
+              // looking at, before falling back to "most recent" or a
+              // default — a hardcoded startup pick is exactly how a
+              // channel that wasn't most-recently-active went invisible.
+              const lastId = readLastConversationId();
+              const restored = lastId ? merged.find((c) => c.id === lastId) : undefined;
+              setActiveChannel((restored || mapped[0] || merged[0]) as Channel);
+            }
+          } else if (!pendingDmRef.current) {
+            // Fallback to defaults only on a genuinely empty list, not on a failed request.
+            setActiveChannel(DEFAULT_CHANNELS[1]);
+          }
         }
 
         // Load agents - always keep all 20 from DEFAULT_AGENTS
@@ -2304,13 +2363,43 @@ export default function CommandCenterChatPage() {
     const sb = supabase;
     const channelId = viewMode === "dm" && activeAgent ? getDmChannelId(activeAgent.id) : activeChannel?.id;
     if (!channelId) return;
+    // Guards against a slow fetch for a channel the owner has already
+    // switched away from landing LATE and overwriting the now-active
+    // channel's messages with a stale channel's history (CC-RECOVERY-
+    // INTEGRATION-01 review: "conversation switching cannot display stale
+    // messages from another channel"). Set in the cleanup below, which runs
+    // before this effect re-fires for the newly selected channel/agent.
+    let cancelled = false;
     const loadMessages = async () => {
-      const { data } = await sb
-        .from("messages")
-        .select("*")
-        .eq("channel_id", channelId)
-        .order("created_at", { ascending: true })
-        .limit(100);
+      // Server-authorized history read (D1): anon/authenticated have zero
+      // privileges on public.messages since the P05-B3 lockdown, so the old
+      // direct `sb.from("messages")` call here resolved with `data: null`
+      // on every denied read — rendered as "no messages," not "denied."
+      let data: Record<string, unknown>[] | null = null;
+      try {
+        // order=desc + reverse (not the ascending default): a channel with
+        // more than 100 messages must show its NEWEST 100, not its oldest —
+        // ascending+limit would silently drop everything after the first
+        // page ever written (independent review finding).
+        const res = await fetch(
+          `/api/command-center/conversations/${channelId}/messages?limit=100&order=desc`,
+          { cache: "no-store" }
+        );
+        if (cancelled) return; // channel/agent changed again — don't touch state for a channel we left
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          setHistoryError(body?.error?.message || `history request failed (${res.status})`);
+        } else {
+          setHistoryError(null);
+          const json = await res.json();
+          if (cancelled) return;
+          data = Array.isArray(json.data) ? [...json.data].reverse() : json.data;
+        }
+      } catch (err) {
+        if (!cancelled) setHistoryError(err instanceof Error ? err.message : "history request failed");
+      }
+
+      if (cancelled) return; // channel/agent changed again while this fetch was in flight
 
       if (data) {
         const currentAgents = agentsRef.current;
@@ -2370,6 +2459,7 @@ export default function CommandCenterChatPage() {
         } else {
           console.warn("message_reactions load skipped:", reactErr.message);
         }
+        if (cancelled) return; // channel/agent changed again during the reactions fetch
         const withReactions: Message[] = mapped.map((m) => {
           const rows = byMid.get(m.id) ?? [];
           const agg = aggregateReactions(rows, CC_REACTION_USER_ID);
@@ -2400,6 +2490,9 @@ export default function CommandCenterChatPage() {
     loadMessages();
 
     // No polling — realtime subscription + REST polling fallback handle live updates.
+    return () => {
+      cancelled = true;
+    };
   }, [activeChannel, activeAgent, viewMode]);
 
   /* ── real-time subscription for new messages ── */
@@ -2635,20 +2728,42 @@ export default function CommandCenterChatPage() {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(channelId)) {
       return;
     }
-    const sb = supabase;
     let cancelled = false;
+    let tickCount = 0;
 
     const tick = async () => {
       if (cancelled) return;
-      if (realtimeStatusRef.current === "connected") return; // WS alive — skip
+      tickCount += 1;
+      // Realtime reporting "connected" proves the WebSocket subscribed; it
+      // does NOT prove postgres_changes events are actually being delivered
+      // — Supabase Realtime still enforces RLS/grants on the replication
+      // stream, and public.messages has zero anon/authenticated privileges
+      // (independent review finding, CC-RECOVERY-INTEGRATION-01). Skipping
+      // every tick while "connected" would mean a silently-not-delivering
+      // subscription hides new messages until a manual reload. Keep a slow
+      // (~21s) reconciliation poll running even while "connected" as a
+      // safety net; the fast 3s path still applies when it's not.
+      const SLOW_RECONCILE_EVERY_N_TICKS = 7;
+      if (realtimeStatusRef.current === "connected" && tickCount % SLOW_RECONCILE_EVERY_N_TICKS !== 0) {
+        return;
+      }
       try {
-        const { data, error } = await sb
-          .from("messages")
-          .select("*")
-          .eq("channel_id", channelId)
-          .order("created_at", { ascending: false })
-          .limit(50); // was 20 — bump so high-traffic channels don't lose tail
-        if (error || !data || cancelled) return;
+        // Server-authorized read (D1), same reasoning as loadMessages above —
+        // the anon client has no privileges on public.messages. order=desc
+        // matches the previous "most recent 50, then reverse" behavior.
+        const res = await fetch(
+          `/api/command-center/conversations/${channelId}/messages?limit=50&order=desc`,
+          { cache: "no-store" }
+        );
+        if (cancelled) return;
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          setHistoryError(body?.error?.message || `history poll failed (${res.status})`);
+          return;
+        }
+        setHistoryError(null);
+        const { data } = await res.json();
+        if (!data || cancelled) return;
         const fresh = [...data].reverse(); // oldest → newest
         setMessages((prev) => {
           // CRITICAL: dedupe ONLY against the current `prev` state, NOT a
@@ -2759,7 +2874,9 @@ export default function CommandCenterChatPage() {
 
   /* ── handlers ── */
   const handleChannelSelect = (channel: Channel) => {
+    if (channel.id !== activeChannel?.id) setMessages([]); // never show the previous channel's messages while this one loads
     setActiveChannel(channel);
+    writeLastConversationId(channel.id); // D3: survive reload/restart, see loadData above
     setActiveAgent(null);
     setViewMode("channel");
     setThreadMessage(null);
@@ -2774,6 +2891,7 @@ export default function CommandCenterChatPage() {
   };
 
   const handleAgentSelect = (agent: Agent) => {
+    if (agent.id !== activeAgent?.id) setMessages([]); // never show the previous conversation's messages while this one loads
     setActiveAgent(agent);
     setActiveChannel(null);
     setViewMode("dm");
@@ -2831,8 +2949,18 @@ export default function CommandCenterChatPage() {
     setMentionPick(null);
 
     const isDM = viewMode === "dm" && activeAgent;
-    const targetChannelId = isDM ? getDmChannelId(activeAgent!.id) : (activeChannel?.id || "22222222-2222-2222-2222-222222222222");
+    // No hardcoded channel fallback (CC-CHAT-MOBILE-RECOVERY-01, D3): the
+    // guard above (`!activeChannel && !(dm && agent)` -> return) means
+    // activeChannel is guaranteed set on the non-DM branch here, so a send
+    // can never silently land in some other channel the owner wasn't on.
+    const targetChannelId = isDM ? getDmChannelId(activeAgent!.id) : activeChannel!.id;
     const tempId = `pending-${Date.now()}`;
+    // Stable per-logical-send-attempt key (CC-RECOVERY-DELIVERY-CONVERGENCE-01):
+    // generated once here, sent on every attempt for this logical message. A
+    // retry that reuses this id lets the server recognize "already persisted"
+    // instead of inserting a second row — see
+    // src/app/api/command-center/conversations/[id]/messages/route.ts.
+    const clientMessageId = crypto.randomUUID();
     const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const threadPid = opts?.threadParentId ?? null;
 
@@ -3053,44 +3181,77 @@ export default function CommandCenterChatPage() {
     };
 
     if (supabase) {
-      const { data: inserted, error } = await supabase
-        .from("messages")
-        .insert({
-          channel_id: targetChannelId,
-          sender_user_id: "00000000-0000-0000-0000-000000000001",
-          sender_type: "user",
-          content: trimmed || "(attachment)",
-          tenant_id: "11111111-1111-1111-1111-111111111111",
-          attachments: uploads.length > 0 ? uploads : [],
-          status: "sent",
-          thread_parent_id: threadPid,
-          metadata: {
-            targetAgent: isDM ? activeAgent!.id : undefined,
-            isDM: isDM,
-            dmChannelId: isDM ? targetChannelId : undefined,
-            channelName: isDM ? `DM: ${activeAgent!.name}` : (activeChannel?.name || "general"),
-            source: "command-center-ui",
-          },
-        })
-        .select("id")
-        .single();
+      // Server-authorized write (CC-RECOVERY-INTEGRATION-01 pre-merge
+      // review, write-side twin of the read fix above): anon has zero
+      // INSERT privilege on public.messages since the P05-B3 lockdown, so
+      // this used to insert directly with the anon client and fail.
+      let inserted: { id?: string } | null = null;
+      let sendError: unknown = null;
+      try {
+        const res = await fetch(`/api/command-center/conversations/${targetChannelId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            content: trimmed,
+            attachments: uploads.length > 0 ? uploads : [],
+            threadParentId: threadPid,
+            clientMessageId,
+            metadata: {
+              targetAgent: isDM ? activeAgent!.id : undefined,
+              isDM: isDM,
+              dmChannelId: isDM ? targetChannelId : undefined,
+              channelName: isDM ? `DM: ${activeAgent!.name}` : (activeChannel?.name || "general"),
+              source: "command-center-ui",
+            },
+          }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          sendError = body?.error || `send failed (${res.status})`;
+        } else {
+          inserted = body.data;
+        }
+      } catch (err) {
+        sendError = err;
+      }
 
-      if (error) {
-        console.error("Supabase send failed:", error);
-        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      if (sendError || !inserted?.id) {
+        // FIXED (independent review, CC-RECOVERY-INTEGRATION-01): this used
+        // to silently remove the optimistic bubble and log only to
+        // console.error, so a failed send (e.g. the owner's session expired
+        // mid-composition, a 401/403 from the server route) left no trace
+        // that the message was never persisted — the same silent-failure
+        // class as the original incident. Keep the bubble and surface the
+        // existing relayError banner instead of discarding it.
+        console.error("Chat send failed:", sendError);
         setWaitingForResponse(false);
         setTypingUsers([]);
+        setRelayError({
+          id: tempId,
+          message: typeof sendError === "string" ? sendError : "Message not sent — it was not persisted. Tap to dismiss, then try again.",
+        });
         onVoiceRelayError?.();
         return;
       }
 
-      const realId = inserted.id as string;
+      const realId = inserted.id;
       lastPendingUserMessageIdRef.current = realId;
       setMessages((prev) =>
         prev.map((m) =>
           m.id === tempId ? { ...m, id: realId, deliveryStatus: "sent" } : m
         )
       );
+      // ALWAYS call runRelay here, even when this POST's response reported a
+      // replay (independent review finding, corrected): a replay means the
+      // MESSAGE row wasn't duplicated, not that the agent was already
+      // dispatched for it — if the earlier attempt's own HTTP response was
+      // lost, that attempt's client never reached this line either, so
+      // skipping this call on a replayed response would mean NOBODY ever
+      // dispatches the agent for that message. "Agent dispatch at most once
+      // for one accepted logical turn" is enforced server-side instead, by
+      // an atomic claim in POST /api/command-center/chat keyed on this
+      // message's stable id — see the relay_claimed column and the claim at
+      // the top of that route's POST_handler.
       runRelay(realId);
     } else {
       lastPendingUserMessageIdRef.current = null;
@@ -4731,6 +4892,34 @@ export default function CommandCenterChatPage() {
             padding: "16px 20px",
           }}
         >
+          {(channelListError || historyError) && (
+            // CC-CHAT-MOBILE-RECOVERY-01 (D2): a denied/failed read is shown
+            // as an explicit error, never silently rendered as "no messages."
+            // Two independent banners: a channel-list failure and a
+            // history failure are different resources and must not hide
+            // each other (independent review finding, CC-RECOVERY-
+            // INTEGRATION-01 — a later successful history fetch used to
+            // clear away an unrelated, still-real channel-list error).
+            <div
+              role="alert"
+              style={{
+                marginBottom: 16,
+                padding: "10px 14px",
+                borderRadius: 8,
+                border: "1px solid rgba(252,165,165,0.35)",
+                background: "rgba(248,113,113,0.08)",
+                color: "#fca5a5",
+                fontSize: 12,
+                fontFamily: FONT_FAMILY,
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+              }}
+            >
+              {channelListError && <span>Couldn&apos;t load the channel list: {channelListError}</span>}
+              {historyError && <span>Couldn&apos;t load this conversation&apos;s history: {historyError}</span>}
+            </div>
+          )}
           {Object.entries(groupedMessages).map(([date, dateMessages]) => (
             <div key={date}>
               {/* Date Separator — matches command center section dividers */}
