@@ -3187,7 +3187,6 @@ export default function CommandCenterChatPage() {
       // this used to insert directly with the anon client and fail.
       let inserted: { id?: string } | null = null;
       let sendError: unknown = null;
-      let isReplay = false;
       try {
         const res = await fetch(`/api/command-center/conversations/${targetChannelId}/messages`, {
           method: "POST",
@@ -3211,7 +3210,6 @@ export default function CommandCenterChatPage() {
           sendError = body?.error || `send failed (${res.status})`;
         } else {
           inserted = body.data;
-          isReplay = body.replay === true;
         }
       } catch (err) {
         sendError = err;
@@ -3243,16 +3241,18 @@ export default function CommandCenterChatPage() {
           m.id === tempId ? { ...m, id: realId, deliveryStatus: "sent" } : m
         )
       );
-      // A replay response means THIS exact clientMessageId was already
-      // accepted by a prior attempt (our own earlier call whose response we
-      // never saw, or a race with a concurrent retry) and the agent relay
-      // for that logical turn already ran. Dispatching again here would be
-      // a second agent turn for one accepted message — "agent dispatch at
-      // most once for one accepted logical turn" (CC-RECOVERY-DELIVERY-
-      // CONVERGENCE-01 acceptance criterion).
-      if (!isReplay) {
-        runRelay(realId);
-      }
+      // ALWAYS call runRelay here, even when this POST's response reported a
+      // replay (independent review finding, corrected): a replay means the
+      // MESSAGE row wasn't duplicated, not that the agent was already
+      // dispatched for it — if the earlier attempt's own HTTP response was
+      // lost, that attempt's client never reached this line either, so
+      // skipping this call on a replayed response would mean NOBODY ever
+      // dispatches the agent for that message. "Agent dispatch at most once
+      // for one accepted logical turn" is enforced server-side instead, by
+      // an atomic claim in POST /api/command-center/chat keyed on this
+      // message's stable id — see the relay_claimed column and the claim at
+      // the top of that route's POST_handler.
+      runRelay(realId);
     } else {
       lastPendingUserMessageIdRef.current = null;
       setMessages((prev) =>

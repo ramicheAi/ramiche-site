@@ -149,12 +149,23 @@ async function POST_handler(req: Request, { params }: { params: Promise<{ id: st
     .select("id, created_at")
     .single();
 
-  // Migration not yet applied: the column doesn't exist yet (undefined_column).
-  // Fall back to the pre-idempotency insert rather than hard-failing chat —
-  // shipping this route must not depend on an unapproved schema change being
-  // live. No duplicate protection until the migration lands; this is the
-  // documented, approval-gated tradeoff, not a silent downgrade (logged).
-  if (error?.code === "42703" && clientMessageId) {
+  // Migration not yet applied: the column doesn't exist yet. PostgREST
+  // (what supabase-js actually talks to, not raw Postgres) reports this as
+  // its OWN error code PGRST204 ("Could not find the ... column"), not
+  // Postgres's 42703 — 42703 is what the underlying database would raise for
+  // a missing column in a WHERE/SELECT, not what PostgREST's schema-cache
+  // rejection on an INSERT body actually surfaces. Match both, plus the
+  // literal message text, so this fallback actually fires in production
+  // instead of only in a mock that hands back whichever code was assumed
+  // (independent review finding — the original 42703-only check would have
+  // 502'd every owner send the moment this route shipped, before the
+  // migration could be applied). Fall back to the pre-idempotency insert
+  // rather than hard-failing chat; no duplicate protection until the
+  // migration lands — the documented, approval-gated tradeoff, logged.
+  const isMissingIdempotencyColumn = (e: typeof error) =>
+    !!e && (e.code === "PGRST204" || e.code === "42703") &&
+    /client_message_id/i.test(e.message || "");
+  if (isMissingIdempotencyColumn(error) && clientMessageId) {
     console.error("[chat] client_message_id column missing — idempotency migration not yet applied, inserting without a key");
     ({ data: inserted, error } = await db.from("messages").insert(insertRow).select("id, created_at").single());
   }
@@ -165,9 +176,17 @@ async function POST_handler(req: Request, { params }: { params: Promise<{ id: st
     // race — Postgres's unique index is what actually makes "concurrent
     // retries cannot create duplicates" true, not any application-level
     // check). Look the existing row up and decide replay vs. reject.
+    //
+    // Scoped to this channel AND compared on the full payload, not just
+    // `content` (independent review finding): the unique index is global,
+    // so without the channel check a key collision would silently hand back
+    // another channel's row; without comparing attachments/thread/metadata
+    // too, two genuinely different attachment-only sends (which both fall
+    // back to the placeholder content "(attachment)") would wrongly compare
+    // equal and the second payload would be silently dropped as a "replay."
     const { data: existing, error: lookupError } = await db
       .from("messages")
-      .select("id, created_at, content")
+      .select("id, created_at, content, channel_id, attachments, thread_parent_id, metadata")
       .eq("client_message_id", clientMessageId)
       .maybeSingle();
 
@@ -176,15 +195,22 @@ async function POST_handler(req: Request, { params }: { params: Promise<{ id: st
       // found — report as a failure rather than silently proceeding.
       return NextResponse.json({ error: sanitizeDbError(lookupError ?? error) }, { status: 502 });
     }
-    if (existing.content !== finalContent) {
-      // Same idempotency key, different content: never silently keep the
-      // first write or silently accept the second — reject explicitly.
+    const samePayload =
+      existing.channel_id === id &&
+      existing.content === finalContent &&
+      JSON.stringify(existing.attachments ?? []) === JSON.stringify(insertRow.attachments) &&
+      (existing.thread_parent_id ?? null) === threadParentId &&
+      JSON.stringify(existing.metadata ?? {}) === JSON.stringify(metadata);
+    if (!samePayload) {
+      // Same idempotency key, different content/channel/attachments/thread/
+      // metadata: never silently keep the first write or silently accept
+      // the second — reject explicitly.
       return NextResponse.json(
-        { error: { code: "idempotency_key_reused", message: "clientMessageId was already used for different content" } },
+        { error: { code: "idempotency_key_reused", message: "clientMessageId was already used for a different request" } },
         { status: 409 }
       );
     }
-    // Same key, same content: this is a retry of an already-accepted send.
+    // Same key, same full payload: this is a retry of an already-accepted send.
     // Return the original row's id, not a new one — and flag it as a replay
     // so the caller knows NOT to dispatch the agent relay a second time for
     // what is still the same logical turn.

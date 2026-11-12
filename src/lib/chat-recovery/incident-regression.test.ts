@@ -206,22 +206,26 @@ describe('D7 failed send must not vanish silently (CC-RECOVERY-INTEGRATION-01 pr
 })
 
 describe('D8 chat send idempotency (CC-RECOVERY-DELIVERY-CONVERGENCE-01)', () => {
-  // The server-side half (unique constraint + replay lookup + 409 on key
-  // reuse with different content) is proven in
+  // The message-persistence half (unique constraint + replay lookup + 409 on
+  // key reuse with a different payload, scoped per-channel) is proven in
   // src/app/api/command-center/conversations/[id]/messages/route.test.ts.
-  // This proves the client half: a stable per-attempt key is generated and
-  // sent, and a replay response does not trigger a second agent dispatch.
+  // The agent-dispatch half (exactly-once relay claim) is proven in
+  // src/app/api/command-center/chat/relay-claim.test.ts. This proves the
+  // client generates and sends a stable per-attempt key, and — corrected
+  // after independent review — always calls the relay regardless of replay,
+  // since "replay" only means the ROW wasn't duplicated, not that the agent
+  // was already dispatched (that de-dup is now the server's job).
   it('CONTRACT: a stable clientMessageId is generated once and sent on every send attempt', () => {
     expect(PAGE).toMatch(/const clientMessageId = crypto\.randomUUID\(\)/)
     expect(PAGE).toMatch(/clientMessageId,/)
   })
 
-  it('CONTRACT: a replay response does not dispatch the agent relay a second time', () => {
+  it('CONTRACT: the relay is always dispatched on a successful send, replay or not — dedup lives server-side', () => {
     const sendSuccessBranch = PAGE.slice(
       PAGE.indexOf('const realId = inserted.id;'),
       PAGE.indexOf('} else {\n      lastPendingUserMessageIdRef.current = null;')
     )
-    expect(sendSuccessBranch).toMatch(/if \(!isReplay\) \{/)
+    expect(sendSuccessBranch).not.toMatch(/isReplay/)
     expect(sendSuccessBranch).toMatch(/runRelay\(realId\)/)
   })
 })

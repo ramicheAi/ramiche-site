@@ -6,3 +6,4 @@
 
 drop index if exists public.messages_client_message_id_key;
 alter table public.messages drop column if exists client_message_id;
+alter table public.messages drop column if exists relay_claimed;

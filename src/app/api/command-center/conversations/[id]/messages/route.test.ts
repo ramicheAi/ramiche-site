@@ -12,6 +12,7 @@ process.env.PARALLAX_OWNER_UID = "the-real-owner-uid";
 const OWNER_HEADERS = { cookie: "__session=owner-session" };
 
 const CHANNEL_ID = "11111111-1111-1111-1111-111111111111";
+const OTHER_CHANNEL_ID = "33333333-3333-3333-3333-333333333333";
 
 function req(path = `/api/command-center/conversations/${CHANNEL_ID}/messages`) {
   return new Request(`http://localhost${path}`, { headers: OWNER_HEADERS });
@@ -223,8 +224,19 @@ describe("POST /api/command-center/conversations/[id]/messages", () => {
       insertQuery.single = vi.fn(() => insertQuery);
 
       // Second `.from("messages")` call: the post-conflict lookup by key.
+      // Same channel/attachments/thread/metadata as the request under test
+      // below, so these fixtures isolate the one dimension (content) each
+      // test actually varies.
       const lookupQuery: Record<string, unknown> = {
-        data: { id: "m-original", created_at: "2026-11-12T00:00:00Z", content: existingContent },
+        data: {
+          id: "m-original",
+          created_at: "2026-11-12T00:00:00Z",
+          content: existingContent,
+          channel_id: CHANNEL_ID,
+          attachments: [],
+          thread_parent_id: null,
+          metadata: {},
+        },
         error: null,
       };
       lookupQuery.select = vi.fn(() => lookupQuery);
@@ -263,6 +275,28 @@ describe("POST /api/command-center/conversations/[id]/messages", () => {
       expect(body.error.code).toBe("idempotency_key_reused");
     });
 
+    it("same key but the existing row belongs to a DIFFERENT channel is rejected, never handed back as a replay", async () => {
+      // The unique index on client_message_id is global (not per-channel), so
+      // without this check a key collision would silently return another
+      // channel's message id — independent review finding.
+      mockUniqueViolationThenLookup("hello");
+      const res = await POST(postReq({ content: "hello", clientMessageId: CLIENT_MESSAGE_ID }, `/api/command-center/conversations/${OTHER_CHANNEL_ID}/messages`), ctx(OTHER_CHANNEL_ID));
+      expect(res.status).toBe(409);
+    });
+
+    it("same key + same content but DIFFERENT attachments is rejected, not silently merged into the first row", async () => {
+      // Both attachment-only sends fall back to the same placeholder content
+      // ("(attachment)"), so comparing content alone would wrongly treat two
+      // different attachment payloads as the same replay — independent
+      // review finding.
+      mockUniqueViolationThenLookup("(attachment)");
+      const res = await POST(
+        postReq({ content: "", attachments: [{ url: "https://example.com/b.png" }], clientMessageId: CLIENT_MESSAGE_ID }),
+        ctx()
+      );
+      expect(res.status).toBe(409);
+    });
+
     it("if the unique-violation row can't be found on lookup, reports a failure rather than guessing", async () => {
       const insertQuery: Record<string, unknown> = { data: null, error: { code: "23505", message: "duplicate key" } };
       insertQuery.insert = vi.fn(() => insertQuery);
@@ -280,10 +314,16 @@ describe("POST /api/command-center/conversations/[id]/messages", () => {
     });
   });
 
-  it("falls back to an insert without the idempotency key if the migration hasn't been applied yet (undefined_column)", async () => {
+  it("falls back to an insert without the idempotency key if the migration hasn't been applied yet (PGRST204, PostgREST's actual missing-column code)", async () => {
     // Exercises the documented, approval-gated tradeoff: this route must not
     // hard-fail chat sends just because the prepared migration isn't live.
-    const failedInsert: Record<string, unknown> = { data: null, error: { code: "42703", message: 'column "client_message_id" does not exist' } };
+    // PGRST204 ("Could not find the 'client_message_id' column...") is what
+    // PostgREST (what supabase-js actually talks to) returns for an INSERT
+    // body naming an unknown column — NOT Postgres's own 42703, which is
+    // what a first pass wrongly assumed (independent review finding: that
+    // assumption would have 502'd every owner send the moment this route
+    // shipped, before the migration could be applied).
+    const failedInsert: Record<string, unknown> = { data: null, error: { code: "PGRST204", message: "Could not find the 'client_message_id' column of 'messages' in the schema cache" } };
     failedInsert.insert = vi.fn(() => failedInsert);
     failedInsert.select = vi.fn(() => failedInsert);
     failedInsert.single = vi.fn(() => failedInsert);
