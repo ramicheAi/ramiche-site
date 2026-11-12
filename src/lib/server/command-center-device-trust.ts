@@ -204,12 +204,22 @@ export async function attemptPinUnlock(deviceId: string, pin: string, pinMatches
     return { ok: false, status: 401, reason: "wrong_pin" };
   }
 
-  const { error: resetError } = await db.rpc("cc_trusted_device_reset_pin_attempts", { p_device_id: deviceId });
+  const { data: resetData, error: resetError } = await db.rpc("cc_trusted_device_reset_pin_attempts", { p_device_id: deviceId });
   if (resetError) {
     // Fail loud (independent review finding): a failed reset must not be
     // swallowed into a silent success. The device is left in whatever
     // attempt-count state the claim above produced; the caller must retry.
     return { ok: false, status: 503, reason: "reset_failed" };
+  }
+  const resetRow = (Array.isArray(resetData) ? resetData[0] : resetData) as { cleared: boolean; locked_until: string | null } | undefined;
+  if (!resetRow?.cleared) {
+    // Founder-directed check, reproduced against live Postgres: a
+    // concurrent wrong-PIN burst can claim its way to a fresh lockout in
+    // the gap between THIS caller's own (now-stale) successful claim and
+    // this reset call. The lockout that took effect since then wins —
+    // never mint an unlock session on a correct PIN that was verified
+    // against state the database has since moved past.
+    return { ok: false, status: 429, reason: "locked" };
   }
 
   const issuedAtS = Math.floor(Date.now() / 1000);

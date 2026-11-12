@@ -105,10 +105,10 @@ describe("attemptPinUnlock", () => {
   // landed). These tests mock the RPC's return shape directly, since the
   // actual serialization guarantee lives in Postgres and is covered by the
   // migration SQL, not by anything testable at this layer.
-  function mockRpc(claim: unknown, resetError: unknown = null) {
+  function mockRpc(claim: unknown, resetError: unknown = null, reset: unknown = { cleared: true, locked_until: null }) {
     const rpc = vi.fn((fn: string) => {
       if (fn === "cc_trusted_device_claim_pin_attempt") return Promise.resolve({ data: claim, error: null });
-      if (fn === "cc_trusted_device_reset_pin_attempts") return Promise.resolve({ data: null, error: resetError });
+      if (fn === "cc_trusted_device_reset_pin_attempts") return Promise.resolve({ data: resetError ? null : reset, error: resetError });
       throw new Error(`unexpected rpc ${fn}`);
     });
     getSupabaseAdmin.mockReturnValue({ rpc });
@@ -166,6 +166,25 @@ describe("attemptPinUnlock", () => {
     mockRpc({ allowed: true, attempts: 1, locked_until: null }, { message: "db down" });
     const result = await attemptPinUnlock(DEVICE_ID, "2451", () => true);
     expect(result).toEqual({ ok: false, status: 503, reason: "reset_failed" });
+  });
+
+  // Founder-directed check, reproduced against live Postgres before this
+  // fix landed: claim A succeeds (attempt 3->4, allowed), a concurrent
+  // wrong-PIN claim B then claims attempt 5 and locks the device in the
+  // gap before A's reset runs. An unconditional reset would wipe B's fresh
+  // lockout and hand A's caller an unlock session despite a lockout now
+  // being active — the reset RPC's `cleared: false` return is exactly how
+  // the fixed migration reports "a lockout took effect since your claim,
+  // refusing to clear it," and this is the application-code half of that
+  // contract: never mint an unlock session when cleared is false.
+  it("never mints an unlock session if a lockout took effect between this caller's claim and its reset", async () => {
+    mockRpc(
+      { allowed: true, attempts: 4, locked_until: null },
+      null,
+      { cleared: false, locked_until: new Date(Date.now() + 60_000).toISOString() }
+    );
+    const result = await attemptPinUnlock(DEVICE_ID, "2451", () => true);
+    expect(result).toEqual({ ok: false, status: 429, reason: "locked" });
   });
 
   it("checks the unlock-signing secret BEFORE evaluating the PIN — no 503-vs-401 oracle for a correct guess", async () => {

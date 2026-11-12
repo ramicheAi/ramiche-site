@@ -124,16 +124,51 @@ comment on function public.cc_trusted_device_claim_pin_attempt is
 
 -- Resets the counter on a successful unlock. Separate function (not folded
 -- into the claim above) because it only ever runs after the PIN has
--- actually been verified correct in application code.
+-- actually been verified correct in application code — but "correct" was
+-- verified against the row state at the time of THIS caller's own claim,
+-- which can be stale by the time this reset runs: a concurrent wrong-PIN
+-- burst can claim its way to a fresh lockout in the gap between this
+-- caller's claim and its reset (founder-directed check, reproduced
+-- against live Postgres: claim A succeeds at attempt 4, claim B then
+-- claims attempt 5 and locks, and an unconditional reset by A would have
+-- wiped B's fresh lockout and let A's caller mint an unlock session
+-- despite a lockout now being active). Fixed with the same `FOR UPDATE`
+-- discipline as the claim: re-check the CURRENT lock state under the row
+-- lock before clearing anything, and report whether it actually cleared
+-- so the caller can refuse to unlock if a lockout has taken effect since
+-- its own claim succeeded — the lockout wins over an already-verified
+-- correct PIN, never the other way around.
 create or replace function public.cc_trusted_device_reset_pin_attempts(p_device_id uuid)
-returns void
-language sql
+returns table(cleared boolean, locked_until timestamptz)
+language plpgsql
 security definer
 set search_path = pg_catalog, pg_temp
 as $$
+declare
+  v_locked_until timestamptz;
+begin
+  select d.locked_until
+    into v_locked_until
+    from public.cc_trusted_devices d
+    where d.id = p_device_id
+    for update;
+
+  if not found then
+    return query select false, null::timestamptz;
+    return;
+  end if;
+
+  if v_locked_until is not null and v_locked_until > now() then
+    return query select false, v_locked_until;
+    return;
+  end if;
+
   update public.cc_trusted_devices
     set failed_pin_attempts = 0, locked_until = null, last_used_at = now()
     where id = p_device_id;
+
+  return query select true, null::timestamptz;
+end;
 $$;
 
 revoke all on function public.cc_trusted_device_claim_pin_attempt(uuid, int, int) from public, anon, authenticated;
