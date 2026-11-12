@@ -1,0 +1,8 @@
+-- ROLLBACK for 20261112200000_cc_trusted_devices.sql.
+-- Renamed .sql.txt so Supabase's migration runner never auto-applies it;
+-- run manually only if the forward migration must be reverted.
+-- Dropping this table only removes device-trust state: every enrolled
+-- device simply falls back to requiring Firebase sign-in again next time,
+-- exactly the pre-migration behavior. No other table is touched.
+
+drop table if exists public.cc_trusted_devices;

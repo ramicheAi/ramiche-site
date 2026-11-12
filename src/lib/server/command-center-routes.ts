@@ -3,14 +3,22 @@
  *
  * Every `src/app/api/command-center/**\/route.ts` is exactly one of:
  *   - HUMAN  (default): owner-only. Must be wrapped with `ownerOnly(...)` or call
- *            `requireCommandCenterOwner(req)` inside the handler. Middleware
- *            also enforces it, but the handler never relies on that.
+ *            `requireCommandCenterOwner(req)` / `requireFreshFirebaseOwnerSession(req)`
+ *            inside the handler. Middleware also enforces it, but the handler
+ *            never relies on that.
  *   - MACHINE: authenticated by its OWN secret, no cookie/session, exempt from
  *            the owner gate and CSRF. Listed here (and ONLY here); middleware
  *            lets exactly these paths through, and a test asserts each verifies
  *            its secret on every exported method.
+ *   - DEVICE: authenticated by the trusted-device PIN-unlock credential
+ *            (see command-center-device-trust.ts) instead of a Firebase
+ *            session — exempt from the Firebase owner gate (middleware lets
+ *            exactly these paths through) because that gate is exactly what
+ *            this route exists to be reachable WITHOUT. Must call
+ *            `verifyDeviceCookie(` and deny close on an invalid/missing
+ *            device credential; a test asserts this on every method.
  *
- * Adding a route that is in neither category fails the inventory test.
+ * Adding a route that is in none of these categories fails the inventory test.
  */
 export const MACHINE_ROUTES = {
   "/api/command-center/chat/webhook": { caller: "OpenClaw gateway / automations", secretEnv: "OPENCLAW_CC_WEBHOOK_TOKEN | OPENCLAW_GATEWAY_TOKEN", carrier: "Authorization: Bearer" },
@@ -22,4 +30,19 @@ export const MACHINE_ROUTES = {
 
 export function isMachineRoutePath(pathname: string): boolean {
   return Object.prototype.hasOwnProperty.call(MACHINE_ROUTES, pathname);
+}
+
+/**
+ * The PIN only unlocks an already-Firebase-enrolled device (founder
+ * Priority 1 decision) — it never independently establishes ownership, so
+ * it must never be gated behind the Firebase owner session it exists to
+ * let the owner skip. Exactly one route lives here; enrollment and
+ * revocation stay HUMAN (Firebase-only) on purpose.
+ */
+export const DEVICE_ROUTES = {
+  "/api/command-center/auth/pin": { purpose: "PIN-unlock an already-enrolled trusted device" },
+} as const;
+
+export function isDeviceRoutePath(pathname: string): boolean {
+  return Object.prototype.hasOwnProperty.call(DEVICE_ROUTES, pathname);
 }

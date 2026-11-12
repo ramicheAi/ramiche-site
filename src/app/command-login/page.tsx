@@ -71,6 +71,21 @@ function CommandLoginForm() {
         return;
       }
 
+      // Trust this device (founder Priority 1 decision): a one-time, silent
+      // enrollment right after a FRESH Firebase sign-in, so this device can
+      // PIN-unlock afterward without repeating email/password every 12h.
+      // Best-effort — a failure here never blocks sign-in itself; the
+      // device simply falls back to requiring Firebase again next time.
+      try {
+        await fetch("/api/command-center/auth/device/enroll", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ label: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 120) : undefined }),
+        });
+      } catch {
+        /* best-effort */
+      }
+
       router.push(next);
     } catch {
       setError("Unexpected error during sign-in.");

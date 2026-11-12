@@ -14,10 +14,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { verifySessionCookie } = vi.hoisted(() => ({ verifySessionCookie: vi.fn() }));
 vi.mock("@/lib/firebase-admin", () => ({ verifySessionCookie }));
+// Backs the DEVICE-route deny-at-handler block below — the pin route's own
+// device-trust check reads this table via getSupabaseAdmin.
+const { getSupabaseAdmin } = vi.hoisted(() => ({ getSupabaseAdmin: vi.fn() }));
+vi.mock("@/lib/supabase-admin", () => ({ getSupabaseAdmin }));
 // The scheduler route would otherwise run the real prospector (network + DB) on a valid secret.
 vi.mock("@/lib/server/prospector-daily", () => ({ runProspectorDaily: async () => new Response("{}", { status: 200 }) }));
 
-import { MACHINE_ROUTES } from "@/lib/server/command-center-routes";
+import { MACHINE_ROUTES, DEVICE_ROUTES } from "@/lib/server/command-center-routes";
 import { OWNER_UID_ENV } from "@/lib/server/command-center-auth";
 
 const ROOT = __dirname;
@@ -45,6 +49,7 @@ const EXTRA_HUMAN: Array<[string, string[]]> = [
 const files = walk(ROOT).sort();
 const routePath = (f: string) => "/api/command-center/" + relative(ROOT, f).split(sep).slice(0, -1).join("/");
 const isMachine = (f: string) => routePath(f) in MACHINE_ROUTES;
+const isDevice = (f: string) => routePath(f) in DEVICE_ROUTES;
 
 const OWNER = "the-real-owner-uid";
 const ctx = { params: Promise.resolve({ id: "x", path: ["a"] }) };
@@ -61,26 +66,40 @@ describe("route classification", () => {
     for (const p of Object.keys(MACHINE_ROUTES)) expect(existing.has(p), p).toBe(true);
   });
 
-  it.each(files.filter((f) => !isMachine(f)).map((f) => [routePath(f), f]))(
+  it.each(files.filter((f) => !isMachine(f) && !isDevice(f)).map((f) => [routePath(f), f]))(
     "HUMAN %s: every exported method is owner-guarded in the file itself",
     (_p, f) => {
       const src = readFileSync(f as string, "utf8");
+      const GUARD_CALL = /requireCommandCenterOwner\(|requireFreshFirebaseOwnerSession\(/;
       const reexport = /^export \{[^}]*\} from "([^"]+)"/m.exec(src);
       if (reexport) {
         const target = join((f as string).replace(/route\.ts$/, ""), reexport[1] + ".ts");
-        expect(readFileSync(target, "utf8")).toMatch(/requireCommandCenterOwner\(|ownerOnly\(/);
+        expect(readFileSync(target, "utf8")).toMatch(new RegExp(`${GUARD_CALL.source}|ownerOnly\\(`));
         return;
       }
       const plain = METHODS.filter((m) => new RegExp(`^export (async )?function ${m}\\b`, "m").test(src));
       expect(plain, "unwrapped exported handler (must use ownerOnly or an in-handler guard)").toSatisfy((arr: string[]) =>
-        arr.every(() => /requireCommandCenterOwner\(/.test(src))
+        arr.every(() => GUARD_CALL.test(src))
       );
       for (const m of METHODS) {
         if (new RegExp(`^export const ${m} = `, "m").test(src)) {
           expect(src).toMatch(new RegExp(`^export const ${m} = ownerOnly\\(`, "m"));
         }
       }
-      expect(plain.length === 0 ? /ownerOnly\(/.test(src) : /requireCommandCenterOwner\(/.test(src)).toBe(true);
+      expect(plain.length === 0 ? /ownerOnly\(/.test(src) : GUARD_CALL.test(src)).toBe(true);
+    }
+  );
+
+  it("every device route listed actually exists", () => {
+    const existing = new Set(files.map(routePath));
+    for (const p of Object.keys(DEVICE_ROUTES)) expect(existing.has(p), p).toBe(true);
+  });
+
+  it.each(files.filter(isDevice).map((f) => [routePath(f), f]))(
+    "DEVICE %s: every exported method verifies the device-trust credential in the file itself",
+    (_p, f) => {
+      const src = readFileSync(f as string, "utf8");
+      expect(src).toMatch(/verifyDeviceCookie\(/);
     }
   );
 });
@@ -96,7 +115,7 @@ describe("HUMAN routes deny at the handler (no middleware involved)", () => {
     process.env[OWNER_UID_ENV] = original;
   });
 
-  const human = files.filter((f) => !isMachine(f));
+  const human = files.filter((f) => !isMachine(f) && !isDevice(f));
 
   it.each(human.map((f) => [routePath(f), f]))("%s", async (_p, f) => {
     const mod = (await import(/* @vite-ignore */ f as string)) as Record<string, unknown>;
@@ -155,6 +174,56 @@ describe("HUMAN routes deny at the handler (no middleware involved)", () => {
       })
     );
     expect(res.status).toBe(403);
+  });
+});
+
+describe("DEVICE routes deny at the handler without a valid device-trust credential", () => {
+  const original = process.env[OWNER_UID_ENV];
+  beforeEach(() => {
+    process.env[OWNER_UID_ENV] = OWNER;
+    getSupabaseAdmin.mockReset();
+  });
+  afterEach(() => {
+    process.env[OWNER_UID_ENV] = original;
+  });
+
+  const device = files.filter(isDevice);
+
+  it.each(device.map((f) => [routePath(f), f]))("%s", async (_p, f) => {
+    const mod = (await import(/* @vite-ignore */ f as string)) as Record<string, unknown>;
+    const handlers = METHODS.filter((m) => typeof mod[m] === "function");
+    expect(handlers.length).toBeGreaterThan(0);
+
+    for (const m of handlers) {
+      const fn = mod[m] as (r: Request) => Promise<Response>;
+      // No DB configured at all: GET must still answer (preflight, no secrets,
+      // reports deviceTrusted:false); POST (a mutation gated on device trust)
+      // must deny.
+      getSupabaseAdmin.mockReturnValue(null);
+      const res = await fn(mk(m, { "sec-fetch-site": "same-origin" }));
+      if (m === "GET" || m === "HEAD") {
+        expect(res.status, `${m} no-device-no-db`).toBe(200);
+      } else {
+        expect(res.status, `${m} no-device-no-db`).not.toBe(200);
+      }
+
+      // A device cookie that doesn't match anything in the table: denied,
+      // never treated as trusted.
+      const query: Record<string, unknown> = { data: null, error: null };
+      query.select = vi.fn(() => query);
+      query.eq = vi.fn(() => query);
+      query.maybeSingle = vi.fn(() => query);
+      getSupabaseAdmin.mockReturnValue({ from: vi.fn(() => query) });
+      const resBadDevice = await fn(
+        mk(m, { "sec-fetch-site": "same-origin", cookie: `cc_device=11111111-1111-1111-1111-111111111111.${"a".repeat(64)}` })
+      );
+      if (m === "GET" || m === "HEAD") {
+        const body = await resBadDevice.clone().json().catch(() => null);
+        expect((body as { deviceTrusted?: boolean } | null)?.deviceTrusted, `${m} bad-device deviceTrusted`).toBe(false);
+      } else {
+        expect(resBadDevice.status, `${m} bad-device`).not.toBe(200);
+      }
+    }
   });
 });
 
