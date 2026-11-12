@@ -54,11 +54,10 @@ describe("checkout.session.completed stamps the verified uid onto the Stripe cus
     expect(update).not.toHaveBeenCalled();
   });
 
-  it("a Stripe update failure never fails the webhook (subscription bookkeeping still happens)", async () => {
+  it("a Stripe update failure returns 500 so Stripe retries, instead of silently leaving the customer unmapped", async () => {
     constructEvent.mockReturnValue(session({ metadata: { firebaseUid: "owner-uid" } }));
     update.mockRejectedValue(new Error("stripe down"));
     const res = await post();
-    expect(res.status).toBe(200);
-    expect(adminWriteSubscription).toHaveBeenCalled();
+    expect(res.status).toBe(500);
   });
 });

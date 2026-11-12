@@ -51,7 +51,14 @@ export async function POST(req: Request) {
 
     const stripe = getStripe();
 
-    const customer = await stripe.customers.retrieve(customerId);
+    let customer: Stripe.Customer | Stripe.DeletedCustomer;
+    try {
+      customer = await stripe.customers.retrieve(customerId);
+    } catch {
+      // A nonexistent id throws (Stripe's resource_missing). Same shape as "not
+      // found for you" — never confirm or deny that a customerId exists at all.
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
     if (!customer || customer.deleted) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
@@ -63,7 +70,10 @@ export async function POST(req: Request) {
       // a matching OR a changed email on either side never enters this comparison.
       ? mappedUid === user.uid
       // Fallback only for a customer with no uid mapping yet (pre-existing data).
-      : !!user.email && !!c.email && c.email.toLowerCase() === user.email.toLowerCase();
+      // Requires a VERIFIED email: Firebase email/password sign-up lets anyone claim
+      // an arbitrary unverified email, so an unverified match would let an attacker
+      // sign up as the victim's email and open the victim's own billing portal.
+      : !!user.emailVerified && !!user.email && !!c.email && c.email.toLowerCase() === user.email.toLowerCase();
 
     if (!authorized) {
       // Same shape as "not found" either way — never confirm that a customerId

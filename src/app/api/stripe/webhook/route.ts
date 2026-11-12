@@ -53,7 +53,11 @@ export async function POST(req: Request) {
         try {
           await stripe.customers.update(customerId, { metadata: { firebaseUid } });
         } catch (e) {
-          console.warn("[Stripe] failed to stamp firebaseUid onto customer:", e);
+          // Do NOT swallow this: silently leaves the customer on the weaker
+          // email-equality fallback forever. Return non-2xx so Stripe retries
+          // this webhook; the update is idempotent (same uid, same field).
+          console.error("[Stripe] failed to stamp firebaseUid onto customer, will retry:", e);
+          return NextResponse.json({ error: "retry" }, { status: 500 });
         }
       }
 
