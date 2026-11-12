@@ -5,4 +5,6 @@
 -- device simply falls back to requiring Firebase sign-in again next time,
 -- exactly the pre-migration behavior. No other table is touched.
 
+drop function if exists public.cc_trusted_device_claim_pin_attempt(uuid, int, int);
+drop function if exists public.cc_trusted_device_reset_pin_attempts(uuid);
 drop table if exists public.cc_trusted_devices;

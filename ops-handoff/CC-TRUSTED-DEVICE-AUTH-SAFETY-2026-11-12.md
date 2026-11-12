@@ -65,7 +65,31 @@ that passes does the PIN get checked at all, and even then it only mints a 12h u
 verified against the live device row on every subsequent request — never a standing credential on its
 own.
 
-## Independent review
+## Independent review (fresh context, head `2a8f4100`)
 
-Dispatched on this exact branch before any further integration work; see the commit history for
-findings and fixes applied.
+**The property that matters most held: there is no path where the PIN alone, without a prior
+genuinely-verified Firebase enrollment, grants access.** The reviewer tried to break this directly
+(trace every call into `attemptPinUnlock`, every insert into `cc_trusted_devices`, every way
+`requireFreshFirebaseOwnerSession` might accept a PIN-unlock session) and could not.
+
+One real HIGH-severity bug was found and fixed in this same commit: the PIN-attempt lockout counter
+was read-then-write, a classic TOCTOU race — a burst of concurrent requests (trivial for an attacker
+holding a stolen `cc_device` cookie but not the PIN) could each read "not locked yet" and each
+evaluate its own guess before any single increment landed, defeating the 5-attempt lockout entirely
+against concurrency. Fixed by moving the claim into a Postgres function using `SELECT ... FOR UPDATE`
+(the migration now includes `cc_trusted_device_claim_pin_attempt`/`..._reset_pin_attempts`), so the row
+lock — not application code — is what actually serializes concurrent attempts. Two lower-severity
+findings were also fixed in the same pass: the unlock-signing-secret check now runs before the PIN is
+evaluated (closes a 503-vs-401 oracle for a correct guess during a misconfiguration window), and a
+failed attempt-reset after a correct PIN now fails loud (503) instead of silently proceeding.
+
+Findings reviewed and consciously NOT changed, because they're existing, disclosed tradeoffs rather
+than new regressions this PR introduced:
+- **Auto-enrollment with no opt-in prompt.** This is literally what the founder's decision asked for
+  ("no second PIN prompt after successful unlock" / low friction) — adding a confirmation step would
+  reverse that. The mitigation is revocation, already built (`device/revoke`), not prevention.
+- **The pre-existing `CC_PIN_ALLOW_DEV`/unsalted-hash PIN storage.** Unchanged from the PIN route this
+  PR replaces; out of this PR's scope. Flagged for a separate hardening pass if the founder wants one.
+- **No IP-level rate limit on `verifyDeviceCookie`'s DB lookup for a garbage device cookie** — a minor
+  DB-amplification vector, not an auth bypass. Not fixed here; noted for a follow-up if traffic ever
+  makes it relevant on a single-owner system.

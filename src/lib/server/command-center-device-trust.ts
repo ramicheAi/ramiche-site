@@ -167,34 +167,50 @@ export async function attemptPinUnlock(deviceId: string, pin: string, pinMatches
   const db = await getDb();
   if (!db) return { ok: false, status: 503, reason: "not_configured" };
 
-  const { data, error } = await db
-    .from("cc_trusted_devices")
-    .select("failed_pin_attempts, locked_until")
-    .eq("id", deviceId)
-    .maybeSingle();
-  if (error || !data) return { ok: false, status: 401, reason: "not_found" };
+  // Checked FIRST, before the PIN is ever evaluated (independent review
+  // finding): checking the signing secret only on a correct PIN made its
+  // own 503 vs. 401 an oracle for "did you guess the right PIN" during a
+  // misconfiguration window.
+  const signingSecret = unlockSigningSecret();
+  if (!signingSecret) return { ok: false, status: 503, reason: "unlock_signing_not_configured" };
 
-  if (data.locked_until && new Date(data.locked_until).getTime() > Date.now()) {
+  // Atomic claim via a `SELECT ... FOR UPDATE`-backed RPC (independent
+  // review finding, HIGH): the previous read-then-write counter was a
+  // classic TOCTOU — N concurrent requests all read "not locked yet" and
+  // each got to evaluate its own PIN guess before any increment landed, so
+  // the 5-attempt lockout did nothing against a burst of concurrent
+  // guesses once an attacker had a stolen `cc_device` cookie. The database
+  // row lock is what actually serializes this, not any check in this
+  // function — see cc_trusted_device_claim_pin_attempt in the migration.
+  const { data: claim, error: claimError } = await db.rpc("cc_trusted_device_claim_pin_attempt", {
+    p_device_id: deviceId,
+    p_max_attempts: MAX_PIN_ATTEMPTS,
+    p_lockout_seconds: LOCKOUT_SECONDS,
+  });
+  if (claimError) return { ok: false, status: 503, reason: "claim_failed" };
+  const row = (Array.isArray(claim) ? claim[0] : claim) as { allowed: boolean; attempts: number; locked_until: string | null } | undefined;
+  if (!row) return { ok: false, status: 401, reason: "not_found" };
+  if (!row.allowed) {
+    // Either already locked out from a prior cycle, or this exact claim
+    // just tipped it into lockout — both deny WITHOUT evaluating the PIN,
+    // so a locked-out attacker gets zero further guesses, not one more.
     return { ok: false, status: 429, reason: "locked" };
   }
 
   if (!pinMatches(pin)) {
-    const nextAttempts = (data.failed_pin_attempts ?? 0) + 1;
-    const lockedUntil = nextAttempts >= MAX_PIN_ATTEMPTS ? new Date(Date.now() + LOCKOUT_SECONDS * 1000).toISOString() : null;
-    await db
-      .from("cc_trusted_devices")
-      .update({ failed_pin_attempts: nextAttempts, locked_until: lockedUntil })
-      .eq("id", deviceId);
-    return { ok: false, status: lockedUntil ? 429 : 401, reason: lockedUntil ? "locked" : "wrong_pin" };
+    // The attempt was already counted by the claim above (that's the
+    // whole point — it's counted before we even know if it's right).
+    // Nothing further to write here.
+    return { ok: false, status: 401, reason: "wrong_pin" };
   }
 
-  const signingSecret = unlockSigningSecret();
-  if (!signingSecret) return { ok: false, status: 503, reason: "unlock_signing_not_configured" };
-
-  await db
-    .from("cc_trusted_devices")
-    .update({ failed_pin_attempts: 0, locked_until: null, last_used_at: new Date().toISOString() })
-    .eq("id", deviceId);
+  const { error: resetError } = await db.rpc("cc_trusted_device_reset_pin_attempts", { p_device_id: deviceId });
+  if (resetError) {
+    // Fail loud (independent review finding): a failed reset must not be
+    // swallowed into a silent success. The device is left in whatever
+    // attempt-count state the claim above produced; the caller must retry.
+    return { ok: false, status: 503, reason: "reset_failed" };
+  }
 
   const issuedAtS = Math.floor(Date.now() / 1000);
   const sig = signUnlock(deviceId, issuedAtS, signingSecret);

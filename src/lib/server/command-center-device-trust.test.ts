@@ -98,71 +98,85 @@ describe("attemptPinUnlock", () => {
     process.env.CC_UNLOCK_SIGNING_SECRET = originalSigningSecret;
   });
 
-  it("denies and increments failed_pin_attempts on a wrong PIN", async () => {
-    const updateFn = vi.fn(() => queryStub());
-    const q = queryStub({ data: { failed_pin_attempts: 1, locked_until: null } });
-    q.update = updateFn;
-    getSupabaseAdmin.mockReturnValue({ from: vi.fn(() => q) });
+  // The attempt counter is claimed atomically via an RPC backed by
+  // `SELECT ... FOR UPDATE` in the migration (independent review finding,
+  // HIGH: a prior read-then-write version let unlimited concurrent
+  // requests each evaluate their own PIN guess before any increment
+  // landed). These tests mock the RPC's return shape directly, since the
+  // actual serialization guarantee lives in Postgres and is covered by the
+  // migration SQL, not by anything testable at this layer.
+  function mockRpc(claim: unknown, resetError: unknown = null) {
+    const rpc = vi.fn((fn: string) => {
+      if (fn === "cc_trusted_device_claim_pin_attempt") return Promise.resolve({ data: claim, error: null });
+      if (fn === "cc_trusted_device_reset_pin_attempts") return Promise.resolve({ data: null, error: resetError });
+      throw new Error(`unexpected rpc ${fn}`);
+    });
+    getSupabaseAdmin.mockReturnValue({ rpc });
+    return rpc;
+  }
 
+  it("denies on a wrong PIN, after the claim already counted the attempt", async () => {
+    const rpc = mockRpc({ allowed: true, attempts: 2, locked_until: null });
     const result = await attemptPinUnlock(DEVICE_ID, "0000", () => false);
     expect(result).toEqual({ ok: false, status: 401, reason: "wrong_pin" });
-    expect(updateFn).toHaveBeenCalledWith(expect.objectContaining({ failed_pin_attempts: 2, locked_until: null }));
+    expect(rpc).toHaveBeenCalledWith("cc_trusted_device_claim_pin_attempt", {
+      p_device_id: DEVICE_ID,
+      p_max_attempts: 5,
+      p_lockout_seconds: 900,
+    });
+    // No reset call on a wrong PIN.
+    expect(rpc).toHaveBeenCalledTimes(1);
   });
 
-  it("locks out after the 5th consecutive failed attempt", async () => {
-    const updateFn = vi.fn((_update: { failed_pin_attempts: number; locked_until: string | null }) => queryStub());
-    const q = queryStub({ data: { failed_pin_attempts: 4, locked_until: null } });
-    q.update = updateFn;
-    getSupabaseAdmin.mockReturnValue({ from: vi.fn(() => q) });
-
-    const result = await attemptPinUnlock(DEVICE_ID, "0000", () => false);
-    expect(result.ok).toBe(false);
-    expect((result as { status: number }).status).toBe(429);
-    const call = updateFn.mock.calls[0][0];
-    expect(call.failed_pin_attempts).toBe(5);
-    expect(call.locked_until).not.toBeNull();
-  });
-
-  it("refuses to even check the PIN while locked out", async () => {
+  it("denies without even checking the PIN when the claim itself reports locked", async () => {
     const pinMatches = vi.fn(() => true);
-    const q = queryStub({ data: { failed_pin_attempts: 5, locked_until: new Date(Date.now() + 60_000).toISOString() } });
-    getSupabaseAdmin.mockReturnValue({ from: vi.fn(() => q) });
-
+    mockRpc({ allowed: false, attempts: 5, locked_until: new Date(Date.now() + 60_000).toISOString() });
     const result = await attemptPinUnlock(DEVICE_ID, "2451", pinMatches);
     expect(result).toEqual({ ok: false, status: 429, reason: "locked" });
     expect(pinMatches).not.toHaveBeenCalled();
   });
 
-  it("allows a correct PIN after the lockout window has passed", async () => {
-    const q = queryStub({ data: { failed_pin_attempts: 5, locked_until: new Date(Date.now() - 1000).toISOString() } });
-    getSupabaseAdmin.mockReturnValue({ from: vi.fn(() => q) });
-
+  it("denies with 404-equivalent when the device row doesn't exist", async () => {
+    mockRpc(null);
     const result = await attemptPinUnlock(DEVICE_ID, "2451", () => true);
-    expect(result.ok).toBe(true);
+    expect(result).toEqual({ ok: false, status: 401, reason: "not_found" });
   });
 
-  it("mints a signed, verifiable unlock cookie on a correct PIN and resets attempt state", async () => {
-    const updateFn = vi.fn(() => queryStub());
-    const q = queryStub({ data: { failed_pin_attempts: 3, locked_until: null } });
-    q.update = updateFn;
-    getSupabaseAdmin.mockReturnValue({ from: vi.fn(() => q) });
+  it("503s and does not evaluate the PIN at all if the claim RPC itself errors", async () => {
+    const pinMatches = vi.fn(() => true);
+    const rpc = vi.fn(() => Promise.resolve({ data: null, error: { message: "db down" } }));
+    getSupabaseAdmin.mockReturnValue({ rpc });
+    const result = await attemptPinUnlock(DEVICE_ID, "2451", pinMatches);
+    expect(result).toEqual({ ok: false, status: 503, reason: "claim_failed" });
+    expect(pinMatches).not.toHaveBeenCalled();
+  });
 
+  it("mints a signed, verifiable unlock cookie on a correct PIN, after resetting attempt state", async () => {
+    const rpc = mockRpc({ allowed: true, attempts: 1, locked_until: null });
     const result = await attemptPinUnlock(DEVICE_ID, "2451", () => true);
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("unreachable");
-    expect(updateFn).toHaveBeenCalledWith(expect.objectContaining({ failed_pin_attempts: 0, locked_until: null }));
+    expect(rpc).toHaveBeenCalledWith("cc_trusted_device_reset_pin_attempts", { p_device_id: DEVICE_ID });
 
     const verified = verifyUnlockCookie(result.cookieValue);
     expect(verified).toEqual({ ok: true, deviceId: DEVICE_ID });
   });
 
-  it("503s if the unlock-signing secret isn't configured, even with a correct PIN", async () => {
-    delete process.env.CC_UNLOCK_SIGNING_SECRET;
-    const q = queryStub({ data: { failed_pin_attempts: 0, locked_until: null } });
-    getSupabaseAdmin.mockReturnValue({ from: vi.fn(() => q) });
-
+  it("fails loud (503), never silently succeeds, if the reset RPC errors after a correct PIN", async () => {
+    mockRpc({ allowed: true, attempts: 1, locked_until: null }, { message: "db down" });
     const result = await attemptPinUnlock(DEVICE_ID, "2451", () => true);
+    expect(result).toEqual({ ok: false, status: 503, reason: "reset_failed" });
+  });
+
+  it("checks the unlock-signing secret BEFORE evaluating the PIN — no 503-vs-401 oracle for a correct guess", async () => {
+    delete process.env.CC_UNLOCK_SIGNING_SECRET;
+    const pinMatches = vi.fn(() => true);
+    const rpc = vi.fn();
+    getSupabaseAdmin.mockReturnValue({ rpc });
+    const result = await attemptPinUnlock(DEVICE_ID, "2451", pinMatches);
     expect(result).toEqual({ ok: false, status: 503, reason: "unlock_signing_not_configured" });
+    expect(pinMatches).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
   });
 });
 
