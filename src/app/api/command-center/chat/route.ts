@@ -18,6 +18,7 @@ import {
   summarizePersistence,
   type PersistenceFailure,
 } from "@/lib/chat-persistence";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 // Pro-tier ceiling. Group-chat fan-out with synthesis + Phase E critic can
@@ -35,11 +36,11 @@ export const maxDuration = 120;
 // every API endpoint to render service uptime; without this, the chat route
 // would return 405 to those GET pings and clutter the browser console with
 // red "method not allowed" errors despite the service being healthy.
-export async function GET() {
+async function GET_handler() {
   return NextResponse.json({ ok: true, accepts: ["POST"] });
 }
 
-export async function HEAD() {
+async function HEAD_handler() {
   return new Response(null, { status: 200 });
 }
 
@@ -1061,7 +1062,7 @@ Output the refined synthesis only — do not narrate the changes.`;
   void channelName;
 }
 
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   // Phase E budget guard: wall-clock anchor used to skip the critic pass if
   // synthesis already burned most of the route's 60s maxDuration window.
   const postStartedAt = Date.now();
@@ -1637,3 +1638,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);
+export const HEAD = ownerOnly(HEAD_handler);
+export const POST = ownerOnly(POST_handler);

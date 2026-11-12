@@ -22,9 +22,12 @@
  *
  * Missing owner configuration denies. There is no fallback principal.
  */
-import { timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 
 export const OWNER_UID_ENV = "PARALLAX_OWNER_UID";
+
+/** Session cookie shared with METTLE (see /api/auth/session). */
+export const SESSION_COOKIE = "__session";
 
 /**
  * Sign-in providers that count as a real, canonical human identity for owner
@@ -77,4 +80,24 @@ export function isOwnerUid(
 ): boolean {
   if (!uid || !configuredUid) return false;
   return timingSafeStringEqual(uid, configuredUid);
+}
+
+/**
+ * Timing-safe comparison of a caller-supplied secret against the configured one.
+ * Both sides are SHA-256 hashed first so the comparison is constant-time AND
+ * length-independent. An empty/absent expected secret NEVER matches (fail closed).
+ */
+export function timingSafeSecretEqual(supplied: string | null | undefined, expected: string | null | undefined): boolean {
+  if (!expected || !supplied) return false;
+  const a = createHash("sha256").update(supplied, "utf8").digest();
+  const b = createHash("sha256").update(expected, "utf8").digest();
+  return timingSafeEqual(a, b);
+}
+
+/** Extract a secret from `Authorization: Bearer <x>` (case-insensitive scheme). */
+export function bearerToken(headers: Headers): string | null {
+  const auth = headers.get("authorization");
+  if (!auth) return null;
+  const m = /^Bearer\s+(.+)$/i.exec(auth.trim());
+  return m ? m[1].trim() : null;
 }

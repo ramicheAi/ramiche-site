@@ -1,23 +1,21 @@
 /**
- * Defense-in-depth Command Center owner guard for route handlers.
+ * Command Center owner guard — the AUTHORITATIVE authorization check.
  *
- * middleware.ts already denies unauthorized `/command-center*` and
- * `/api/command-center/*` traffic (see commandCenterAuthorized there). This
- * guard is the SAME check re-run inside the route handler itself, so a
- * middleware bug/matcher gap/future refactor cannot silently turn into an
- * unauthenticated data read. Call it at the top of any route handler that
- * returns sensitive data (financials, leads, settings) or performs an
- * owner-only action.
+ * Every human-facing `/api/command-center/*` handler runs this itself (via
+ * `ownerOnly(...)` or a direct call). middleware.ts runs the same function
+ * first for page redirects / early rejection, but no handler relies on
+ * middleware having run: a matcher gap, refactor, or direct invocation still
+ * cannot reach handler logic without passing this check.
  *
- * Not wired into every Command Center route in this change — see the
- * reconciliation PR's residual-risk section for the routes that still rely on
- * middleware alone.
+ * Order (all deny-by-default): owner configured (503) -> browser-session CSRF
+ * evidence for mutating methods that carry a session cookie (403) -> session
+ * cookie present (401) -> verifies with revocation check (401) -> human
+ * provider (401) -> exact owner uid (403).
  */
 import { NextResponse } from "next/server";
 import { verifySessionCookie } from "@/lib/firebase-admin";
-import { configuredOwnerUid, isHumanProvider, isOwnerUid } from "./command-center-auth";
-
-const SESSION_COOKIE = "__session";
+import { SESSION_COOKIE, configuredOwnerUid, isHumanProvider, isOwnerUid } from "./command-center-auth";
+import { checkBrowserMutation } from "./command-center-csrf";
 
 export type GuardResult =
   | { ok: true; uid: string }
@@ -47,6 +45,11 @@ export async function requireCommandCenterOwner(req: Request): Promise<GuardResu
   const cookie = readSessionCookie(req);
   if (!cookie) return { ok: false, status: 401, reason: "missing_session" };
 
+  // A browser-session mutation: reject cross-site / ambiguous-origin requests
+  // BEFORE doing any verification work.
+  const csrf = checkBrowserMutation(req.method, req.headers);
+  if (!csrf.ok) return { ok: false, status: 403, reason: csrf.reason };
+
   let decoded: { uid: string; signInProvider?: string } | null = null;
   try {
     decoded = await verifySessionCookie(cookie);
@@ -69,4 +72,20 @@ export function ownerDenialResponse(result: Extract<GuardResult, { ok: false }>)
     { ok: false, error: "denied", reason: result.reason },
     { status: result.status, headers: { "cache-control": "no-store" } }
   );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RouteHandler = (req: any, ...rest: any[]) => Response | Promise<Response>;
+
+/**
+ * Wrap a route handler so it can only run for the exact owner. Preserves the
+ * handler's type so Next's route-signature validation is unaffected.
+ */
+export function ownerOnly<H extends RouteHandler>(handler: H): H {
+  const wrapped = async (req: Request, ...rest: unknown[]) => {
+    const guard = await requireCommandCenterOwner(req);
+    if (!guard.ok) return ownerDenialResponse(guard);
+    return handler(req, ...rest);
+  };
+  return wrapped as unknown as H;
 }

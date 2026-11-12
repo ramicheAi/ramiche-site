@@ -22,6 +22,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
 import { processImageMarkers } from "@/lib/image-gen/markers";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 90;
@@ -42,7 +43,7 @@ function getSupabaseService() {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TENANT_ID = "11111111-1111-1111-1111-111111111111";
 
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   let body: {
     prompt?: string;
     agentId?: string;
@@ -130,10 +131,14 @@ export async function POST(req: NextRequest) {
   });
 }
 
-export async function GET() {
+async function GET_handler() {
   return NextResponse.json({
     ok: true,
     accepts: ["POST"],
     requires: ["prompt", "agentId", "channelId"],
   });
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const POST = ownerOnly(POST_handler);
+export const GET = ownerOnly(GET_handler);

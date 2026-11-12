@@ -8,17 +8,20 @@
    Session verification calls GET /api/auth/session (Node + firebase-admin);
    middleware runs on Edge and cannot import firebase-admin directly.
 
-   Command Center (CC-P06-SECURITY-RECONCILIATION-01): `/command-center*` and
-   `/api/command-center/*` require the SAME session check PLUS exact owner
-   authorization (`isOwner`, computed server-side in /api/auth/session — see
-   src/lib/server/command-center-auth.ts). The previous gate here was a
-   host-header string allowlist (`command.*` / `localhost` / `127.0.0.1` /
-   `*.ts.net`) used as the ONLY check — a forgeable-header, zero-identity
-   control. Host is now used for ROUTING ONLY (which domain "/" redirects to);
-   it is never, by itself, authorization.
+   Command Center (CC-P06-SECURITY-RECONCILIATION-01 / -02): `/command-center*`
+   and `/api/command-center/*` require exact owner authorization via
+   requireCommandCenterOwner (src/lib/server/command-center-guard.ts), run
+   DIRECTLY in this middleware (Node runtime, like the deployed p06 line) —
+   no internal self-fetch, so nothing depends on how the request URL resolves
+   behind Cloudflare Tunnel / Vercel Preview protection. Every handler re-runs
+   the same check itself; this layer only adds early rejection + login
+   redirects. Host headers are used for ROUTING ONLY, never authorization.
    ══════════════════════════════════════════════════════════════ */
 
 import { NextRequest, NextResponse } from "next/server";
+import { requireCommandCenterOwner } from "@/lib/server/command-center-guard";
+import { isMachineRoutePath } from "@/lib/server/command-center-routes";
+import { safeCommandCenterNext } from "@/lib/command-center-next";
 
 const SESSION_COOKIE = "__session";
 
@@ -28,19 +31,6 @@ const PROTECTED_PREFIXES = [
   "/apex-athlete/coach",
   "/apex-athlete/athlete",
 ] as const;
-
-/**
- * Command Center routes that authenticate their own caller with a static
- * bearer secret (OpenClaw gateway / external agent push), never a user
- * session cookie. The owner-session gate and the CSRF check below are both
- * cookie/session-specific and do not apply to them — see their own
- * `authOk`/`authorize` checks in each route handler.
- */
-const BEARER_AUTH_CC_PATHS = ["/api/command-center/chat/webhook", "/api/command-center/push"] as const;
-
-function isBearerAuthenticatedCCPath(pathname: string): boolean {
-  return BEARER_AUTH_CC_PATHS.some((p) => pathname === p);
-}
 
 /** Paths that skip auth (exact or prefix). Spec + METTLE login/selector flows. */
 function isPublicPath(pathname: string): boolean {
@@ -83,55 +73,27 @@ async function firebaseSessionValid(req: NextRequest): Promise<boolean> {
   }
 }
 
-/** The Command Center owner gate: authenticated AND the exact configured owner. */
-async function commandCenterAuthorized(req: NextRequest): Promise<boolean> {
-  const raw = req.cookies.get(SESSION_COOKIE)?.value;
-  if (!raw || raw.length < 20) return false;
-
-  try {
-    const verifyUrl = new URL("/api/auth/session", req.url);
-    const res = await fetch(verifyUrl, {
-      headers: { cookie: req.headers.get("cookie") ?? "" },
-      cache: "no-store",
-    });
-    if (!res.ok) return false;
-    const body = (await res.json()) as { authenticated?: boolean; isOwner?: boolean };
-    return body.authenticated === true && body.isOwner === true;
-  } catch {
-    return false;
-  }
-}
-
-function isMutatingMethod(method: string): boolean {
-  return method === "POST" || method === "PUT" || method === "PATCH" || method === "DELETE";
-}
-
-function hostOf(url: string | null): string | null {
-  if (!url) return null;
-  try {
-    return new URL(url).host.toLowerCase();
-  } catch {
-    return null;
-  }
-}
-
 /**
- * CSRF guard for cookie-authenticated mutations: a cross-site POST/PUT/
- * PATCH/DELETE is rejected even if the browser still sends the session
- * cookie. `Sec-Fetch-Site` is authoritative when present (all modern
- * browsers); `Origin` is the fallback. Neither header existing (a non-browser
- * client) is NOT treated as cross-site — those callers don't carry the
- * `__session` cookie either, so the owner-session check below already
- * denies them.
+ * Next's middleware adapter requires an ABSOLUTE Location (a relative one 500s,
+ * verified against a production build). Build it from the Host header the browser
+ * actually used plus x-forwarded-proto (the tunnel/CDN terminates TLS), never from
+ * x-forwarded-host. This is a redirect target for the requester themselves, not an
+ * authorization input; `next` is validated by safeCommandCenterNext.
  */
-function isCrossSiteMutation(req: NextRequest, requestHost: string): boolean {
-  const secFetchSite = req.headers.get("sec-fetch-site");
-  if (secFetchSite === "cross-site") return true;
-
-  const originHost = hostOf(req.headers.get("origin"));
-  if (originHost && requestHost && originHost !== requestHost) return true;
-
-  return false;
+function loginRedirect(req: NextRequest, next: string): NextResponse {
+  const path = `/command-login?next=${encodeURIComponent(next)}`;
+  let target: URL;
+  try {
+    const proto =
+      req.headers.get("x-forwarded-proto")?.split(",")[0].trim() === "https"
+        ? "https"
+        : req.nextUrl.protocol.replace(":", "");
+    const host = req.headers.get("host") || req.nextUrl.host;
+    target = new URL(path, `${proto}://${host}`);
+  } catch {
+    target = new URL(path, req.nextUrl.origin);
+  }
+  return NextResponse.redirect(target, { status: 307, headers: { "cache-control": "no-store" } });
 }
 
 export async function middleware(req: NextRequest) {
@@ -149,26 +111,30 @@ export async function middleware(req: NextRequest) {
   }
 
   if (pathname.startsWith("/command-center") || pathname.startsWith("/api/command-center")) {
-    if (isBearerAuthenticatedCCPath(pathname)) {
+    // Machine routes authenticate themselves with their own secret (listed in
+    // command-center-routes.ts; each verifies on every method). Exact-match only.
+    if (isMachineRoutePath(pathname)) {
       return NextResponse.next();
     }
 
     const isApi = pathname.startsWith("/api/command-center");
-
-    if (isMutatingMethod(req.method) && isCrossSiteMutation(req, fwdHost)) {
-      return isApi
-        ? NextResponse.json({ ok: false, error: "denied", reason: "cross_site" }, { status: 403 })
-        : new NextResponse("Forbidden", { status: 403 });
-    }
-
-    const authorized = await commandCenterAuthorized(req);
-    if (!authorized) {
+    const guard = await requireCommandCenterOwner(req);
+    if (!guard.ok) {
       if (isApi) {
-        return NextResponse.json({ ok: false, error: "denied", reason: "not_authorized" }, { status: 401 });
+        return NextResponse.json(
+          { ok: false, error: "denied", reason: guard.reason },
+          { status: guard.status, headers: { "cache-control": "no-store" } }
+        );
       }
-      const login = new URL("/command-login", req.url);
-      login.searchParams.set("next", pathname + req.nextUrl.search);
-      return NextResponse.redirect(login);
+      // Misconfiguration or a blocked browser mutation must not bounce to the
+      // login page (that would loop / hide the problem): answer directly.
+      if (guard.status === 503 || (guard.status === 403 && guard.reason !== "not_owner")) {
+        return new NextResponse(guard.status === 503 ? "Service unavailable" : "Forbidden", {
+          status: guard.status,
+          headers: { "cache-control": "no-store" },
+        });
+      }
+      return loginRedirect(req, safeCommandCenterNext(pathname + req.nextUrl.search));
     }
 
     const response = NextResponse.next();
@@ -191,6 +157,8 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
+  // Node runtime so owner verification (firebase-admin) runs directly here.
+  runtime: "nodejs",
   matcher: [
     "/",
     "/coach",

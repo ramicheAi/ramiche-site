@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { execSync } from "child_process";
 import { readdirSync, statSync, existsSync } from "fs";
 import { join } from "path";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -93,7 +94,7 @@ const STATIC_EVENTS = [
   { hash: "b096304", date: "2026-03-09T00:00:00-04:00", author: "Atlas", message: "feat: Command Center v4 — holographic mission control", type: "milestone" },
 ];
 
-export async function GET(req: NextRequest) {
+async function GET_handler(req: NextRequest) {
   const limit = parseInt(req.nextUrl.searchParams.get("limit") || "50", 10);
   const safeLimit = Math.min(Math.max(limit, 1), 200);
 
@@ -122,3 +123,6 @@ export async function GET(req: NextRequest) {
   const events = STATIC_EVENTS.slice(0, safeLimit);
   return NextResponse.json({ events, count: events.length, source: "static" });
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);

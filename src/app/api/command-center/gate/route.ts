@@ -17,6 +17,7 @@
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ type GateItem = {
   pipeline_leads?: GateLead | null;
 };
 
-export async function GET() {
+async function GET_handler() {
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
   const { data, error } = await db
@@ -42,7 +43,7 @@ export async function GET() {
   return NextResponse.json({ items: data ?? [], count: (data ?? []).length });
 }
 
-export async function POST(req: Request) {
+async function POST_handler(req: Request) {
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 
@@ -126,3 +127,7 @@ export async function POST(req: Request) {
     note: `${item.kind} approved. Auto-execution for '${item.kind}' is not wired yet — handle it, then it's done.`,
   });
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);
+export const POST = ownerOnly(POST_handler);

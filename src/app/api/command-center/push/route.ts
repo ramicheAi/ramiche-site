@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
+import { bearerToken, timingSafeSecretEqual } from "@/lib/server/command-center-auth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -16,11 +17,8 @@ function getSupabaseService() {
 }
 
 function authorize(req: NextRequest): boolean {
-  const expected = process.env.CC_PUSH_SECRET;
-  if (!expected) return false;
-  const header = req.headers.get("x-cc-push-secret") ?? req.headers.get("authorization") ?? "";
-  const token = header.replace(/^Bearer\s+/i, "").trim();
-  return token === expected;
+  const supplied = req.headers.get("x-cc-push-secret")?.trim() || bearerToken(req.headers);
+  return timingSafeSecretEqual(supplied, process.env.CC_PUSH_SECRET);
 }
 
 interface PushBody {
@@ -152,8 +150,11 @@ export async function POST(req: NextRequest) {
   });
 }
 
-/** Health check (no auth) so callers can verify the endpoint exists. */
-export async function GET() {
+/** Authenticated health check: same secret as POST. No unauthenticated disclosure. */
+export async function GET(req: NextRequest) {
+  if (!authorize(req)) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
   return NextResponse.json({
     ok: true,
     endpoint: "POST /api/command-center/push",

@@ -17,6 +17,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { fbSignIn, fbGetCurrentUser } from "@/app/apex-athlete/lib/firebase-auth";
 import { getAuth } from "firebase/auth";
 import { app } from "@/lib/firebase";
+import { safeCommandCenterNext } from "@/lib/command-center-next";
 
 export default function CommandLoginPage() {
   return (
@@ -29,7 +30,7 @@ export default function CommandLoginPage() {
 function CommandLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/command-center";
+  const next = safeCommandCenterNext(searchParams.get("next"));
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -54,13 +55,19 @@ function CommandLoginForm() {
         return;
       }
 
-      const res = await fetch("/api/auth/session", {
+      const res = await fetch("/api/auth/command-session", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ idToken }),
       });
       if (!res.ok) {
-        setError("Session could not be established.");
+        setError(
+          res.status === 403
+            ? "This account is not the Command Center owner."
+            : res.status === 503
+              ? "Command Center owner access is not configured."
+              : "Session could not be established."
+        );
         return;
       }
 

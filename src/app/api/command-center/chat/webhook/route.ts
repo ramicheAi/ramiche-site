@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { telegramAttachApproveButton } from "@/lib/telegram-cc-bot";
 import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
+import { bearerToken, timingSafeSecretEqual } from "@/lib/server/command-center-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +19,8 @@ function authOk(req: NextRequest): boolean {
     process.env.OPENCLAW_CC_WEBHOOK_TOKEN ||
     process.env.OPENCLAW_GATEWAY_TOKEN ||
     "";
-  if (!expected) return false;
-  const auth = req.headers.get("authorization");
-  if (!auth?.startsWith("Bearer ")) return false;
-  return auth.slice(7) === expected;
+  // Fail closed when unset; timing-safe, length-independent comparison.
+  return timingSafeSecretEqual(bearerToken(req.headers), expected);
 }
 
 /**

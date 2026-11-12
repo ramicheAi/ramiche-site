@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFile, readdir } from "fs/promises";
 import { join } from "path";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -111,7 +112,7 @@ function parseMemoryFile(content: string, filename: string): ParsedMemoryEntry[]
   return entries;
 }
 
-export async function GET(req: NextRequest) {
+async function GET_handler(req: NextRequest) {
   const days = parseInt(req.nextUrl.searchParams.get("days") || "7", 10);
   const limit = Math.min(Math.max(days, 1), 30);
 
@@ -152,3 +153,6 @@ export async function GET(req: NextRequest) {
     });
   }
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);

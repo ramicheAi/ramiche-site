@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -8,7 +9,10 @@ export const runtime = "nodejs";
  * no local file (e.g. Vercel). Agents/memory/git use workspace when present; otherwise
  * static fallbacks or empty. Implementation is dynamically imported to limit serverless bundle.
  */
-export async function GET(req: NextRequest) {
+async function GET_handler(req: NextRequest) {
   const { handleExport } = await import("./handler");
   return handleExport(req);
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);

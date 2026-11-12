@@ -32,6 +32,7 @@ import {
   approveSynthesisMessageStreamed,
   type ApproveEvent,
 } from "@/lib/cc-approve-synthesis";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -44,7 +45,7 @@ function sseFrame(name: string, data: unknown): string {
   return `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   let messageId = "";
   try {
     const body = (await req.json()) as { messageId?: string };
@@ -118,7 +119,7 @@ export async function POST(req: NextRequest) {
   });
 }
 
-export async function GET() {
+async function GET_handler() {
   return new Response(
     JSON.stringify({
       ok: true,
@@ -138,3 +139,7 @@ export async function GET() {
     { headers: { "Content-Type": "application/json" } }
   );
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const POST = ownerOnly(POST_handler);
+export const GET = ownerOnly(GET_handler);

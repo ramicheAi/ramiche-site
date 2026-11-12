@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { parseBody, sanitize, badRequest } from "@/lib/api-security";
 import { normalizeName } from "@/lib/lead-fit";
 import { cityStateFromAddress } from "@/lib/geo-parse";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ export const dynamic = "force-dynamic";
  * Dedupes against the EXISTING pipeline (osmId, then normalized name+city) AND within
  * the batch — so re-running a search never double-imports a business.
  */
-export async function POST(req: Request) {
+async function POST_handler(req: Request) {
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 
@@ -64,3 +65,6 @@ export async function POST(req: Request) {
   if (error) return NextResponse.json({ error: error.message, skipped }, { status: 500 });
   return NextResponse.json({ imported: data?.length ?? 0, skipped });
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const POST = ownerOnly(POST_handler);

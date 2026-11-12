@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFileSync, existsSync } from "fs";
 import { join, extname } from "path";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -23,7 +24,7 @@ const MIME: Record<string, string> = {
   ".woff2": "font/woff2",
 };
 
-export async function GET(
+async function GET_handler(
   _req: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
@@ -52,3 +53,6 @@ export async function GET(
     headers: { "Content-Type": contentType, "Cache-Control": "public, max-age=3600" },
   });
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);

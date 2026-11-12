@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 /* ==============================================================================
    SIMONS ORACLE API — Proxies chat to Anthropic API
@@ -26,7 +27,7 @@ Risk management: Position sizing via Kelly Criterion, maximum drawdown limits, c
 
 Disclaimer: You are an AI providing quantitative analysis and financial education, not a licensed financial advisor. Past performance does not guarantee future results. All trading involves risk of loss.`;
 
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
@@ -66,3 +67,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ content: `Connection error: ${err instanceof Error ? err.message : "Unknown"}` }, { status: 500 });
   }
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const POST = ownerOnly(POST_handler);

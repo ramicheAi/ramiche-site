@@ -98,7 +98,10 @@ export async function placeVapiCall(input: PlaceCallInput): Promise<PlaceCallRes
   };
   // Wire end-of-call reporting if a webhook is provided.
   if (input.webhookUrl) {
-    assistant.server = { url: input.webhookUrl };
+    // VAPI_WEBHOOK_SECRET makes Vapi send `x-vapi-secret`, which the webhook route
+    // requires (it rejects every request while the secret is unset).
+    const secret = process.env.VAPI_WEBHOOK_SECRET?.trim();
+    assistant.server = secret ? { url: input.webhookUrl, secret } : { url: input.webhookUrl };
     assistant.serverMessages = ["end-of-call-report", "status-update"];
   }
 

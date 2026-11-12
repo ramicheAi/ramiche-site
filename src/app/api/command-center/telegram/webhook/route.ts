@@ -118,7 +118,11 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Same secret as POST; no unauthenticated disclosure.
+  if (!verifyTelegramWebhookSecret(req)) {
+    return NextResponse.json({ ok: false }, { status: 401 });
+  }
   return NextResponse.json({
     ok: true,
     hint: "POST Telegram updates here. setWebhook(..., { url, secret_token }) must match TELEGRAM_WEBHOOK_SECRET (sent as X-Telegram-Bot-Api-Secret-Token).",

@@ -5,6 +5,7 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 import { NextRequest, NextResponse } from "next/server";
 import { VOICE_CONFIG } from "@/lib/voice-config";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -92,7 +93,7 @@ async function transcribeLocalWhisper(audioPath: string): Promise<{ text: string
   }
 }
 
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   let tmpAudio: string | null = null;
   try {
     const fd = await req.formData();
@@ -142,3 +143,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Transcription failed" }, { status: 500 });
   }
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const POST = ownerOnly(POST_handler);
