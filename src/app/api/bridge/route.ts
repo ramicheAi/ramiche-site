@@ -5,9 +5,23 @@
 // Uses Firestore REST API — no Admin SDK needed
 
 import { NextRequest, NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { fsUrl, toFirestoreFields, fromFirestoreFields } from "@/lib/firestore-bridge-rest";
 import { ownerOnly } from "@/lib/server/command-center-guard";
 import { timingSafeSecretEqual } from "@/lib/server/command-center-auth";
+
+/**
+ * First 8 hex chars of sha256(secret) — never the secret itself. Logged
+ * server-side only (never in a response body) on an auth failure, so a
+ * credential mismatch between this deployment's BRIDGE_API_SECRET and the
+ * sender's can be confirmed from Vercel's function logs against the
+ * sender's own startup fingerprint log (scripts/bridge-sync.mjs), per
+ * docs/bridge/CC-BRIDGE-PROJECT-TRUTH-01.md section 6 (R1).
+ */
+function secretFingerprint(secret: string): string {
+  if (!secret) return "(unset)";
+  return createHash("sha256").update(secret, "utf8").digest("hex").slice(0, 8);
+}
 
 const BRIDGE_SECRET = (process.env.BRIDGE_API_SECRET || "").trim().replace(/\\n$/, "");
 
@@ -194,6 +208,12 @@ export async function POST(req: NextRequest) {
   // Machine sync (launchd bridge-sync, scripts): secret-gated, timing-safe, fails closed when unset.
   const authHeader = (req.headers.get("x-bridge-secret") || "").trim().replace(/\\n$/, "");
   if (!timingSafeSecretEqual(authHeader, BRIDGE_SECRET)) {
+    // Server log only (never the response body): lets a credential mismatch
+    // be confirmed by comparing fingerprints, without exposing either secret.
+    console.error(
+      `[bridge] POST unauthorized — configured secret fingerprint ${secretFingerprint(BRIDGE_SECRET)}, ` +
+      `received fingerprint ${secretFingerprint(authHeader)}`
+    );
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -229,7 +249,44 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: errText }, { status: res.status });
     }
 
-    return NextResponse.json({ ok: true, type, syncedAt: new Date().toISOString() });
+    // A 2xx from Firestore's PATCH endpoint means Firestore ACCEPTED the write
+    // (receiver_accepted) — it does not, on its own, prove a later reader sees
+    // it. Read the doc back and compare `updateTime` to actually VERIFY
+    // persistence (persisted_verified), rather than trusting the write
+    // acknowledgment alone. This stays entirely server-side (machine-secret
+    // authenticated already by timingSafeSecretEqual above) — no new
+    // exposure, one extra Firestore GET per collection per 60s cycle.
+    let updateTime: string | undefined;
+    let persistedVerified = false;
+    let verifyError: string | undefined;
+    try {
+      const written = await res.json();
+      updateTime = typeof written?.updateTime === "string" ? written.updateTime : undefined;
+
+      const readback = await fetch(fsUrl(`command-center/${type}`), {
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      });
+      if (readback.ok) {
+        const doc = await readback.json();
+        persistedVerified = !!updateTime && doc?.updateTime === updateTime;
+        if (!persistedVerified) verifyError = "readback_mismatch";
+      } else {
+        verifyError = `readback_${readback.status}`;
+      }
+    } catch (e) {
+      verifyError = `readback_exception: ${String(e)}`;
+    }
+
+    return NextResponse.json({
+      ok: true,
+      type,
+      syncedAt: new Date().toISOString(),
+      receiverAccepted: true,
+      updateTime,
+      persistedVerified,
+      ...(verifyError ? { verifyError } : {}),
+    });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }

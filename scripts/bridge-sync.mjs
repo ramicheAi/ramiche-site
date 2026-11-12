@@ -9,6 +9,18 @@
 import { execSync, execFileSync } from "child_process";
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from "fs";
 import { dirname, join } from "path";
+import { createHash } from "crypto";
+
+/**
+ * First 8 hex chars of sha256(secret) — enough to compare two secret values
+ * out of band (per docs/bridge/CC-BRIDGE-PROJECT-TRUTH-01.md section 6, R1)
+ * without ever printing or transmitting the secret itself. ~32 bits of the
+ * hash leaks no practical amount of the underlying value.
+ */
+function secretFingerprint(secret) {
+  if (!secret) return "(unset)";
+  return createHash("sha256").update(secret, "utf8").digest("hex").slice(0, 8);
+}
 
 /** Same rules as `src/lib/openclaw-paths.ts` — OPENCLAW_CRON_DIR, OPENCLAW_HOME/cron, or dirname(workspace)/cron. */
 function resolveOpenclawCronDir() {
@@ -37,6 +49,15 @@ function run(cmd) {
   }
 }
 
+/**
+ * Three distinct outcomes, never collapsed into one boolean:
+ *   attempted        — the HTTP request was sent (always true once we get here)
+ *   receiverAccepted — the receiver's /api/bridge route returned 2xx (Firestore
+ *                      PATCH itself succeeded)
+ *   persistedVerified — the receiver ALSO read the doc back and confirmed its
+ *                      updateTime matches what was just written. Only this
+ *                      field may ever be read as "actually synced."
+ */
 async function pushToFirestore(type, data) {
   try {
     const res = await fetch(BRIDGE_URL, {
@@ -50,11 +71,19 @@ async function pushToFirestore(type, data) {
     if (!res.ok) {
       const errBody = await res.text().catch(() => "");
       console.error(`[bridge] push ${type} failed: ${res.status} ${errBody.slice(0, 200)}`);
+      return { type, attempted: true, receiverAccepted: false, persistedVerified: false, error: `${res.status}` };
     }
-    return res.ok;
+    const body = await res.json().catch(() => ({}));
+    const persistedVerified = body.persistedVerified === true;
+    if (!persistedVerified) {
+      // The write was accepted but we could not independently confirm it
+      // persisted — log it as a distinct condition, not a plain success.
+      console.error(`[bridge] push ${type} accepted but NOT verified persisted (${body.verifyError || "unknown"})`);
+    }
+    return { type, attempted: true, receiverAccepted: true, persistedVerified };
   } catch (e) {
     console.error(`[bridge] push ${type} error:`, e.message);
-    return false;
+    return { type, attempted: true, receiverAccepted: false, persistedVerified: false, error: e.message };
   }
 }
 
@@ -741,13 +770,8 @@ async function syncAll() {
     console.error("[bridge] rsync projects error:", e.message);
   }
 
-  // Collection names paired 1:1 with the pushToFirestore calls below, so the
-  // acceptance count below can be attributed per collection, not just totalled.
-  const COLLECTION_NAMES = [
-    "agents", "crons", "activity", "agentActivity", "projects", "links",
-    "missions", "schedule", "notifications", "opportunities", "tasks",
-  ];
-
+  // Each pushToFirestore result carries its own `type`, so per-collection
+  // accounting below doesn't need a separately-maintained parallel name list.
   const results = await Promise.all([
     pushToFirestore("agents", { ...agents, display: agents.display, lastSync: timestamp }),
     pushToFirestore("crons", { items: crons, count: crons.length, lastSync: timestamp }),
@@ -762,15 +786,25 @@ async function syncAll() {
     pushToFirestore("tasks", { ...tasks, lastSync: timestamp }),
   ]);
 
-  const ok = results.filter(Boolean).length;
-  const failedCollections = COLLECTION_NAMES.filter((_, i) => !results[i]);
-  console.log(`[bridge] synced ${ok}/${results.length} collections${failedCollections.length ? ` (failed: ${failedCollections.join(", ")})` : ""}`);
+  // Three distinct counts — never collapse "the receiver said 2xx" into
+  // "it's synced." Only persistedVerified (independently read back by the
+  // receiver) may ever be treated as proof the data is actually there.
+  const receiverAcceptedCount = results.filter((r) => r.receiverAccepted).length;
+  const persistedVerifiedCount = results.filter((r) => r.persistedVerified).length;
+  const unverified = results.filter((r) => r.receiverAccepted && !r.persistedVerified).map((r) => r.type);
+  const failedCollections = results.filter((r) => !r.receiverAccepted).map((r) => r.type);
+  console.log(
+    `[bridge] attempted ${results.length}, receiver_accepted ${receiverAcceptedCount}, persisted_verified ${persistedVerifiedCount}` +
+    `${failedCollections.length ? ` (failed: ${failedCollections.join(", ")})` : ""}` +
+    `${unverified.length ? ` (accepted but unverified: ${unverified.join(", ")})` : ""}`
+  );
 
   // Write status.json ONLY after push results are known, and record what was
-  // actually accepted — not just that the loop ticked. A process that ticks
-  // every 60s while every push 401s must never render as "LIVE" downstream
-  // (see docs/bridge/CC-BRIDGE-PROJECT-TRUTH-01.md section 2 — this was the
-  // root cause of "LIVE" badges showing during 284,629 consecutive 0/11 cycles).
+  // actually VERIFIED persisted — not just that the loop ticked, and not
+  // merely that the receiver returned 2xx. A process that ticks every 60s
+  // while every push 401s must never render as "LIVE" downstream (see
+  // docs/bridge/CC-BRIDGE-PROJECT-TRUTH-01.md section 2 — this was the root
+  // cause of "LIVE" badges showing during 284,629 consecutive 0/11 cycles).
   try {
     const statusPath = join(WORKSPACE, "../../ramiche-site/public/status.json");
     const recentlyActiveList = agents.recentlyActive ? agents.recentlyActive.split(",").filter(Boolean) : [];
@@ -784,13 +818,16 @@ async function syncAll() {
       })),
       // attemptedAt is process-liveness only; it must never be read as sync success.
       attemptedAt: timestamp,
-      accepted: ok,
       total: results.length,
-      allAccepted: ok === results.length,
+      receiverAccepted: receiverAcceptedCount,
+      persistedVerified: persistedVerifiedCount,
+      allPersistedVerified: persistedVerifiedCount === results.length,
       failedCollections,
-      // acceptedAt is set ONLY when every collection was actually accepted —
-      // this is the field a "LIVE" badge is allowed to key off, never attemptedAt.
-      acceptedAt: ok === results.length ? timestamp : null,
+      unverifiedCollections: unverified,
+      // acceptedAt is set ONLY when every collection was independently
+      // verified persisted — this is the one field a "LIVE" badge may key
+      // off, never attemptedAt and never a bare receiver acknowledgment.
+      acceptedAt: persistedVerifiedCount === results.length ? timestamp : null,
     };
     writeFileSync(statusPath, JSON.stringify(statusData, null, 2));
   } catch (e) {
@@ -808,6 +845,10 @@ async function syncAll() {
 
 console.log("[bridge] Command Center Bridge Sync starting...");
 console.log(`[bridge] URL: ${BRIDGE_URL}`);
+// Compare this fingerprint against the receiver's own BRIDGE_API_SECRET
+// fingerprint (logged server-side on a 401, see src/app/api/bridge/route.ts)
+// to find a credential mismatch without ever printing either secret.
+console.log(`[bridge] BRIDGE_API_SECRET fingerprint: ${secretFingerprint(BRIDGE_SECRET)}`);
 console.log(`[bridge] Workspace: ${WORKSPACE}`);
 console.log(`[bridge] Cron dir (resolved): ${resolveOpenclawCronDir()}`);
 console.log(`[bridge] Interval: ${SYNC_INTERVAL / 1000}s`);
