@@ -189,6 +189,22 @@ describe('D6 conversation switching must not race (CC-RECOVERY-INTEGRATION-01 pr
   })
 })
 
+describe('D7 failed send must not vanish silently (CC-RECOVERY-INTEGRATION-01 pre-merge review)', () => {
+  // FIXED: a failed POST (expired session, 401/403, network error) used to
+  // remove the optimistic bubble and log only to console.error — the owner
+  // saw their message and composer go empty with zero on-screen trace it
+  // was never persisted. Same silent-failure class as the incident this
+  // whole recovery effort exists to close.
+  it('CONTRACT: a failed send surfaces relayError instead of discarding the message with console.error only', () => {
+    const sendFailureBranch = PAGE.slice(
+      PAGE.indexOf('if (sendError || !inserted?.id) {'),
+      PAGE.indexOf('const realId = inserted.id;')
+    )
+    expect(sendFailureBranch).not.toMatch(/setMessages\(\(prev\) => prev\.filter\(\(m\) => m\.id !== tempId\)\)/)
+    expect(sendFailureBranch).toMatch(/setRelayError\(/)
+  })
+})
+
 describe('Cross-device restoration — explicitly pending, not claimed', () => {
   it('CONTRACT: the persisted-conversation mechanism is browser localStorage, not a cross-device/server-side preference', () => {
     // D3's fix is real but scoped to ONE browser: it reads/writes

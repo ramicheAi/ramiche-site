@@ -3209,10 +3209,20 @@ export default function CommandCenterChatPage() {
       }
 
       if (sendError || !inserted?.id) {
+        // FIXED (independent review, CC-RECOVERY-INTEGRATION-01): this used
+        // to silently remove the optimistic bubble and log only to
+        // console.error, so a failed send (e.g. the owner's session expired
+        // mid-composition, a 401/403 from the server route) left no trace
+        // that the message was never persisted — the same silent-failure
+        // class as the original incident. Keep the bubble and surface the
+        // existing relayError banner instead of discarding it.
         console.error("Chat send failed:", sendError);
-        setMessages((prev) => prev.filter((m) => m.id !== tempId));
         setWaitingForResponse(false);
         setTypingUsers([]);
+        setRelayError({
+          id: tempId,
+          message: typeof sendError === "string" ? sendError : "Message not sent — it was not persisted. Tap to dismiss, then try again.",
+        });
         onVoiceRelayError?.();
         return;
       }
