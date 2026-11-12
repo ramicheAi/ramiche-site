@@ -16,10 +16,18 @@ import { createHash } from "crypto";
  * out of band (per docs/bridge/CC-BRIDGE-PROJECT-TRUTH-01.md section 6, R1)
  * without ever printing or transmitting the secret itself. ~32 bits of the
  * hash leaks no practical amount of the underlying value.
+ *
+ * Normalizes identically to the receiver's own comparison (trim + strip a
+ * trailing literal "\n") before hashing. Without this, a secret with
+ * incidental whitespace could fingerprint as a "mismatch" here while still
+ * passing the receiver's actual (also-normalized) comparison — exactly the
+ * confusing false signal this diagnostic exists to avoid (independent
+ * review finding).
  */
 function secretFingerprint(secret) {
-  if (!secret) return "(unset)";
-  return createHash("sha256").update(secret, "utf8").digest("hex").slice(0, 8);
+  const normalized = (secret || "").trim().replace(/\\n$/, "");
+  if (!normalized) return "(unset)";
+  return createHash("sha256").update(normalized, "utf8").digest("hex").slice(0, 8);
 }
 
 /** Same rules as `src/lib/openclaw-paths.ts` — OPENCLAW_CRON_DIR, OPENCLAW_HOME/cron, or dirname(workspace)/cron. */
@@ -828,6 +836,14 @@ async function syncAll() {
       // verified persisted — this is the one field a "LIVE" badge may key
       // off, never attemptedAt and never a bare receiver acknowledgment.
       acceptedAt: persistedVerifiedCount === results.length ? timestamp : null,
+      // Deprecated compatibility alias: this file is read by things outside
+      // this repo (an iMac-side script, Obsidian tooling, etc. — unverifiable
+      // from here), and `lastSync` was the ONLY timestamp key before this
+      // change. Keep it, set to the new acceptedAt semantics (not the old
+      // "ticked" semantics), so a reader we can't see doesn't silently go
+      // stale/break (independent review finding). Remove once nothing reads
+      // it; new readers should use acceptedAt/attemptedAt directly.
+      lastSync: persistedVerifiedCount === results.length ? timestamp : null,
     };
     writeFileSync(statusPath, JSON.stringify(statusData, null, 2));
   } catch (e) {

@@ -17,13 +17,24 @@ import { timingSafeSecretEqual } from "@/lib/server/command-center-auth";
  * sender's can be confirmed from Vercel's function logs against the
  * sender's own startup fingerprint log (scripts/bridge-sync.mjs), per
  * docs/bridge/CC-BRIDGE-PROJECT-TRUTH-01.md section 6 (R1).
+ *
+ * Normalizes identically to timingSafeSecretEqual's own inputs (trim +
+ * strip a trailing literal "\n") before hashing, so this fingerprint can
+ * never show a "mismatch" for a secret that would actually pass the real
+ * comparison (independent review finding).
  */
 function secretFingerprint(secret: string): string {
-  if (!secret) return "(unset)";
-  return createHash("sha256").update(secret, "utf8").digest("hex").slice(0, 8);
+  const normalized = (secret || "").trim().replace(/\\n$/, "");
+  if (!normalized) return "(unset)";
+  return createHash("sha256").update(normalized, "utf8").digest("hex").slice(0, 8);
 }
 
 const BRIDGE_SECRET = (process.env.BRIDGE_API_SECRET || "").trim().replace(/\\n$/, "");
+
+// Logged ONCE at module load, not per-request: an unauthenticated caller
+// spamming 401s must not be able to flood the function logs with repeated
+// identical lines (independent review finding).
+const CONFIGURED_SECRET_FINGERPRINT = secretFingerprint(BRIDGE_SECRET);
 
 export const dynamic = "force-dynamic";
 
@@ -211,7 +222,7 @@ export async function POST(req: NextRequest) {
     // Server log only (never the response body): lets a credential mismatch
     // be confirmed by comparing fingerprints, without exposing either secret.
     console.error(
-      `[bridge] POST unauthorized — configured secret fingerprint ${secretFingerprint(BRIDGE_SECRET)}, ` +
+      `[bridge] POST unauthorized — configured secret fingerprint ${CONFIGURED_SECRET_FINGERPRINT}, ` +
       `received fingerprint ${secretFingerprint(authHeader)}`
     );
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -263,19 +274,44 @@ export async function POST(req: NextRequest) {
       const written = await res.json();
       updateTime = typeof written?.updateTime === "string" ? written.updateTime : undefined;
 
-      const readback = await fetch(fsUrl(`command-center/${type}`), {
-        headers: { "Content-Type": "application/json" },
-        cache: "no-store",
-      });
-      if (readback.ok) {
-        const doc = await readback.json();
-        persistedVerified = !!updateTime && doc?.updateTime === updateTime;
-        if (!persistedVerified) verifyError = "readback_mismatch";
+      if (!updateTime) {
+        // The write succeeded but Firestore's response didn't carry an
+        // updateTime to verify against — distinct from a readback that ran
+        // and genuinely mismatched (independent review finding).
+        verifyError = "no_update_time";
       } else {
-        verifyError = `readback_${readback.status}`;
+        // Bounded: a hung Firestore readback must not tie up this function
+        // indefinitely (independent review finding).
+        const readback = await fetch(fsUrl(`command-center/${type}`), {
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+          signal: AbortSignal.timeout(5000),
+        });
+        if (readback.ok) {
+          const doc = await readback.json();
+          // "Later or equal," not "exactly equal": Firestore's updateTime is
+          // a canonical RFC3339 UTC timestamp (fixed-width, always "Z"),
+          // which sorts correctly as a string. A concurrent writer (e.g. the
+          // Command Center UI moving a task between this PATCH and this
+          // readback) can legitimately bump updateTime again; that is still
+          // proof THIS write persisted, not a verification failure
+          // (independent review finding — the exact-match version flapped
+          // "unverified" on every concurrent write to a shared collection
+          // like `tasks`).
+          const readTime = typeof doc?.updateTime === "string" ? doc.updateTime : undefined;
+          persistedVerified = !!readTime && readTime >= updateTime;
+          if (!persistedVerified) verifyError = "readback_mismatch";
+        } else {
+          verifyError = `readback_${readback.status}`;
+        }
       }
     } catch (e) {
-      verifyError = `readback_exception: ${String(e)}`;
+      // Never echo the raw exception text in the response (it's authenticated
+      // already, but a fixed code avoids leaking internal detail to any
+      // caller; the full error still reaches the server log for debugging —
+      // independent review finding).
+      console.error(`[bridge] POST ${type} readback-verification exception:`, e);
+      verifyError = e instanceof Error && e.name === "TimeoutError" ? "readback_timeout" : "readback_exception";
     }
 
     return NextResponse.json({

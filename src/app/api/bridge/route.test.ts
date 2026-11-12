@@ -65,11 +65,17 @@ describe("POST /api/bridge (persisted-verification: accepted != verified)", () =
     );
   }
 
-  it("persistedVerified is true only when the readback updateTime matches the write's updateTime", async () => {
+  // Real Firestore updateTime shape: RFC3339 UTC, fixed-width fractional
+  // seconds, always "Z" — sorts correctly as a plain string.
+  const T1 = "2026-11-12T10:00:00.000000Z";
+  const T0_EARLIER = "2026-11-12T09:59:59.000000Z";
+  const T2_LATER = "2026-11-12T10:00:01.000000Z";
+
+  it("persistedVerified is true when the readback updateTime exactly matches the write's updateTime", async () => {
     process.env.BRIDGE_API_SECRET = SECRET;
     const fetchMock = vi.fn();
-    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ updateTime: "t1" }), { status: 200 })); // PATCH
-    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ updateTime: "t1" }), { status: 200 })); // readback
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ updateTime: T1 }), { status: 200 })); // PATCH
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ updateTime: T1 }), { status: 200 })); // readback
     vi.stubGlobal("fetch", fetchMock);
     const { POST } = await load();
     const res = await postValid(POST);
@@ -80,11 +86,28 @@ describe("POST /api/bridge (persisted-verification: accepted != verified)", () =
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("persistedVerified is false when the readback updateTime does not match (receiver accepted, not verified)", async () => {
+  it("persistedVerified is true when the readback updateTime is NEWER than the write's (a concurrent writer bumped it again)", async () => {
+    // This is the fix for the independent-review finding: a shared
+    // collection like `tasks` that the Command Center UI can also write
+    // used to flap "unverified" on every concurrent edit, because an exact
+    // match was required. A later write still proves THIS write persisted.
     process.env.BRIDGE_API_SECRET = SECRET;
     const fetchMock = vi.fn();
-    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ updateTime: "t1" }), { status: 200 })); // PATCH
-    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ updateTime: "t2-stale" }), { status: 200 })); // readback
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ updateTime: T1 }), { status: 200 })); // PATCH
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ updateTime: T2_LATER }), { status: 200 })); // readback, newer
+    vi.stubGlobal("fetch", fetchMock);
+    const { POST } = await load();
+    const res = await postValid(POST);
+    const body = await res.json();
+    expect(body.persistedVerified).toBe(true);
+    expect(body.verifyError).toBeUndefined();
+  });
+
+  it("persistedVerified is false when the readback updateTime is OLDER than the write's (a genuinely stale read)", async () => {
+    process.env.BRIDGE_API_SECRET = SECRET;
+    const fetchMock = vi.fn();
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ updateTime: T1 }), { status: 200 })); // PATCH
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ updateTime: T0_EARLIER }), { status: 200 })); // readback, older
     vi.stubGlobal("fetch", fetchMock);
     const { POST } = await load();
     const res = await postValid(POST);
@@ -95,10 +118,23 @@ describe("POST /api/bridge (persisted-verification: accepted != verified)", () =
     expect(body.verifyError).toBe("readback_mismatch");
   });
 
+  it("persistedVerified is false, with a distinct error, when the write response carries no updateTime", async () => {
+    process.env.BRIDGE_API_SECRET = SECRET;
+    const fetchMock = vi.fn();
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 200 })); // PATCH, no updateTime
+    vi.stubGlobal("fetch", fetchMock);
+    const { POST } = await load();
+    const res = await postValid(POST);
+    const body = await res.json();
+    expect(body.persistedVerified).toBe(false);
+    expect(body.verifyError).toBe("no_update_time");
+    expect(fetchMock).toHaveBeenCalledTimes(1); // no readback attempted without something to compare against
+  });
+
   it("persistedVerified is false when the readback request itself fails", async () => {
     process.env.BRIDGE_API_SECRET = SECRET;
     const fetchMock = vi.fn();
-    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ updateTime: "t1" }), { status: 200 })); // PATCH
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ updateTime: T1 }), { status: 200 })); // PATCH
     fetchMock.mockResolvedValueOnce(new Response("{}", { status: 503 })); // readback fails
     vi.stubGlobal("fetch", fetchMock);
     const { POST } = await load();
@@ -107,6 +143,21 @@ describe("POST /api/bridge (persisted-verification: accepted != verified)", () =
     expect(res.status).toBe(200);
     expect(body.persistedVerified).toBe(false);
     expect(body.verifyError).toBe("readback_503");
+  });
+
+  it("a readback exception never leaks raw error text into the response, only a fixed code", async () => {
+    process.env.BRIDGE_API_SECRET = SECRET;
+    const fetchMock = vi.fn();
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ updateTime: T1 }), { status: 200 })); // PATCH
+    fetchMock.mockRejectedValueOnce(new Error("connect ECONNREFUSED 10.0.0.1:443 internal-detail")); // readback throws
+    vi.stubGlobal("fetch", fetchMock);
+    const { POST } = await load();
+    const res = await postValid(POST);
+    const body = await res.json();
+    expect(body.persistedVerified).toBe(false);
+    expect(body.verifyError).toBe("readback_exception");
+    expect(JSON.stringify(body)).not.toContain("ECONNREFUSED");
+    expect(JSON.stringify(body)).not.toContain("internal-detail");
   });
 
   it("a failed write (non-2xx PATCH) never attempts verification and reports the write's own error status", async () => {
