@@ -31,13 +31,13 @@ const SURFACE: Record<string, Cls> = {
   "auth/session": "SESSION",
   "stripe/connect": "SESSION",
   "stripe/webhook": "PROVIDER_SIG",
-  "meet-results/cron": "CC_MACHINE_EXT", // CRON_SECRET bearer
+  "meet-results/cron": "OPEN_FINDING", // fail-open when CRON_SECRET unset, plain !== compare, ?secret= accepted
   "health": "PUBLIC",
   "free-audit": "PUBLIC",
   "studio-inquiry": "PUBLIC",
   "stripe/checkout": "PUBLIC",
   "stripe/agents-checkout": "PUBLIC",
-  "stripe/portal": "PUBLIC",
+  "stripe/portal": "OPEN_FINDING", // IDOR: any customerId returns a billing-portal URL; return_url from Origin
   "power-challenge/checkout": "PUBLIC",
   "power-challenge/admin": "SESSION", // x-admin-pin
   "power-challenge/export": "SESSION", // admin credential

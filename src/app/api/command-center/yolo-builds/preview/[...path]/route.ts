@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFileSync, existsSync } from "fs";
-import { join, extname } from "path";
+import { readFileSync, existsSync, realpathSync } from "fs";
+import { join, extname, sep } from "path";
 import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +39,17 @@ async function GET_handler(
   // statically with the global CSP (no sandbox), reachable via encoded paths.
   const filePath = join(BUILDS_DIR_WS, relPath);
   if (!existsSync(filePath)) {
+    return new NextResponse("Not found", { status: 404 });
+  }
+
+  // Contain symlinks: the resolved file must stay inside the builds directory.
+  try {
+    const base = realpathSync(BUILDS_DIR_WS);
+    const real = realpathSync(filePath);
+    if (real !== base && !real.startsWith(base + sep)) {
+      return new NextResponse("Forbidden", { status: 403 });
+    }
+  } catch {
     return new NextResponse("Not found", { status: 404 });
   }
 

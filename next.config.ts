@@ -1,6 +1,17 @@
 import type { NextConfig } from "next";
 import path from "node:path";
+import { existsSync, readdirSync } from "node:fs";
 import { withSentryConfig } from "@sentry/nextjs";
+
+// Agent-generated builds must never live under public/: Next serves public/ statically with the
+// global CSP (no sandbox) and header rules match the raw path, so encoded URLs bypass the sandbox
+// rule. Fail the build/start on any host that has content there (CC-FINAL-MERGE-GATE-05).
+{
+  const d = path.join(process.cwd(), "public", "yolo-builds");
+  if (existsSync(d) && readdirSync(d).length > 0) {
+    throw new Error("public/yolo-builds must be empty: agent builds are served only via the owner-gated preview API");
+  }
+}
 
 const securityHeaders = [
   {
