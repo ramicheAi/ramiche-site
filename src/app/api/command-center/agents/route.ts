@@ -35,9 +35,22 @@ interface DirectoryAgent {
   provider_note?: string;
 }
 
-/* ── Detect recently active agents from git log ── */
-function getRecentlyActiveAgents(): Set<string> {
+/**
+ * Detect recently active agents from the ramiche-site git log.
+ *
+ * SECURITY/TRUTH (RAMICHE-OS-CC-OVERNIGHT-RECOVERY-01, Phase 7 — Project & Agent
+ * Truth): this is a 48h commit-authorship HEURISTIC, not a live OpenClaw gateway
+ * heartbeat. It previously had an unconditional fallback that marked a fixed list
+ * of 10 named agents "active" whenever the heuristic found nothing — i.e. the UI
+ * showed real-looking activity with zero actual evidence, exactly the kind of
+ * fabricated status this phase exists to remove. There is now no such fallback:
+ * no evidence means no agent is marked active, full stop. Callers get back the
+ * evidence basis (`source`) and whether the heuristic itself failed to run
+ * (`gitUnavailable`) so the UI can be honest about what it actually knows.
+ */
+function getRecentlyActiveAgents(): { active: Set<string>; gitUnavailable: boolean } {
   const active = new Set<string>();
+  let gitUnavailable = false;
   try {
     const raw = execSync(`git log --format="%an" --since="48 hours ago" -n 100`, {
       cwd: REPO_DIR, encoding: "utf-8", timeout: 3000,
@@ -52,14 +65,10 @@ function getRecentlyActiveAgents(): Set<string> {
         }
       }
     }
-  } catch { /* git unavailable — use static fallback */ }
-  // Always mark core ops agents as active
-  if (active.size === 0) {
-    for (const a of ["atlas", "proximon", "shuri", "triage", "nova", "aetherion", "vee", "ink", "echo", "prophets"]) {
-      active.add(a);
-    }
+  } catch {
+    gitUnavailable = true; // No signal available — never fabricate a fallback here.
   }
-  return active;
+  return { active, gitUnavailable };
 }
 
 /* ── Static fallback (Vercel / no filesystem) — aligned with MEMORY.md / Atlas audit ── */
@@ -80,7 +89,10 @@ function mapAgent(id: string, a: DirectoryAgent, isActive: boolean) {
 }
 
 async function GET_handler() {
-  const activeSet = getRecentlyActiveAgents();
+  const { active: activeSet, gitUnavailable } = getRecentlyActiveAgents();
+  // Honest evidence label for the "active" flag below — never implies a live
+  // OpenClaw gateway heartbeat, which this route does not check.
+  const activityEvidence = gitUnavailable ? "unavailable" : "git-commit-48h";
 
   // Try live filesystem first (works when self-hosted / local dev)
   try {
@@ -95,6 +107,7 @@ async function GET_handler() {
       activeCount: agents.filter(a => a.status === "active").length,
       updated: dir.updated ?? new Date().toISOString(),
       source: "live",
+      activityEvidence,
       version: dir.version,
     });
   } catch {
@@ -106,6 +119,7 @@ async function GET_handler() {
       activeCount: agents.filter(a => a.status === "active").length,
       updated: new Date().toISOString(),
       source: "static",
+      activityEvidence,
       version: "2.1",
     });
   }
