@@ -1,31 +1,45 @@
 /**
  * Command Center trusted-device PIN unlock (founder Priority 1 decision,
- * CC-RECOVERY-DELIVERY-CONVERGENCE-01).
+ * CC-RECOVERY-DELIVERY-CONVERGENCE-01, revised per the founder's correction:
+ * Firebase email/password must never be the NORMAL user-facing login —
+ * not for daily use, and not for first-time device enrollment either).
  *
  * The identity boundary is unchanged: `requireCommandCenterOwner` in
- * command-center-guard.ts is still the ONLY authoritative check, and a
- * Firebase human-provider session verified against the exact configured
- * owner uid is still the only thing that can ESTABLISH ownership. This file
- * adds a second, narrower credential that guard accepts in addition to that
- * Firebase session — never instead of it for the step that matters:
+ * command-center-guard.ts is still the ONLY authoritative check. What
+ * changed is which credentials can satisfy it. Three ways to ESTABLISH
+ * device trust now exist, in decreasing order of how "strong" the proof is,
+ * but all three are still narrow, fail-closed, and auditable — none of them
+ * make the PIN itself an unrestricted master credential:
  *
- *   1. ENROLLMENT (device trust is created) requires a fully verified
- *      Firebase owner session. There is no other way into this table.
- *   2. UNLOCK (a short owner session is minted from an already-trusted
- *      device) requires BOTH a valid, non-revoked, non-expired device
- *      cookie AND the correct PIN. The PIN alone proves nothing; the device
- *      cookie alone proves nothing. Only the combination unlocks.
- *   3. Every subsequent request on that unlock session is verified against
- *      BOTH the unlock cookie's own signature/expiry AND a live re-check
- *      that the device row is still valid (not revoked, not expired) —
- *      revoking the device immediately invalidates any still-live unlock
- *      session minted from it.
+ *   1. BOOTSTRAP (first device only): a high-entropy static secret
+ *      (`CC_BOOTSTRAP_SECRET`, owner-configured in Vercel, never in git) —
+ *      but ONLY while the owner currently has ZERO active (non-revoked,
+ *      non-expired) enrolled devices. The moment one device exists, this
+ *      path is dead even if the secret leaks; it is not a standing master
+ *      key. See `bootstrapEnrollDevice`.
+ *   2. DEVICE-TO-DEVICE APPROVAL (every subsequent device): an
+ *      already-enrolled, already-unlocked device generates a short-lived
+ *      (5-minute), single-use code — but generating one requires a STEP-UP:
+ *      re-entering the PIN at that exact moment, through the same
+ *      rate-limited `attemptPinUnlock` path, not merely holding an existing
+ *      unlock session. See `createEnrollmentApprovalCode` /
+ *      `redeemEnrollmentApprovalCode`.
+ *   3. FIREBASE (fallback/recovery only, unchanged from before): a fully
+ *      verified Firebase owner session can still enroll a device directly
+ *      (`enrollDevice`, called from the Firebase-gated enroll route) — kept
+ *      as the recovery path for when no device is enrolled AND the
+ *      bootstrap secret is unavailable/rotated away, never the primary UX.
  *
- * Secrets: the raw device secret and the unlock-cookie signing secret are
- * never stored. Only SHA-256 hashes (device secret) or HMAC-SHA256 tags
- * (unlock cookie) are persisted/compared, always via timingSafeEqual.
- * Nothing here is readable by client-side JS (httpOnly cookies only) or
- * written to localStorage.
+ * UNLOCK (minting a short owner session from an already-trusted device)
+ * is unchanged: requires BOTH a valid, non-revoked, non-expired device
+ * cookie AND the correct PIN, verified live on every subsequent request —
+ * revoking a device invalidates any still-live unlock session from it
+ * immediately.
+ *
+ * Secrets: no raw secret (device secret, bootstrap secret, enrollment code)
+ * is ever stored — only SHA-256 hashes or HMAC-SHA256 tags, always compared
+ * timing-safe. Nothing here is readable by client-side JS (httpOnly cookies
+ * only) or written to localStorage.
  */
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -117,6 +131,104 @@ export async function enrollDevice(ownerUid: string, label?: string): Promise<{ 
 
   if (error || !data?.id) return { error: "enroll_failed" };
   return { cookieValue: `${data.id}.${secret}`, expiresAt };
+}
+
+/** True iff the owner currently has at least one active (non-revoked, non-expired) enrolled device. */
+async function hasActiveDevice(ownerUid: string): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return true; // fail closed toward "assume a device exists" so bootstrap never opens on a DB error
+  const { count, error } = await db
+    .from("cc_trusted_devices")
+    .select("id", { count: "exact", head: true })
+    .eq("owner_uid", ownerUid)
+    .is("revoked_at", null)
+    .gt("expires_at", new Date().toISOString());
+  if (error) return true;
+  return (count ?? 0) > 0;
+}
+
+function bootstrapSecret(): string | null {
+  const s = process.env.CC_BOOTSTRAP_SECRET?.trim();
+  return s || null;
+}
+
+export type BootstrapResult =
+  | { ok: true; cookieValue: string; expiresAt: Date }
+  | { ok: false; status: 401 | 403 | 503; reason: string };
+
+/**
+ * First-device-only enrollment via a static, high-entropy, owner-configured
+ * secret — never stored in git, never printed, compared timing-safe. Self-
+ * disabling: the moment the owner has ANY active enrolled device, this
+ * returns `already_enrolled` and refuses, regardless of whether the secret
+ * is correct — so a leaked bootstrap secret is not a standing master key,
+ * only a one-shot "claim the first device" credential.
+ */
+export async function bootstrapEnrollDevice(suppliedToken: string, ownerUid: string, label?: string): Promise<BootstrapResult> {
+  const secret = bootstrapSecret();
+  if (!secret) return { ok: false, status: 503, reason: "bootstrap_not_configured" };
+  if (!timingSafeHexEqual(hashSecret(suppliedToken || ""), hashSecret(secret))) {
+    return { ok: false, status: 401, reason: "bad_token" };
+  }
+  if (await hasActiveDevice(ownerUid)) {
+    return { ok: false, status: 403, reason: "already_enrolled" };
+  }
+  const result = await enrollDevice(ownerUid, label);
+  if ("error" in result) return { ok: false, status: 503, reason: result.error };
+  return { ok: true, cookieValue: result.cookieValue, expiresAt: result.expiresAt };
+}
+
+const ENROLLMENT_CODE_TTL_SECONDS = 5 * 60;
+
+export type GenerateEnrollmentCodeResult =
+  | { ok: true; code: string; expiresAt: Date }
+  | { ok: false; status: 503; reason: string };
+
+/**
+ * Called ONLY after the approving device's PIN has been freshly re-verified
+ * (step-up — see the approve route, which calls attemptPinUnlock itself
+ * before this). Generates a random code, stores only its hash, scoped to
+ * the owner and a 5-minute expiry, auditable to the approving device id.
+ */
+export async function createEnrollmentApprovalCode(ownerUid: string, approvingDeviceId: string): Promise<GenerateEnrollmentCodeResult> {
+  const db = await getDb();
+  if (!db) return { ok: false, status: 503, reason: "not_configured" };
+  const code = randomBytes(16).toString("hex");
+  const expiresAt = new Date(Date.now() + ENROLLMENT_CODE_TTL_SECONDS * 1000);
+  const { error } = await db.from("cc_device_enrollment_codes").insert({
+    code_hash: hashSecret(code),
+    owner_uid: ownerUid,
+    expires_at: expiresAt.toISOString(),
+    issued_by_device_id: approvingDeviceId,
+  });
+  if (error) return { ok: false, status: 503, reason: "generate_failed" };
+  return { ok: true, code, expiresAt };
+}
+
+export type RedeemEnrollmentCodeResult =
+  | { ok: true; cookieValue: string; expiresAt: Date }
+  | { ok: false; status: 401 | 503; reason: string };
+
+/**
+ * Redeems a device-approval code on a NEW device. Atomic via the migration's
+ * `cc_redeem_device_enrollment_code` RPC (SELECT ... FOR UPDATE, same
+ * discipline as the PIN-attempt functions) — two concurrent redemption
+ * attempts on the same code can never both succeed.
+ */
+export async function redeemEnrollmentApprovalCode(code: string, ownerUid: string, label?: string): Promise<RedeemEnrollmentCodeResult> {
+  const db = await getDb();
+  if (!db) return { ok: false, status: 503, reason: "not_configured" };
+  const { data, error } = await db.rpc("cc_redeem_device_enrollment_code", {
+    p_code_hash: hashSecret(code),
+    p_owner_uid: ownerUid,
+  });
+  if (error) return { ok: false, status: 503, reason: "redeem_failed" };
+  const row = (Array.isArray(data) ? data[0] : data) as { ok: boolean } | undefined;
+  if (!row?.ok) return { ok: false, status: 401, reason: "invalid_or_expired_code" };
+
+  const result = await enrollDevice(ownerUid, label);
+  if ("error" in result) return { ok: false, status: 503, reason: result.error };
+  return { ok: true, cookieValue: result.cookieValue, expiresAt: result.expiresAt };
 }
 
 export type DeviceVerifyResult =

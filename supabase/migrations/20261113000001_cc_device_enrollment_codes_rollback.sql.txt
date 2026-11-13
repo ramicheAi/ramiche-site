@@ -1,0 +1,7 @@
+-- ROLLBACK for 20261113000000_cc_device_enrollment_codes.sql.
+-- Renamed .sql.txt so Supabase's migration runner never auto-applies it.
+-- Dropping this table only removes pending/historical enrollment codes;
+-- already-enrolled devices in cc_trusted_devices are untouched.
+
+drop function if exists public.cc_redeem_device_enrollment_code(text, text);
+drop table if exists public.cc_device_enrollment_codes;

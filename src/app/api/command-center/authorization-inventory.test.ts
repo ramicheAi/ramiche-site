@@ -99,7 +99,11 @@ describe("route classification", () => {
     "DEVICE %s: every exported method verifies the device-trust credential in the file itself",
     (_p, f) => {
       const src = readFileSync(f as string, "utf8");
-      expect(src).toMatch(/verifyDeviceCookie\(/);
+      // Three distinct DEVICE credential shapes now exist (pin's device
+      // cookie, bootstrap's static secret, redeem's one-time code) — any
+      // one of these verification calls counts, per founder correction
+      // CC-PRODUCTION-OWNER-RECOVERY-01 follow-up.
+      expect(src).toMatch(/verifyDeviceCookie\(|bootstrapEnrollDevice\(|redeemEnrollmentApprovalCode\(/);
     }
   );
 });
@@ -187,7 +191,12 @@ describe("DEVICE routes deny at the handler without a valid device-trust credent
     process.env[OWNER_UID_ENV] = original;
   });
 
-  const device = files.filter(isDevice);
+  // Scoped to the pin route specifically: bootstrap (static secret) and
+  // redeem (one-time code) are also DEVICE-classified but use a different
+  // credential shape than a `cc_device` cookie, and have their own
+  // dedicated tests (command-center-device-trust.test.ts /
+  // device-bootstrap-and-redeem.test.ts) rather than this generic loop.
+  const device = files.filter(isDevice).filter((f) => routePath(f) === "/api/command-center/auth/pin");
 
   it.each(device.map((f) => [routePath(f), f]))("%s", async (_p, f) => {
     const mod = (await import(/* @vite-ignore */ f as string)) as Record<string, unknown>;

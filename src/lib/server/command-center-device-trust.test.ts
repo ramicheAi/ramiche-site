@@ -6,8 +6,11 @@ vi.mock("@/lib/supabase-admin", () => ({ getSupabaseAdmin }));
 
 import {
   attemptPinUnlock,
+  bootstrapEnrollDevice,
+  createEnrollmentApprovalCode,
   enrollDevice,
   parseDeviceCookie,
+  redeemEnrollmentApprovalCode,
   revokeDevice,
   verifyDeviceCookie,
   verifyUnlockCookie,
@@ -274,5 +277,104 @@ describe("enrollDevice / revokeDevice", () => {
     const result = await revokeDevice(OWNER, DEVICE_ID);
     expect(result).toEqual({ ok: true, revoked: 1 });
     expect(eqSpy).toHaveBeenCalledWith("id", DEVICE_ID);
+  });
+});
+
+describe("bootstrapEnrollDevice (founder correction: first device without Firebase)", () => {
+  const originalBootstrapSecret = process.env.CC_BOOTSTRAP_SECRET;
+  beforeEach(() => {
+    getSupabaseAdmin.mockReset();
+    process.env.CC_BOOTSTRAP_SECRET = "correct-bootstrap-secret";
+  });
+  afterEach(() => {
+    process.env.CC_BOOTSTRAP_SECRET = originalBootstrapSecret;
+  });
+
+  function countQuery(count: number) {
+    const q: Record<string, unknown> = { count, error: null };
+    q.select = vi.fn(() => q);
+    q.eq = vi.fn(() => q);
+    q.is = vi.fn(() => q);
+    q.gt = vi.fn(() => q);
+    return q;
+  }
+
+  it("503s when the bootstrap secret isn't configured, never falls open", async () => {
+    delete process.env.CC_BOOTSTRAP_SECRET;
+    const result = await bootstrapEnrollDevice("anything", OWNER);
+    expect(result).toEqual({ ok: false, status: 503, reason: "bootstrap_not_configured" });
+  });
+
+  it("rejects a wrong token", async () => {
+    const result = await bootstrapEnrollDevice("wrong-token", OWNER);
+    expect(result).toEqual({ ok: false, status: 401, reason: "bad_token" });
+  });
+
+  it("enrolls the first device when the token is correct and zero devices exist", async () => {
+    const countQ = countQuery(0);
+    const insertQ: Record<string, unknown> = { data: { id: DEVICE_ID }, error: null };
+    insertQ.insert = vi.fn(() => insertQ);
+    insertQ.select = vi.fn(() => insertQ);
+    insertQ.single = vi.fn(() => insertQ);
+    const fromMock = vi.fn().mockReturnValueOnce(countQ).mockReturnValueOnce(insertQ);
+    getSupabaseAdmin.mockReturnValue({ from: fromMock });
+
+    const result = await bootstrapEnrollDevice("correct-bootstrap-secret", OWNER);
+    expect(result.ok).toBe(true);
+  });
+
+  it("refuses — even with the correct token — the moment ANY active device already exists: not a standing master key", async () => {
+    const countQ = countQuery(1);
+    getSupabaseAdmin.mockReturnValue({ from: vi.fn(() => countQ) });
+
+    const result = await bootstrapEnrollDevice("correct-bootstrap-secret", OWNER);
+    expect(result).toEqual({ ok: false, status: 403, reason: "already_enrolled" });
+  });
+});
+
+describe("createEnrollmentApprovalCode / redeemEnrollmentApprovalCode (device-to-device approval)", () => {
+  beforeEach(() => getSupabaseAdmin.mockReset());
+
+  it("createEnrollmentApprovalCode stores only a hash, never the raw code", async () => {
+    let storedHash: string | undefined;
+    const insertQ: Record<string, unknown> = { error: null };
+    insertQ.insert = vi.fn((row: { code_hash: string }) => {
+      storedHash = row.code_hash;
+      return insertQ;
+    });
+    getSupabaseAdmin.mockReturnValue({ from: vi.fn(() => insertQ) });
+
+    const result = await createEnrollmentApprovalCode(OWNER, DEVICE_ID);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("unreachable");
+    expect(createHash("sha256").update(result.code, "utf8").digest("hex")).toBe(storedHash);
+    expect(result.expiresAt.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it("redeemEnrollmentApprovalCode denies when the RPC reports the code invalid/expired/used", async () => {
+    const rpc = vi.fn(() => Promise.resolve({ data: { ok: false, issued_by_device_id: null }, error: null }));
+    getSupabaseAdmin.mockReturnValue({ rpc });
+
+    const result = await redeemEnrollmentApprovalCode("some-code", OWNER);
+    expect(result).toEqual({ ok: false, status: 401, reason: "invalid_or_expired_code" });
+  });
+
+  it("redeemEnrollmentApprovalCode enrolls a NEW device when the RPC reports the code valid", async () => {
+    const rpc = vi.fn((fn: string) => {
+      if (fn === "cc_redeem_device_enrollment_code") return Promise.resolve({ data: { ok: true, issued_by_device_id: "other-device" }, error: null });
+      throw new Error(`unexpected rpc ${fn}`);
+    });
+    const NEW_DEVICE_ID = "66666666-6666-6666-6666-666666666666";
+    const insertQ: Record<string, unknown> = { data: { id: NEW_DEVICE_ID }, error: null };
+    insertQ.insert = vi.fn(() => insertQ);
+    insertQ.select = vi.fn(() => insertQ);
+    insertQ.single = vi.fn(() => insertQ);
+    getSupabaseAdmin.mockReturnValue({ rpc, from: vi.fn(() => insertQ) });
+
+    const result = await redeemEnrollmentApprovalCode("some-code", OWNER);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("unreachable");
+    const parsed = parseDeviceCookie(result.cookieValue);
+    expect(parsed?.deviceId).toBe(NEW_DEVICE_ID);
   });
 });

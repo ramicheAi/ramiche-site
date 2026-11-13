@@ -65,6 +65,53 @@ that passes does the PIN get checked at all, and even then it only mints a 12h u
 verified against the live device row on every subsequent request — never a standing credential on its
 own.
 
+## Round 6 — founder correction: Firebase removed from the normal path entirely
+
+The founder clarified, after production recovery, that Firebase must never be the normal user-facing
+login — not for daily use (already true) and not for first-time device enrollment either (the gap in
+every prior round: enrollment required a Firebase sign-in screen). Three credential paths now exist
+to establish device trust, in decreasing strength, none of them making the PIN an unrestricted master
+credential:
+
+1. **Bootstrap (first device only)**: a static, high-entropy, owner-configured secret
+   (`CC_BOOTSTRAP_SECRET`, Vercel-only, never in git) enrolls a device — but ONLY while the owner has
+   zero active enrolled devices. The check is live, not a one-time-use token: the moment any device
+   exists, this path returns `already_enrolled` and refuses even a correct secret. A leaked bootstrap
+   secret is therefore not a standing master key, only a one-shot "claim the first device" credential.
+2. **Device-to-device approval (every subsequent device)**: an already-enrolled, already-unlocked
+   device generates a short-lived (5-minute), single-use code — but generating one requires a
+   step-up: the PIN must be freshly re-entered at that moment, through the same rate-limited,
+   atomically-locked `attemptPinUnlock` path the normal unlock uses. Holding an idle unlock session is
+   not sufficient on its own to mint new device trust.
+3. **Firebase (fallback/recovery only, unchanged)**: still works exactly as before, for when no device
+   is enrolled and the bootstrap secret is unavailable or rotated away. No longer the default redirect
+   target — middleware now sends a never-enrolled browser to `/command-center/bootstrap` instead of
+   `/command-login`, with Firebase offered only as a visible, explicit fallback link.
+
+**New migration** (prepared, not applied): `cc_device_enrollment_codes` table plus one
+`SELECT ... FOR UPDATE`-backed function, `cc_redeem_device_enrollment_code`, giving the same atomic
+single-use guarantee as the PIN-attempt functions.
+
+**Exercised against real Postgres 17** (same approach as every prior round — Supabase branching still
+needs a Pro-plan upgrade this project doesn't have):
+- Forward migration applies cleanly with a pre-existing device row present; re-running it is a clean
+  no-op; the pre-existing device row is untouched throughout.
+- **20 real concurrent connections racing to redeem the SAME code**: exactly one succeeded, the other
+  19 were denied, and the code's `used_at` ends up set exactly once — the single-use guarantee holds
+  under genuine concurrency, not a mocked assertion.
+- A second (sequential) redemption attempt on an already-used code: denied.
+- An expired code: denied.
+- A code redeemed under the wrong `owner_uid`: denied, AND — confirmed directly — does NOT consume
+  the code, so the correct owner can still redeem it afterward.
+- Rollback: clean, removes exactly the new table and function, leaves `cc_trusted_devices` untouched.
+
+**Tests**: 881 passed (up from 855), zero regressions — including two pre-existing `middleware.test.ts`
+assertions updated to the new default redirect target (`/command-center/bootstrap` instead of
+`/command-login`) and one new one covering the device-cookie-present case still going to `/unlock`.
+32 new tests for `bootstrapEnrollDevice`/`createEnrollmentApprovalCode`/`redeemEnrollmentApprovalCode`,
+plus dedicated route tests for `bootstrap`, `redeem`, and `approve` (14 tests covering the step-up PIN
+requirement specifically).
+
 ## Independent review (fresh context, head `2a8f4100`)
 
 **The property that matters most held: there is no path where the PIN alone, without a prior

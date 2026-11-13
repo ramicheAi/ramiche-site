@@ -82,17 +82,21 @@ async function firebaseSessionValid(req: NextRequest): Promise<boolean> {
  */
 function loginRedirect(req: NextRequest, next: string): NextResponse {
   // A `cc_device` cookie present at all (valid or not — the unlock page's
-  // own preflight tells the owner which, and links to Firebase sign-in if
-  // it's no longer trusted) means this browser was previously enrolled, so
-  // send it to the low-friction PIN unlock instead of straight to Firebase
-  // email/password (founder Priority 1 decision: "no second PIN prompt
-  // after successful unlock" implies PIN-first on a known device, not
-  // Firebase-first). A device with no such cookie has never been enrolled
-  // and goes to Firebase sign-in as before.
+  // own preflight tells the owner which, and offers Firebase sign-in as a
+  // fallback if it's no longer trusted) means this browser was previously
+  // enrolled, so send it to the low-friction PIN unlock.
+  //
+  // A device with NO such cookie — founder correction (CC-PRODUCTION-OWNER-
+  // RECOVERY-01 follow-up): Firebase email/password must never be the
+  // NORMAL user-facing login, not even for first-time enrollment — now
+  // goes to the bootstrap/device-approval entry page instead of straight to
+  // Firebase. That page offers the bootstrap-secret path (first device) or
+  // an approval-code path (every subsequent device), with Firebase sign-in
+  // only as an explicit, visible fallback link, never the default.
   const hasDeviceCookie = !!req.cookies.get("cc_device")?.value;
   const path = hasDeviceCookie
     ? `/command-center/unlock?next=${encodeURIComponent(next)}`
-    : `/command-login?next=${encodeURIComponent(next)}`;
+    : `/command-center/bootstrap?next=${encodeURIComponent(next)}`;
   let target: URL;
   try {
     const proto =
@@ -129,12 +133,13 @@ export async function middleware(req: NextRequest) {
     if (isMachineRoutePath(pathname)) {
       return NextResponse.next();
     }
-    // Device routes (the PIN-unlock API) and the unlock page itself are
-    // exempt from the Firebase owner gate on purpose — that gate is exactly
-    // what they exist to let an already-enrolled device skip. The route
-    // itself (verifyDeviceCookie) still fails closed on a missing/invalid
-    // device credential; see command-center-device-trust.ts.
-    if (isDeviceRoutePath(pathname) || pathname === "/command-center/unlock") {
+    // Device routes (pin/bootstrap/redeem APIs) and their pages (unlock,
+    // bootstrap) are exempt from the Firebase owner gate on purpose — that
+    // gate is exactly what each exists to let the owner skip (an
+    // already-enrolled device for unlock; a brand-new device for
+    // bootstrap). Each route itself still fails closed on a missing/
+    // invalid credential of its own kind; see command-center-device-trust.ts.
+    if (isDeviceRoutePath(pathname) || pathname === "/command-center/unlock" || pathname === "/command-center/bootstrap") {
       return NextResponse.next();
     }
 
