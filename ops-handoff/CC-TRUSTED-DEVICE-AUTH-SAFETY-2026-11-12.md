@@ -112,6 +112,58 @@ assertions updated to the new default redirect target (`/command-center/bootstra
 plus dedicated route tests for `bootstrap`, `redeem`, and `approve` (14 tests covering the step-up PIN
 requirement specifically).
 
+## Round 7 — independent review found two real HIGH findings in round 6, both fixed and re-verified live
+
+A fresh independent review of round 6's no-Firebase bootstrap design found the PIN-alone property
+still holds (tried hard to break it, couldn't), but found two real HIGH-severity bugs in the bootstrap
+secret's self-disable, plus two MEDIUM and several LOW findings:
+
+- **HIGH — the self-disable check wasn't atomic.** The original design did a separate `SELECT` ("does
+  an active device exist?") then a separate `INSERT`. Two concurrent requests with the correct secret
+  could both pass the check before either inserted, enrolling MORE than one device — each with its own
+  independent 5-attempt PIN lockout budget, multiplying an attacker's PIN-guessing surface. **Fixed**:
+  a single Postgres function, `cc_bootstrap_consume_and_enroll`, does the check and the insert under
+  one row lock. **Reproduced the exact race and the exact fix live**: 20 concurrent "correct secret"
+  attempts for the same owner, using real Postgres — before this fix this would enroll multiple
+  devices; after the fix, exactly one `consume_ok=t` and exactly one device row exist.
+- **HIGH — the self-disable wasn't durable.** It was keyed on "does an ACTIVE device exist right now,"
+  which silently re-opened the window after a device's 90-day expiry or a full revoke — with zero
+  deliberate action required. A leaked secret was therefore not actually one-shot; it came back on a
+  clock. **Fixed**: consumption is now a separate, permanent `consumed_at` flag (`cc_bootstrap_state`
+  table), touched only by the atomic enroll function and by a new, explicit, Firebase-gated-only
+  `resetBootstrap`/`cc_bootstrap_reset` (new route: `POST /api/command-center/auth/device/bootstrap/reset`,
+  requires `requireFreshFirebaseOwnerSession` specifically — a PIN-unlock session can never call it).
+  **Reproduced live**: revoked the only enrolled device for a test owner, confirmed bootstrap stayed
+  refused (the bug this fix closes), then called the reset function and confirmed bootstrap worked
+  again only after that deliberate action.
+- **MEDIUM — the bootstrap secret itself had no rate limit.** Unlike the PIN, nothing throttled guesses
+  at the bootstrap secret. **Fixed**: a new `cc_bootstrap_claim_attempt` function, same `FOR UPDATE`
+  discipline and 5-attempt/15-minute lockout as the PIN functions, called before the secret is ever
+  compared — every guess counts, right or wrong. Also added a minimum-length floor (20 chars) on the
+  configured secret itself, failing closed on a weak one rather than accepting it.
+- **MEDIUM — a `?token=` magic link put the static secret in the URL**, meaning browser history and
+  Vercel request logs. **Fixed**: removed `?token=` query-param support entirely; the bootstrap secret
+  is manual-paste only. The `?code=` magic link for device-to-device approval codes is unaffected and
+  intentionally kept — those codes are single-use and expire in 5 minutes, a bounded exposure the
+  static secret didn't have.
+- **LOW — a revoked device's outstanding approval codes kept working for the rest of their 5-minute
+  window.** **Fixed**: `cc_redeem_device_enrollment_code` now also checks the issuing device is still
+  active. **Reproduced live**: issued a code, revoked the issuing device, confirmed the code was then
+  refused.
+- **LOW — the bootstrap page tried redeem-then-bootstrap on one pasted value**, which could show a
+  misleading "redeem failed" message for a valid bootstrap secret. **Fixed**: routes deterministically
+  by shape (approval codes are always 32 hex characters; anything else is treated as the bootstrap
+  secret).
+- **LOW (test coverage) — the inventory test's "DEVICE routes verify SOME credential check" assertion
+  accepted any of three function names anywhere in the file**, which could stay green even if the
+  wrong method's check were deleted. **Fixed**: now maps each DEVICE route to its own specific required
+  check (pin→`verifyDeviceCookie`, bootstrap→`bootstrapEnrollDevice`, redeem→`redeemEnrollmentApprovalCode`).
+  Also fixed a stale comment pointing at a test file that was never created.
+
+**Tests**: 888 passed (up from 881), zero regressions. **Item 6 (the property that matters most) was
+re-verified and holds**: no path lets PIN entry alone, with no device credential, no bootstrap secret,
+and no approval code, establish a new device's trust.
+
 ## Independent review (fresh context, head `2a8f4100`)
 
 **The property that matters most held: there is no path where the PIN alone, without a prior

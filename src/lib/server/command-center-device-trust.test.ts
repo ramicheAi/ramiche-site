@@ -11,6 +11,7 @@ import {
   enrollDevice,
   parseDeviceCookie,
   redeemEnrollmentApprovalCode,
+  resetBootstrap,
   revokeDevice,
   verifyDeviceCookie,
   verifyUnlockCookie,
@@ -282,53 +283,92 @@ describe("enrollDevice / revokeDevice", () => {
 
 describe("bootstrapEnrollDevice (founder correction: first device without Firebase)", () => {
   const originalBootstrapSecret = process.env.CC_BOOTSTRAP_SECRET;
+  const SECRET_TOKEN = "correct-bootstrap-secret-with-enough-entropy";
   beforeEach(() => {
     getSupabaseAdmin.mockReset();
-    process.env.CC_BOOTSTRAP_SECRET = "correct-bootstrap-secret";
+    process.env.CC_BOOTSTRAP_SECRET = SECRET_TOKEN;
   });
   afterEach(() => {
     process.env.CC_BOOTSTRAP_SECRET = originalBootstrapSecret;
   });
 
-  function countQuery(count: number) {
-    const q: Record<string, unknown> = { count, error: null };
-    q.select = vi.fn(() => q);
-    q.eq = vi.fn(() => q);
-    q.is = vi.fn(() => q);
-    q.gt = vi.fn(() => q);
-    return q;
+  // Independent review fixes: the claim-attempt RPC runs BEFORE the secret
+  // is compared (rate-limits every guess, correct or not — the secret
+  // previously had no throttle at all), and a correct secret now goes
+  // through cc_bootstrap_consume_and_enroll, a single atomic RPC that
+  // checks "never consumed" and inserts the device under one row lock —
+  // not a separate SELECT then a separate INSERT, which let two concurrent
+  // correct-secret calls both pass the old check and both enroll.
+  function mockRpc(claim: unknown, consume: unknown) {
+    const rpc = vi.fn((fn: string) => {
+      if (fn === "cc_bootstrap_claim_attempt") return Promise.resolve({ data: claim, error: null });
+      if (fn === "cc_bootstrap_consume_and_enroll") return Promise.resolve({ data: consume, error: null });
+      throw new Error(`unexpected rpc ${fn}`);
+    });
+    getSupabaseAdmin.mockReturnValue({ rpc });
+    return rpc;
   }
 
   it("503s when the bootstrap secret isn't configured, never falls open", async () => {
     delete process.env.CC_BOOTSTRAP_SECRET;
     const result = await bootstrapEnrollDevice("anything", OWNER);
     expect(result).toEqual({ ok: false, status: 503, reason: "bootstrap_not_configured" });
+    expect(getSupabaseAdmin).not.toHaveBeenCalled();
   });
 
-  it("rejects a wrong token", async () => {
+  it("503s when the configured secret is under the minimum entropy floor, never falls open to a weak secret", async () => {
+    process.env.CC_BOOTSTRAP_SECRET = "too-short";
+    const result = await bootstrapEnrollDevice("too-short", OWNER);
+    expect(result).toEqual({ ok: false, status: 503, reason: "bootstrap_not_configured" });
+  });
+
+  it("rejects a wrong token, after the claim attempt is still counted (rate-limited guessing)", async () => {
+    const rpc = mockRpc({ allowed: true, attempts: 1, locked_until: null }, null);
     const result = await bootstrapEnrollDevice("wrong-token", OWNER);
     expect(result).toEqual({ ok: false, status: 401, reason: "bad_token" });
+    expect(rpc).toHaveBeenCalledWith("cc_bootstrap_claim_attempt", expect.objectContaining({ p_owner_uid: OWNER }));
+    // Never reaches the consume/enroll RPC on a wrong token.
+    expect(rpc).toHaveBeenCalledTimes(1);
   });
 
-  it("enrolls the first device when the token is correct and zero devices exist", async () => {
-    const countQ = countQuery(0);
-    const insertQ: Record<string, unknown> = { data: { id: DEVICE_ID }, error: null };
-    insertQ.insert = vi.fn(() => insertQ);
-    insertQ.select = vi.fn(() => insertQ);
-    insertQ.single = vi.fn(() => insertQ);
-    const fromMock = vi.fn().mockReturnValueOnce(countQ).mockReturnValueOnce(insertQ);
-    getSupabaseAdmin.mockReturnValue({ from: fromMock });
+  it("denies without even checking the token when the attempt claim itself reports locked", async () => {
+    mockRpc({ allowed: false, attempts: 5, locked_until: new Date(Date.now() + 60_000).toISOString() }, null);
+    const result = await bootstrapEnrollDevice(SECRET_TOKEN, OWNER);
+    expect(result).toEqual({ ok: false, status: 429, reason: "locked" });
+  });
 
-    const result = await bootstrapEnrollDevice("correct-bootstrap-secret", OWNER);
+  it("enrolls the first device when the token is correct and the owner has never consumed bootstrap", async () => {
+    mockRpc({ allowed: true, attempts: 1, locked_until: null }, { ok: true, device_id: DEVICE_ID });
+    const result = await bootstrapEnrollDevice(SECRET_TOKEN, OWNER);
     expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("unreachable");
+    const parsed = parseDeviceCookie(result.cookieValue);
+    expect(parsed?.deviceId).toBe(DEVICE_ID);
   });
 
-  it("refuses — even with the correct token — the moment ANY active device already exists: not a standing master key", async () => {
-    const countQ = countQuery(1);
-    getSupabaseAdmin.mockReturnValue({ from: vi.fn(() => countQ) });
-
-    const result = await bootstrapEnrollDevice("correct-bootstrap-secret", OWNER);
+  it("refuses — even with the correct token — once this owner has already consumed bootstrap: not a standing master key", async () => {
+    mockRpc({ allowed: true, attempts: 1, locked_until: null }, { ok: false, device_id: null });
+    const result = await bootstrapEnrollDevice(SECRET_TOKEN, OWNER);
     expect(result).toEqual({ ok: false, status: 403, reason: "already_enrolled" });
+  });
+});
+
+describe("resetBootstrap (deliberate, Firebase-gated-only re-arm)", () => {
+  beforeEach(() => getSupabaseAdmin.mockReset());
+
+  it("calls the reset RPC for exactly this owner and reports success", async () => {
+    const rpc = vi.fn(() => Promise.resolve({ data: null, error: null }));
+    getSupabaseAdmin.mockReturnValue({ rpc });
+    const result = await resetBootstrap(OWNER);
+    expect(result).toEqual({ ok: true });
+    expect(rpc).toHaveBeenCalledWith("cc_bootstrap_reset", { p_owner_uid: OWNER });
+  });
+
+  it("reports failure rather than silently succeeding if the RPC errors", async () => {
+    const rpc = vi.fn(() => Promise.resolve({ data: null, error: { message: "db down" } }));
+    getSupabaseAdmin.mockReturnValue({ rpc });
+    const result = await resetBootstrap(OWNER);
+    expect(result).toEqual({ ok: false });
   });
 });
 

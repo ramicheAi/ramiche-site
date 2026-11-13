@@ -133,49 +133,96 @@ export async function enrollDevice(ownerUid: string, label?: string): Promise<{ 
   return { cookieValue: `${data.id}.${secret}`, expiresAt };
 }
 
-/** True iff the owner currently has at least one active (non-revoked, non-expired) enrolled device. */
-async function hasActiveDevice(ownerUid: string): Promise<boolean> {
-  const db = await getDb();
-  if (!db) return true; // fail closed toward "assume a device exists" so bootstrap never opens on a DB error
-  const { count, error } = await db
-    .from("cc_trusted_devices")
-    .select("id", { count: "exact", head: true })
-    .eq("owner_uid", ownerUid)
-    .is("revoked_at", null)
-    .gt("expires_at", new Date().toISOString());
-  if (error) return true;
-  return (count ?? 0) > 0;
-}
+// Independent review finding: an under-entropy bootstrap secret (e.g. a
+// short word someone typed in a hurry) would be guessable even with rate
+// limiting. Fail closed rather than accept a weak one — 20 chars is a
+// floor, not a target; generate it with something like `openssl rand -hex
+// 32` (64 chars) as the safety doc recommends.
+const MIN_BOOTSTRAP_SECRET_LENGTH = 20;
 
 function bootstrapSecret(): string | null {
   const s = process.env.CC_BOOTSTRAP_SECRET?.trim();
-  return s || null;
+  if (!s || s.length < MIN_BOOTSTRAP_SECRET_LENGTH) return null;
+  return s;
 }
 
 export type BootstrapResult =
   | { ok: true; cookieValue: string; expiresAt: Date }
-  | { ok: false; status: 401 | 403 | 503; reason: string };
+  | { ok: false; status: 401 | 403 | 429 | 503; reason: string };
 
 /**
  * First-device-only enrollment via a static, high-entropy, owner-configured
- * secret — never stored in git, never printed, compared timing-safe. Self-
- * disabling: the moment the owner has ANY active enrolled device, this
- * returns `already_enrolled` and refuses, regardless of whether the secret
- * is correct — so a leaked bootstrap secret is not a standing master key,
- * only a one-shot "claim the first device" credential.
+ * secret — never stored in git, never printed, compared timing-safe.
+ *
+ * Fixed per independent review (two HIGH findings in the first version):
+ * 1. The "zero active devices" check used to be a separate SELECT, then a
+ *    separate INSERT — not atomic, so two concurrent correct-secret calls
+ *    could both pass the check and both enroll, multiplying an attacker's
+ *    PIN-guessing surface (each enrolled device gets its own 5-attempt
+ *    lockout budget). Fixed: cc_bootstrap_consume_and_enroll does the
+ *    check-and-insert under one row lock in the database, not in app code.
+ * 2. "Active device" was keyed on device expiry/revocation, which put the
+ *    window back on a 90-day clock (or immediately, on a full revoke) with
+ *    no deliberate action required — a leaked secret was NOT actually
+ *    one-shot. Fixed: consumption is now a separate, permanent
+ *    `consumed_at` flag in cc_bootstrap_state, touched only by this
+ *    function and by the explicit Firebase-gated resetBootstrap below —
+ *    never by anything that happens to an individual device afterward.
+ *
+ * Also now rate-limited (cc_bootstrap_claim_attempt, same FOR UPDATE
+ * discipline as the PIN-attempt functions) — the secret itself previously
+ * had no throttle at all.
  */
 export async function bootstrapEnrollDevice(suppliedToken: string, ownerUid: string, label?: string): Promise<BootstrapResult> {
   const secret = bootstrapSecret();
   if (!secret) return { ok: false, status: 503, reason: "bootstrap_not_configured" };
+
+  const db = await getDb();
+  if (!db) return { ok: false, status: 503, reason: "not_configured" };
+
+  const { data: claim, error: claimError } = await db.rpc("cc_bootstrap_claim_attempt", {
+    p_owner_uid: ownerUid,
+    p_max_attempts: MAX_PIN_ATTEMPTS,
+    p_lockout_seconds: LOCKOUT_SECONDS,
+  });
+  if (claimError) return { ok: false, status: 503, reason: "claim_failed" };
+  const claimRow = (Array.isArray(claim) ? claim[0] : claim) as { allowed: boolean } | undefined;
+  if (!claimRow?.allowed) return { ok: false, status: 429, reason: "locked" };
+
   if (!timingSafeHexEqual(hashSecret(suppliedToken || ""), hashSecret(secret))) {
     return { ok: false, status: 401, reason: "bad_token" };
   }
-  if (await hasActiveDevice(ownerUid)) {
-    return { ok: false, status: 403, reason: "already_enrolled" };
-  }
-  const result = await enrollDevice(ownerUid, label);
-  if ("error" in result) return { ok: false, status: 503, reason: result.error };
-  return { ok: true, cookieValue: result.cookieValue, expiresAt: result.expiresAt };
+
+  const deviceSecret = randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + DEVICE_TRUST_SECONDS * 1000);
+  const { data, error } = await db.rpc("cc_bootstrap_consume_and_enroll", {
+    p_owner_uid: ownerUid,
+    p_secret_hash: hashSecret(deviceSecret),
+    p_expires_at: expiresAt.toISOString(),
+    p_label: label?.slice(0, 120) || null,
+  });
+  if (error) return { ok: false, status: 503, reason: "enroll_failed" };
+  const row = (Array.isArray(data) ? data[0] : data) as { ok: boolean; device_id: string } | undefined;
+  if (!row?.ok) return { ok: false, status: 403, reason: "already_enrolled" };
+
+  return { ok: true, cookieValue: `${row.device_id}.${deviceSecret}`, expiresAt };
+}
+
+export type BootstrapResetResult = { ok: boolean };
+
+/**
+ * Deliberately re-arms the bootstrap path for an owner who has lost both
+ * their bootstrap secret AND every enrolled device. Caller MUST have
+ * already passed requireFreshFirebaseOwnerSession — never
+ * requireCommandCenterOwner's unlock path — the whole point of making
+ * consumption permanent (see bootstrapEnrollDevice above) is that only the
+ * strong credential can undo it, not a clock and not a PIN.
+ */
+export async function resetBootstrap(ownerUid: string): Promise<BootstrapResetResult> {
+  const db = await getDb();
+  if (!db) return { ok: false };
+  const { error } = await db.rpc("cc_bootstrap_reset", { p_owner_uid: ownerUid });
+  return { ok: !error };
 }
 
 const ENROLLMENT_CODE_TTL_SECONDS = 5 * 60;

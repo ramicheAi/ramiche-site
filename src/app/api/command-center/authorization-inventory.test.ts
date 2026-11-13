@@ -95,15 +95,27 @@ describe("route classification", () => {
     for (const p of Object.keys(DEVICE_ROUTES)) expect(existing.has(p), p).toBe(true);
   });
 
+  // Independent review finding: an "any of these three verification calls,
+  // anywhere in the file" check could pass even if a future change deleted
+  // the ACTUAL credential check from a mutating handler, as long as a
+  // different method in the same file still referenced a different one
+  // (e.g. bootstrap's GET calls verifyDeviceCookie for its preflight
+  // response — that alone would have kept this test green even if POST's
+  // own bootstrapEnrollDevice( call were removed). Mapped per path instead,
+  // so each DEVICE route requires its OWN specific credential check.
+  const DEVICE_CREDENTIAL_CHECK: Record<string, RegExp> = {
+    "/api/command-center/auth/pin": /verifyDeviceCookie\(/,
+    "/api/command-center/auth/device/bootstrap": /bootstrapEnrollDevice\(/,
+    "/api/command-center/auth/device/redeem": /redeemEnrollmentApprovalCode\(/,
+  };
+
   it.each(files.filter(isDevice).map((f) => [routePath(f), f]))(
     "DEVICE %s: every exported method verifies the device-trust credential in the file itself",
-    (_p, f) => {
+    (p, f) => {
       const src = readFileSync(f as string, "utf8");
-      // Three distinct DEVICE credential shapes now exist (pin's device
-      // cookie, bootstrap's static secret, redeem's one-time code) — any
-      // one of these verification calls counts, per founder correction
-      // CC-PRODUCTION-OWNER-RECOVERY-01 follow-up.
-      expect(src).toMatch(/verifyDeviceCookie\(|bootstrapEnrollDevice\(|redeemEnrollmentApprovalCode\(/);
+      const required = DEVICE_CREDENTIAL_CHECK[p as string];
+      expect(required, `no mapped credential check for ${p} — add one to DEVICE_CREDENTIAL_CHECK`).toBeDefined();
+      expect(src).toMatch(required);
     }
   );
 });
@@ -194,8 +206,9 @@ describe("DEVICE routes deny at the handler without a valid device-trust credent
   // Scoped to the pin route specifically: bootstrap (static secret) and
   // redeem (one-time code) are also DEVICE-classified but use a different
   // credential shape than a `cc_device` cookie, and have their own
-  // dedicated tests (command-center-device-trust.test.ts /
-  // device-bootstrap-and-redeem.test.ts) rather than this generic loop.
+  // dedicated deny-at-handler tests in their own route.test.ts files
+  // (auth/device/bootstrap/route.test.ts, auth/device/redeem/route.test.ts)
+  // rather than this generic cookie-based loop.
   const device = files.filter(isDevice).filter((f) => routePath(f) === "/api/command-center/auth/pin");
 
   it.each(device.map((f) => [routePath(f), f]))("%s", async (_p, f) => {

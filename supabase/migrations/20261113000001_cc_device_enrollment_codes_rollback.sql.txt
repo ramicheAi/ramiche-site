@@ -3,5 +3,9 @@
 -- Dropping this table only removes pending/historical enrollment codes;
 -- already-enrolled devices in cc_trusted_devices are untouched.
 
+drop function if exists public.cc_bootstrap_reset(text);
+drop function if exists public.cc_bootstrap_consume_and_enroll(text, text, timestamptz, text);
+drop function if exists public.cc_bootstrap_claim_attempt(text, int, int);
+drop table if exists public.cc_bootstrap_state;
 drop function if exists public.cc_redeem_device_enrollment_code(text, text);
 drop table if exists public.cc_device_enrollment_codes;

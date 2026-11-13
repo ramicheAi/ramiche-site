@@ -29,13 +29,14 @@ describe("POST /api/command-center/auth/device/bootstrap", () => {
     process.env.CC_BOOTSTRAP_SECRET = originalSecret;
   });
 
-  function countQuery(count: number) {
-    const q: Record<string, unknown> = { count, error: null };
-    q.select = vi.fn(() => q);
-    q.eq = vi.fn(() => q);
-    q.is = vi.fn(() => q);
-    q.gt = vi.fn(() => q);
-    return q;
+  function mockRpc(claim: unknown, consume: unknown) {
+    const rpc = vi.fn((fn: string) => {
+      if (fn === "cc_bootstrap_claim_attempt") return Promise.resolve({ data: claim, error: null });
+      if (fn === "cc_bootstrap_consume_and_enroll") return Promise.resolve({ data: consume, error: null });
+      throw new Error(`unexpected rpc ${fn}`);
+    });
+    getSupabaseAdmin.mockReturnValue({ rpc });
+    return rpc;
   }
 
   it("503s when owner isn't configured", async () => {
@@ -44,31 +45,33 @@ describe("POST /api/command-center/auth/device/bootstrap", () => {
     expect(res.status).toBe(503);
   });
 
-  it("rejects a wrong token without touching the database", async () => {
+  it("rejects a wrong token — the attempt is still counted (rate-limited guessing)", async () => {
+    const rpc = mockRpc({ allowed: true, attempts: 1, locked_until: null }, null);
     const res = await POST(postReq({ token: "wrong" }));
     expect(res.status).toBe(401);
-    expect(getSupabaseAdmin).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledTimes(1); // claim only, never reaches consume/enroll
   });
 
   it("enrolls the first device on a correct token with zero existing devices", async () => {
-    const countQ = countQuery(0);
-    const insertQ: Record<string, unknown> = { data: { id: "11111111-1111-1111-1111-111111111111" }, error: null };
-    insertQ.insert = vi.fn(() => insertQ);
-    insertQ.select = vi.fn(() => insertQ);
-    insertQ.single = vi.fn(() => insertQ);
-    getSupabaseAdmin.mockReturnValue({ from: vi.fn().mockReturnValueOnce(countQ).mockReturnValueOnce(insertQ) });
+    mockRpc({ allowed: true, attempts: 1, locked_until: null }, { ok: true, device_id: "11111111-1111-1111-1111-111111111111" });
 
     const res = await POST(postReq({ token: "correct-bootstrap-secret" }));
     expect(res.status).toBe(200);
     expect(res.headers.get("set-cookie")).toContain("cc_device=");
   });
 
-  it("refuses a correct token once a device already exists — never a standing master key", async () => {
-    getSupabaseAdmin.mockReturnValue({ from: vi.fn(() => countQuery(1)) });
+  it("refuses a correct token once this owner has already consumed bootstrap — never a standing master key", async () => {
+    mockRpc({ allowed: true, attempts: 1, locked_until: null }, { ok: false, device_id: null });
     const res = await POST(postReq({ token: "correct-bootstrap-secret" }));
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.error).toBe("already_enrolled");
+  });
+
+  it("denies without checking the token when the attempt itself is locked", async () => {
+    mockRpc({ allowed: false, attempts: 5, locked_until: new Date(Date.now() + 60_000).toISOString() }, null);
+    const res = await POST(postReq({ token: "correct-bootstrap-secret" }));
+    expect(res.status).toBe(429);
   });
 
   it("a cross-site mutation is rejected before the token is even checked", async () => {
