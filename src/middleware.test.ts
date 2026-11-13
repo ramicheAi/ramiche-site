@@ -94,11 +94,11 @@ describe("middleware — Command Center owner gate (direct verification, no self
     expect(verifySessionCookie).not.toHaveBeenCalled();
   });
 
-  it("redirects an unauthenticated page to /command-login with a relative, validated ?next=", async () => {
+  it("redirects an unauthenticated, never-enrolled page to /command-center/bootstrap with a relative, validated ?next= (founder correction: never straight to Firebase)", async () => {
     const res = await middleware(req("http://localhost/command-center/leads?x=1"));
     expect(res.status).toBe(307);
     const loc = res.headers.get("location") ?? "";
-    expect(loc.startsWith("http://localhost/command-login?next=")).toBe(true); // absolute (Next requires it)
+    expect(loc.startsWith("http://localhost/command-center/bootstrap?next=")).toBe(true); // absolute (Next requires it)
     expect(decodeURIComponent(loc.split("next=")[1])).toBe("/command-center/leads?x=1");
   });
 
@@ -108,7 +108,17 @@ describe("middleware — Command Center owner gate (direct verification, no self
         headers: { host: "command.parallaxvinc.com", "x-forwarded-proto": "https", "x-forwarded-host": "evil.example.com" },
       })
     );
-    expect(res.headers.get("location")?.startsWith("https://command.parallaxvinc.com/command-login?next=")).toBe(true);
+    expect(res.headers.get("location")?.startsWith("https://command.parallaxvinc.com/command-center/bootstrap?next=")).toBe(true);
+  });
+
+  it("a device with a cc_device cookie goes to /command-center/unlock, not bootstrap or Firebase", async () => {
+    const res = await middleware(
+      req("http://localhost/command-center/leads", {
+        headers: { cookie: "cc_device=11111111-1111-1111-1111-111111111111.deadbeef" },
+      })
+    );
+    const loc = res.headers.get("location") ?? "";
+    expect(loc.startsWith("http://localhost/command-center/unlock?next=")).toBe(true);
   });
 
   it("a hostile-looking path cannot poison the login redirect target", async () => {

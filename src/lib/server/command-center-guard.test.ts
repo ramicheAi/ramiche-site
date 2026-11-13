@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createHash, createHmac } from "node:crypto";
 
 const { verifySessionCookie } = vi.hoisted(() => ({ verifySessionCookie: vi.fn() }));
 vi.mock("@/lib/firebase-admin", () => ({ verifySessionCookie }));
+const { getSupabaseAdmin } = vi.hoisted(() => ({ getSupabaseAdmin: vi.fn() }));
+vi.mock("@/lib/supabase-admin", () => ({ getSupabaseAdmin }));
 
-import { ownerOnly, requireCommandCenterOwner } from "./command-center-guard";
+import { ownerOnly, requireCommandCenterOwner, requireFreshFirebaseOwnerSession } from "./command-center-guard";
 import { OWNER_UID_ENV } from "./command-center-auth";
 
 const OWNER_UID = "the-real-owner-uid";
@@ -138,6 +141,129 @@ describe("requireCommandCenterOwner", () => {
     verifySessionCookie.mockResolvedValueOnce(null); // revoked / expired (checkRevoked=true)
     expect((await requireCommandCenterOwner(reqWithCookie("s"))).ok).toBe(true);
     expect(await requireCommandCenterOwner(reqWithCookie("s"))).toEqual({ ok: false, status: 401, reason: "invalid_session" });
+  });
+});
+
+describe("requireCommandCenterOwner — trusted-device PIN-unlock credential (founder Priority 1)", () => {
+  const originalEnv = process.env[OWNER_UID_ENV];
+  const originalSigningSecret = process.env.CC_UNLOCK_SIGNING_SECRET;
+  const DEVICE_ID = "22222222-2222-2222-2222-222222222222";
+  const SIGNING_SECRET = "test-unlock-signing-secret";
+
+  function sign(deviceId: string, issuedAtS: number) {
+    return createHmac("sha256", SIGNING_SECRET).update(`${deviceId}.${issuedAtS}`, "utf8").digest("hex");
+  }
+  function freshUnlockCookie(deviceId = DEVICE_ID) {
+    const issuedAtS = Math.floor(Date.now() / 1000);
+    return `${deviceId}.${issuedAtS}.${sign(deviceId, issuedAtS)}`;
+  }
+  function reqWithUnlock(unlockCookie: string | undefined, deviceCookie: string | undefined, extraHeaders: Record<string, string> = {}, method = "GET") {
+    const headers = new Headers(extraHeaders);
+    const parts: string[] = [];
+    if (unlockCookie) parts.push(`cc_unlock=${unlockCookie}`);
+    if (deviceCookie) parts.push(`cc_device=${deviceCookie}`);
+    if (parts.length) headers.set("cookie", parts.join("; "));
+    return new Request("http://localhost/api/command-center/revenue", { headers, method });
+  }
+  function validDeviceRow(secret: string) {
+    return {
+      id: DEVICE_ID,
+      owner_uid: OWNER_UID,
+      secret_hash: createHash("sha256").update(secret, "utf8").digest("hex"),
+      expires_at: new Date(Date.now() + 1e9).toISOString(),
+      revoked_at: null,
+      failed_pin_attempts: 0,
+      locked_until: null,
+    };
+  }
+  function dbReturning(row: unknown) {
+    const q: Record<string, unknown> = { data: row, error: null };
+    q.select = vi.fn(() => q);
+    q.eq = vi.fn(() => q);
+    q.maybeSingle = vi.fn(() => q);
+    return { from: vi.fn(() => q) };
+  }
+
+  beforeEach(() => {
+    process.env[OWNER_UID_ENV] = OWNER_UID;
+    process.env.CC_UNLOCK_SIGNING_SECRET = SIGNING_SECRET;
+    verifySessionCookie.mockReset();
+    verifySessionCookie.mockResolvedValue(null);
+    getSupabaseAdmin.mockReset();
+  });
+  afterEach(() => {
+    process.env[OWNER_UID_ENV] = originalEnv;
+    process.env.CC_UNLOCK_SIGNING_SECRET = originalSigningSecret;
+  });
+
+  it("authorizes via a valid unlock cookie + a live, valid device row — no Firebase session needed", async () => {
+    const secret = "b".repeat(64);
+    getSupabaseAdmin.mockReturnValue(dbReturning(validDeviceRow(secret)));
+    const result = await requireCommandCenterOwner(reqWithUnlock(freshUnlockCookie(), `${DEVICE_ID}.${secret}`));
+    expect(result).toEqual({ ok: true, uid: OWNER_UID });
+  });
+
+  it("denies an unlock cookie with no device cookie at all", async () => {
+    const result = await requireCommandCenterOwner(reqWithUnlock(freshUnlockCookie(), undefined));
+    expect(result.ok).toBe(false);
+    expect((result as { reason: string }).reason).toBe("device_malformed");
+  });
+
+  it("denies when the device has been revoked, even with a perfectly valid unlock cookie", async () => {
+    const secret = "b".repeat(64);
+    getSupabaseAdmin.mockReturnValue(dbReturning({ ...validDeviceRow(secret), revoked_at: new Date().toISOString() }));
+    const result = await requireCommandCenterOwner(reqWithUnlock(freshUnlockCookie(), `${DEVICE_ID}.${secret}`));
+    expect(result).toEqual({ ok: false, status: 401, reason: "device_revoked" });
+  });
+
+  it("denies when the device has expired", async () => {
+    const secret = "b".repeat(64);
+    getSupabaseAdmin.mockReturnValue(dbReturning({ ...validDeviceRow(secret), expires_at: new Date(Date.now() - 1000).toISOString() }));
+    const result = await requireCommandCenterOwner(reqWithUnlock(freshUnlockCookie(), `${DEVICE_ID}.${secret}`));
+    expect(result).toEqual({ ok: false, status: 401, reason: "device_expired" });
+  });
+
+  it("denies a forged unlock signature even if a real device cookie is attached", async () => {
+    const secret = "b".repeat(64);
+    getSupabaseAdmin.mockReturnValue(dbReturning(validDeviceRow(secret)));
+    const forged = `${DEVICE_ID}.${Math.floor(Date.now() / 1000)}.${"0".repeat(64)}`;
+    const result = await requireCommandCenterOwner(reqWithUnlock(forged, `${DEVICE_ID}.${secret}`));
+    expect(result).toEqual({ ok: false, status: 401, reason: "unlock_bad_signature" });
+  });
+
+  it("denies when the unlock cookie names a different device than the one presented", async () => {
+    const secret = "b".repeat(64);
+    getSupabaseAdmin.mockReturnValue(dbReturning(validDeviceRow(secret)));
+    const otherDeviceId = "33333333-3333-3333-3333-333333333333";
+    const result = await requireCommandCenterOwner(reqWithUnlock(freshUnlockCookie(otherDeviceId), `${DEVICE_ID}.${secret}`));
+    expect(result).toEqual({ ok: false, status: 401, reason: "device_mismatch" });
+  });
+
+  it("still enforces CSRF on a mutation authorized via unlock cookie", async () => {
+    const secret = "b".repeat(64);
+    getSupabaseAdmin.mockReturnValue(dbReturning(validDeviceRow(secret)));
+    const result = await requireCommandCenterOwner(
+      reqWithUnlock(freshUnlockCookie(), `${DEVICE_ID}.${secret}`, { "sec-fetch-site": "cross-site" }, "POST")
+    );
+    expect(result).toEqual({ ok: false, status: 403, reason: "cross_site" });
+  });
+
+  it("falls back to the unlock path when a Firebase session cookie is present but invalid, and the unlock cookie is valid", async () => {
+    verifySessionCookie.mockResolvedValue(null); // Firebase side fails
+    const secret = "b".repeat(64);
+    getSupabaseAdmin.mockReturnValue(dbReturning(validDeviceRow(secret)));
+    const headers = new Headers();
+    headers.set("cookie", `__session=stale; cc_unlock=${freshUnlockCookie()}; cc_device=${DEVICE_ID}.${secret}`);
+    const result = await requireCommandCenterOwner(new Request("http://localhost/api/command-center/revenue", { headers }));
+    expect(result).toEqual({ ok: true, uid: OWNER_UID });
+  });
+
+  it("requireFreshFirebaseOwnerSession never accepts an unlock cookie, even a perfectly valid one", async () => {
+    const secret = "b".repeat(64);
+    getSupabaseAdmin.mockReturnValue(dbReturning(validDeviceRow(secret)));
+    const result = await requireFreshFirebaseOwnerSession(reqWithUnlock(freshUnlockCookie(), `${DEVICE_ID}.${secret}`));
+    expect(result).toEqual({ ok: false, status: 401, reason: "missing_session" });
+    expect(getSupabaseAdmin).not.toHaveBeenCalled();
   });
 });
 
