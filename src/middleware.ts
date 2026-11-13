@@ -20,7 +20,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireCommandCenterOwner } from "@/lib/server/command-center-guard";
-import { isMachineRoutePath } from "@/lib/server/command-center-routes";
+import { isMachineRoutePath, isDeviceRoutePath } from "@/lib/server/command-center-routes";
 import { safeCommandCenterNext } from "@/lib/command-center-next";
 
 const SESSION_COOKIE = "__session";
@@ -81,7 +81,18 @@ async function firebaseSessionValid(req: NextRequest): Promise<boolean> {
  * authorization input; `next` is validated by safeCommandCenterNext.
  */
 function loginRedirect(req: NextRequest, next: string): NextResponse {
-  const path = `/command-login?next=${encodeURIComponent(next)}`;
+  // A `cc_device` cookie present at all (valid or not — the unlock page's
+  // own preflight tells the owner which, and links to Firebase sign-in if
+  // it's no longer trusted) means this browser was previously enrolled, so
+  // send it to the low-friction PIN unlock instead of straight to Firebase
+  // email/password (founder Priority 1 decision: "no second PIN prompt
+  // after successful unlock" implies PIN-first on a known device, not
+  // Firebase-first). A device with no such cookie has never been enrolled
+  // and goes to Firebase sign-in as before.
+  const hasDeviceCookie = !!req.cookies.get("cc_device")?.value;
+  const path = hasDeviceCookie
+    ? `/command-center/unlock?next=${encodeURIComponent(next)}`
+    : `/command-login?next=${encodeURIComponent(next)}`;
   let target: URL;
   try {
     const proto =
@@ -116,6 +127,14 @@ export async function middleware(req: NextRequest) {
     // Machine routes authenticate themselves with their own secret (listed in
     // command-center-routes.ts; each verifies on every method). Exact-match only.
     if (isMachineRoutePath(pathname)) {
+      return NextResponse.next();
+    }
+    // Device routes (the PIN-unlock API) and the unlock page itself are
+    // exempt from the Firebase owner gate on purpose — that gate is exactly
+    // what they exist to let an already-enrolled device skip. The route
+    // itself (verifyDeviceCookie) still fails closed on a missing/invalid
+    // device credential; see command-center-device-trust.ts.
+    if (isDeviceRoutePath(pathname) || pathname === "/command-center/unlock") {
       return NextResponse.next();
     }
 
