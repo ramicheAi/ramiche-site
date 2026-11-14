@@ -107,13 +107,34 @@ Raw transcript: `ops-handoff/CC-LOCAL-ACCEPTANCE-2026-11-14.json`.
 | #84 | head `af750ecf`, in candidate | none beyond deploy |
 | #85 | head `37a18403`, in candidate | `BRIDGE_API_SECRET` present on both sides, **match unverified**; iMac runs pre-mission code and was not restarted |
 | #86 | head `1c7b086d`, in candidate | migration `20261112180000_messages_client_idempotency_key.sql` is **not applied to production** |
-| #87 | head `6b8289c6`, merged into candidate 02 | two migrations + two secrets, below |
+| #87 | head `57eb8570` plus the grants migration, merged into candidate 02 | three migrations + two secrets, below |
 
-Migration order for #87: `20261112200000_cc_trusted_devices.sql` then
-`20261113000000_cc_device_enrollment_codes.sql`. They are additive (three new tables, five
-functions; no existing table, grant, or RLS policy is altered). They must be applied **before** the
-code is deployed, or every auth path fails closed. Rollback files exist; a rollback after real
-devices are enrolled destroys their trust rows, so it is not a free undo.
+Migration order for #87:
+
+1. `20261112200000_cc_trusted_devices.sql`
+2. `20261113000000_cc_device_enrollment_codes.sql`
+3. `20261114000000_cc_auth_service_role_grants.sql` (release correction, see below)
+
+They are additive (three new tables, six functions, explicit service-role grants; no existing table,
+grant, or RLS policy is altered). They must be applied **before** the code is deployed, or every
+auth path fails closed. Rollback files exist; a rollback after real devices are enrolled destroys
+their trust rows, so it is not a free undo.
+
+### Service-role grants correction (verified defect)
+
+The two auth migrations revoked PUBLIC execute on every function but granted nothing to
+`service_role`, relying on ambient Supabase default privileges that are not visible in this repo.
+Tested on PostgreSQL 17 with a clean role setup:
+
+- before the correction: `set role service_role; select ... from cc_trusted_devices` and
+  `select ... from cc_bootstrap_claim_attempt(...)` both returned **permission denied**;
+- after `20261114000000_cc_auth_service_role_grants.sql`: select, insert and update on
+  `cc_trusted_devices`, insert on `cc_device_enrollment_codes`, and all six auth functions work as
+  `service_role`;
+- `anon` is still denied, and re-running the grants file is a clean no-op.
+
+Least privilege is explicit: no DELETE anywhere, and `cc_bootstrap_state` gets no direct table grant
+because only the SECURITY DEFINER functions touch it.
 
 ## E. Production safety — unchanged
 
@@ -127,7 +148,7 @@ writes were development commits on the PR branch and the candidate branch, plus 
    with 503 until it exists. (Names checked via `vercel env ls`; no values read or printed.)
 2. **`CC_BOOTSTRAP_SECRET` is absent from Vercel production.** First-device bootstrap fails closed
    with 503 until it exists.
-3. **The two #87 migrations are not applied to production.** Applying them before deploy is
+3. **The three #87 migrations are not applied to production.** Applying them before deploy is
    mandatory; applying them is itself a production database change requiring authorization.
 4. **No safe hosted staging exists.** Supabase branching needs a plan upgrade; preview deployments
    have no `PARALLAX_OWNER_UID`/`CC_*` env (production-only), so they fail closed. This is why the
@@ -141,8 +162,9 @@ writes were development commits on the PR branch and the candidate branch, plus 
    vercel env add CC_UNLOCK_SIGNING_SECRET production   # e.g. openssl rand -hex 32
    vercel env add CC_BOOTSTRAP_SECRET production        # ≥20 chars, e.g. openssl rand -hex 32
    ```
-2. Authorize applying the two migrations to production, in order, before deploy (Supabase SQL
-   editor or `supabase db push`). Verify the three tables and five functions exist.
+2. Authorize applying the three migrations to production, in order, before deploy (Supabase SQL
+   editor, each file wrapped in one transaction). Verify the three tables, six functions, the
+   service-role privileges and the absent anon privileges.
 3. Authorize merging PR #87 (or deploying `integration/cc-release-candidate-02`). `CC_PIN_HASH` and
    `PARALLAX_OWNER_UID` are already present.
 4. Run the MacBook + iPhone checklist below. Until that passes, product acceptance is not claimed.
@@ -152,7 +174,8 @@ writes were development commits on the PR branch and the candidate branch, plus 
 Use a URL that reaches the app directly (not the Cloudflare Access gate) unless testing that gate
 deliberately.
 
-1. **MacBook, fresh profile**: open `/command-center` → bootstrap page, no Firebase. Paste the
+1. **MacBook, normal browser profile** (not private, so the device cookie persists), hard reload:
+   open `/command-center` → bootstrap page, no Firebase. Paste the
    bootstrap secret → PIN → dashboard. **Pass = no email/password screen at any point.**
 2. **Refresh** twice, and navigate between pages: no PIN prompt again.
 3. **Wrong PIN** once: clear error; then five wrong PINs: lockout message; the correct PIN is also
@@ -165,8 +188,9 @@ deliberately.
 7. **Session expiry**: after 12h (or with a tampered `cc_unlock`), the PIN prompt returns.
 8. **Trust expiry**: with the device row expired, enrollment must be redone via approval code (or
    Firebase recovery).
-9. **Lost all devices**: Firebase recovery sign-in → enroll; confirm the bootstrap reset path
-   requires Firebase and a PIN-unlocked session cannot call it.
+9. **Lost all devices**: the in-app reset path requires a fresh Firebase owner session. The
+   minimum operator alternative without Firebase is the documented SQL re-arm in the next section;
+   a PIN-unlocked session can never call either path.
 10. **Unauthorized API**: `curl /api/command-center/agents` → 401 `missing_session`.
 11. **No regressions**: `/`, `/command-login` (fallback only), `/mettle`, `/portal`, `/pricing`, and
     three Command Center subpages load.
@@ -183,3 +207,32 @@ deliberately.
 - `CC_PIN_HASH` is an unsalted SHA-256 of the PIN (pre-existing, unchanged).
 - PR #87's body previously described the Firebase-enrollment design; it now describes the current
   PIN-first design and this fix.
+
+## All devices lost: recovery without Firebase, and the Firebase limitation
+
+Normal login and normal enrollment never show Firebase. Administrative recovery is different: the
+shipped reset route (`POST /api/command-center/auth/device/bootstrap/reset`) requires
+`requireFreshFirebaseOwnerSession`, so the built-in recovery path **does** require Firebase. That is
+the honest limitation. It is a recovery-only screen, never the daily flow.
+
+Minimum secure operator alternative, using the existing mechanism and no redesign:
+
+1. Open the Supabase SQL editor as the project owner (the highest-privilege administrative session,
+   not the app).
+2. Re-arm bootstrap for the owner. This is exactly what `cc_bootstrap_reset` does, without Firebase:
+
+   ```sql
+   update public.cc_bootstrap_state
+      set consumed_at = null, failed_attempts = 0, locked_until = null
+    where owner_uid = '<PARALLAX_OWNER_UID>';
+   ```
+
+3. Enroll one device through the normal bootstrap page with the bootstrap secret, then PIN.
+4. Revoke the old, lost devices from the devices page once, if desired, so their cookies cannot be
+   used if they resurface.
+
+Verified on PostgreSQL 17: after all devices were revoked, `cc_bootstrap_consume_and_enroll` kept
+returning `false`; after the single SQL re-arm it returned `true` and created exactly one active
+device. The bootstrap secret is still required, so this is a deliberate operator re-arm, not a
+bypass. If the bootstrap secret is also lost, rotate `CC_BOOTSTRAP_SECRET` in Vercel and redeploy
+before enrolling.
