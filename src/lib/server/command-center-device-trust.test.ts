@@ -6,8 +6,12 @@ vi.mock("@/lib/supabase-admin", () => ({ getSupabaseAdmin }));
 
 import {
   attemptPinUnlock,
+  bootstrapEnrollDevice,
+  createEnrollmentApprovalCode,
   enrollDevice,
   parseDeviceCookie,
+  redeemEnrollmentApprovalCode,
+  resetBootstrap,
   revokeDevice,
   verifyDeviceCookie,
   verifyUnlockCookie,
@@ -274,5 +278,143 @@ describe("enrollDevice / revokeDevice", () => {
     const result = await revokeDevice(OWNER, DEVICE_ID);
     expect(result).toEqual({ ok: true, revoked: 1 });
     expect(eqSpy).toHaveBeenCalledWith("id", DEVICE_ID);
+  });
+});
+
+describe("bootstrapEnrollDevice (founder correction: first device without Firebase)", () => {
+  const originalBootstrapSecret = process.env.CC_BOOTSTRAP_SECRET;
+  const SECRET_TOKEN = "correct-bootstrap-secret-with-enough-entropy";
+  beforeEach(() => {
+    getSupabaseAdmin.mockReset();
+    process.env.CC_BOOTSTRAP_SECRET = SECRET_TOKEN;
+  });
+  afterEach(() => {
+    process.env.CC_BOOTSTRAP_SECRET = originalBootstrapSecret;
+  });
+
+  // Independent review fixes: the claim-attempt RPC runs BEFORE the secret
+  // is compared (rate-limits every guess, correct or not — the secret
+  // previously had no throttle at all), and a correct secret now goes
+  // through cc_bootstrap_consume_and_enroll, a single atomic RPC that
+  // checks "never consumed" and inserts the device under one row lock —
+  // not a separate SELECT then a separate INSERT, which let two concurrent
+  // correct-secret calls both pass the old check and both enroll.
+  function mockRpc(claim: unknown, consume: unknown) {
+    const rpc = vi.fn((fn: string) => {
+      if (fn === "cc_bootstrap_claim_attempt") return Promise.resolve({ data: claim, error: null });
+      if (fn === "cc_bootstrap_consume_and_enroll") return Promise.resolve({ data: consume, error: null });
+      throw new Error(`unexpected rpc ${fn}`);
+    });
+    getSupabaseAdmin.mockReturnValue({ rpc });
+    return rpc;
+  }
+
+  it("503s when the bootstrap secret isn't configured, never falls open", async () => {
+    delete process.env.CC_BOOTSTRAP_SECRET;
+    const result = await bootstrapEnrollDevice("anything", OWNER);
+    expect(result).toEqual({ ok: false, status: 503, reason: "bootstrap_not_configured" });
+    expect(getSupabaseAdmin).not.toHaveBeenCalled();
+  });
+
+  it("503s when the configured secret is under the minimum entropy floor, never falls open to a weak secret", async () => {
+    process.env.CC_BOOTSTRAP_SECRET = "too-short";
+    const result = await bootstrapEnrollDevice("too-short", OWNER);
+    expect(result).toEqual({ ok: false, status: 503, reason: "bootstrap_not_configured" });
+  });
+
+  it("rejects a wrong token, after the claim attempt is still counted (rate-limited guessing)", async () => {
+    const rpc = mockRpc({ allowed: true, attempts: 1, locked_until: null }, null);
+    const result = await bootstrapEnrollDevice("wrong-token", OWNER);
+    expect(result).toEqual({ ok: false, status: 401, reason: "bad_token" });
+    expect(rpc).toHaveBeenCalledWith("cc_bootstrap_claim_attempt", expect.objectContaining({ p_owner_uid: OWNER }));
+    // Never reaches the consume/enroll RPC on a wrong token.
+    expect(rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it("denies without even checking the token when the attempt claim itself reports locked", async () => {
+    mockRpc({ allowed: false, attempts: 5, locked_until: new Date(Date.now() + 60_000).toISOString() }, null);
+    const result = await bootstrapEnrollDevice(SECRET_TOKEN, OWNER);
+    expect(result).toEqual({ ok: false, status: 429, reason: "locked" });
+  });
+
+  it("enrolls the first device when the token is correct and the owner has never consumed bootstrap", async () => {
+    mockRpc({ allowed: true, attempts: 1, locked_until: null }, { ok: true, device_id: DEVICE_ID });
+    const result = await bootstrapEnrollDevice(SECRET_TOKEN, OWNER);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("unreachable");
+    const parsed = parseDeviceCookie(result.cookieValue);
+    expect(parsed?.deviceId).toBe(DEVICE_ID);
+  });
+
+  it("refuses — even with the correct token — once this owner has already consumed bootstrap: not a standing master key", async () => {
+    mockRpc({ allowed: true, attempts: 1, locked_until: null }, { ok: false, device_id: null });
+    const result = await bootstrapEnrollDevice(SECRET_TOKEN, OWNER);
+    expect(result).toEqual({ ok: false, status: 403, reason: "already_enrolled" });
+  });
+});
+
+describe("resetBootstrap (deliberate, Firebase-gated-only re-arm)", () => {
+  beforeEach(() => getSupabaseAdmin.mockReset());
+
+  it("calls the reset RPC for exactly this owner and reports success", async () => {
+    const rpc = vi.fn(() => Promise.resolve({ data: null, error: null }));
+    getSupabaseAdmin.mockReturnValue({ rpc });
+    const result = await resetBootstrap(OWNER);
+    expect(result).toEqual({ ok: true });
+    expect(rpc).toHaveBeenCalledWith("cc_bootstrap_reset", { p_owner_uid: OWNER });
+  });
+
+  it("reports failure rather than silently succeeding if the RPC errors", async () => {
+    const rpc = vi.fn(() => Promise.resolve({ data: null, error: { message: "db down" } }));
+    getSupabaseAdmin.mockReturnValue({ rpc });
+    const result = await resetBootstrap(OWNER);
+    expect(result).toEqual({ ok: false });
+  });
+});
+
+describe("createEnrollmentApprovalCode / redeemEnrollmentApprovalCode (device-to-device approval)", () => {
+  beforeEach(() => getSupabaseAdmin.mockReset());
+
+  it("createEnrollmentApprovalCode stores only a hash, never the raw code", async () => {
+    let storedHash: string | undefined;
+    const insertQ: Record<string, unknown> = { error: null };
+    insertQ.insert = vi.fn((row: { code_hash: string }) => {
+      storedHash = row.code_hash;
+      return insertQ;
+    });
+    getSupabaseAdmin.mockReturnValue({ from: vi.fn(() => insertQ) });
+
+    const result = await createEnrollmentApprovalCode(OWNER, DEVICE_ID);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("unreachable");
+    expect(createHash("sha256").update(result.code, "utf8").digest("hex")).toBe(storedHash);
+    expect(result.expiresAt.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it("redeemEnrollmentApprovalCode denies when the RPC reports the code invalid/expired/used", async () => {
+    const rpc = vi.fn(() => Promise.resolve({ data: { ok: false, issued_by_device_id: null }, error: null }));
+    getSupabaseAdmin.mockReturnValue({ rpc });
+
+    const result = await redeemEnrollmentApprovalCode("some-code", OWNER);
+    expect(result).toEqual({ ok: false, status: 401, reason: "invalid_or_expired_code" });
+  });
+
+  it("redeemEnrollmentApprovalCode enrolls a NEW device when the RPC reports the code valid", async () => {
+    const rpc = vi.fn((fn: string) => {
+      if (fn === "cc_redeem_device_enrollment_code") return Promise.resolve({ data: { ok: true, issued_by_device_id: "other-device" }, error: null });
+      throw new Error(`unexpected rpc ${fn}`);
+    });
+    const NEW_DEVICE_ID = "66666666-6666-6666-6666-666666666666";
+    const insertQ: Record<string, unknown> = { data: { id: NEW_DEVICE_ID }, error: null };
+    insertQ.insert = vi.fn(() => insertQ);
+    insertQ.select = vi.fn(() => insertQ);
+    insertQ.single = vi.fn(() => insertQ);
+    getSupabaseAdmin.mockReturnValue({ rpc, from: vi.fn(() => insertQ) });
+
+    const result = await redeemEnrollmentApprovalCode("some-code", OWNER);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("unreachable");
+    const parsed = parseDeviceCookie(result.cookieValue);
+    expect(parsed?.deviceId).toBe(NEW_DEVICE_ID);
   });
 });

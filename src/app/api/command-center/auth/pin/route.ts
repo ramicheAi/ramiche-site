@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHash, timingSafeEqual } from "crypto";
 import {
   DEVICE_COOKIE,
   UNLOCK_COOKIE,
@@ -7,6 +6,7 @@ import {
   attemptPinUnlock,
   verifyDeviceCookie,
 } from "@/lib/server/command-center-device-trust";
+import { pinMatches, pinVerificationAvailable } from "@/lib/server/command-center-pin";
 import { configuredOwnerUid } from "@/lib/server/command-center-auth";
 import { checkBrowserMutation } from "@/lib/server/command-center-csrf";
 
@@ -31,47 +31,6 @@ export const dynamic = "force-dynamic";
  * POST { pin: string } — on a trusted device, verify PIN (rate-limited,
  * server-side lockout) and mint the `cc_unlock` session cookie.
  */
-// Independent review finding: CC_PIN_ALLOW_DEV=1 alone (or NODE_ENV left as
-// "development") was enough to accept the hardcoded "2451" PIN, and Vercel
-// previews are a realistic place for that flag to get set and forgotten.
-// VERCEL_ENV is set by the platform itself (never user-configurable the way
-// NODE_ENV/CC_PIN_ALLOW_DEV are), so requiring it to be anything other than
-// "production" closes the one realistic path to this fallback ever being
-// live on a real production deployment, without affecting local dev (where
-// VERCEL_ENV is unset) or genuine preview deployments.
-function devFallbackAllowed(): boolean {
-  if (process.env.VERCEL_ENV === "production") return false;
-  return process.env.NODE_ENV === "development" || process.env.CC_PIN_ALLOW_DEV === "1";
-}
-
-function pinVerificationAvailable(): boolean {
-  const hashEnv = process.env.CC_PIN_HASH?.trim();
-  const plainEnv = process.env.CC_PIN?.trim();
-  return !!(hashEnv || plainEnv || devFallbackAllowed());
-}
-
-function pinMatches(pin: string): boolean {
-  const hashEnv = process.env.CC_PIN_HASH?.trim();
-  const plainEnv = process.env.CC_PIN?.trim();
-
-  if (hashEnv) {
-    const digest = createHash("sha256").update(pin, "utf8").digest("hex");
-    try {
-      const a = Buffer.from(digest, "hex");
-      const b = Buffer.from(hashEnv, "hex");
-      return a.length === b.length && timingSafeEqual(a, b);
-    } catch {
-      return false;
-    }
-  }
-  if (plainEnv) {
-    const a = Buffer.from(pin, "utf8");
-    const b = Buffer.from(plainEnv, "utf8");
-    return a.length === b.length && timingSafeEqual(a, b);
-  }
-  return devFallbackAllowed() && pin === "2451";
-}
-
 // Parses the raw `cookie` header rather than relying on NextRequest.cookies
 // (which assumes a real NextRequest instance) — this route's own test suite
 // and the shared authorization-inventory test both exercise it with plain
