@@ -133,7 +133,9 @@ export async function middleware(req: NextRequest) {
     // doing it here avoids adding another authenticated route. The device
     // cookie is deliberately kept, so locking returns to a PIN prompt rather
     // than re-enrollment.
-    if (pathname === "/command-center/unlock" && req.nextUrl.searchParams.get("lock") === "1") {
+    const lockRequested = pathname === "/command-center/unlock" && req.nextUrl.searchParams.get("lock") === "1";
+    const lockOrigin = req.headers.get("sec-fetch-site");
+    if (lockRequested && (!lockOrigin || lockOrigin === "same-origin" || lockOrigin === "none")) {
       const response = NextResponse.next();
       response.cookies.set("cc_unlock", "", {
         httpOnly: true,

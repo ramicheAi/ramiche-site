@@ -168,6 +168,14 @@ describe("middleware — Command Center owner gate (direct verification, no self
     expect(res.headers.get("cache-control")).toBe("no-store");
   });
 
+  it("a cross-site request cannot force a lock", async () => {
+    const res = await middleware(
+      req("http://localhost/command-center/unlock?lock=1", { headers: { "sec-fetch-site": "cross-site" } })
+    );
+    expect(passes(res)).toBe(true);
+    expect(res.headers.get("set-cookie")).toBeNull();
+  });
+
   it("the unlock page without ?lock=1 never clears the cookie", async () => {
     const res = await middleware(req("http://localhost/command-center/unlock"));
     expect(passes(res)).toBe(true);
