@@ -4,6 +4,21 @@ Continuation of the Command Center access recovery after Claude Code's credits r
 deploy, no production migration, no secret change, no iMac/OpenClaw restart, no production data
 write. Everything below is either read-only inspection or local work.
 
+## CC-RELEASE-87 corrective update (2026-11-14, later)
+
+Production migrations 1-3 are applied and verified. A least-privilege defect was found in the
+production catalog: Supabase default ACLs left `service_role` with DELETE, TRUNCATE, REFERENCES,
+TRIGGER and MAINTAIN on all three auth tables, despite the migration's stated "no DELETE" contract.
+A fourth migration, `20261114010000_cc_auth_service_role_least_privilege.sql`, revokes all table
+privileges from `service_role` and re-grants only SELECT/INSERT/UPDATE on devices and INSERT on
+codes. It is tested locally and not yet applied to production.
+
+The production migration history also needs reconciliation: it contains two ad-hoc versions
+(`20261114213728`, `20261114213754`) and omits `cc_trusted_devices`. A guarded metadata repair,
+`ops-handoff/CC-RELEASE-87-HISTORY-REPAIR.sql`, aligns it to the four canonical versions and aborts
+on any unexpected state. It is tested locally and not yet applied. See
+`ops-handoff/CC-RELEASE-87-EXECUTION-PACKET-2026-11-14.md`.
+
 ## A. Exact current state
 
 | Item | Value |
@@ -107,7 +122,7 @@ Raw transcript: `ops-handoff/CC-LOCAL-ACCEPTANCE-2026-11-14.json`.
 | #84 | head `af750ecf`, in candidate | none beyond deploy |
 | #85 | head `37a18403`, in candidate | `BRIDGE_API_SECRET` present on both sides, **match unverified**; iMac runs pre-mission code and was not restarted |
 | #86 | head `1c7b086d`, in candidate | migration `20261112180000_messages_client_idempotency_key.sql` is **not applied to production** |
-| #87 | head `57eb8570` plus the grants migration, merged into candidate 02 | three migrations + two secrets, below |
+| #87 | corrective branch head, merged into candidate 02 | four migrations + two secrets, below |
 
 Migration order for #87:
 
@@ -115,8 +130,8 @@ Migration order for #87:
 2. `20261113000000_cc_device_enrollment_codes.sql`
 3. `20261114000000_cc_auth_service_role_grants.sql` (release correction, see below)
 
-They are additive (three new tables, six functions, explicit service-role grants; no existing table,
-grant, or RLS policy is altered). They must be applied **before** the code is deployed, or every
+They are additive (three new tables, six functions, explicit service-role grants, and a
+least-privilege correction; no existing table, grant, or RLS policy is altered). They must be applied **before** the code is deployed, or every
 auth path fails closed. Rollback files exist; a rollback after real devices are enrolled destroys
 their trust rows, so it is not a free undo.
 
@@ -162,9 +177,8 @@ writes were development commits on the PR branch and the candidate branch, plus 
    vercel env add CC_UNLOCK_SIGNING_SECRET production   # e.g. openssl rand -hex 32
    vercel env add CC_BOOTSTRAP_SECRET production        # ≥20 chars, e.g. openssl rand -hex 32
    ```
-2. Authorize applying the three migrations to production, in order, before deploy (Supabase SQL
-   editor, each file wrapped in one transaction). Verify the three tables, six functions, the
-   service-role privileges and the absent anon privileges.
+2. Apply the corrective migration 4 to production, run the privilege regression, then run the
+   guarded history repair. Verify the four canonical history rows and the least-privilege matrix.
 3. Authorize merging PR #87 (or deploying `integration/cc-release-candidate-02`). `CC_PIN_HASH` and
    `PARALLAX_OWNER_UID` are already present.
 4. Run the MacBook + iPhone checklist below. Until that passes, product acceptance is not claimed.
