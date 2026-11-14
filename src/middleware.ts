@@ -128,6 +128,24 @@ export async function middleware(req: NextRequest) {
   }
 
   if (pathname.startsWith("/command-center") || pathname.startsWith("/api/command-center")) {
+    // Explicit lock: the cockpit's lock control lands on the unlock page with
+    // ?lock=1. The unlock cookie is httpOnly, so the server has to clear it;
+    // doing it here avoids adding another authenticated route. The device
+    // cookie is deliberately kept, so locking returns to a PIN prompt rather
+    // than re-enrollment.
+    if (pathname === "/command-center/unlock" && req.nextUrl.searchParams.get("lock") === "1") {
+      const response = NextResponse.next();
+      response.cookies.set("cc_unlock", "", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 0,
+        path: "/",
+      });
+      response.headers.set("cache-control", "no-store");
+      return response;
+    }
+
     // Machine routes authenticate themselves with their own secret (listed in
     // command-center-routes.ts; each verifies on every method). Exact-match only.
     if (isMachineRoutePath(pathname)) {

@@ -159,6 +159,21 @@ describe("middleware — Command Center owner gate (direct verification, no self
     expect(passes(res)).toBe(true);
   });
 
+  it("an explicit lock clears the unlock cookie and still renders the unlock page", async () => {
+    const res = await middleware(req("http://localhost/command-center/unlock?lock=1"));
+    expect(passes(res)).toBe(true);
+    const cookie = res.headers.get("set-cookie") ?? "";
+    expect(cookie).toContain("cc_unlock=");
+    expect(cookie).toMatch(/max-age=0/i);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("the unlock page without ?lock=1 never clears the cookie", async () => {
+    const res = await middleware(req("http://localhost/command-center/unlock"));
+    expect(passes(res)).toBe(true);
+    expect(res.headers.get("set-cookie")).toBeNull();
+  });
+
   it("machine routes (exact paths only) pass through to their own secret check", async () => {
     for (const path of [
       "/api/command-center/chat/webhook",
