@@ -481,3 +481,25 @@ Rebuilt from the new main plus the two mobile commits (reapplied cleanly):
 **Preview blocked for authenticated acceptance.** The app returns 503 `owner_not_configured` because `PARALLAX_OWNER_UID` is marked sensitive in Vercel (pull returns a placeholder) and is not present in the release environment. Without it the owner guard fails closed, so login, device trust, chat history and provenance cannot be exercised. This is the correct failure mode, not a leak, but it means the preview proves isolation and boot only.
 
 Exact unblock: supply `PARALLAX_OWNER_UID` for the preview (owner can read it in Firebase Auth), or open the preview over an SSH tunnel and sign in, or authorize one synthetic device row created and revoked by label.
+
+
+---
+
+## 16. Preview isolation review: NOT adequate as a sandbox, preview stopped
+
+An independent security review examined the running preview and rejected the claim that it was a lowered-privilege copy. It confirmed loopback-only binding, an untouched production, a clean staged tree byte-identical to `3fd5dc13`, and no scheduler or worker. It also found material gaps:
+
+- **Same user as production.** Both run as `admin`, and the pinned release directory is writable by that user. There is no OS boundary, only the absence of a code path that writes there.
+- **Real credentials, not stubs.** Service-role Supabase, SMTP, ElevenLabs, VAPI, OpenRouter, DeepSeek, Gemini, Vercel OIDC, Sentry, and the real owner uid were all present in the copied environment.
+- **The gateway token was not blanked.** My override replaced the URL but not the token, so the settings route would still have authenticated against the live gateway if the port-9 override lapsed. The review is correct.
+- **Workspace defaults point at production.** `OPENCLAW_WORKSPACE` and `REPO_DIR` fell back to the fleet workspace and the live repo, so owner-gated routes (agents, memory, yolo-approve, bambu, roadmap, jobs, app-builder) would write real files.
+- **Cookies are not port-scoped.** A browser holding `127.0.0.1:3000` device or session cookies sends them to `:3001`, so an owner visiting the preview would be authenticated automatically with full authority.
+- **My 503 note was wrong after the uid fix.** The preview was owner-configured, not fail-closed. The earlier 503 was real at the time, but I then resolved the uid from the trusted-device table and did not re-check the implication.
+
+**Action taken: the preview is stopped.** Port 3001 has no listener, the copied credential files were deleted, and the built artifacts were removed to relieve disk pressure. Production was re-verified after: pid 1834 on 3000, health 200, plist `d522cfc4dca5`, build id `O_2PPHl3Wjiq0d_uIj5ZD`.
+
+A preview that can be trusted for authenticated acceptance needs a purpose-built environment, not a copied one: a separate macOS user (or a container), a preview-only Supabase project or read-only replica, blank gateway token so the gateway reports unavailable, `OPENCLAW_WORKSPACE` and `REPO_DIR` pointed at scratch directories, SMTP and paid APIs blanked, and an owner uid that fails the guard so the build genuinely returns 503. That is the recommended shape and is not yet built.
+
+### Lesson
+
+Staging from a production `.env` copies authority, not just configuration. "Side effects disabled" has to be constructed key by key, and verified against the running process, not assumed from an empty override line.
