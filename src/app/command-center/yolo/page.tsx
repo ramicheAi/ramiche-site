@@ -5,6 +5,7 @@ import ParticleField from "@/components/ParticleField";
 import { db, hasConfig } from "@/lib/firebase";
 import { collection, getDocs, doc, setDoc, query, orderBy } from "firebase/firestore";
 import { InstrumentPage, Panel } from "@/components/command-center/po/Instrument";
+import { provenanceLabel, type BuildsProvenance } from "@/lib/builds-provenance";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    YOLO BUILDS — Multi-Agent Overnight Prototype Gallery
@@ -95,7 +96,10 @@ export default function YoloBuildsPage() {
       let loadFailure: string | null = null;
       try {
         const res = await fetch("/api/command-center/yolo-builds", { cache: "no-store" });
-        if (!res.ok) loadFailure = `builds source returned ${res.status}`;
+        if (!res.ok) {
+          const reason = res.headers.get("X-CC-YOLO-Reason");
+          loadFailure = reason ? `builds source unavailable (${reason})` : `builds source returned ${res.status}`;
+        }
         if (res.ok) {
           setProv({
             source: res.headers.get("X-CC-YOLO-Source") || "unknown",
@@ -296,11 +300,18 @@ export default function YoloBuildsPage() {
           {stats.agents} AGENTS WITH BUILDS // {stats.total} BUILDS // NIGHTLY 12:30 AM — 2:30 AM EST
         </p>
         <p className="text-[10px] mb-6" style={{ color: "var(--t-lo)", fontFamily: "var(--f-mono)", letterSpacing: "0.08em" }}>
-          {load.state === "error"
-            ? "source unavailable · no inventory read"
-            : prov
-            ? `${prov.source} · ${prov.state} · ${prov.freshness} · observed ${new Date(prov.observedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}${prov.latest ? ` · newest ${prov.latest}` : ""}${prov.ageDays ? ` (${prov.ageDays}d)` : ""}`
-            : "reading builds source…"}
+          {load.state === "error" || !prov
+            ? load.state === "error"
+              ? `source unavailable · ${load.reason ?? "no inventory read"}`
+              : "reading builds source…"
+            : provenanceLabel({
+                state: prov.state as BuildsProvenance["state"],
+                source: prov.source,
+                observedAt: prov.observedAt,
+                latestBuildDate: prov.latest || null,
+                ageDays: prov.ageDays ? Number(prov.ageDays) : null,
+                freshness: prov.freshness as BuildsProvenance["freshness"],
+              })}
         </p>
 
         {/* Agent filter chips */}

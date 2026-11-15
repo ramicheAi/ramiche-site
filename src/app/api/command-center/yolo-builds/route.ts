@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { readdirSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
-import { fetchCommandCenterYoloManifest } from "@/lib/firebase-admin";
+import { fetchCommandCenterYoloManifestResult } from "@/lib/firebase-admin";
 import { ownerOnly } from "@/lib/server/command-center-guard";
 import { buildProvenance } from "@/lib/builds-provenance";
 
@@ -159,19 +159,29 @@ async function GET_handler() {
       builds = loadBuildsFromDir(BUILDS_DIR_WS);
       source = "workspace";
     } else {
-      const manifest = await fetchCommandCenterYoloManifest();
-      if (manifest?.builds?.length) {
+      // A failed manifest read and an empty manifest are different answers. The legacy helper
+      // returned null for both, which is how Vercel reported a verified zero while it had
+      // actually failed to reach Firestore.
+      const manifest = await fetchCommandCenterYoloManifestResult();
+      if (manifest.ok) {
         const fromFs = manifest.builds
           .map((row) => manifestRowToBuild(row))
           .filter((b): b is BuildMeta => b !== null);
-        if (fromFs.length > 0) {
-          builds = fromFs;
-          source = "firestore";
-        }
-      }
-      if (builds.length === 0 && existsSync(BUILDS_DIR_PUBLIC)) {
+        builds = fromFs;
+        source = "firestore"; // answered, even when it answered with zero builds
+      } else if (existsSync(BUILDS_DIR_PUBLIC)) {
         builds = loadBuildsFromDir(BUILDS_DIR_PUBLIC);
-        source = builds.length ? "public" : "empty";
+        source = "public";
+      } else {
+        // No source answered. Never return 200 with an empty array in this case.
+        return NextResponse.json([], {
+          status: 503,
+          headers: {
+            "X-CC-YOLO-State": "unavailable",
+            "X-CC-YOLO-Reason": manifest.reason,
+            "cache-control": "no-store",
+          },
+        });
       }
     }
 
@@ -183,6 +193,7 @@ async function GET_handler() {
     const prov = buildProvenance({
       source,
       dates: builds.map((b) => b.date),
+      count: builds.length,
     });
     return NextResponse.json(builds, {
       headers: {

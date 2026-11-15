@@ -34,10 +34,31 @@ describe("builds provenance", () => {
     expect(provenanceLabel(p)).toMatch(/stale/);
   });
 
-  it("ignores malformed dates and does not count them as builds", () => {
+  it("ignores malformed dates when choosing the newest", () => {
     expect(newestBuildDate(["nope", "2026-13-99", "2026-11-01"])).toBe("2026-11-01");
-    const p = buildProvenance({ source: "public", dates: ["unknown"], observedAt: NOW });
-    expect(p.state).toBe("empty");
+  });
+
+  it("is live, not empty, when builds exist but no date parses", () => {
+    const p = buildProvenance({ source: "public", dates: ["unknown"], observedAt: NOW, count: 2 });
+    expect(p.state).toBe("live");
+    expect(p.latestBuildDate).toBeNull();
+    expect(p.freshness).toBe("none");
+  });
+
+  it("pins the 7-day boundary", () => {
+    const at = (days: number) => {
+      const d = new Date(NOW.getTime() - days * 86_400_000);
+      return d.toISOString().slice(0, 10);
+    };
+    expect(buildProvenance({ source: "workspace", dates: [at(6)], observedAt: NOW }).freshness).toBe("fresh");
+    expect(buildProvenance({ source: "workspace", dates: [at(7)], observedAt: NOW }).freshness).toBe("fresh");
+    expect(buildProvenance({ source: "workspace", dates: [at(8)], observedAt: NOW }).freshness).toBe("stale");
+  });
+
+  it("does not let a future date look newer than today", () => {
+    const p = buildProvenance({ source: "workspace", dates: ["2026-11-20"], observedAt: NOW });
+    expect(p.ageDays).toBe(0);
+    expect(p.freshness).toBe("fresh");
   });
 
   it("respects a custom window", () => {

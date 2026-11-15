@@ -43,6 +43,8 @@ export function newestBuildDate(dates: string[]): string | null {
 export function buildProvenance(options: {
   source: string;
   dates: string[];
+  /** Number of builds returned. State follows the count, not whether dates parse. */
+  count?: number;
   observedAt?: Date;
   unavailable?: boolean;
   freshWindowDays?: number;
@@ -54,16 +56,23 @@ export function buildProvenance(options: {
     return { state: "unavailable", source: options.source, observedAt, latestBuildDate: null, ageDays: null, freshness: "none" };
   }
 
+  const count = options.count ?? options.dates.length;
   const latest = newestBuildDate(options.dates);
-  if (!latest) {
+  if (count === 0) {
     // No builds is only "empty" when the source actually answered.
     return { state: "empty", source: options.source, observedAt, latestBuildDate: null, ageDays: null, freshness: "none" };
+  }
+  if (!latest) {
+    // Builds exist but none carries a usable date: live, age unknown. Calling this "empty" while
+    // the grid renders cards is the inversion the review found.
+    return { state: "live", source: options.source, observedAt, latestBuildDate: null, ageDays: null, freshness: "none" };
   }
 
   const latestDate = parseDate(latest);
   const ageDays = latestDate
     ? Math.max(0, Math.floor(((options.observedAt ?? new Date()).getTime() - latestDate.getTime()) / 86_400_000))
     : null;
+  // A future date clamps to zero age; it cannot make an inventory look newer than "today".
 
   return {
     state: "live",
