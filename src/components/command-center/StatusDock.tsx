@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SystemStatus, ServiceState } from "@/hooks/useSystemStatus";
+import { revenueLabel } from "@/lib/finance-truth";
 
 const TOKENS = {
   bg: "rgba(10,10,10,0.94)",
@@ -109,8 +110,13 @@ const STATE_LABEL: Record<ServiceState, string> = {
 };
 
 function fmtMoneyFull(n: number): string {
-  if (!Number.isFinite(n)) return "$0";
+  if (!Number.isFinite(n)) return "\u2014";
   return `$${Math.round(n).toLocaleString("en-US")}`;
+}
+
+/** Money is shown only when the feed says it was measured. An outage is not $0. */
+function money(status: ServiceState, n: number): string {
+  return revenueLabel(status, n, fmtMoneyFull);
 }
 
 function fmtPing(ms: number | null): string {
@@ -395,15 +401,15 @@ export function StatusDock({ open, tab, status, onTabChange, onClose }: StatusDo
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <Headline
               accent={TOKENS.amber}
-              title={fmtMoneyFull(status.revenue.mrr)}
+              title={money(status.revenue.state, status.revenue.mrr)}
               subtitle={`MRR · ${STATE_LABEL[status.revenue.state]}`}
               state={status.revenue.state}
             />
             <KeyValueGrid
               rows={[
-                ["MRR", fmtMoneyFull(status.revenue.mrr)],
-                ["ARR", fmtMoneyFull(status.revenue.arr)],
-                ["Last 30 days", fmtMoneyFull(status.revenue.last30)],
+                ["MRR", money(status.revenue.state, status.revenue.mrr)],
+                ["ARR", money(status.revenue.state, status.revenue.arr)],
+                ["Last 30 days", money(status.revenue.state, status.revenue.last30)],
                 ["Active subs", revenue?.subscriptions?.active != null ? String(revenue.subscriptions.active) : "—"],
               ]}
             />
