@@ -34,7 +34,9 @@ checks still require the owner's iPhone.
 | P1 | Safe areas | all screenshots | No `viewport-fit=cover`; HUD, drawer, briefing and composer ignored the notch and home indicator | `viewportFit: cover`; top and bottom safe-area insets on HUD, content, drawer, briefing, chat, composer |
 | P2 | Dashboard 3D stage | geometry before | Decorative orbit avatars reached x424 on a 393px viewport | Hide orbit nodes/chips on phones; central ATLAS core remains |
 | P2 | Health process list | geometry | Long command paths ellipsized with no way to read them | `title` added; intentional truncation remains |
+| P1 | Terminal | React error #418 before fix | Initial terminal timestamps were generated during SSR and again on the client, causing a hydration mismatch | Intro line is now created in a client-only mount effect; regression test added |
 | P2 | Touch targets | geometry before | 17px task buttons, 24px edit buttons, 30 to 38px filter/action buttons | Minimum 44x44 for buttons on phones and tablets; desktop HUD controls remain 34px for mouse density |
+| P2 | Hidden HUD preference | before: theme toggle hidden on phones/tablets | The HUD theme toggle had no mobile alternative | Appearance control added to Settings; pulse stays available through Chat, wake word remains a desktop convenience |
 
 ## What changed
 
@@ -65,6 +67,10 @@ checks still require the owner's iPhone.
 - `src/app/command-center/health/page.tsx`: full command path available on hover/tap.
 - `src/app/command-center/chat/page.tsx`: composer spacing, symbol controls hidden on touch,
   full-width search row, empty state, drawer and thread panel below the HUD, safe-area composer.
+- `src/app/command-center/terminal/page.tsx`: client-only intro timestamps, removing React
+  hydration error #418; regression test added.
+- `src/app/command-center/settings/page.tsx`: Appearance control so the hidden HUD theme toggle
+  remains reachable on phones and tablets.
 
 ## Before and after evidence
 
@@ -86,6 +92,8 @@ Interaction and width evidence:
 - `after-chat-drawer-open.png`: chat drawer below the HUD, 280px, close control.
 - `after-width-320-dashboard.png`: 320px HUD and sanctuary layout.
 - `after-width-768-agents.png`: tablet two-column agents, icon rail, no clipping.
+- `after-terminal.png`: terminal renders and runs `help` with no page error.
+- `after-settings-appearance.png`: Appearance control in Settings.
 
 ## Verification
 
@@ -100,11 +108,11 @@ Interaction and width evidence:
 | Briefing | mobile auto-open refused; desktop auto-open still works; mobile sheet is 393px wide with close |
 | Chat drawer | opens 0 to 280px at z80 below the HUD |
 | Authentication | local bootstrap and PIN session; all audited routes returned 200; no auth code changed |
-| Tests | 901 passed, 4 skipped |
+| Tests | 902 passed, 4 skipped |
 | TypeScript | clean |
 | ESLint | 0 errors, 191 pre-existing warnings |
 | Production build | clean |
-| Client errors | one pre-existing terminal page client error; no shell or auth errors |
+| Client errors | none on Terminal after the hydration fix; no shell or auth errors |
 
 ## Remaining real-device acceptance
 
