@@ -1,0 +1,55 @@
+{
+  "mission": "CC-DEEPSEEK-CONTINUATION-01",
+  "captured_at": "2026-11-14T11:56:00-05:00",
+  "subject_commit": "6b8289c6",
+  "environment": {
+    "app": "production build (next start) of the PR branch",
+    "database": "PostgreSQL 17.11 (local temp cluster, port 55432)",
+    "api": "PostgREST 16.5 (local, behind a /rest/v1 prefix gateway)",
+    "browser": "Playwright Chromium",
+    "production_touched": false,
+    "migrations_applied_locally": [
+      "supabase/migrations/20261112200000_cc_trusted_devices.sql",
+      "supabase/migrations/20261113000000_cc_device_enrollment_codes.sql"
+    ],
+    "rollback_verified": "both rollback files removed exactly the new tables and functions (0 remaining)"
+  },
+  "run_1_primary_flow": [
+    { "step": "deviceA_entry", "url": "/command-center/bootstrap", "form": true },
+    { "step": "deviceA_bootstrap", "url": "/command-center/unlock" },
+    { "step": "deviceA_wrong_pin", "message": "Incorrect PIN." },
+    { "step": "deviceA_unlock", "url": "/command-center", "has_shell": false },
+    { "step": "deviceA_refresh", "url": "/command-center", "still_unlocked": true },
+    { "step": "deviceA_approval", "link_shape": true, "code_length": 32 },
+    { "step": "deviceB_redeem_unlock", "url": "/command-center" },
+    { "step": "deviceB_replay", "status": 401, "body": { "ok": false, "error": "invalid_or_expired_code" } },
+    { "step": "deviceA_lock", "url": "/command-center/unlock", "locked": true },
+    { "step": "deviceB_lockout", "ui_shows_lockout": true },
+    { "step": "deviceB_correct_pin_while_locked", "status": 429, "body": { "ok": false, "error": "locked" } }
+  ],
+  "run_2_security_and_lifecycle": [
+    {
+      "step": "dashboard",
+      "url": "/command-center",
+      "chars": 1565,
+      "snippet": "PARALLAX OS v4 · COMMAND CENTER OPERATIONS Dashboard Approval Gate Jobs Chat Gallery Agents Tasks System Health Security Settings YOLO Builds BUSINESS 11 Finance HQ Arbitrage Calc"
+    },
+    {
+      "step": "api_anonymous",
+      "status": 401,
+      "body": "{\"ok\":false,\"error\":\"denied\",\"reason\":\"missing_session\"}"
+    },
+    { "step": "cookies_present", "cc_device": true, "cc_unlock": true, "http_only": true },
+    { "step": "forged_unlock", "url": "/command-center/unlock", "rejected": true },
+    { "step": "expired_device", "url": "/command-center/unlock", "redirected_to_unlock": true },
+    { "step": "revoked_device", "url": "/command-center/unlock", "redirected_to_unlock": true }
+  ],
+  "not_tested": [
+    "Firebase recovery sign-in and Firebase-only enrollment/revocation",
+    "real Supabase project and Vercel production deployment (migrations/secrets not applied)",
+    "physical iPhone Safari and the founder's own MacBook profile",
+    "12-hour unlock expiry and 90-day trust expiry as wall-clock waits",
+    "Cloudflare Access in front of command.parallaxvinc.com"
+  ],
+  "note": "has_shell is false only because the body text assertion looked for the literal 'Command Center' while the dashboard renders 'PARALLAX OS v4 · COMMAND CENTER OPERATIONS'; the run_2 dashboard capture confirms the shell rendered."
+}
