@@ -312,3 +312,67 @@ Pre-conditions to verify before any migration: the device tables exist, `CC_PIN`
 - No owner authorization to repoint the LaunchAgent or touch device secrets.
 - The installed PWA origin is still unconfirmed.
 - `command.parallaxvinc.com` is behind Access, so end-to-end tests need an Access service token or an allowlisted network; neither exists on this machine.
+
+
+---
+
+## 13. CC-RECOVERY-03 status
+
+Operation target is `command.parallaxvinc.com`. Nothing below was merged, deployed, or applied to the live cockpit.
+
+### 13.1 Approved fixes verified
+
+| PR | Head | State |
+|---|---|---|
+| #92 | `ce071f71` | APPROVE, CI green, mergeable against main |
+| #93 | `97377128` | APPROVE, CI green, mergeable |
+| #91 | `7144acbb` | reviewed, not merged, needs one assertion widening after #93 |
+| #94 | `937eecde` | this document |
+
+### 13.2 The two expected failures
+
+Both are explicit `it.fails` contracts, not hidden red tests.
+
+1. **`POST /api/command-center/chat` has no client idempotency key.** Legitimate known exclusion: the message-write path is idempotent once the migration is applied, but the agent-relay route is a separate concern and is not covered by that index.
+2. **No resume reconciliation for iOS bfcache.** This was an **unresolved mobile defect**, not an exclusion. A backgrounded PWA could show a stale conversation until a manual reload. Implemented in the candidate: a resume counter bumped on `pageshow` and `visibilitychange` re-runs the history effect, and the contract test is promoted from `it.fails` to a real assertion.
+
+### 13.3 Phase 3 — fleet model authority (draft PR #95)
+
+- `src/lib/fleet/model-registry.ts` reads the real `openclaw.json`, validates changes against the provider catalogue, and writes with an exclusive lock, timestamped backup, atomic rename and read-back. Success is only reported when the disk matches.
+- Secrets, tokens and base URLs never leave the module; a test asserts the fixture API key never appears in the payload.
+- `GET`/`POST /api/command-center/fleet/models` are owner-gated. GET returns 503 `source=unavailable` where the registry is absent (Vercel), never an empty list.
+- Reachability is reported as `unverified`, never guessed.
+- 16 unit tests. No live configuration was read or written.
+
+Not wired: the Settings page still posts to the old `directory.json` route. Wiring should land with the model-picker visual review.
+
+### 13.4 Phase 4 — YOLO builds truth (partial)
+
+Implemented in the candidate: one explicit load state (`loading`, `error`, `ready`), a single empty message, the error reason surfaced instead of an empty grid, and the header relabelled `N AGENTS WITH BUILDS` because the number is derived from builds, not from the fleet.
+
+Still missing: source identity, `observedAt`, freshness and a verified-empty receipt from the API. The route still reads the filesystem, so Vercel can only ever return zero. That needs the iMac source contract before it can be honest on both origins.
+
+### 13.5 Phase 5 — mobile candidate
+
+Branch `candidate/cc-recovery-03`, head `fc7cbeec`, built on #92 + #93 + #91.
+
+- Sanctuary clears the HUD: `.sanc` top equals HUD bottom at 320/390/430, plus 38px when the ticker is mounted.
+- YOLO chips stack label and lane; measured zero overlaps at 320/390/1920.
+- Desktop key hint hidden on coarse pointers.
+- iOS resume reconciliation.
+- One honest YOLO load state.
+
+Suite: 1042 passed, 1 expected fail, 4 skipped. `tsc` and build clean.
+
+### 13.6 Phase 6 — release readiness
+
+- **Candidate:** `candidate/cc-recovery-03` at `fc7cbeec1699a30b4c1a66bf1a4367502d28456d` (integration of #92, #93, #91 plus Phase 5 fixes). The #91 assertion widening is committed on this branch.
+- **Deployment procedure and rollback:** section 12.6 and 12.5. Release directories plus a one-line LaunchAgent repoint; rollback is the reverse.
+- **Smoke plan:** section 12.7.
+- **Remaining blockers:**
+  - Device and chat tables must be confirmed in the production database before the new middleware can run without a bootstrap loop.
+  - The installed PWA origin is unconfirmed.
+  - Gates 3 and 4 are not production-complete (no UI wiring; no source identity or freshness).
+  - `command.parallaxvinc.com` is behind Access, so end-to-end tests need an Access service token or an allowlisted network.
+  - No physical iPhone run.
+- **Smallest authorization:** approve merging #92 then #93, then #91 with the assertion change, and approve the candidate branch for a preview build on the iMac on port 3001 (no tunnel change). Deploying the cockpit itself remains a separate, later approval.
