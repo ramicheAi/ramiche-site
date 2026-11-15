@@ -18,15 +18,19 @@ import { Icon } from '@/components/command-center/po/Brand';
 import { ROUTE } from '@/lib/po-data';
 import { usePoTheme } from '@/components/command-center/PoShell';
 import { useVoiceLoop } from '@/hooks/useVoiceLoop';
+import { useFinanceTruth } from '@/hooks/useFinanceTruth';
+import { financeProvenance, formatUsdCompact } from '@/lib/finance-truth';
 import { VOICE_CONFIG } from '@/lib/voice-config';
 
-/* ---- live state of all things (real endpoints, graceful fallback) ---- */
+/* ---- live state of all things (real endpoints, unknown until measured) ---- */
 type Stats = {
-  agentsOnline: number; agentsTotal: number;
-  mrr: string; mrrLive: boolean;
-  jobs: number; shipped: number;
+  agentsOnline: number | null; agentsTotal: number | null;
+  jobs: number | null; shipped: number | null;
 };
-const STAT_DEFAULTS: Stats = { agentsOnline: 19, agentsTotal: 20, mrr: '$48.2k', mrrLive: false, jobs: 7, shipped: 23 };
+// Nothing is seeded. A surface that has not measured a value says so instead of showing a
+// plausible default. Money comes from the shared finance truth hook below.
+const STAT_DEFAULTS: Stats = { agentsOnline: null, agentsTotal: null, jobs: null, shipped: null };
+const UNKNOWN = '\u2014';
 
 function todayKey(): string {
   // local YYYY-MM-DD without Date math beyond formatting
@@ -36,10 +40,9 @@ function todayKey(): string {
 async function loadStats(signal: AbortSignal): Promise<Partial<Stats>> {
   const out: Partial<Stats> = {};
   const get = (p: string) => fetch(p, { signal }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-  const [agents, jobs, rev, act] = await Promise.all([
+  const [agents, jobs, act] = await Promise.all([
     get('/api/command-center/agents'),
     get('/api/command-center/jobs'),
-    get('/api/command-center/stripe-revenue'),
     get('/api/command-center/activity'),
   ]);
   if (agents?.agents?.length) {
@@ -53,10 +56,6 @@ async function loadStats(signal: AbortSignal): Promise<Partial<Stats>> {
     const active = ['running', 'queued', 'active', 'in_progress', 'pending', 'working'];
     out.jobs = (jobs.jobs as { status?: string }[]).filter((j) => j.status && active.includes(j.status)).length;
   }
-  if (rev?.source === 'live' && rev?.subscriptions?.mrr > 0) {
-    out.mrr = `$${(rev.subscriptions.mrr / 1000).toFixed(1)}k`;
-    out.mrrLive = true;
-  }
   if (act?.events) {
     const t = todayKey();
     out.shipped = (act.events as { date?: string; type?: string }[])
@@ -69,10 +68,10 @@ async function loadStats(signal: AbortSignal): Promise<Partial<Stats>> {
 type Star = { id: string; label: string; fac: string; x: number; y: number; ct: string };
 const STARS: Star[] = [
   { id: 'comms', label: 'Comms', fac: 'var(--c-purple-l)', x: 50, y: 23, ct: '12 unread' },
-  { id: 'agents', label: 'Agents', fac: 'var(--c-green)', x: 73, y: 33, ct: '19 online' },
-  { id: 'finance', label: 'Finance', fac: 'var(--gold)', x: 70, y: 62, ct: '$48.2k' },
+  { id: 'agents', label: 'Agents', fac: 'var(--c-green)', x: 73, y: 33, ct: '' },
+  { id: 'finance', label: 'Finance', fac: 'var(--gold)', x: 70, y: 62, ct: '' },
   { id: 'observatory', label: 'Observatory', fac: 'var(--c-violet)', x: 50, y: 69, ct: '6 signals' },
-  { id: 'tasks', label: 'Tasks', fac: 'var(--c-amber)', x: 30, y: 62, ct: '7 live' },
+  { id: 'tasks', label: 'Tasks', fac: 'var(--c-amber)', x: 30, y: 62, ct: '' },
   { id: 'builder', label: 'App Builder', fac: 'var(--c-cyan)', x: 27, y: 33, ct: 'ready' },
 ];
 
@@ -88,6 +87,7 @@ export default function Sanctuary() {
   const { toggleTheme, still } = usePoTheme();
   const ref = useRef<HTMLDivElement>(null);
   const [stats, setStats] = useState<Stats>(STAT_DEFAULTS);
+  const finance = useFinanceTruth();
 
   // ── Commune with ATLAS in place: the core orb is the voice trigger and the
   // throne reacts to the conversation state (listening / thinking / speaking).
@@ -138,18 +138,26 @@ export default function Sanctuary() {
     return () => ctrl.abort();
   }, []);
 
-  // the truths, woven into one quiet line (live)
+  // the truths, woven into one quiet line. Money is measured or it is an em dash.
+  const finProv = financeProvenance(finance);
+  const finLabel = finProv.status === 'live' ? 'MRR \u00b7 live' : finProv.status === 'demo' ? 'MRR \u00b7 demo' : 'MRR \u00b7 unavailable';
+  const finText = formatUsdCompact(finance.mrr);
   const truths: [string, string][] = [
-    [`${stats.agentsOnline}/${stats.agentsTotal}`, 'online'],
-    [stats.mrr, stats.mrrLive ? 'MRR · live' : 'MRR'],
-    [String(stats.jobs), 'jobs'],
-    [String(stats.shipped), 'shipped'],
+    [
+      stats.agentsOnline === null || stats.agentsTotal === null
+        ? UNKNOWN
+        : `${stats.agentsOnline}/${stats.agentsTotal}`,
+      'online',
+    ],
+    [finText, finLabel],
+    [stats.jobs === null ? UNKNOWN : String(stats.jobs), 'jobs'],
+    [stats.shipped === null ? UNKNOWN : String(stats.shipped), 'shipped'],
   ];
   // per-domain live counts for the constellation
   const starCount: Record<string, string> = {
-    agents: `${stats.agentsOnline} online`,
-    finance: stats.mrr,
-    tasks: `${stats.jobs} live`,
+    agents: stats.agentsOnline === null ? UNKNOWN : `${stats.agentsOnline} online`,
+    finance: finText,
+    tasks: stats.jobs === null ? UNKNOWN : `${stats.jobs} live`,
   };
 
   const go = (id: string) => {
@@ -208,7 +216,7 @@ export default function Sanctuary() {
           {truths.map(([v, l], i) => (
             <Fragment key={l}>
               {i > 0 && <span className="sep" />}
-              <span className="t">
+              <span className="t" title={l.startsWith('MRR') ? `${finProv.source} \u00b7 measured ${finProv.measured}` : undefined}>
                 <b className="tnum">{v}</b> {l}
               </span>
             </Fragment>

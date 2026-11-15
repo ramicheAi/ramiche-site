@@ -2,24 +2,35 @@
 
 /* ============================================================================
  * PARALLAX OS — FINANCE HQ (showpiece #5). Ported from prototype/po-pages.jsx
- * `FinancePage`. Instrument header, a giant MRR figure that climbs live, LIVE
- * tag, area chart with a pulsing beacon, four ring-gauge tiles, and a
- * transaction stream where new deals flash gold at the top.
+ * `FinancePage`. Instrument header, a giant MRR figure, an area chart with a
+ * pulsing beacon, four ring-gauge tiles, and a transaction stream.
  *
- * Real data: seeds the live MRR + ARR from the real Stripe revenue endpoint
- * (`/api/command-center/stripe-revenue`) when it reports `source: "live"`;
- * real recent Stripe charges are folded into the transaction stream. Falls
- * back to the design mock when Stripe is unavailable. Drift is presentation
- * only. Motion gates on prefers-reduced-motion AND the .po-still tweak.
+ * TRUTH RULES (they are not negotiable; see src/lib/finance-truth.ts)
+ * - No revenue figure is rendered unless it was measured. Unmeasured renders as
+ *   an em dash, never as a plausible looking number.
+ * - A genuine $0 from Stripe renders as $0. It is never replaced by a seed.
+ * - Nothing is added to a measured figure. There is no drift, no jitter, no
+ *   "presentation only" arithmetic on money.
+ * - No trend line is drawn unless a real series exists. The revenue endpoint
+ *   returns a point, not a history, so in LIVE mode there is no sparkline.
+ * - Demo data is reachable only via an explicit `?demo=1`, and whenever it is
+ *   shown the screen says DEMO and states that the figures are not real.
+ * - The status chip is derived from the data source, so the screen cannot say
+ *   LIVE while showing a fallback.
  * ========================================================================== */
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { type CSSProperties } from 'react';
 import { Icon } from '@/components/command-center/po/Brand';
 import QuantPanel from '@/components/command-center/po/QuantPanel';
 import { PAGE } from '@/lib/po-data';
-import { usePoTheme } from '@/components/command-center/PoShell';
 import { poPlay } from '@/lib/po-sound';
-import { poAlertBus } from '@/lib/po-alert-bus';
+import {
+  formatArrK,
+  formatUsdCompact,
+  financeProvenance,
+  sourceBadge,
+} from '@/lib/finance-truth';
+import { useFinanceTruth } from '@/hooks/useFinanceTruth';
 
 // deterministic serial code per page (matches prototype serialFor)
 function serialFor(id: string): string {
@@ -30,32 +41,6 @@ function serialFor(id: string): string {
     c = ((h >> 8) % 9000) + 1000;
   return `${String(a).padStart(2, '0')}A${b}·${c}`;
 }
-
-type Tx = [name: string, plan: string, amt: string];
-
-const TX: Tx[] = [
-  ['Helios Robotics', 'Annual · Scale', '+$18,000'],
-  ['Vela Logistics', 'Monthly · Pro', '+$2,400'],
-  ['Orbit Health', 'Annual · Pro', '+$9,600'],
-  ['Cobalt Studio', 'Monthly · Starter', '+$390'],
-  ['Refund · Nimbus', 'Downgrade', '−$1,200'],
-];
-const TX_POOL: Tx[] = [
-  ['Meridian Labs', 'Annual · Scale', '+$24,000'],
-  ['Quanta Systems', 'Monthly · Pro', '+$2,400'],
-  ['Northwind Co', 'Monthly · Starter', '+$390'],
-  ['Ardent Group', 'Annual · Pro', '+$9,600'],
-  ['Volt Mobility', 'Monthly · Pro', '+$2,400'],
-  ['Cirrus AI', 'Annual · Scale', '+$31,000'],
-  ['Refund · Pylon', 'Downgrade', '−$890'],
-  ['Beacon Health', 'Monthly · Pro', '+$2,400'],
-];
-
-type StripeRevenue = {
-  subscriptions?: { active: number; mrr: number; arr: number };
-  recentTransactions?: { id: string; amount: number; description: string; created: string; status: string }[];
-  source?: 'live' | 'unavailable';
-};
 
 // compact 270° ring gauge for instrument tiles (matches prototype RingGauge)
 function RingGauge({ v, size = 44, crit }: { v: number; size?: number; crit?: boolean }) {
@@ -80,90 +65,25 @@ function RingGauge({ v, size = 44, crit }: { v: number; size?: number; crit?: bo
 }
 
 export default function FinanceHQ() {
-  const { still } = usePoTheme();
   const p = PAGE['finance'] || { label: 'Finance HQ', icon: 'finance', section: 'Business' };
 
-  const [mrr, setMrr] = useState(48200);
-  const [arrK, setArrK] = useState<string | null>(null); // real ARR (k) when live
-  const [chart, setChart] = useState<number[]>([72, 66, 70, 50, 44, 28, 18, 8]);
-  const [feed, setFeed] = useState(() => TX.map((t, i) => ({ t, id: i, fresh: false })));
-  const nid = useRef(100);
-  const prevCrit = useRef(false);
+  // One shared reading, the same one Sanctuary, Stage and the HUD use. `?demo=1` resolves to a
+  // labelled demo state inside the hook, so this component never decides what "demo" means.
+  const fin = useFinanceTruth();
+  const prov = financeProvenance(fin);
+  const badge = sourceBadge(fin);
+  const isLive = fin.source === 'live';
+  const isDemo = fin.source === 'demo';
+  const chart = fin.chart;
+  const pts = chart ? chart.map((v, i) => `${(i / (chart.length - 1)) * 320},${v}`).join(' ') : '';
+  const lastY = chart ? chart[chart.length - 1] : 0;
 
-  // seed the live MRR from the real Stripe endpoint when available
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/command-center/stripe-revenue')
-      .then((r) => r.json())
-      .then((d: StripeRevenue) => {
-        if (cancelled) return;
-        if (d?.source === 'live' && d.subscriptions && d.subscriptions.mrr > 0) {
-          setMrr(Math.round(d.subscriptions.mrr));
-          setArrK((d.subscriptions.arr / 1000).toFixed(0));
-        }
-        // fold real recent charges into the top of the stream
-        const real = (d?.recentTransactions || [])
-          .filter((t) => t.status === 'succeeded' || t.status === 'paid')
-          .slice(0, 4)
-          .map((t, i) => ({
-            t: [t.description || 'Payment', 'Stripe · live', `+$${Math.round(t.amount).toLocaleString('en-US')}`] as Tx,
-            id: 1000 + i,
-            fresh: false,
-          }));
-        if (real.length) setFeed((f) => [...real, ...f].slice(0, 7));
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // live drift — gated on reduced-motion AND .po-still
-  useEffect(() => {
-    const reduced = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduced || still) return;
-    const iv = setInterval(() => {
-      setMrr((v) => v + Math.round(Math.random() * 180));
-      setChart((c) => [...c.slice(1), Math.max(4, c[c.length - 1] + (Math.random() - 0.6) * 10)]);
-    }, 1500);
-    const feedIv = setInterval(() => {
-      const pick = TX_POOL[Math.floor(Math.random() * TX_POOL.length)];
-      setFeed((f) => [{ t: pick, id: nid.current++, fresh: true }, ...f.map((x) => ({ ...x, fresh: false }))].slice(0, 7));
-      poPlay('blip');
-    }, 4200);
-    return () => {
-      clearInterval(iv);
-      clearInterval(feedIv);
-    };
-  }, [still]);
-
-  const mrrK = (mrr / 1000).toFixed(1);
-  const arr = arrK ?? ((mrr * 12) / 1000).toFixed(0);
-  const pts = chart.map((v, i) => `${(i / (chart.length - 1)) * 320},${v}`).join(' ');
-  const lastX = 320,
-    lastY = chart[chart.length - 1];
-
-  // surface a critical reading on the global alert ticker if runway burns down.
-  // (presentation: runway gauge fixed; we alert when MRR drops below a floor —
-  // here the drift only climbs, so this stays nominal — wired per the contract.)
-  const runwayLow = mrr < 30000;
-  useEffect(() => {
-    const key = 'finance:runway';
-    if (runwayLow && !prevCrit.current) {
-      poAlertBus.set(key, { label: 'RUNWAY', value: `${mrrK}k MRR`, page: 'finance', pageLabel: p.label, serial: serialFor('finance') });
-      poPlay('alert');
-    } else if (!runwayLow && prevCrit.current) {
-      poAlertBus.clear(key);
-    }
-    prevCrit.current = runwayLow;
-  }, [runwayLow, mrrK, p.label]);
-  useEffect(() => () => poAlertBus.clear('finance:runway'), []);
-
-  const tiles: [string, string, number][] = [
-    ['Net new MRR', '+$2.7k', 0.62],
-    ['New logos', '6', 0.4],
-    ['Churn', '1.2%', 0.12],
-    ['Runway', '31 mo', 0.78],
+  // Only measured metrics are given a value. The rest are explicitly unknown.
+  const tiles: [string, string, number | null][] = [
+    ['Active subscriptions', fin.activeSubscriptions === null ? '—' : String(fin.activeSubscriptions), null],
+    ['Net new MRR', '—', null],
+    ['Churn', '—', null],
+    ['Runway', '—', null],
   ];
 
   return (
@@ -185,9 +105,9 @@ export default function FinanceHQ() {
               <span className="pg-sep" />
               <span className="pg-serial">SYS·{serialFor('finance')}</span>
               <span className="pg-sep" />
-              <span className="pg-live">
+              <span className="pg-live" data-tone={badge.tone} title={`Revenue source: ${badge.label}`}>
                 <i />
-                ONLINE
+                {badge.label}
               </span>
             </div>
             <h1 className="pg-h1 echo" data-echo={p.label}>
@@ -206,7 +126,14 @@ export default function FinanceHQ() {
           </div>
         </div>
 
-        {/* hero: giant live MRR + area chart with pulsing beacon */}
+        {isDemo && (
+          <div className="po-panel" role="status" style={{ padding: '10px 14px', borderColor: 'var(--c-gold)' }}>
+            <strong>DEMO DATA.</strong> These figures are a design sample requested with{' '}
+            <code>?demo=1</code>. They are not real revenue.
+          </div>
+        )}
+
+        {/* hero: MRR, measured or explicitly unknown */}
         <div className="fn-hero po-panel holo-foil">
           <span className="inst-cnr tl" />
           <span className="inst-cnr tr" />
@@ -215,31 +142,46 @@ export default function FinanceHQ() {
           <div>
             <div className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               Monthly recurring revenue{' '}
-              <span className="fn-livetag mono">
+              <span className="fn-livetag mono" data-tone={badge.tone}>
                 <i />
-                LIVE
+                {badge.label}
               </span>
             </div>
-            <div className="fn-big tnum">${mrrK}k</div>
-            <div className="fn-delta">
-              {'▲'} 6.0% week-over-week · ${arr}k ARR
+            <div className="fn-big tnum">{formatUsdCompact(fin.mrr)}</div>
+            <div
+              className="fn-delta"
+              style={{ color: isLive ? 'var(--c-green)' : isDemo ? 'var(--gold)' : 'var(--t-mid)' }}
+            >
+              {isLive && <>measured from Stripe · ${formatArrK(fin.arr)} ARR · {prov.measured}</>}
+              {isDemo && <>sample series · ${formatArrK(fin.arr)} ARR</>}
+              {!isLive && !isDemo && (fin.reason || 'No measured revenue available.')}
             </div>
           </div>
-          <svg width="320" height="92" viewBox="0 0 320 92" style={{ flex: 1, minWidth: 0 }}>
-            <defs>
-              <linearGradient id="fn-g" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor="var(--c-gold)" stopOpacity="0.35" />
-                <stop offset="1" stopColor="var(--c-gold)" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <path className="fn-area" d={`M0,${chart[0]} ${chart.map((v, i) => `L${(i / (chart.length - 1)) * 320},${v}`).join(' ')} L320,92 L0,92 Z`} fill="url(#fn-g)" />
-            <polyline className="fn-line" points={pts} fill="none" stroke="var(--c-gold)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            <circle cx={lastX} cy={lastY} r="3.5" fill="var(--c-gold)" />
-            <circle className="fn-pulse" cx={lastX} cy={lastY} r="3.5" fill="none" stroke="var(--c-gold)" />
-          </svg>
+          {chart ? (
+            <svg width="320" height="92" viewBox="0 0 320 92" style={{ flex: 1, minWidth: 0 }}>
+              <defs>
+                <linearGradient id="fn-g" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stopColor="var(--c-gold)" stopOpacity="0.35" />
+                  <stop offset="1" stopColor="var(--c-gold)" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <path className="fn-area" d={`M0,${chart[0]} ${chart.map((v, i) => `L${(i / (chart.length - 1)) * 320},${v}`).join(' ')} L320,92 L0,92 Z`} fill="url(#fn-g)" />
+              <polyline className="fn-line" points={pts} fill="none" stroke="var(--c-gold)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx={320} cy={lastY} r="3.5" fill="var(--c-gold)" />
+              <circle className="fn-pulse" cx={320} cy={lastY} r="3.5" fill="none" stroke="var(--c-gold)" />
+            </svg>
+          ) : (
+            <div
+              className="mono"
+              style={{ flex: 1, minWidth: 0, fontSize: 11, color: 'var(--t-lo)', alignSelf: 'center' }}
+              title="The revenue endpoint returns a single figure, not a time series."
+            >
+              No revenue history available. No trend line is drawn.
+            </div>
+          )}
         </div>
 
-        {/* four ring-gauge tiles */}
+        {/* four ring-gauge tiles: measured values only */}
         <div className="fn-tiles">
           {tiles.map(([l, v, a]) => (
             <div key={l} className="fn-tile inst-mod" style={{ minHeight: 0 }}>
@@ -248,34 +190,52 @@ export default function FinanceHQ() {
               <span className="inst-cnr bl" />
               <span className="inst-cnr br" />
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <RingGauge v={a} size={44} />
+                {a === null ? <span className="mono" style={{ width: 44, textAlign: 'center', color: 'var(--t-lo)' }}>—</span> : <RingGauge v={a} size={44} />}
                 <div>
                   <div className="eyebrow">{l}</div>
                   <div className="v tnum" style={{ fontSize: 24 }}>
                     {v}
                   </div>
+                  {a === null && <div className="mono" style={{ fontSize: 10, color: 'var(--t-lo)' }}>not measured</div>}
                 </div>
               </div>
             </div>
           ))}
         </div>
 
-        {/* transaction stream — new deals flash gold at the top */}
+        {/* transaction stream — real rows only */}
         <section className="po-panel">
           <div className="cv-sec-head">
             <Icon name="finance" size={16} style={{ color: 'var(--accent)' }} />
             <h3>Transaction stream</h3>
-            <span className="po-pal-grp">LEDGER · live sync</span>
+            <span className="po-pal-grp" title={`${prov.source} · measured ${prov.measured}`}>
+              {isLive ? 'LEDGER · live sync' : isDemo ? 'LEDGER · demo' : 'LEDGER · no live source'}
+            </span>
           </div>
           <div style={{ padding: '4px 0' }}>
-            {feed.map(({ t, id, fresh }) => (
-              <div key={id} className={'fn-row' + (fresh ? ' fn-fresh' : '')}>
+            {fin.transactions.length === 0 && (
+              <div className="mono" style={{ padding: '12px 14px', fontSize: 11.5, color: 'var(--t-lo)' }}>
+                {isLive ? 'No settled transactions were returned by Stripe.' : 'No transaction data available.'}
+              </div>
+            )}
+            {fin.transactions.map((t) => (
+              <div key={t.id} className="fn-row">
                 <div>
-                  <div style={{ fontSize: 13.5, fontWeight: 500 }}>{t[0]}</div>
-                  <div style={{ fontSize: 11, color: 'var(--t-lo)', marginTop: 1 }}>{t[1]}</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 500 }}>{t.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--t-lo)', marginTop: 1 }}>{t.plan}</div>
                 </div>
-                <span className="fn-amt" style={{ color: t[2][0] === '−' ? 'var(--c-rose)' : 'var(--c-green)' }}>
-                  {t[2]}
+                <span
+                  className="fn-amt"
+                  style={{
+                    color:
+                      t.amount === '—'
+                        ? 'var(--t-lo)'
+                        : t.amount.startsWith('−')
+                          ? 'var(--c-rose)'
+                          : 'var(--c-green)',
+                  }}
+                >
+                  {t.amount}
                 </span>
               </div>
             ))}

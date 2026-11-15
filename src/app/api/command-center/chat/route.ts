@@ -1118,6 +1118,41 @@ async function POST_handler(req: NextRequest) {
     // should respond within the focused back-and-forth, not get distracted by
     // unrelated channel chatter.
     const svc = getSupabaseService();
+
+    // Relay-dispatch idempotency (CC-RECOVERY-DELIVERY-CONVERGENCE-01): this
+    // route is a SEPARATE client-initiated call from the message-persistence
+    // write in .../conversations/[id]/messages/route.ts, so de-duplicating
+    // the persisted ROW there does not by itself de-duplicate the AGENT
+    // DISPATCH — a lost-ack retry of the send correctly reuses the original
+    // message id, but each client attempt that reaches this far would
+    // otherwise still trigger its own agent turn. Claim the right to
+    // dispatch atomically, server-side, via a conditional UPDATE keyed by
+    // the persisted message id (stable across retries) — never by any
+    // client-side "was this a replay" guess, which can't tell whether an
+    // EARLIER attempt's dispatch actually happened or was itself lost.
+    // Fails OPEN (proceeds with dispatch) if the column doesn't exist yet
+    // (prepared migration not applied) or on any lookup error — this must
+    // never be the reason a legitimate, first-ever send gets no reply.
+    if (svc && userMessageId) {
+      try {
+        const { data: claimed, error: claimError } = await svc
+          .from("messages")
+          .update({ relay_claimed: true })
+          .eq("id", userMessageId)
+          .eq("relay_claimed", false)
+          .select("id")
+          .maybeSingle();
+        if (!claimError && !claimed) {
+          // Zero rows updated: either already claimed by a concurrent/prior
+          // call for this exact message, or the row doesn't exist. Either
+          // way, do not dispatch a second agent turn for it.
+          return NextResponse.json({ ok: true, alreadyDispatched: true });
+        }
+      } catch {
+        // Migration not applied yet, or any other failure — fail open.
+      }
+    }
+
     const history = threadUuid
       ? await loadThreadHistory(svc, threadUuid, userMessageId, 50)
       : await loadChannelHistory(svc, channelId, userMessageId, 30);
