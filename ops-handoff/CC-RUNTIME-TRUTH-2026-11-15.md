@@ -185,3 +185,37 @@ Combined result on the integration branch: **1039 tests passed, 2 expected fail,
 - `chat-root` height: #93 owns the mobile rule (viewport variable), #91 owns the tablet and desktop rule (content column). They do not conflict today, but the desktop rule still uses `100dvh`, so a tablet keyboard is not accounted for.
 - 44px targets: #91 replaced the blanket `button` rule with a targeted list. #92 and #93 add no new buttons.
 - `CommandHUD`: #92 edits the MRR readout, #91 edits the drawer and quick controls. Disjoint lines.
+
+
+---
+
+## 11. Independent review (Phase A)
+
+Two fresh-context agents, neither of which wrote the code, reviewed each PR at its exact head. Both used read-only worktrees, ran the suites and `tsc` themselves, and were told not to rubber-stamp.
+
+| PR | Final head | Verdict | What the reviewer independently confirmed |
+|---|---|---|---|
+| #92 | `ce071f71fb2f3c1c6c1d8ff5a7204c4ed7cb48cb` | **APPROVE** | Both P1s closed (HUD dock and revenue page no longer print unmeasured zeros), the reports P&L no longer invents a -$3,200 loss, genuine zero preserved, malformed timestamps rejected, demo only behind `?demo=1`, no auth or tenant path weakened, build green |
+| #93 | `97377128bc77ebaff94230e3d5a62c4839165dac` | **APPROVE** | Server-side authorization owner-gated with no IDOR, no browser writes to `messages`, distinct read/persistence/relay errors, replay now key-order safe, 16px input, viewport-variable keyboard sizing, middleware untouched, 958 tests green |
+
+### Defects the reviews found and I fixed
+
+Real defects, not style notes, and the reason the review loop was worth running:
+
+1. **HUD revenue dock printed `$0` for every value during an outage.** It now goes through the same measured-or-em-dash rule as the rest of the app.
+2. **`/command-center/revenue` printed four zeros from an HTTP 200 "unavailable" body**, turning an outage into a measured $0. Now gated on `source === live`.
+3. **Reports printed a fabricated loss**: green `$0.00` revenue minus real `$3,200.00` expenses, shown as a red `-$3,200.00` result. Both the revenue and the P&L are now null unless the source is live, with a neutral card instead of a red one.
+4. **Chat replay compared request JSON with a jsonb read-back**, and Postgres returns keys sorted, so a genuine retry would have been answered 409 while the row existed. Comparison is now canonical JSON with a test using the client's real metadata shape.
+5. **The "money surfaces" guard certified files it did not really cover.** It now includes the dock, the revenue page, reports and the demo data module, and asserts the null gates exist, not just a token.
+6. Two error sites still showed a bare `(401)` for guard denials; both now surface the reason.
+
+### One honest weakness that remains
+
+The reports guard asserts that `revenue30d === null` and `netPL === null` appear in the file. The reviewer showed that reverting only the computation, while leaving the render ternaries, would still match, so the assertion is weaker than its comment. The code is correct today; the test should be tightened to `revenue30d = revenueLive ?` in a follow-up.
+
+### Not fixed, recorded
+
+- Reaction and agent-profile reads still use the anon client and fail under the lockdown, so reaction counts do not render. Reported as P2 by the reviewer.
+- The client never reuses an idempotency key on retry, so the unique index cannot fire from the UI yet.
+- Realtime is RLS-dead while the badge still reports connected.
+- Tenant scoping and channel-existence checks on the service-role routes are not enforced; not exploitable with owner-only credentials and a single tenant, but they should be.
