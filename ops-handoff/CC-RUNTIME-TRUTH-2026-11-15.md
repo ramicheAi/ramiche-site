@@ -376,3 +376,70 @@ Suite: 1042 passed, 1 expected fail, 4 skipped. `tsc` and build clean.
   - `command.parallaxvinc.com` is behind Access, so end-to-end tests need an Access service token or an allowlisted network.
   - No physical iPhone run.
 - **Smallest authorization:** approve merging #92 then #93, then #91 with the assertion change, and approve the candidate branch for a preview build on the iMac on port 3001 (no tunnel change). Deploying the cockpit itself remains a separate, later approval.
+
+
+---
+
+## 14. CC-RECOVERY-04 merge and preview prerequisites
+
+### 14.1 Merges
+
+| PR | Approved head | Merge commit | Post-merge main CI |
+|---|---|---|---|
+| #92 finance truth | `ce071f71` | `e0accc199852bc683cc78e3241ccc461f47ca0a3` | lint-build, test, security pass |
+| #93 chat recovery | `97377128` | `8cafa0abd4cb43884752a7be98d4d6c8c35040dc` | lint-build, test, security pass |
+
+Main is `8cafa0abd4cb43884752a7be98d4d6c8c35040dc`. #92 was merged only after its exact head, main, clean mergeability and CI were re-verified. #93 merged the same way after main advanced.
+
+**The candidate SHA `fc7cbeec` is no longer the correct integration tree.** It was built on top of #91, which is not yet in main. After #91 lands, the candidate must be rebuilt from the new main and the two Phase 5 commits reapplied.
+
+### 14.2 Production database prerequisites (read-only probe)
+
+Probed through the service role against `qkbkfsjkysdsfmhgfdoc`, no writes.
+
+| Object | Result |
+|---|---|
+| `cc_trusted_devices` | 200, columns include `id`, `secret_hash`, `owner_uid`, `expires_at`, `revoked_at`, `locked_until`, `failed_pin_attempts` |
+| `messages` | 200, columns include `status`, `pinned`, `is_pinned`, `sender_user_id`, `thread_parent_id`, `tenant_id`, `metadata` |
+| `channels`, `channel_members`, `agent_profiles`, `message_reactions` | 200 |
+| `cc_device_enrollment_codes` | **403 permission denied for the service role** |
+| `cc_bootstrap_state` | **403 permission denied for the service role** |
+| `messages.client_message_id` | absent (prepared migration not applied) |
+| `messages.relay_claimed` | absent (same migration) |
+
+Two consequences:
+
+1. **First-device bootstrap and new-device approval are broken for the service role.** The owner's existing device still unlocks, because `cc_trusted_devices` is readable, but adding a device or re-enrolling would fail. The least-privilege migration appears to have granted only the tables day-to-day use needs. This is a release blocker for a fresh install and for recovering a lost device.
+2. Chat send persists and the agent relay still dispatches, because the relay claim **fails open** when `relay_claimed` is missing. What is lost is duplicate-dispatch protection, exactly as #93 documents. Applying the migration turns it on; it also removes the PGRST204 fallback round trip.
+
+### 14.3 Preview environment requirements
+
+The pinned release's `.env.local` provides Firebase, Supabase, PIN, bridge, gateway, SMTP and Sentry values. The new main additionally needs:
+
+| Variable | Present on the cockpit host | Present in Vercel production |
+|---|---|---|
+| `PARALLAX_OWNER_UID` | no | yes |
+| `CC_UNLOCK_SIGNING_SECRET` | no | yes |
+| `CC_BOOTSTRAP_SECRET` | no | yes |
+
+A preview started without them fails closed with 503 (owner not configured), which is the correct behaviour but means the preview cannot demonstrate authenticated flows until they are supplied.
+
+### 14.4 Isolation findings
+
+- Port 3000 is held by pid 1834 (`com.command-center`), plist hash `d522cfc4dca5`. Port 3001 is free.
+- The only boot hook is Sentry (`src/instrumentation.ts`). No schedulers, workers or polling loops start with the server.
+- `vercel.json` crons are a Vercel platform feature and do not run under `next start`.
+- Telegram and webhook code is inbound only; nothing polls.
+- Execution telemetry is off unless `CC_EXECUTION_EVENTS` is set.
+- Agent relay dispatch is opt-in via `OPENCLAW_CHAT_PRIMARY=1`; the preview must leave it unset.
+- The only code that writes fleet configuration is the new owner-gated fleet route; the preview must not call its POST.
+
+### 14.5 Preview auth blocker
+
+There is no owner session available to this machine, and minting a device cookie requires a row in the production `cc_trusted_devices` table, which is a production database write and is not authorized. Authenticated preview acceptance therefore needs one of:
+
+- the owner opening the preview over an SSH tunnel and signing in, or
+- explicit authorization for one synthetic device row, created and revoked by label, or
+- a temporary Access service token.
+
+Unauthenticated preview checks (boot, login page, redirects, API denial with reason, absence of 503) can proceed without any of these.
