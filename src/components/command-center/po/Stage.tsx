@@ -264,7 +264,7 @@ export default function Stage({ go }: { go?: (id: string) => void }) {
             <span className="inst-cnr br" />
             <span className="inst-serial">{g.serial}</span>
             <div className="gauge-row">
-              <ArcGauge v={gv[gi]} />
+              <ArcGauge v={g.lab === 'MRR' ? g.arc : gv[gi]} />
               <div className="gauge-readout">
                 <div className="gauge-lab">{g.lab}</div>
                 <div className="gauge-val tnum">
