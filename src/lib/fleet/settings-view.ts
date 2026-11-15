@@ -35,6 +35,7 @@ export type RegistryResponse =
 
 export type RegistryView =
   | { state: 'loading' }
+  | { state: 'denied'; reason: string }
   | { state: 'unavailable'; reason: string; detail?: string }
   | { state: 'malformed'; reason: string }
   | { state: 'empty'; registry: RegistrySnapshot }
@@ -44,6 +45,13 @@ export type RegistryView =
 export function describeRegistry(response: RegistryResponse | null | undefined): RegistryView {
   if (!response) return { state: 'loading' };
   if (response.ok === false) {
+    const reason = (response as { reason?: string }).reason ?? '';
+    // The guard answers {error:"denied", reason:"missing_session"} with no `source`. That is an
+    // expired session, not an unreachable runtime, and telling the operator "runtime unavailable"
+    // sends them to debug the wrong thing.
+    if (reason === 'missing_session' || reason === 'denied' || (response as { error?: string }).error === 'denied') {
+      return { state: 'denied', reason: 'your session expired; sign in again' };
+    }
     if (response.source === 'malformed') {
       return { state: 'malformed', reason: response.reason ?? 'the registry could not be parsed' };
     }
@@ -56,7 +64,11 @@ export function describeRegistry(response: RegistryResponse | null | undefined):
   const { providers, agents } = response.registry;
   // An empty catalogue is a real answer from a runtime that has nothing configured. It must not be
   // shown as an outage, and an outage must not be shown as an empty catalogue.
-  if (providers.length === 0 && agents.length === 0) return { state: 'empty', registry: response.registry };
+  // Either half being empty means there is nothing usable to configure. Calling that "ready"
+  // gives an operator a table of disabled selects with no explanation.
+  if (providers.length === 0 || agents.length === 0) {
+    return { state: 'empty', registry: response.registry };
+  }
   return { state: 'ready', registry: response.registry };
 }
 
@@ -132,25 +144,34 @@ const REJECTION_TEXT: Record<string, string> = {
  * A success is only reported when the server returns the value it read back. Anything else is a
  * failure with a specific reason, including the lock case, which is busy rather than broken.
  */
-export function describeWrite(response: WriteResponse | null | undefined): WriteView | { state: 'idle' } {
+export function describeWrite(
+  response: WriteResponse | { ok: true; write?: WriteResponse } | null | undefined,
+): WriteView | { state: 'idle' } {
   if (!response) return { state: 'idle' };
-  if (response.ok === true) {
+  // The route answers { ok, source, write: <WriteResult> }, not the WriteResult itself. Reading the
+  // top level produced "Saved and read back: undefined is now undefined" on every success, which is
+  // the precise failure this screen exists to prevent.
+  const flat = ((response as { write?: WriteResponse }).write ?? response) as WriteResponse;
+  if (flat.ok === true) {
+    if (typeof flat.after !== 'string' || !flat.after) {
+      return { state: 'rejected', code: 'unconfirmed', message: 'the server did not return the value it persisted' };
+    }
     return {
       state: 'saved',
-      agentId: response.agentId,
+      agentId: flat.agentId,
       // The persisted value, not the requested one. If these ever differ the server would have
       // returned readback_mismatch instead, so this is the confirmed value by construction.
-      persisted: response.after,
-      before: response.before,
-      backupPath: response.backupPath,
+      persisted: flat.after,
+      before: flat.before,
+      backupPath: flat.backupPath,
     };
   }
-  const code = response.reason;
+  const code = flat.reason;
   if (code === 'locked') return { state: 'busy', code, message: 'another change is in progress; nothing was written' };
   if (code === 'source_unavailable' || code === 'lock_failed' || code === 'write_failed') {
-    return { state: 'unavailable', code, message: response.detail ?? 'the runtime could not be written' };
+    return { state: 'unavailable', code, message: flat.detail ?? 'the runtime could not be written' };
   }
-  return { state: 'rejected', code, message: REJECTION_TEXT[code] ?? response.detail ?? code };
+  return { state: 'rejected', code, message: REJECTION_TEXT[code] ?? flat.detail ?? code };
 }
 
 /** Options for a select, grouped by provider, with nothing invented. */

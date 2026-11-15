@@ -87,7 +87,7 @@ export default function FleetModelSettings() {
     <section className="po-panel" aria-label="Fleet models" style={{ padding: 16 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
         <h3 style={{ margin: 0 }}>Fleet models</h3>
-        <button type="button" onClick={() => void load()} disabled={busy !== null}>
+        <button type="button" onClick={() => void load()} disabled={busy !== null} style={{ minHeight: 44, padding: '0 14px' }}>
           Re-read runtime
         </button>
       </div>
@@ -100,6 +100,12 @@ export default function FleetModelSettings() {
           {view.detail ? <> <span style={{ opacity: 0.75 }}>({view.detail})</span></> : null}
           <br />
           <span style={{ opacity: 0.75 }}>This is not an empty catalogue. Nothing is shown because nothing could be read.</span>
+        </p>
+      )}
+
+      {view.state === 'denied' && (
+        <p role="alert" style={{ color: 'var(--c-gold)' }}>
+          <strong>Your session expired.</strong> {view.reason}
         </p>
       )}
 
@@ -123,7 +129,8 @@ export default function FleetModelSettings() {
       )}
 
       {snapshot && snapshot.agents.length > 0 && (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div style={{ overflowX: 'auto', minWidth: 0, marginTop: 8 }}>
+        <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse' }}>
           <thead>
             <tr>
               <th align="left">Agent</th>
@@ -160,6 +167,7 @@ export default function FleetModelSettings() {
                     <button
                       type="button"
                       disabled={!selected || busy === agent.agentId}
+                      style={{ minHeight: 44, minWidth: 64 }}
                       onClick={() => void save(agent.agentId, selected)}
                     >
                       {busy === agent.agentId ? 'Saving…' : 'Save'}
@@ -170,6 +178,7 @@ export default function FleetModelSettings() {
             })}
           </tbody>
         </table>
+        </div>
       )}
 
       {result.state === 'saved' && (

@@ -123,3 +123,52 @@ describe('options come only from the advertised catalogue', () => {
     ]);
   });
 });
+
+describe('the route envelope is not the write result', () => {
+  // The first version read the top level of {ok, source, write} and rendered
+  // "Saved and read back: undefined is now undefined" on every success.
+  it('reads the confirmed value out of the envelope', () => {
+    const view = describeWrite({
+      ok: true,
+      source: 'live',
+      write: {
+        ok: true,
+        agentId: 'atlas',
+        before: 'claude-max/claude-opus-5',
+        after: 'openai/gpt-6',
+        backupPath: '/tmp/x.bak',
+        observedAt: '2026-11-15T18:01:00.000Z',
+      },
+    } as never);
+    expect(view).toMatchObject({ state: 'saved', persisted: 'openai/gpt-6', before: 'claude-max/claude-opus-5' });
+  });
+
+  it('refuses to call it saved when the server returned no confirmed value', () => {
+    const view = describeWrite({ ok: true, write: { ok: true, agentId: 'atlas', after: '' } } as never);
+    expect(view.state).toBe('rejected');
+    if (view.state === 'rejected') expect(view.message).toMatch(/did not return the value/);
+  });
+
+  it('never prints undefined into the message', () => {
+    const view = describeWrite({ ok: true, source: 'live', write: { ok: true, agentId: 'atlas' } } as never);
+    if (view.state === 'rejected') expect(view.message).not.toContain('undefined');
+  });
+});
+
+describe('an expired session is not an outage', () => {
+  it('reports denied rather than runtime unavailable', () => {
+    const view = describeRegistry({ ok: false, error: 'denied', reason: 'missing_session' } as never);
+    expect(view).toEqual({ state: 'denied', reason: 'your session expired; sign in again' });
+  });
+});
+
+describe('half a catalogue is not ready', () => {
+  it('reports empty when agents exist but no providers do', () => {
+    const view = describeRegistry({
+      ok: true,
+      source: 'live',
+      registry: { agents: [{ agentId: 'atlas', primary: null, fallbacks: [], unsupported: false }], providers: [], warnings: [], observedAt: '' },
+    });
+    expect(view.state).toBe('empty');
+  });
+});
