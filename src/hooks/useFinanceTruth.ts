@@ -56,11 +56,17 @@ export function useFinanceTruth(): FinanceTruthResult {
       .catch((err: unknown) => {
         if (cancelled) return;
         if (err instanceof DOMException && err.name === "AbortError") return;
-        setState({
-          ...INITIAL_STATE,
-          source: "unavailable",
-          reason: err instanceof Error ? err.message : "Revenue request failed.",
-        });
+        // An explicit ?demo=1 must still render the labelled demo, otherwise any 500 or 401
+        // silently removes the only state the caller asked for.
+        if (demo) {
+          setState(resolveFinanceState(null, true));
+        } else {
+          setState({
+            ...INITIAL_STATE,
+            source: "unavailable",
+            reason: err instanceof Error ? err.message : "Revenue request failed.",
+          });
+        }
       });
 
     return () => {

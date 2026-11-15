@@ -148,7 +148,10 @@ export default function FinanceHQ() {
               </span>
             </div>
             <div className="fn-big tnum">{formatUsdCompact(fin.mrr)}</div>
-            <div className="fn-delta">
+            <div
+              className="fn-delta"
+              style={{ color: isLive ? 'var(--c-green)' : isDemo ? 'var(--gold)' : 'var(--t-mid)' }}
+            >
               {isLive && <>measured from Stripe · ${formatArrK(fin.arr)} ARR · {prov.measured}</>}
               {isDemo && <>sample series · ${formatArrK(fin.arr)} ARR</>}
               {!isLive && !isDemo && (fin.reason || 'No measured revenue available.')}

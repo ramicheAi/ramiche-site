@@ -151,7 +151,10 @@
 .po-shell .fn-big { font-size: 62px; font-weight: 600; letter-spacing: -.03em; line-height: 1; }
 .po-shell .fn-delta { font-family: var(--f-mono); font-size: 14px; color: var(--c-green); margin-top: 8px; }
 .po-shell .fn-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 22px; }
-.po-shell .fn-tile { padding: 18px; border-radius: var(--r-md); background: var(--panel-glass); border: 1px solid var(--line); }
+.po-shell .fn-tile { padding: 18px; border-radius: var(--r-md); background: var(--panel-glass); border: 1px solid var(--line); min-width: 0; }
+/* Tile labels are words ("Active subscriptions"), not numbers. They must wrap in the 4-up desktop
+   grid as well as the 2-up phone grid, otherwise the 641-767 band clips them. */
+.po-shell .fn-tile .eyebrow { white-space: normal; overflow-wrap: anywhere; }
 .po-shell .fn-tile .v { font-size: 26px; font-weight: 600; margin-top: 10px; letter-spacing: -.01em; }
 .po-shell .fn-row { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .po-shell .fn-row:last-child { border-bottom: none; }

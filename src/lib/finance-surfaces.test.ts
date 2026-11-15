@@ -21,6 +21,14 @@ const SURFACES: { file: string; label: string }[] = [
   { file: 'src/components/command-center/po/Sanctuary.tsx', label: 'Sanctuary' },
   { file: 'src/components/command-center/po/Stage.tsx', label: 'Stage' },
   { file: 'src/components/command-center/po/CommandView.tsx', label: 'CommandView vitals' },
+  { file: 'src/components/command-center/StatusDock.tsx', label: 'HUD revenue dock' },
+];
+
+// Screens that show money but are not yet migrated to the shared hook. They still must not carry
+// an invented figure or a permanent claim of live data.
+const BANNED_ONLY: { file: string; label: string }[] = [
+  { file: 'src/app/command-center/revenue/page.tsx', label: 'Revenue page' },
+  { file: 'src/app/command-center/reports/page.tsx', label: 'Reports page' },
 ];
 
 // Money figures that were invented in the original shell. Each one is tied to a real observed
@@ -44,6 +52,26 @@ describe('no production surface can show invented money', () => {
       }
     });
   }
+
+  for (const surface of BANNED_ONLY) {
+    it(`${surface.label} carries no hardcoded revenue figures`, () => {
+      const code = stripComments(readFileSync(join(ROOT, surface.file), 'utf8'));
+      for (const pattern of BANNED) {
+        expect(code, `${surface.file} contains ${pattern}`).not.toMatch(pattern);
+      }
+    });
+  }
+
+  it('an unavailable feed is never rendered as a measured zero', () => {
+    // The revenue endpoint answers 200 with subscriptions {0,0,0} and source "unavailable".
+    // Both surfaces must gate on the source, not on the number.
+    for (const file of ['src/app/command-center/revenue/page.tsx', 'src/components/command-center/StatusDock.tsx']) {
+      const code = stripComments(readFileSync(join(ROOT, file), 'utf8'));
+      expect(code, `${file} prints money without checking the source`).toMatch(
+        /source === "live"|state === "ok"|revenueLabel\(/,
+      );
+    }
+  });
 
   it('every money surface reads the shared truth model', () => {
     for (const surface of SURFACES) {
