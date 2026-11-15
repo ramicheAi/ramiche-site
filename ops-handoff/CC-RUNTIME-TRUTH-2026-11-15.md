@@ -86,3 +86,69 @@ Files: `IMG_7480.PNG` to `IMG_7485.PNG`, 1320x2868 (440x956 at 3x), captured 08:
 - All browser verification in this recovery used Playwright with iPhone metrics and an emulated visual viewport. That is not a physical iPhone.
 - The authenticated chat receipts ran against an isolated Postgres + PostgREST stack built from the repo migrations, not the production database.
 - **PRODUCT GO stays withheld until the real iPhone passes.**
+
+
+---
+
+## 7. iMac reconnaissance (read-only, 2026-11-15)
+
+SSH to the iMac (`admin@100.118.84.5`, host `C02YW21CJWF2`, macOS 15.7.9) is available from the MacBook over Tailscale. Everything below was read, nothing was changed.
+
+### What the tunnel actually serves
+
+| Item | Value |
+|---|---|
+| Runtime directory | `/Users/admin/cockpit-releases/41d183a0` (pinned release, not the git repo) |
+| Release commit | `41d183a0`, 2026-10-05, "P06 M5C: Parallax OS pages carry their own title and manifest (#46)" |
+| Next build id | `O_2PPHl3Wjiq0d_uIj5ZD` |
+| Next version | 16.2.4 |
+| Process | `com.command-center` LaunchAgent, `next start -H 127.0.0.1 -p 3000`, `NEXT_DIST_DIR=.next-cc` |
+| Front door | `com.command-center-tunnel` (Cloudflare tunnel) plus Cloudflare Access |
+| Repo on the iMac | `~/ramiche-site` on `simplify/cc-retire-unused`, last commit 2026-08-28, not the deployed tree |
+
+The release is **six weeks behind `main`** and does not contain the mobile shell work: `CommandHUD.tsx` has no `po-menu-btn`, no "Open navigation", and no `cc:toggle-nav` listener.
+
+**Inference, not fact:** the six screenshots show the mobile HUD with the hamburger and search bar, which only exists in the post-#90 code. The installed app is therefore most likely running the Vercel origin, not the tunnel. Owner confirmation is still required, because a re-install or a stale service worker changes the answer.
+
+### Fleet model authority
+
+- The authoritative registry is `/Users/admin/.openclaw/openclaw.json`, read by the gateway at startup (`models.mode: merge`).
+- Real providers and model ids include `claude-max` (`claude-opus-5`, `claude-opus-4-8`, `claude-opus-4-7`, `claude-sonnet-4-5-20250929`, `claude-sonnet-4-6`, `claude-haiku-4`) behind `127.0.0.1:3456`, plus `minimax`, `apple-fm`, `lmstudio` and `alibaba-modelstudio`.
+- 21 agents are configured, each with `primary` and `fallbacks`, for example `main -> claude-max/claude-opus-5`.
+- The cockpit UI ships nine hardcoded choices (`Claude Opus 4.6`, `Kimi K2.5`, `Gemma2 9B`, ...). Every one of them is wrong or stale relative to the registry. `Gemma2 9B` does not exist; the registry has `gemma-4-e4b`.
+- **The write path is not authoritative.** `/api/command-center/agents` POST writes `~/.openclaw/agents/directory.json`, a separate list-shaped file last touched 2026-07-12. The runtime never reads it. A model change therefore returns `{ok:true}` while the fleet keeps its old model. That is the exact "claims success on Vercel when the registry cannot be written" failure.
+- `~/.openclaw/openclaw.json` is the only thing that changes behaviour, and the gateway exposes **no config or model tool** over `/tools/invoke` (verified tool list: `web_search`, `browser`, `web_fetch`, `message`, `cron`, `gateway`, `agents_list`, `sessions_*`, `image`, `nodes`, `canvas`, `subscribe`). Any correct implementation must write `openclaw.json` atomically, validate the model against the provider catalogue, then re-read it and report what actually landed.
+- Gateway health is reachable: `GET http://127.0.0.1:24511/health` returns 200.
+
+### YOLO builds
+
+- Authoritative inventory on disk: `/Users/admin/.openclaw/workspace/builds` (405 entries, but the directory also holds `builds.json` and `feature-designs`, so the true build count is lower).
+- `builds.json` holds 177 entries, oldest 2026-03-02, **newest 2026-07-13**. Nothing has been added in four months.
+- The cockpit route `/api/command-center/yolo-builds` reads the filesystem with `readdirSync`, so it can only be correct on the iMac, never on Vercel. The Vercel copy shows an empty or stale list, which is what the phone saw.
+- There is no `observedAt`, no freshness field and no failure state in the current response. The page shows "No builds loaded, waiting for YOLO builds API" and "No builds yet for this agent" at the same time.
+
+### Operational API boundaries
+
+- Mutations are guarded by `guardProtectedMutation` (owner/founder authority, CSRF).
+- Server-to-gateway calls go through `gatewayToolsInvoke` with a bearer token from `OPENCLAW_GATEWAY_TOKEN` / `OPENCLAW_GATEWAY_PASSWORD`.
+- `/tools/invoke` requires POST plus a bearer token and rejects anything else with 401/405.
+
+---
+
+## 8. Canonical runtime comparison
+
+| Criterion | A. iMac self-hosted canonical | B. Vercel frontend + iMac APIs | C. Hybrid, explicit live/unavailable |
+|---|---|---|---|
+| Security | Access plus app device trust, single origin, no data in a third party | Two public front doors, CORS and token forwarding to the tunnel, larger attack surface | One door per role, but every panel must carry its mode |
+| Reliability | Dies with the iMac, the tunnel or a release | UI stays up, panels fail per source | UI stays up, degraded panels say so |
+| Offline / PWA | Full capabilities while the iMac is reachable | Half the cockpit is dead offline | Predictable: cached shell, live panels marked unavailable |
+| Cost | Existing hardware | Vercel plus tunnel | Both, but no duplicated cockpit |
+| Maintenance | One deploy target, pinned releases | Two code paths, drift already observed (six weeks) | One source of truth, two adapters |
+| Failure recovery | Restart the LaunchAgent; a stale release is easy to spot | Vercel rollback independent of the tunnel | Same, with visible provenance |
+| Correctness of data | Full filesystem and registry access | Cannot write the registry, cannot read builds | Correct by construction: live only where authoritative |
+
+**Recommendation: C, implemented as B moving toward A.** Keep Vercel for the marketing site and for a resilient shell, make `command.parallaxvinc.com` the canonical operational origin, and make every data panel declare `live`, `stale` or `unavailable` with its source and `observedAt`. Gates 3 and 4 then become honest on both origins instead of silently wrong on one. This is a recommendation only: no alias, DNS or Access change is part of this work.
+
+## 9. iMac access status
+
+Access is available and was used read-only. The remaining blocked question is not connectivity, it is contract: which endpoint may write `openclaw.json` (a new gateway config tool, or a guarded route on the iMac), and whether the pinned release should be advanced before any of this ships.
