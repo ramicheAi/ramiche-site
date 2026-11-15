@@ -13,16 +13,29 @@ import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/command-center/po/Brand';
 import { Avatar } from '@/components/command-center/po/Avatar';
 import { AGENTS, VITALS, FEED, ROUTE } from '@/lib/po-data';
+import { useFinanceTruth } from '@/hooks/useFinanceTruth';
+import { financeProvenance, formatUsdCompact } from '@/lib/finance-truth';
 import Stage from '@/components/command-center/po/Stage';
 import type { CSSProperties } from 'react';
 
 export default function CommandView() {
+  const finance = useFinanceTruth();
+
   const router = useRouter();
   const go = (id: string) => {
     const href = ROUTE[id];
     if (href) router.push(href);
   };
   const fleet = AGENTS.slice(0, 8);
+
+  // VITALS carries a showpiece MRR figure. Replace only that tile with the measured value, so the
+  // strip cannot display revenue the business never earned. Other tiles are non-financial demos.
+  const finProv = financeProvenance(finance);
+  const vitals = VITALS.map((v) =>
+    v.lab === 'MRR'
+      ? { ...v, num: formatUsdCompact(finance.mrr), sub: finProv.status === 'live' ? '+live' : finProv.status }
+      : v,
+  );
 
   return (
     <div className="cv po-scroll">
@@ -43,7 +56,7 @@ export default function CommandView() {
         <Stage go={go} />
 
         <div className="cv-vitals po-panel holo-foil">
-          {VITALS.map((v) => (
+          {vitals.map((v) => (
             <div key={v.lab} className="cv-vital">
               <div className="vtop">
                 <span className="eyebrow">{v.lab}</span>

@@ -193,8 +193,11 @@ export default function ReportsPage() {
     return () => { cancelled = true; };
   }, []);
 
-  const revenue30d = revenueData?.revenue?.last30Days ?? 0;
-  const netPL = revenue30d - MONTHLY_EXPENSES;
+  // An unavailable feed answers 200 with revenue {last30Days: 0}. Subtracting a real expense
+  // figure from an unmeasured zero invents a loss, so both stay null until the source is live.
+  const revenueLive = revenueData?.source === "live";
+  const revenue30d = revenueLive ? (revenueData?.revenue?.last30Days ?? 0) : null;
+  const netPL = revenue30d === null ? null : revenue30d - MONTHLY_EXPENSES;
   const breakdown = revenueData?.revenue?.monthlyBreakdown ?? [];
   const maxBreakdown = Math.max(...breakdown.map((b) => b.amount), 1);
 
@@ -299,8 +302,8 @@ export default function ReportsPage() {
             {revenueLoading ? (
               <div style={{ height: 32, width: "60%", borderRadius: 6, background: "rgba(255,255,255,0.06)", animation: "pulse 1.5s ease-in-out infinite" }} />
             ) : (
-              <p className="mono" style={{ fontSize: 28, color: "var(--c-green)", fontWeight: 900, margin: 0 }}>
-                ${revenue30d.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              <p className="mono" style={{ fontSize: 28, color: revenue30d === null ? "var(--t-mid)" : "var(--c-green)", fontWeight: 900, margin: 0 }}>
+                {revenue30d === null ? "\u2014" : `$${revenue30d.toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
               </p>
             )}
             <p className="mono" style={{ fontSize: 11, color: "var(--t-lo)", margin: "6px 0 0" }}>
@@ -324,8 +327,8 @@ export default function ReportsPage() {
           {/* Net P&L */}
           <div style={{
             padding: 24, borderRadius: "var(--r-lg)", background: "var(--ink-2)",
-            border: `2px solid ${netPL >= 0 ? "rgba(34,197,94,0.25)" : "rgba(239,68,68,0.25)"}`,
-            boxShadow: `0 0 24px ${netPL >= 0 ? "rgba(34,197,94,0.08)" : "rgba(239,68,68,0.08)"}`,
+            border: `2px solid ${netPL === null ? "var(--line)" : netPL >= 0 ? "rgba(34,197,94,0.25)" : "rgba(239,68,68,0.25)"}`,
+            boxShadow: `0 0 24px ${netPL === null ? "transparent" : netPL >= 0 ? "rgba(34,197,94,0.08)" : "rgba(239,68,68,0.08)"}`,
           }}>
             <p style={{ fontSize: 10, color: "var(--t-mid)", letterSpacing: "0.2em", fontWeight: 600, margin: "0 0 8px", textTransform: "uppercase" }}>
               Net P&L
@@ -333,8 +336,8 @@ export default function ReportsPage() {
             {revenueLoading ? (
               <div style={{ height: 32, width: "60%", borderRadius: 6, background: "rgba(255,255,255,0.06)", animation: "pulse 1.5s ease-in-out infinite" }} />
             ) : (
-              <p className="mono" style={{ fontSize: 28, fontWeight: 900, margin: 0, color: netPL >= 0 ? "var(--c-green)" : "var(--c-red)" }}>
-                {netPL >= 0 ? "+" : ""}${netPL.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              <p className="mono" style={{ fontSize: 28, fontWeight: 900, margin: 0, color: netPL === null ? "var(--t-mid)" : netPL >= 0 ? "var(--c-green)" : "var(--c-red)" }}>
+                {netPL === null ? "\u2014" : `${netPL >= 0 ? "+" : ""}$${netPL.toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
               </p>
             )}
             <p className="mono" style={{ fontSize: 11, color: "var(--t-lo)", margin: "6px 0 0" }}>
@@ -377,7 +380,7 @@ export default function ReportsPage() {
         )}
 
         {/* Subscription metrics */}
-        {revenueData && revenueData.subscriptions.active > 0 && (
+        {revenueData && revenueData.source === "live" && revenueData.subscriptions.active > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12, marginTop: 16 }}>
             {[
               { label: "ACTIVE SUBS", value: String(revenueData.subscriptions.active), color: "var(--c-green)" },
