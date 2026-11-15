@@ -32,15 +32,13 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "Parallax",
   },
-  other: {
-    "theme-color": "#0a0a0a",
-  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
+  themeColor: "#0a0a0a",
 };
 
 export default function RootLayout({

@@ -2,7 +2,7 @@
  * PARALLAX OS — cc-theme.ts
  * Single source of truth for the Command Center visual system.
  * Drop into src/lib/cc-theme.ts and import the CSS-var injector once in
- * src/app/command-center/layout.tsx (see <ApplyTheme/> note at bottom).
+ * src/app/command-center/CommandCenterClientLayout.tsx (see <ApplyTheme/> note at bottom).
  *
  * This mirrors the design built in the HTML prototype (Parallax OS.html):
  * purple #7c3aed primary, gold #C9A84C secondary, per-section accent colors,
