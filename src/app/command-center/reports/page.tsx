@@ -377,7 +377,7 @@ export default function ReportsPage() {
         )}
 
         {/* Subscription metrics */}
-        {revenueData && revenueData.subscriptions.active > 0 && (
+        {revenueData && revenueData.source === "live" && revenueData.subscriptions.active > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12, marginTop: 16 }}>
             {[
               { label: "ACTIVE SUBS", value: String(revenueData.subscriptions.active), color: "var(--c-green)" },

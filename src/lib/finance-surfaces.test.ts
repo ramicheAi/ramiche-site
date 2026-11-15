@@ -29,6 +29,7 @@ const SURFACES: { file: string; label: string }[] = [
 const BANNED_ONLY: { file: string; label: string }[] = [
   { file: 'src/app/command-center/revenue/page.tsx', label: 'Revenue page' },
   { file: 'src/app/command-center/reports/page.tsx', label: 'Reports page' },
+  { file: 'src/lib/po-data.ts', label: 'Demo data module' },
 ];
 
 // Money figures that were invented in the original shell. Each one is tied to a real observed
@@ -65,7 +66,11 @@ describe('no production surface can show invented money', () => {
   it('an unavailable feed is never rendered as a measured zero', () => {
     // The revenue endpoint answers 200 with subscriptions {0,0,0} and source "unavailable".
     // Both surfaces must gate on the source, not on the number.
-    for (const file of ['src/app/command-center/revenue/page.tsx', 'src/components/command-center/StatusDock.tsx']) {
+    for (const file of [
+      'src/app/command-center/revenue/page.tsx',
+      'src/app/command-center/reports/page.tsx',
+      'src/components/command-center/StatusDock.tsx',
+    ]) {
       const code = stripComments(readFileSync(join(ROOT, file), 'utf8'));
       expect(code, `${file} prints money without checking the source`).toMatch(
         /source === "live"|state === "ok"|revenueLabel\(/,
