@@ -309,6 +309,7 @@ export default function Sidebar({
           <button
             type="button"
             className="po-quick"
+            aria-label={pulseOpen ? 'Hide chat pulse' : 'Show chat pulse'}
             aria-pressed={pulseOpen}
             onClick={() => {
               // the dock paints below the drawer overlay, so hand the screen back to it
@@ -321,6 +322,7 @@ export default function Sidebar({
           <button
             type="button"
             className="po-quick"
+            aria-label={wakeEnabled ? 'Disable wake word' : 'Enable wake word'}
             aria-pressed={wakeEnabled}
             onClick={() => {
               window.dispatchEvent(new CustomEvent('cc:toggle-wake'));

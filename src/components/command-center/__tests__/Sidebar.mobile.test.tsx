@@ -127,5 +127,9 @@ describe('mobile drawer', () => {
     await waitFor(() => expect(drawer()).not.toHaveAttribute('inert'));
     expect(screen.getByRole('button', { name: /pulse/i })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: /wake word/i })).toHaveAttribute('aria-pressed', 'true');
+    // The tablet rail hides the visible labels (font-size:0 + display:none), so the name has to
+    // come from aria-label or the control is anonymous exactly where it matters most.
+    expect(screen.getByRole('button', { name: /pulse/i })).toHaveAttribute('aria-label');
+    expect(screen.getByRole('button', { name: /wake word/i })).toHaveAttribute('aria-label');
   });
 });
