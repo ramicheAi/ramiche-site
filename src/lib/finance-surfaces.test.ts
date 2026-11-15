@@ -78,6 +78,14 @@ describe('no production surface can show invented money', () => {
     }
   });
 
+  it('reports does not invent a loss from an unmeasured zero', () => {
+    // The P&L panel subtracts a real expense figure from revenue. If revenue is an unmeasured 0,
+    // that arithmetic produces a fabricated loss, so both must be null-gated, not just the tiles.
+    const code = stripComments(readFileSync(join(ROOT, 'src/app/command-center/reports/page.tsx'), 'utf8'));
+    expect(code).toMatch(/revenue30d === null/);
+    expect(code).toMatch(/netPL === null/);
+  });
+
   it('every money surface reads the shared truth model', () => {
     for (const surface of SURFACES) {
       const raw = readFileSync(join(ROOT, surface.file), 'utf8');
