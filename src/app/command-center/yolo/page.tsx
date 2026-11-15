@@ -276,16 +276,21 @@ export default function YoloBuildsPage() {
               <button
                 key={a.id}
                 onClick={() => setFilter(a.id)}
-                className="px-3 py-1.5 rounded-md text-xs font-semibold tracking-wider transition-all"
+                className="px-3 py-1.5 rounded-md text-xs font-semibold tracking-wider transition-all flex flex-col items-start text-left min-w-0 max-w-full"
                 style={{
                   border: `2px solid ${filter === a.id ? a.accent : `${a.accent}25`}`,
                   background: filter === a.id ? `${a.accent}15` : "transparent",
                   color: filter === a.id ? a.accent : "var(--t-lo)",
                   boxShadow: filter === a.id ? `0 0 12px ${a.accent}20` : "none",
+                  flex: "0 1 auto",
                 }}
               >
-                {a.label} ({count})
-                {a.lane && <span className="ml-1 opacity-50 text-[9px]">{a.lane}</span>}
+                <span className="leading-tight whitespace-nowrap">{a.label} ({count})</span>
+                {a.lane && (
+                  <span className="opacity-50 text-[9px] leading-tight whitespace-normal break-words max-w-full">
+                    {a.lane}
+                  </span>
+                )}
               </button>
             );
           })}
