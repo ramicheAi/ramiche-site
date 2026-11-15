@@ -628,3 +628,132 @@ Run only after the canonical cockpit serves the new build. Each step is pass or 
 10. **Rollback.** Confirm the previous release id is recorded, so a rollback is one LaunchAgent repoint.
 
 Any failure is a PRODUCT NO-GO, with the failing step and a screenshot.
+
+
+---
+
+## 18. CC-RECOVERY-06
+
+### 18.1 Vercel release-control incident
+
+Active production deployment is `dpl_BxVfLSoZzLLB2Sto6SmxHZGEHT21`, commit `f5c88ba4`, created 2026-11-15T16:30Z, alias `ramiche-site.vercel.app`.
+
+Cause: the Vercel project's Git integration treats `main` as the production branch, and `vercel.json` has no `git.deploymentEnabled` block. Every push to `main` therefore builds and aliases production. The three merges produced three production deployments:
+
+| Push | Deploy |
+|---|---|
+| #92 merge `e0accc19` | 16:05Z |
+| #93 merge `8cafa0ab` | 16:08Z |
+| #91 merge `f5c88ba4` | 16:30Z |
+
+No human ran a deploy command. Merging to `main` *is* deploying.
+
+**Proposed minimal control (not applied):** add to `vercel.json`
+
+```json
+"git": { "deploymentEnabled": { "main": false } }
+```
+
+and release by promoting a reviewed preview deployment by ID:
+
+```bash
+vercel promote <dpl_id>        # or: vercel --prod from the reviewed SHA
+```
+
+Consequences, stated plainly:
+
+- Pushes and merges to `main` no longer change production. Previews still build for PRs.
+- A release becomes an explicit, auditable action with a deployment ID.
+- If the release step is skipped, production simply stays on the previous deployment. That is a visible lag, not a silent bad deploy.
+- The public marketing site now shares the release cadence of the cockpit repo. That is the cost: one extra step per release. If the marketing site must ship independently, the alternative is a separate `production` branch as Vercel's Production Branch, which is a project setting change and a larger workflow change.
+- Risk to watch: manual promotion bypasses CI ordering if someone promotes a preview whose checks failed. The release command must name the SHA and the run ID.
+
+Do not change project settings, Git integration, deployment protection or aliases without approval.
+
+### 18.2 Isolated preview plan and capability check
+
+Read-only capability results on the cockpit host:
+
+| Capability | Result | Consequence |
+|---|---|---|
+| Ports 4400, 54340, 54341 | free | usable for preview Postgres, PostgREST and emulator |
+| Bind 127.0.0.2 | **fails EADDRNOTAVAIL** | loopback alias needs `sudo ifconfig lo0 alias`, or use `localhost:3001` whose cookie host differs from `127.0.0.1` |
+| Java runtime | **absent** | Firebase Auth emulator cannot start until a JRE is installed (host-wide) |
+| firebase CLI | absent, npx cache present | emulator install via npx is possible once Java exists |
+| `ccpreview` user | absent | creating it needs `sudo` |
+| Disk free | 5.7 GB | enough for a source tree and a preview DB, tight for a second node_modules |
+| Production trusted devices | **2 rows**, counted read-only | untouched |
+
+Provisioning therefore splits into what can be done now and what needs approval:
+
+**Now, no privileges:** source checkout in a scratch directory, synthetic seed SQL, local Postgres and PostgREST on 127.0.0.1:54340/54341, emulator config file, env allowlist.
+
+**Requires explicit execution approval, with exact commands reviewed first:**
+
+1. `sudo sysadminctl -addUser ccpreview -shell /bin/zsh -home /Users/ccpreview` plus group membership check.
+2. Java runtime install (Homebrew cask or Temurin pkg).
+3. `sudo ifconfig lo0 alias 127.0.0.2` for the separate origin, if `localhost` is judged insufficient.
+4. PF anchor blocking outbound except loopback.
+5. Launching the preview as `ccpreview` under `launchctl` or `sudo -u`.
+
+**Cookie isolation is not assumed from the IP.** `127.0.0.1:3001` shares the cookie jar with `127.0.0.1:3000`. `localhost` is a different host string and therefore a different cookie jar, and `127.0.0.2` would be a third. The preview must be accessed through a host string that production never uses, and the owner must confirm no production cookies exist for that host before signing in.
+
+### 18.3 Relay delivery semantics: corrected guarantee
+
+The previous report overstated it. The lease gives **exclusive claiming while the lease is valid**, not at-most-once execution across retries.
+
+Proven on PostgreSQL 17:
+
+| Scenario | Result |
+|---|---|
+| Two concurrent claims inside the lease | one winner |
+| Slow dispatch, lease expires while first still running | **second claim succeeds** (attempts 2) |
+| Both callers proceed | **duplicate concurrent execution is possible** |
+| Delivered row, age-based predicate | **re-claims** unless the predicate excludes terminal state |
+| Delivered row with terminal-aware predicate | blocked |
+| Crashed claim with terminal-aware predicate after expiry | re-claimable |
+
+Correct predicate:
+
+```sql
+update public.messages
+   set relay_claimed = true, relay_claimed_at = now(), relay_attempts = relay_attempts + 1
+ where id = $1
+   and coalesce(relay_status, 'pending') not in ('delivered', 'failed_permanent')
+   and (relay_claimed = false or relay_claimed_at < now() - interval '2 minutes');
+```
+
+The age-only predicate shipped by the prepared migration is insufficient: it can re-dispatch a delivered message. `relay_status` must be part of the claim.
+
+**Accurate guarantee:** at most one *active claimant at a time*, with recovery after a lease expires. It is not at-most-once execution, and not exactly-once. If a slow dispatch outlives the lease, two runs can overlap.
+
+**Gateway support:** `sessions_send` accepts `message`, `sessionKey`, `label` or `agentId`. It has **no caller-supplied idempotency key**; its internal A2A path generates a random `idempotencyKey` per call, which cannot dedupe a retry. Until the gateway accepts a stable operation id, exactly-once cannot be promised.
+
+Failure-mode matrix:
+
+| Failure | Behaviour with terminal-aware lease | Agent execution |
+|---|---|---|
+| Lost ack before dispatch | lease expires, retry claims, one dispatch | once, delayed |
+| Crash after claim, before dispatch | lease expires, retry claims | once |
+| Crash after gateway accepted, before ack | retry claims after expiry | **twice** |
+| Slow dispatch longer than lease | second claim overlaps | **twice concurrently** |
+| Concurrent claims inside lease | one winner | once |
+| Delivered | terminal state blocks re-claim | once |
+| Permanent failure marked | terminal state blocks retry | zero, by decision |
+
+### 18.4 Device recovery verification (synthetic)
+
+Applied the four auth migrations to a fresh PostgreSQL 17 with `service_role`, `anon` and `authenticated`, exactly as production intends, then exercised the SECURITY DEFINER path:
+
+| Check | Result |
+|---|---|
+| `cc_bootstrap_claim_attempt` as service_role | `allowed=true`, attempts 1 |
+| `cc_bootstrap_consume_and_enroll` | `ok=true`, device row created |
+| `service_role` direct SELECT on enrollment codes | **permission denied** (intended) |
+| `service_role` insert enrollment code | allowed |
+| `cc_redeem_device_enrollment_code` first use | `ok=true` |
+| second use of the same code | `ok=false` (single use) |
+| `service_role` direct SELECT on bootstrap state | **permission denied** (intended) |
+| Production trusted devices | **2 rows**, counted, no values read, untouched |
+
+No grant broadening is needed. Enrollment recovery works through the RPCs.
