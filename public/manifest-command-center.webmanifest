@@ -1,0 +1,35 @@
+{
+  "id": "/command-center",
+  "name": "RAMICHE Command Center",
+  "short_name": "Command Center",
+  "description": "RAMICHE Command Center operations console.",
+  "start_url": "/command-center",
+  "scope": "/command-center",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0e0e18",
+  "theme_color": "#0e0e18",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/pwa/command-center/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa/command-center/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa/command-center/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

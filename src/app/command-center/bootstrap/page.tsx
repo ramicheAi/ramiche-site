@@ -47,6 +47,7 @@ function BootstrapForm() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [autoTried, setAutoTried] = useState(false);
+  const [preflight, setPreflight] = useState<{ ready: boolean; alreadyEnrolled: boolean } | null>(null);
 
   async function attempt(v: string) {
     const trimmed = v.trim();
@@ -94,6 +95,24 @@ function BootstrapForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // A fresh iOS Home Screen install can have its own cookie jar, so an already
+  // enrolled owner may arrive here with no cc_device cookie. Tell them to use a
+  // one-time approval code from an enrolled device instead of letting them
+  // paste the consumed bootstrap token. No automatic enrollment happens.
+  useEffect(() => {
+    fetch("/api/command-center/auth/device/bootstrap", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { ready?: boolean; alreadyEnrolled?: boolean } | null) => {
+        if (data) {
+          setPreflight({
+            ready: data.ready === true,
+            alreadyEnrolled: data.alreadyEnrolled === true,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     await attempt(value);
@@ -107,6 +126,18 @@ function BootstrapForm() {
           This device isn&apos;t enrolled yet. Paste your bootstrap token (first device only) or a
           device-approval code (from an already-enrolled device) — or open an approval-code magic link.
         </p>
+        {preflight?.alreadyEnrolled && (
+          <p style={{ fontSize: 12, color: "#fbbf24", lineHeight: 1.5 }}>
+            This browser has no device access yet. On a device that is already enrolled, open Command
+            Center, go to Devices, re-enter your PIN, and generate a one-time approval code. Paste
+            that code here. The bootstrap token cannot re-enroll this browser.
+          </p>
+        )}
+        {preflight?.ready === false && (
+          <p style={{ fontSize: 12, color: "#f87171" }}>
+            Bootstrap is not configured on this deployment.
+          </p>
+        )}
         <input
           type="text"
           autoComplete="off"
