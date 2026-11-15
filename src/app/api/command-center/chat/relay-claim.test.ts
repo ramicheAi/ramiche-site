@@ -53,68 +53,50 @@ describe("POST /api/command-center/chat — relay dispatch claim", () => {
     }
   });
 
-  it("a message already claimed by a prior attempt gets no second agent dispatch", async () => {
-    // Zero rows updated by the conditional UPDATE (relay_claimed was already
-    // true) — simulates: attempt 1 claimed and dispatched (or is mid-
-    // dispatch), attempt 2 is a lost-ack retry's relay call for the SAME
-    // persisted message id.
-    const query: Record<string, unknown> = { data: null, error: null };
-    query.update = vi.fn(() => query);
-    query.eq = vi.fn(() => query);
-    query.select = vi.fn(() => query);
-    query.maybeSingle = vi.fn(() => query);
-    const fromMock = vi.fn(() => query);
-    createClient.mockReturnValue({ from: fromMock });
-
+  async function runWithClaim(result: { data: unknown; error: unknown }) {
+    const rpc = vi.fn().mockResolvedValue(result);
+    createClient.mockReturnValue({ rpc });
     vi.resetModules();
     const { POST } = (await import("./route")) as { POST: (r: NextRequest) => Promise<Response> };
     const res = await POST(
-      postReq({ message: "hello", channelId: "11111111-1111-1111-1111-111111111111", userMessageId: "22222222-2222-2222-2222-222222222222" })
+      postReq({
+        message: "hello",
+        channelId: "11111111-1111-1111-1111-111111111111",
+        userMessageId: "22222222-2222-2222-2222-222222222222",
+      }),
     );
-    const body = await res.json();
+    return { res, rpc, body: await res.json() };
+  }
+
+  it("a message already claimed by a prior attempt gets no second agent dispatch", async () => {
+    // cc_claim_relay_dispatch returns claimed=false: another attempt owns this message or a
+    // previous dispatch is inside its lease. No second agent turn.
+    const { res, rpc, body } = await runWithClaim({ data: [{ claimed: false, attempts: null }], error: null });
     expect(res.status).toBe(200);
     expect(body.alreadyDispatched).toBe(true);
-    expect(fromMock).toHaveBeenCalledWith("messages");
-    expect(query.update).toHaveBeenCalledWith({ relay_claimed: true });
-    expect(query.eq).toHaveBeenNthCalledWith(1, "id", "22222222-2222-2222-2222-222222222222");
-    expect(query.eq).toHaveBeenNthCalledWith(2, "relay_claimed", false);
+    expect(rpc).toHaveBeenCalledWith("cc_claim_relay_dispatch", {
+      p_message_id: "22222222-2222-2222-2222-222222222222",
+      p_lease_seconds: 120,
+    });
   });
 
-  it("the first-ever claim for a message succeeds and does NOT short-circuit", async () => {
-    // One row returned: this call won the claim and must proceed to dispatch.
-    const query: Record<string, unknown> = { data: { id: "22222222-2222-2222-2222-222222222222" }, error: null };
-    query.update = vi.fn(() => query);
-    query.eq = vi.fn(() => query);
-    query.select = vi.fn(() => query);
-    query.maybeSingle = vi.fn(() => query);
-    createClient.mockReturnValue({ from: vi.fn(() => query) });
+  it("a delivered message is not reclaimed", async () => {
+    // The function encodes the terminal-state rule; from the route's point of view this is the
+    // same short-circuit. The rule itself is proven against PostgreSQL in the migration PR.
+    const { body } = await runWithClaim({ data: [{ claimed: false, attempts: 3 }], error: null });
+    expect(body.alreadyDispatched).toBe(true);
+  });
 
-    vi.resetModules();
-    const { POST } = (await import("./route")) as { POST: (r: NextRequest) => Promise<Response> };
-    const res = await POST(
-      postReq({ message: "hello", channelId: "11111111-1111-1111-1111-111111111111", userMessageId: "22222222-2222-2222-2222-222222222222" })
-    );
-    const body = await res.json();
-    // Proceeding past the claim means it does NOT take the short-circuit
-    // shape — whatever happens next in the (unmocked) dispatch pipeline is
-    // out of scope for this test, which covers only the claim itself.
+  it("the first-ever claim proceeds to dispatch", async () => {
+    const { body } = await runWithClaim({ data: [{ claimed: true, attempts: 1 }], error: null });
     expect(body.alreadyDispatched).toBeUndefined();
   });
 
-  it("fails open (proceeds to dispatch) when the claim query errors — e.g. the migration hasn't been applied yet", async () => {
-    const query: Record<string, unknown> = { data: null, error: { code: "PGRST204", message: "Could not find the 'relay_claimed' column" } };
-    query.update = vi.fn(() => query);
-    query.eq = vi.fn(() => query);
-    query.select = vi.fn(() => query);
-    query.maybeSingle = vi.fn(() => query);
-    createClient.mockReturnValue({ from: vi.fn(() => query) });
-
-    vi.resetModules();
-    const { POST } = (await import("./route")) as { POST: (r: NextRequest) => Promise<Response> };
-    const res = await POST(
-      postReq({ message: "hello", channelId: "11111111-1111-1111-1111-111111111111", userMessageId: "22222222-2222-2222-2222-222222222222" })
-    );
-    const body = await res.json();
+  it("fails open when the claim function is missing — the migration is not applied yet", async () => {
+    const { body } = await runWithClaim({
+      data: null,
+      error: { code: "PGRST202", message: "Could not find the function public.cc_claim_relay_dispatch" },
+    });
     expect(body.alreadyDispatched).toBeUndefined();
   });
 });
