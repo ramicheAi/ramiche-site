@@ -1,0 +1,9 @@
+-- Rollback for 20261115120000_cc_relay_dispatch_terminal_state.sql
+-- Restores the previous (lease-only) behaviour. Safe only when no dispatch is in flight.
+drop function if exists public.cc_mark_relay_status(uuid, text);
+drop function if exists public.cc_claim_relay_dispatch(uuid, int);
+drop index if exists public.messages_relay_status_idx;
+alter table public.messages
+  drop column if exists relay_status,
+  drop column if exists relay_claimed_at,
+  drop column if exists relay_attempts;

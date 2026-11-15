@@ -1135,23 +1135,31 @@ async function POST_handler(req: NextRequest) {
     // never be the reason a legitimate, first-ever send gets no reply.
     if (svc && userMessageId) {
       try {
-        const { data: claimed, error: claimError } = await svc
-          .from("messages")
-          .update({ relay_claimed: true })
-          .eq("id", userMessageId)
-          .eq("relay_claimed", false)
-          .select("id")
-          .maybeSingle();
-        if (!claimError && !claimed) {
-          // Zero rows updated: either already claimed by a concurrent/prior
-          // call for this exact message, or the row doesn't exist. Either
-          // way, do not dispatch a second agent turn for it.
+        // Atomic claim with an explicit terminal state. delivered and failed_permanent are never
+        // reclaimable; claimed and failed rows are reclaimable only after the lease expires. This
+        // is mutual exclusion per lease, not exactly-once execution: a dispatch the gateway
+        // accepted but never acknowledged can still run twice after recovery.
+        const { data: claimRows, error: claimError } = await svc.rpc("cc_claim_relay_dispatch", {
+          p_message_id: userMessageId,
+          p_lease_seconds: 120,
+        });
+        const row = Array.isArray(claimRows) ? claimRows[0] : claimRows;
+        if (!claimError && row && row.claimed === false) {
           return NextResponse.json({ ok: true, alreadyDispatched: true });
         }
       } catch {
         // Migration not applied yet, or any other failure — fail open.
       }
     }
+
+    const markRelay = async (status: "delivered" | "failed") => {
+      if (!svc || !userMessageId) return;
+      try {
+        await svc.rpc("cc_mark_relay_status", { p_message_id: userMessageId, p_status: status });
+      } catch {
+        /* status is best effort; the message itself is already persisted */
+      }
+    };
 
     const history = threadUuid
       ? await loadThreadHistory(svc, threadUuid, userMessageId, 50)
@@ -1658,6 +1666,8 @@ async function POST_handler(req: NextRequest) {
       );
     }
 
+    await markRelay("delivered");
+
     return NextResponse.json({
       ok: true,
       responses,
@@ -1670,6 +1680,8 @@ async function POST_handler(req: NextRequest) {
     });
   } catch (e) {
     console.error("Chat API error:", e);
+    // No mark here: svc and the message id are scoped to the try body. A failed dispatch keeps
+    // relay_status='claimed', so the lease expiry makes it retryable, which is the safe default.
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
