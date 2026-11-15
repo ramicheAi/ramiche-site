@@ -12,8 +12,9 @@ import Sidebar from '../Sidebar';
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/command-center' }));
 
+const toggleTheme = vi.fn();
 vi.mock('../PoShell', () => ({
-  usePoTheme: () => ({ theme: 'dark', still: false, toggleTheme: vi.fn(), toggleStill: vi.fn() }),
+  usePoTheme: () => ({ theme: 'dark', still: false, toggleTheme, toggleStill: vi.fn() }),
 }));
 
 /** jsdom has no matchMedia; the drawer asks it whether it is in its off-canvas state. */
@@ -59,7 +60,9 @@ describe('mobile drawer', () => {
     const menu = document.createElement('button');
     menu.id = 'cc-menu-btn';
     document.body.appendChild(menu);
-    menu.focus();
+    // Deliberately NOT focused first: mobile Safari leaves activeElement on <body> after a tap, so
+    // this is the real-world case. A test that pre-focuses the button hides the bug.
+    expect(document.activeElement).toBe(document.body);
 
     render(<Sidebar />);
     openDrawer();
@@ -67,7 +70,7 @@ describe('mobile drawer', () => {
 
     fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => expect(drawer()).toHaveAttribute('inert'));
-    expect(document.activeElement).toBe(menu);
+    await waitFor(() => expect(document.activeElement).toBe(menu));
     menu.remove();
   });
 
@@ -77,6 +80,17 @@ describe('mobile drawer', () => {
     expect(drawer()).not.toHaveAttribute('inert');
   });
 
+  it('does not steal focus on a phone page load, when the drawer was never opened', async () => {
+    const menu = document.createElement('button');
+    menu.id = 'cc-menu-btn';
+    document.body.appendChild(menu);
+    render(<Sidebar />);
+    // let the matchMedia effect flip isPhone true and the state effect re-run
+    await waitFor(() => expect(drawer()).toHaveAttribute('inert'));
+    expect(document.activeElement).not.toBe(menu);
+    menu.remove();
+  });
+
   it('carries working pulse, wake and theme controls', async () => {
     const pulses: Event[] = [];
     const wakes: Event[] = [];
@@ -84,14 +98,34 @@ describe('mobile drawer', () => {
     window.addEventListener('cc:toggle-wake', (e) => wakes.push(e));
 
     render(<Sidebar />);
-    openDrawer();
-    await waitFor(() => expect(drawer()).not.toHaveAttribute('inert'));
+
+    // Each control hands the screen back to whatever it opened, so each is used from a fresh open.
+    const open = async () => {
+      openDrawer();
+      await waitFor(() => expect(drawer()).not.toHaveAttribute('inert'));
+    };
+
+    await open();
     fireEvent.click(screen.getByRole('button', { name: /pulse/i }));
-    fireEvent.click(screen.getByRole('button', { name: /wake/i }));
-    fireEvent.click(screen.getByRole('button', { name: /theme|appearance/i }));
+    await waitFor(() => expect(drawer()).toHaveAttribute('inert'));
+
+    await open();
+    fireEvent.click(screen.getByRole('button', { name: /wake word/i }));
+    await waitFor(() => expect(drawer()).toHaveAttribute('inert'));
+
+    await open();
+    fireEvent.click(screen.getByRole('button', { name: /theme/i }));
 
     expect(pulses).toHaveLength(1);
     expect(wakes).toHaveLength(1);
-    expect(screen.getByRole('button', { name: /theme|appearance/i })).toBeInTheDocument();
+    expect(toggleTheme).toHaveBeenCalledTimes(1);
+  });
+
+  it('reflects pressed state from the shell rather than guessing', async () => {
+    render(<Sidebar wakeEnabled pulseOpen />);
+    openDrawer();
+    await waitFor(() => expect(drawer()).not.toHaveAttribute('inert'));
+    expect(screen.getByRole('button', { name: /pulse/i })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /wake word/i })).toHaveAttribute('aria-pressed', 'true');
   });
 });

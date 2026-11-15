@@ -53,8 +53,15 @@ describe('chat height against the alert ticker', () => {
     expect(chat).toMatch(/body:has\(#cc-alertbar\)\s+\.chat-root\s*\{[^}]*100dvh\s*-\s*94px/);
   });
 
-  it('reserves the ticker in the tablet chat height', () => {
-    expect(shellCss).toMatch(/body:has\(#cc-alertbar\)\s+\.chat-root\s*\{[^}]*100dvh\s*-\s*102px/);
+  it('reserves the ticker in the tablet and desktop chat height', () => {
+    expect(shellCss).toMatch(/body:has\(#cc-alertbar\)\s+#cc-content\s+\.chat-root\s*\{[^}]*100dvh\s*-\s*102px/);
+  });
+
+  it('scopes the pane height to the content column rather than every page', () => {
+    // An unqualified `.chat-root` rule on a shell that wraps every route would stomp any future
+    // page that reuses the class, with nothing local to explain it.
+    expect(shellCss).toMatch(/#cc-content\s+\.chat-root/);
+    expect(shellCss).not.toMatch(/^\s*\.chat-root\s*\{/m);
   });
 });
 
@@ -69,6 +76,16 @@ describe('touch targets are targeted, not blanket', () => {
     expect(shellCss).toMatch(/\.po-shell\s+\.po-icbtn/);
     expect(shellCss).toMatch(/\.po-shell\s+\.po-navitem/);
     expect(shellCss).toMatch(/\.po-menu-btn/);
+    // The task board's quick actions were 17px before the blanket rule hid the problem; they need
+    // a floor of their own now that the blanket rule is gone.
+    expect(shellCss).toMatch(/\.po-shell\s+\.task-quick/);
+    expect(shellCss).toMatch(/\.po-shell\s+\.pg-btn/);
+  });
+
+  it('names only classes that exist, so the floor is not decorative', () => {
+    for (const dead of ['task-actions', 'pg-head-act button']) {
+      expect(shellCss, `${dead} is styled but appears in no page`).not.toMatch(new RegExp(dead));
+    }
   });
 });
 
@@ -103,12 +120,27 @@ describe('drawer keyboard behaviour', () => {
   });
 
   it('restores focus to the menu button when it closes', () => {
-    expect(sidebar).toMatch(/\.focus\(\)/);
+    // The close branch specifically: the open branch also calls .focus(), so a loose match would
+    // stay green with the restoration deleted.
+    expect(sidebar).toMatch(/const target = usable \? from : document\.getElementById\('cc-menu-btn'\)/);
+    expect(sidebar).toMatch(/if \(target\) target\.focus\(\)/);
+  });
+
+  it('treats <body> as "no opener", because mobile Safari does not focus buttons on tap', () => {
+    expect(sidebar).toMatch(/from !== document\.body/);
   });
 });
 
 describe('secondary controls stay reachable on mobile and tablet', () => {
   const quick = sidebar.match(/po-side-quick[\s\S]*?<\/div>/);
+
+  it('shows the quick controls across the whole range the HUD hides its copies', () => {
+    // The HUD hides pulse/wake/theme at <=1024. If the drawer only restores them <=767, every
+    // iPad width has no path to any of the three.
+    const flat = shellCss.replace(/\s+/g, ' ');
+    expect(flat, 'the quick row is not shown in the <=1024 range the HUD hides its copies')
+      .toMatch(/@media \(max-width: 1024px\) \{ \.po-side-quick \{ display: grid/);
+  });
 
   it('offers pulse, wake word and theme from the drawer', () => {
     expect(quick, 'the drawer has no quick-controls block').toBeTruthy();

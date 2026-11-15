@@ -183,11 +183,16 @@ export default function Sidebar({
     return () => window.removeEventListener('cc:toggle-nav', toggle);
   }, []);
 
+  const wasOpen = useRef(false);
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('cc:nav-state', { detail: { open: mobileOpen } }));
-    if (!isPhone) return undefined;
+    if (!isPhone) {
+      wasOpen.current = mobileOpen;
+      return undefined;
+    }
 
     if (mobileOpen) {
+      wasOpen.current = true;
       const focusId = window.setTimeout(() => closeRef.current?.focus(), 0);
       const onKey = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
@@ -202,10 +207,16 @@ export default function Sidebar({
       };
     }
 
-    // Closing returns focus to whatever opened the drawer, normally the HUD menu button.
-    const target = openedFrom.current ?? document.getElementById('cc-menu-btn');
+    // Closing returns focus to whatever opened the drawer, normally the HUD menu button. Mobile
+    // Safari does not focus a button on tap, so activeElement is <body>: that is "no opener",
+    // not an opener, and focusing <body> would put the user nowhere.
+    if (!wasOpen.current) return undefined;
+    wasOpen.current = false;
+    const from = openedFrom.current;
     openedFrom.current = null;
-    if (target && document.contains(target)) target.focus();
+    const usable = from && from !== document.body && from !== document.documentElement && document.contains(from);
+    const target = usable ? from : document.getElementById('cc-menu-btn');
+    if (target) target.focus();
     return undefined;
   }, [mobileOpen, isPhone]);
 
@@ -299,25 +310,33 @@ export default function Sidebar({
             type="button"
             className="po-quick"
             aria-pressed={pulseOpen}
-            onClick={() => window.dispatchEvent(new CustomEvent('cc:toggle-pulse'))}
+            onClick={() => {
+              // the dock paints below the drawer overlay, so hand the screen back to it
+              window.dispatchEvent(new CustomEvent('cc:toggle-pulse'));
+              setMobileOpen(false);
+            }}
           >
-            <span aria-hidden>◈</span> Pulse
+            <span aria-hidden>◈</span><span className="lbl">Pulse</span>
           </button>
           <button
             type="button"
             className="po-quick"
             aria-pressed={wakeEnabled}
-            onClick={() => window.dispatchEvent(new CustomEvent('cc:toggle-wake'))}
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('cc:toggle-wake'));
+              setMobileOpen(false);
+            }}
           >
-            <span aria-hidden>◉</span> Wake word
+            <span aria-hidden>◉</span><span className="lbl">Wake word</span>
           </button>
           <button
             type="button"
             className="po-quick"
-            aria-pressed={theme === 'light'}
+            aria-label={`Theme: ${theme}`}
             onClick={toggleTheme}
+            data-theme-state={theme}
           >
-            <span aria-hidden>☀</span> Theme
+            <span aria-hidden>☀</span><span className="lbl">Theme</span>
           </button>
         </div>
       </aside>

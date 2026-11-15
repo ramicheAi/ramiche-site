@@ -100,14 +100,12 @@ const page = () => `<!doctype html>
   <div id="cc-content" style="flex:1;min-width:0;min-height:100vh;padding-top:64px;overflow-x:hidden">
     <div class="chat-root" id="chatRoot" style="display:flex;flex-direction:column;height:calc(100vh - 56px)">
       <div style="flex:1;overflow-y:auto" class="chat-scroll">
-        <div class="chat-msg-actions" id="chatActions">
-          <button type="button" style="padding:2px 6px">👍</button>
-          <button type="button" style="padding:2px 6px">🔥</button>
-          <button type="button" style="padding:2px 6px">😀</button>
-          <button type="button" style="padding:2px 6px">🎉</button>
-          <button type="button" style="padding:2px 6px">✨</button>
-          <button type="button" style="padding:2px 6px">💯</button>
-          <button type="button" style="padding:2px 6px">🚀</button>
+        <div id="taskRow" style="display:flex;gap:6px;padding:8px">
+          <button type="button" class="task-quick flex-1 text-[10px] py-1.5 rounded-lg font-medium">Start</button>
+          <button type="button" class="task-quick flex-1 text-[10px] py-1.5 rounded-lg font-medium">Move</button>
+        </div>
+        <div id="inlineRow" style="display:flex;gap:8px;padding:8px">
+          <button type="button" style="padding:2px 6px;font-size:9px">✏️ Edit</button>
         </div>
         <div class="arb"></div>
       </div>
@@ -125,8 +123,9 @@ const page = () => `<!doctype html>
     let ov = document.getElementById('overlay');
     if (open && !ov) {
       ov = document.createElement('div');
-      ov.id = 'overlay'; ov.className = 'po-nav-overlay fixed inset-0 z-30 md:hidden';
-      ov.style.background = 'rgba(0,0,0,0.8)';
+      ov.id = 'overlay'; ov.className = 'po-nav-overlay';
+      // position/inset are what make z-index meaningful; the shell rule only sets z and top.
+      ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8)';
       document.querySelector('.po-app').appendChild(ov);
     } else if (!open && ov) ov.remove();
   };
@@ -201,8 +200,9 @@ for (const width of WIDTHS) {
       composerBottom: rect('.chat-input-area') ? rect('.chat-input-area').bottom : null,
       contentPadTop: Number(getComputedStyle(document.getElementById('cc-content')).paddingTop.replace('px', '')),
       alertTop: rect('#cc-alertbar') ? rect('#cc-alertbar').y : null,
-      actionH: rect('#chatActions button') ? rect('#chatActions button').h : null,
-      actionW: rect('#chatActions button') ? rect('#chatActions button').w : null,
+      actionH: rect('#taskRow button') ? rect('#taskRow button').h : null,
+      actionW: rect('#taskRow button') ? rect('#taskRow button').w : null,
+      inlineH: rect('#inlineRow button') ? rect('#inlineRow button').h : null,
       vh: window.innerHeight,
       alertExists: !!alertbar,
     };
@@ -213,9 +213,14 @@ for (const width of WIDTHS) {
   const wide = width >= 768;
   if (wide) {
     check(m.drawerTop === 0, `${width}px: the permanent rail still starts at the top (${m.drawerTop})`);
-    check(m.quickDisplay === 'none', `${width}px: the drawer quick controls are hidden on desktop (${m.quickDisplay})`);
     check(!m.menuVisible, `${width}px: the HUD menu button is hidden where the rail shows`);
     check(m.railH !== null && m.railH < 44, `${width}px: the rail divider is not inflated (${m.railH}px)`);
+  }
+  if (width >= 1025) {
+    check(m.quickDisplay === 'none', `${width}px: quick controls hidden where the HUD shows its own`);
+  }
+  if (width <= 1024) {
+    check(m.quickDisplay !== 'none', `${width}px: quick controls present in the band the HUD hides them`);
   }
   if (narrow) {
     check(m.menuVisible, `${width}px: the menu button is visible on a phone`);
@@ -223,9 +228,10 @@ for (const width of WIDTHS) {
     check(m.menuHit === 'menuBtn', `${width}px: the menu button is the topmost element at its own centre (got ${m.menuHit})`);
     check(m.drawerTop >= 55 && m.drawerTop <= 57, `${width}px: drawer starts below the HUD (${m.drawerTop})`);
     check(m.drawerBottom <= m.vh + 1, `${width}px: drawer ends at the viewport (${m.drawerBottom} <= ${m.vh})`);
-    check(m.quickDisplay !== 'none', `${width}px: the drawer quick controls are present (${m.quickDisplay})`);
-    check(m.quick !== null && m.quick >= 52, `${width}px: quick-control row is ${m.quick}px tall`);
-    check(m.actionW < 44, `${width}px: dense chat action buttons stay compact (${m.actionW}px wide, not 44)`);
+    check(m.quick !== null && m.quick >= 44, `${width}px: quick-control row is ${m.quick}px tall`);
+    check(m.actionH >= 43, `${width}px: task quick actions get a 44px floor (${m.actionH}px)`);
+    check(m.actionW !== undefined && m.inlineH < 44,
+      `${width}px: a deliberately compact inline control stays compact (${m.inlineH}px)`);
   }
   check(!m.docOverflow, `${width}px: no horizontal document overflow`);
 

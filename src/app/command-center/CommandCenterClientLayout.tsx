@@ -289,6 +289,8 @@ function Cockpit({
           .po-shell .po-side-close,
           .po-shell .po-quick,
           .po-shell .sw-filter-row button,
+          .po-shell .task-quick,
+          .po-shell .pg-btn,
           .po-shell .chat-input-area button,
           .po-shell .chat-header-bar button { min-height: 44px; }
           .po-shell .po-side-close, .po-shell .po-quick { min-width: 44px; }
@@ -307,7 +309,6 @@ function Cockpit({
           .po-shell .chat-inline-symbol { display: none !important; }
           .po-shell .chat-input-textarea { padding-right: 118px !important; }
           .po-shell .chat-top-nav a { min-height: 44px; display: inline-flex; align-items: center; }
-          body:has(#cc-alertbar) .chat-root { height: calc(100dvh - 102px - env(safe-area-inset-top)) !important; }
           .po-shell .sanc-star { padding: 12px 14px; margin: -12px -14px; }
         }
         @media (max-width: 767px) {
@@ -377,10 +378,11 @@ function Cockpit({
         /* The chat pane sizes itself from the viewport, so it has to give back the same 38px the
            ticker adds to the content inset — at every width, not only the tablet one. */
         @media (min-width: 768px) {
-          /* The page sizes its own pane from 100vh - 56px, but the desktop HUD is 64px, so the
-             composer sat 8px below the fold before this rule. */
-          .chat-root { height: calc(100dvh - 64px - env(safe-area-inset-top)) !important; }
-          body:has(#cc-alertbar) .chat-root { height: calc(100dvh - 102px - env(safe-area-inset-top)) !important; }
+          /* Scoped to the content column so no future page inherits it by accident. The page sizes
+             its own pane from 100vh - 56px, but the desktop HUD is 64px, so the composer sat 8px
+             below the fold before this rule. */
+          #cc-content .chat-root { height: calc(100dvh - 64px - env(safe-area-inset-top)) !important; }
+          body:has(#cc-alertbar) #cc-content .chat-root { height: calc(100dvh - 102px - env(safe-area-inset-top)) !important; }
         }
         #cc-alertbar { top: calc(64px + env(safe-area-inset-top)) !important; }
         .po-menu-btn { display: none; }
@@ -391,9 +393,18 @@ function Cockpit({
           .po-shell .po-cmdbar { justify-content: center; padding: 0 10px; }
         }
         .po-side-close { display: none; }
+        /* The HUD hides these three at <=1024, so the drawer must offer them across the whole
+           range it hides them in, not only on phones. On the 66px rail they stack icon-only. */
         .po-side-quick { display: none; }
+        @media (max-width: 1024px) {
+          .po-side-quick { display: grid; grid-template-columns: 1fr; gap: 6px; padding: 8px 8px 10px; border-top: 1px solid var(--line); }
+          .po-shell .po-quick { min-height: 44px; font-size: 0; }
+          .po-shell .po-quick .lbl { display: none; }
+        }
         @media (max-width: 767px) {
-          .po-side-quick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 10px 12px; border-top: 1px solid var(--line); }
+          .po-side-quick { grid-template-columns: repeat(3, 1fr); padding: 10px 12px; }
+          .po-shell .po-quick { font-size: 10px; }
+          .po-shell .po-quick .lbl { display: block; }
         }
         @media (max-width: 767px) {
           #cc-hud { left: 0 !important; height: calc(56px + env(safe-area-inset-top)) !important; padding: env(safe-area-inset-top) 8px 0 !important; gap: 8px !important; }
@@ -424,7 +435,7 @@ function Cockpit({
           .po-shell .po-quick { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 52px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-glass); color: var(--t-mid); font: 600 10px/1.2 var(--f-sans, inherit); letter-spacing: 0.04em; cursor: pointer; }
           .po-shell .po-quick[aria-pressed='true'] { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 45%, var(--line)); }
           .po-side-head { padding-right: 56px; }
-          .po-side-close { display: grid; position: absolute; top: calc(env(safe-area-inset-top) + 6px); right: 10px; width: 44px; height: 44px; place-items: center; z-index: 2; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-glass); color: var(--t-hi); font: inherit; cursor: pointer; }
+          .po-side-close { display: grid; position: absolute; top: 6px; right: 10px; width: 44px; height: 44px; place-items: center; z-index: 2; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-glass); color: var(--t-hi); font: inherit; cursor: pointer; }
           .po-shell .po-navitem { min-height: 44px; }
           .po-shell .atlas-briefing { top: calc(56px + env(safe-area-inset-top)) !important; width: 100vw !important; max-width: 100vw !important; z-index: 80 !important; padding-bottom: env(safe-area-inset-bottom); }
           .po-shell .atlas-briefing button { min-width: 44px; min-height: 44px; }
@@ -450,8 +461,8 @@ function Cockpit({
           .po-shell .po-side-close,
           .po-shell .po-quick,
           .po-shell .sw-filter-row button,
-          .po-shell .task-actions button,
-          .po-shell .pg-head-act button { min-height: 44px; }
+          .po-shell .task-quick,
+          .po-shell .pg-btn { min-height: 44px; }
           .po-shell .po-side-close, .po-shell .po-quick { min-width: 44px; }
           .po-shell .pg-head-act a { min-height: 44px; display: inline-flex; align-items: center; }
           .po-shell .chat-input-area button, .po-shell .chat-header-bar button { min-width: 44px; }
