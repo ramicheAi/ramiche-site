@@ -22,11 +22,15 @@
  */
 
 import {
+  closeSync,
   copyFileSync,
   existsSync,
+  fsyncSync,
+  openSync,
   readFileSync,
   renameSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
@@ -135,7 +139,13 @@ export function buildRegistry(raw: RawConfig, sourcePath: string, observedAt = n
     .map(([name, p]) => ({ name, models: providerModelIds(p), reachability: "unverified" as const }));
 
   const advertised = new Map(providers.map((p) => [p.name, new Set(p.models)]));
-  const list = Array.isArray(raw.agents?.list) ? raw.agents.list : [];
+  const rawList = raw.agents?.list;
+  if (!Array.isArray(rawList)) {
+    // An absent or dict-shaped list is a malformed config, not an empty fleet. The old code
+    // returned agents: [] and the API called that "live", which reads as "no agents configured".
+    throw new Error("agents_list_not_array");
+  }
+  const list = rawList;
   const agents: AgentSelection[] = [];
   const warnings: string[] = [];
 
@@ -174,12 +184,24 @@ export function validateChange(raw: RawConfig, agentId: string, ref: string): Va
   const parts = splitRef(ref);
   if (!parts) return { ok: false, reason: "invalid_model_ref", detail: "expected provider/model" };
 
-  const provider = raw.models?.providers?.[parts.provider];
-  if (!provider) {
+  const providers = raw.models?.providers ?? {};
+  // Own-property check: `__proto__` and `constructor` resolve through the prototype chain and
+  // used to pass as providers, persisting a model that cannot exist.
+  if (!Object.prototype.hasOwnProperty.call(providers, parts.provider)) {
     return { ok: false, reason: "unknown_provider", detail: `provider "${parts.provider}" is not configured` };
   }
+  const provider = providers[parts.provider];
   const advertised = providerModelIds(provider);
-  if (advertised.length > 0 && !advertised.includes(parts.model)) {
+  if (advertised.length === 0) {
+    // A provider with no catalogue cannot be verified. Refusing is the only honest answer; the old
+    // code skipped the check entirely, so adding a provider without models disabled the guard.
+    return {
+      ok: false,
+      reason: "unverifiable_provider",
+      detail: `provider "${parts.provider}" advertises no models, so "${parts.model}" cannot be verified`,
+    };
+  }
+  if (!advertised.includes(parts.model)) {
     return {
       ok: false,
       reason: "unsupported_model",
@@ -198,6 +220,8 @@ export function validateChange(raw: RawConfig, agentId: string, ref: string): Va
 export function writeAgentModel(options: {
   agentId: string;
   ref: string;
+  /** Test seam: override the read-back so a mismatch can be exercised. */
+  reader?: (path: string) => FleetRegistry;
   path?: string;
   now?: Date;
 }): WriteResult {
@@ -208,13 +232,38 @@ export function writeAgentModel(options: {
   const backupPath = `${path}.bak-${stamp}`;
 
   if (!existsSync(path)) return { ok: false, reason: "source_unavailable", detail: `missing ${path}` };
+  // The config holds the gateway token and provider keys. Keep whatever mode it has; never let a
+  // rename replace a 600 file with a 644 temp.
+  const sourceMode = (() => {
+    try { return statSync(path).mode & 0o777; } catch { return 0o600; }
+  })();
 
-  // Exclusive lock: fail rather than queue, so two cockpit tabs cannot interleave writes.
-  try {
-    writeFileSync(lockPath, `${process.pid}\n`, { flag: "wx" });
-  } catch {
-    return { ok: false, reason: "locked", detail: `${lockPath} exists; another update is in progress` };
-  }
+  // Exclusive lock: fail rather than queue, so two cockpit tabs cannot interleave writes. A lock
+  // older than the stale window is removed once, because a SIGKILL otherwise blocks every future
+  // change permanently with a message that is not true.
+  const tryLock = (): "ok" | "locked" | "error" => {
+    try {
+      writeFileSync(lockPath, `${process.pid}\n`, { flag: "wx", mode: 0o600 });
+      return "ok";
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code !== "EEXIST") return "error";
+      try {
+        const ageMs = Date.now() - statSync(lockPath).mtimeMs;
+        if (ageMs > 120_000) {
+          rmSync(lockPath, { force: true });
+          writeFileSync(lockPath, `${process.pid}\n`, { flag: "wx", mode: 0o600 });
+          return "ok";
+        }
+      } catch {
+        return "error";
+      }
+      return "locked";
+    }
+  };
+  const lock = tryLock();
+  if (lock === "locked") return { ok: false, reason: "locked", detail: `${lockPath} exists; another update is in progress` };
+  if (lock === "error") return { ok: false, reason: "lock_failed", detail: `cannot create ${lockPath}` };
 
   let original: string;
   try {
@@ -226,24 +275,52 @@ export function writeAgentModel(options: {
       return { ok: false, reason: validation.reason, detail: validation.detail };
     }
 
-    const list = raw.agents?.list ?? [];
-    const agent = list.find((a) => a && typeof a === "object" && (a as RawAgent).id === options.agentId) as RawAgent;
-    const before = selectionOf(agent.model).primary;
+    const list = Array.isArray(raw.agents?.list) ? raw.agents.list : null;
+    if (!list) throw new Error("agents_list_not_array");
+    const matches = list.filter((a) => a && typeof a === "object" && (a as RawAgent).id === options.agentId);
+    if (matches.length > 1) {
+      rmSync(lockPath, { force: true });
+      return { ok: false, reason: "duplicate_agent", detail: `agent "${options.agentId}" appears ${matches.length} times` };
+    }
+    const agent = matches[0] as RawAgent;
+    const current = agent.model;
+    if (current !== undefined && typeof current !== "string" && !Array.isArray(current) && (typeof current !== "object" || current === null)) {
+      rmSync(lockPath, { force: true });
+      return { ok: false, reason: "invalid_existing_model", detail: "existing model is neither a string nor an object" };
+    }
+    if (Array.isArray(current)) {
+      rmSync(lockPath, { force: true });
+      return { ok: false, reason: "invalid_existing_model", detail: "existing model is an array" };
+    }
+    const before = selectionOf(current).primary;
 
     // Keep the fallback chain, replace only the primary.
-    agent.model = agent.model && typeof agent.model === "object"
-      ? { ...(agent.model as Record<string, unknown>), primary: options.ref }
+    agent.model = current && typeof current === "object"
+      ? { ...(current as Record<string, unknown>), primary: options.ref }
       : options.ref;
 
     copyFileSync(path, backupPath);
     const tmpPath = join(dirname(path), `.openclaw.json.tmp-${process.pid}-${Date.now()}`);
-    writeFileSync(tmpPath, `${JSON.stringify(raw, null, 2)}\n`, "utf8");
+    // mode on create plus fsync: the file that runs the fleet must keep its permissions and must
+    // survive an unclean shutdown without becoming empty.
+    const fd = openSync(tmpPath, "wx", sourceMode);
+    try {
+      writeFileSync(fd, `${JSON.stringify(raw, null, 2)}\n`, "utf8");
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
     renameSync(tmpPath, path);
+    try {
+      const dfd = openSync(dirname(path), "r");
+      try { fsyncSync(dfd); } finally { closeSync(dfd); }
+    } catch { /* directory fsync is best effort on macOS */ }
 
     // Read back from disk. Success is only claimed when the file actually holds the new value.
-    const after = readRegistry(path).agents.find((a) => a.agentId === options.agentId)?.primary ?? null;
+    const reader = options.reader ?? readRegistry;
+    const after = reader(path).agents.find((a) => a.agentId === options.agentId)?.primary ?? null;
     if (after !== options.ref) {
-      copyFileSync(backupPath, path);
+      restoreAtomically(backupPath, path);
       rmSync(lockPath, { force: true });
       return { ok: false, reason: "readback_mismatch", detail: `expected ${options.ref}, read ${after ?? "null"}` };
     }
@@ -259,13 +336,21 @@ export function writeAgentModel(options: {
       observedAt: new Date().toISOString(),
     };
   } catch (err) {
-    // Any throw after the backup exists is rolled back before reporting.
+    // Any throw after the backup exists is rolled back before reporting. Restore through a rename
+    // so a crash cannot leave the live config truncated.
     try {
-      if (existsSync(backupPath)) copyFileSync(backupPath, path);
+      if (existsSync(backupPath)) restoreAtomically(backupPath, path);
     } catch {
       /* the backup is on disk even if the restore failed; the caller gets the error */
     }
-    rmSync(lockPath, { force: true });
+    try { rmSync(lockPath, { force: true }); } catch { /* surface the original error, not this one */ }
     return { ok: false, reason: "write_failed", detail: err instanceof Error ? err.message : String(err) };
   }
+}
+
+/** Replace the live config in one rename, so a crash cannot truncate it. */
+function restoreAtomically(backupPath: string, path: string): void {
+  const tmp = join(dirname(path), `.openclaw.json.restore-${process.pid}-${Date.now()}`);
+  copyFileSync(backupPath, tmp);
+  renameSync(tmp, path);
 }

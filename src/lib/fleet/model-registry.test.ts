@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -200,5 +200,97 @@ describe("registry derivation", () => {
     };
     const reg = buildRegistry(raw, "/tmp/x.json");
     expect(reg.warnings.join(" ")).toContain('fallback provider "ghost" is not configured');
+  });
+});
+
+
+describe("hardening found by independent review", () => {
+  it("keeps the config at 600 after a write", () => {
+    const path = fixtureFile();
+    chmodSync(path, 0o600);
+    const result = writeAgentModel({ path, agentId: "atlas", ref: "claude-max/claude-sonnet-5" });
+    expect(result.ok).toBe(true);
+    expect(statSync(path).mode & 0o777).toBe(0o600);
+  });
+
+  it("refuses prototype-chain providers like __proto__ and constructor", () => {
+    for (const provider of ["__proto__", "constructor", "toString"]) {
+      expect(validateChange(FIXTURE, "atlas", `${provider}/whatever`)).toMatchObject({
+        ok: false,
+        reason: "unknown_provider",
+      });
+    }
+  });
+
+  it("refuses a provider that advertises no models instead of skipping the check", () => {
+    const raw: RawConfig = {
+      models: { providers: { empty: { models: [] }, missing: {} } },
+      agents: { list: [{ id: "atlas", model: "claude-max/claude-opus-5" }] },
+    };
+    expect(validateChange(raw, "atlas", "empty/anything")).toMatchObject({ ok: false, reason: "unverifiable_provider" });
+    expect(validateChange(raw, "atlas", "missing/anything")).toMatchObject({ ok: false, reason: "unverifiable_provider" });
+  });
+
+  it("treats a non-array agents.list as malformed, not an empty fleet", () => {
+    const bad = { models: { providers: {} }, agents: { list: { atlas: {} } } } as unknown as RawConfig;
+    expect(() => buildRegistry(bad, "/tmp/x.json")).toThrow(/agents_list_not_array/);
+  });
+
+  it("refuses a duplicate agent id rather than writing one and leaving the other stale", () => {
+    const path = fixtureFile({
+      ...FIXTURE,
+      agents: { list: [
+        { id: "atlas", model: "claude-max/claude-opus-5" },
+        { id: "atlas", model: "claude-max/claude-sonnet-5" },
+      ] },
+    });
+    const result = writeAgentModel({ path, agentId: "atlas", ref: "claude-max/claude-haiku-4" });
+    expect(result).toMatchObject({ ok: false, reason: "duplicate_agent" });
+  });
+
+  it("refuses an array-shaped existing model", () => {
+    const path = fixtureFile({
+      ...FIXTURE,
+      agents: { list: [{ id: "atlas", model: ["claude-max/claude-opus-5"] }] },
+    });
+    const result = writeAgentModel({ path, agentId: "atlas", ref: "claude-max/claude-sonnet-5" });
+    expect(result).toMatchObject({ ok: false, reason: "invalid_existing_model" });
+  });
+
+  it("restores the backup when the read-back disagrees, through a test seam", () => {
+    const path = fixtureFile();
+    const before = readFileSync(path, "utf8");
+    const result = writeAgentModel({
+      path,
+      agentId: "atlas",
+      ref: "claude-max/claude-sonnet-5",
+      // Simulate a write that did not land: report the old value back.
+      reader: () => ({ source: "openclaw.json", sourcePath: path, observedAt: "", providers: [], warnings: [], agents: [
+        { agentId: "atlas", primary: "claude-max/claude-opus-5", fallbacks: [], unsupported: false },
+      ] }),
+    });
+    expect(result).toMatchObject({ ok: false, reason: "readback_mismatch" });
+    expect(readFileSync(path, "utf8")).toBe(before);
+    expect(existsSync(`${path}.lock`)).toBe(false);
+  });
+
+  it("recovers a lock left by a dead process after the stale window", () => {
+    const path = fixtureFile();
+    writeFileSync(`${path}.lock`, "999\n");
+    const old = new Date(Date.now() - 10 * 60_000);
+    // utimes backdates the lock without touching content
+    const { utimesSync } = require("node:fs") as typeof import("node:fs");
+    utimesSync(`${path}.lock`, old, old);
+    const result = writeAgentModel({ path, agentId: "atlas", ref: "claude-max/claude-sonnet-5" });
+    expect(result).toMatchObject({ ok: true, verified: true });
+  });
+
+  it("reports a fresh lock as locked, not as a write failure", () => {
+    const path = fixtureFile();
+    writeFileSync(`${path}.lock`, "999\n");
+    expect(writeAgentModel({ path, agentId: "atlas", ref: "claude-max/claude-sonnet-5" })).toMatchObject({
+      ok: false,
+      reason: "locked",
+    });
   });
 });

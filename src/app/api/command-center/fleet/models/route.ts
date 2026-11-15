@@ -39,8 +39,16 @@ async function GET_handler() {
 
   try {
     const registry = readRegistry(path);
-    return NextResponse.json({ ok: true, source: "live", registry }, NO_STORE);
+    // The client does not need, and should not receive, a filesystem path.
+    const { sourcePath: _sourcePath, ...safe } = registry;
+    return NextResponse.json({ ok: true, source: "live", registry: safe }, NO_STORE);
   } catch (err) {
+    if (err instanceof Error && err.message.includes("agents_list_not_array")) {
+      return NextResponse.json(
+        { ok: false, source: "malformed", reason: "agents.list is not an array" },
+        { status: 502, ...NO_STORE },
+      );
+    }
     return NextResponse.json(
       {
         ok: false,
@@ -59,6 +67,10 @@ const STATUS: Record<string, number> = {
   unknown_provider: 400,
   unsupported_model: 400,
   locked: 409,
+  lock_failed: 503,
+  unverifiable_provider: 400,
+  duplicate_agent: 409,
+  invalid_existing_model: 400,
   source_unavailable: 503,
   readback_mismatch: 502,
   write_failed: 500,
@@ -72,10 +84,13 @@ const STATUS: Record<string, number> = {
  * from an intended write: the response carries the value re-read from disk.
  */
 async function POST_handler(req: Request) {
-  let body: { agentId?: unknown; model?: unknown };
+  let body: { agentId?: unknown; model?: unknown } | null;
   try {
     body = await req.json();
   } catch {
+    return NextResponse.json({ ok: false, reason: "invalid_json" }, { status: 400, ...NO_STORE });
+  }
+  if (!body || typeof body !== "object") {
     return NextResponse.json({ ok: false, reason: "invalid_json" }, { status: 400, ...NO_STORE });
   }
 
