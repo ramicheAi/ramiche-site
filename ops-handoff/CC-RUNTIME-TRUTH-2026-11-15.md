@@ -837,3 +837,74 @@ Guarantee: mutual exclusion per lease. Not exactly-once; an accepted-but-unackno
 Installing a JRE, a second node_modules and an emulator stack on the iMac would leave roughly 3 GB free on a volume already at 99%, with swap in use. That is not a safe place to add a second runtime. The MacBook has room but no container runtime, and adding one is host software requiring approval. A small cloud VM would satisfy isolation best and costs money.
 
 Recommendation: do not provision on the iMac. Either run the preview on the MacBook under a dedicated user with a local stack, or use a short-lived cloud VM. Neither is authorized yet.
+
+
+---
+
+## 20. CC-RECOVERY-10
+
+### 20.1 Fleet Settings reconciliation (#99 vs #101)
+
+| | #99 | #101 |
+|---|---|---|
+| State | OPEN, draft | OPEN, draft |
+| Head | `2aa2141d` | `19031fde` |
+| Branch | `feat/cc-fleet-settings-wiring` | `feat/cc-fleet-settings` |
+| Base | `c6241701` | `c6241701` |
+| Ancestry | sibling of #101, neither contains the other | sibling |
+| Files | settings/page.tsx only (67+/26-) | settings/page.tsx (40+/20-) plus `FleetModelSettings.tsx`, `settings-view.ts`, `settings-view.test.ts` (507 insertions) |
+| Tests | none | 125 lines pinning unavailable/malformed/empty/ready and write outcomes |
+
+#101 is authoritative. It does everything #99 does and adds what #99 lacks: a pure, tested truth-state model, distinct unavailable vs malformed vs empty screens, pre-send selection validation, a required re-read after a successful save, and it demotes the legacy control so the old `directory.json` POST is unreachable from Settings. #99's inline version is smaller but has no test seam and collapses some states.
+
+**Do not merge both.** #99 is superseded and should be closed by the owner. Neither was merged.
+
+### 20.2 Dispatch ownership (Phase 3)
+
+There is **one dispatcher in use and one parallel route that bypasses the claim**:
+
+| Route | Used by | Dispatch | Relay claim |
+|---|---|---|---|
+| `POST /api/command-center/chat` | the chat page (`page.tsx:2998`) | `generateAgentReply` → gateway | yes, #100 |
+| `POST /api/command-center/chat/stream` | nothing in `src` calls it, but it is owner-gated and callable | `executeOpenClaw` → `sessions_send` | **no** |
+| `POST /api/command-center/settings` (`sessions_send` action) | settings actions, approvals | gateway | not message-scoped, by design |
+
+#100 does **not** add a new dispatcher; it wraps the existing one. But `/chat/stream` can dispatch the same persisted message with no claim, so duplicate execution is still reachable through that route until it adopts the claim or is retired. That is a real gap, recorded as P1 for the relay review.
+
+The earlier statement that "no relay implementation exists" was wrong: the production path has existed all along, and earlier work added persistence and the first claim. #100 changes the claim's semantics, not the dispatch path.
+
+### 20.3 iMac storage audit (read-only)
+
+| Item | Size | Active use | Risk | Disposable |
+|---|---|---|---|---|
+| Active release `41d183a0` | 2.8 G | yes, port 3000 | **protect** | no |
+| Rollback release `9ecae340` (10:47, immediately prior) | 2.6 G | rollback only | **protect** | no |
+| 10 older releases (Sep 28 to Oct 5 09:14) | ~19.4 G | none referenced by any plist | low, reproducible from git | **yes, with approval** |
+| `~/.npm` cache | 1.6 G | build cache | none, rebuilds | yes |
+| `~/ramiche-site/node_modules` | 982 M | dev repo | reinstallable | yes |
+| `~/cockpit-preview/stage` source + logs | 267 M | stopped preview | none | yes |
+| `/tmp` cockpit and tunnel logs | under 1 KB | diagnostics | none | yes |
+| `pp-wt` worktrees | 25 G | user work | **protect** | owner decision |
+| `colima-pre-restart-20261031` | 15 G | unknown backup | **protect** | owner decision |
+| `evidence-018020c8-20261001` | 15 G | evidence bundle | **protect** | owner decision |
+| `~/Library` | 67 G | mixed | unknown | needs its own audit |
+
+Reclaimable without touching production: about **21 GB** (10 obsolete releases plus npm cache), which would take the volume from 5.5 GB to roughly 26 GB free. Nothing was deleted.
+
+Protect list: active release, rollback release, `41d183a0/.env.local` and `~/cockpit-releases/41d183a0/*` credentials, LaunchAgents, `~/.cloudflared`, agent workspaces, backups, user documents.
+
+### 20.4 Preview host comparison
+
+| Criterion | Dedicated MacBook user | Short-lived cloud VM |
+|---|---|---|
+| Production isolation | shares kernel, disk and network with the dev machine | full separation |
+| Credential separation | separate home, but same keychain and Tailscale identity | separate everything |
+| Auth and cookie isolation | needs a distinct host string; `127.0.0.1` shares cookies with production | clean origin |
+| Database | local Postgres, easy | local Postgres in the VM |
+| Egress restrictions | PF rules need sudo and are easy to misconfigure | security group, trivial |
+| Cost | zero | roughly 5 to 15 USD per month |
+| iPhone access | Tailscale already on both, but exposing the preview widens the tailnet | Tailscale or an authenticated URL, small blast radius |
+| Setup | user creation, JRE, emulator; shares 20 GB disk | one provisioning script |
+| Teardown | manual user and files | destroy the VM |
+
+**Recommendation:** a short-lived cloud VM with its own Tailscale node, sized small, holding local Postgres, a Firebase Auth emulator and the preview build. It satisfies every isolation requirement without touching the cockpit host, and teardown is one destroy. The MacBook user is the zero-cost fallback if spend is refused, but it cannot match credential or kernel isolation. Neither is provisioned.
