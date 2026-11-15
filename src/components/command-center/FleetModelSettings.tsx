@@ -110,7 +110,9 @@ export default function FleetModelSettings() {
       {view.state === 'unavailable' && (
         <p role="alert" style={{ color: 'var(--c-rose)' }}>
           <strong>Runtime unavailable.</strong> {view.reason}
-          {view.detail ? <> <span style={{ opacity: 0.75 }}>({view.detail})</span></> : null}
+          {/* view.detail is never rendered: the route's detail text for this state is a
+              filesystem path (e.g. "missing /…/openclaw.json"), and no path should reach the
+              client. reason alone is the user-facing explanation. */}
           <br />
           <span style={{ opacity: 0.75 }}>This is not an empty catalogue. Nothing is shown because nothing could be read.</span>
         </p>

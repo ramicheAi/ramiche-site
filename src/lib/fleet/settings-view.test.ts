@@ -67,10 +67,11 @@ describe('selections are refused before they reach the writer', () => {
     expect(checkSelection(SNAPSHOT, 'ghost', 'openai/gpt-6').ok).toBe(false);
   });
 
-  it('refuses a duplicate selection already used by another agent', () => {
+  it('accepts a selection already used as another agent\'s primary — the server has no such rule', () => {
+    // Several agents sharing one model is normal. An earlier version refused this client-only,
+    // silently blocking a legitimate assignment the server would have accepted.
     const result = checkSelection(SNAPSHOT, 'atlas', 'claude-max/claude-sonnet-5');
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toMatch(/already the primary model for triage/);
+    expect(result).toEqual({ ok: true, provider: 'claude-max', model: 'claude-sonnet-5' });
   });
 
   it('refuses a no-op selection', () => {

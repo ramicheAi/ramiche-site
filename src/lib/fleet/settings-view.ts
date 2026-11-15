@@ -81,13 +81,14 @@ export type SelectionCheck =
  *
  * The server validates again and is authoritative; this exists so an operator gets an immediate,
  * specific refusal instead of a round trip, and so a malformed reference cannot reach the writer.
+ *
+ * Deliberately does NOT refuse a model already used as another agent's primary: a fleet where
+ * several agents share one model is normal and the server (PR #95) enforces no such rule. An
+ * earlier version of this function refused that case client-only, which silently blocked a
+ * legitimate assignment the server would have accepted — exactly the kind of invented rule this
+ * module's own doctrine (see header) says the client must not add.
  */
-export function checkSelection(
-  snapshot: RegistrySnapshot,
-  agentId: string,
-  ref: string,
-  options: { allowDuplicate?: boolean } = {},
-): SelectionCheck {
+export function checkSelection(snapshot: RegistrySnapshot, agentId: string, ref: string): SelectionCheck {
   const trimmed = typeof ref === 'string' ? ref.trim() : '';
   if (!trimmed) return { ok: false, reason: 'choose a model' };
   // Split on the FIRST slash, exactly like the server's splitRef. Provider model ids can contain
@@ -108,13 +109,6 @@ export function checkSelection(
   if (!catalogue) return { ok: false, reason: `unknown provider "${provider}"` };
   if (!catalogue.models.includes(model)) {
     return { ok: false, reason: `"${model}" is not offered by ${provider}` };
-  }
-
-  if (!options.allowDuplicate) {
-    const takenBy = snapshot.agents.find((a) => a.agentId !== agentId && a.primary === trimmed);
-    if (takenBy) {
-      return { ok: false, reason: `already the primary model for ${takenBy.agentId}` };
-    }
   }
 
   if (agent.primary === trimmed) return { ok: false, reason: 'that is already the current model' };
@@ -177,7 +171,10 @@ export function describeWrite(
   }
   if (code === 'locked') return { state: 'busy', code, message: 'another change is in progress; nothing was written' };
   if (code === 'source_unavailable' || code === 'lock_failed' || code === 'write_failed') {
-    return { state: 'unavailable', code, message: flat.detail ?? 'the runtime could not be written' };
+    // Never surface flat.detail here: the route's own detail text for these codes is a
+    // filesystem path (e.g. "missing /…/openclaw.json", "cannot create …/.lock"), and nothing
+    // user-facing should render a server path. The code already carries the specific reason.
+    return { state: 'unavailable', code, message: 'the runtime could not be written' };
   }
   return { state: 'rejected', code, message: REJECTION_TEXT[code] ?? flat.detail ?? 'the runtime rejected the change' };
 }

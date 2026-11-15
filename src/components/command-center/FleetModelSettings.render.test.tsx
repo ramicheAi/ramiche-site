@@ -112,7 +112,11 @@ describe('a successful save shows what actually persisted', () => {
   });
 
   it('shows a lock as busy, not as saved', async () => {
-    stubFetch(READY, { ok: false, write: { ok: false, reason: 'locked' } });
+    // The real POST failure shape is flat ({ok:false, reason, detail?}), never nested under
+    // `write` — only a POST success nests the WriteResult under `write`. The earlier version of
+    // this fixture used the nested shape, which the server never actually sends; it passed only
+    // because describeWrite's `.write ?? response` unwrap happened to accept it too.
+    stubFetch(READY, { ok: false, reason: 'locked', detail: '/Users/admin/.openclaw/openclaw.json.lock exists; another update is in progress' });
     render(<FleetModelSettings />);
     await waitFor(() => expect(screen.getByLabelText('model for atlas')).toBeTruthy());
     fireEvent.change(screen.getByLabelText('model for atlas') as HTMLSelectElement, {
