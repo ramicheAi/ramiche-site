@@ -132,13 +132,13 @@ export default function JobsPage() {
 
       {/* Dispatch box */}
       <Panel title="Dispatch" icon="dispatch">
-        <div style={{ display: "flex", gap: 10, padding: "14px 16px" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, padding: "14px 16px" }}>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") dispatch(); }}
             placeholder="Describe a job for the fleet… (e.g. 'Draft 3 cold emails for Fort Lauderdale gyms')"
-            style={{ ...input, flex: 1 }}
+            style={{ ...input, flex: "1 1 220px" }}
           />
           <select value={kind} onChange={(e) => setKind(e.target.value)} style={{ ...input, minWidth: 130 }}>
             {KINDS.map((k) => <option key={k} value={k}>{k}</option>)}

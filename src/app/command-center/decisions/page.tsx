@@ -238,6 +238,7 @@ export default function DecisionsPage() {
       {/* Stat strip */}
       <Panel title="Plan Telemetry" icon="strategy">
         <div
+          className="decision-stats"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(5, 1fr)",

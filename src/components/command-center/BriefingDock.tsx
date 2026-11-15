@@ -55,6 +55,7 @@ export function BriefingDock({ briefingState }: BriefingDockProps) {
 
   return (
     <aside
+      className="atlas-briefing"
       aria-hidden={!open}
       aria-label="Atlas briefing"
       style={{

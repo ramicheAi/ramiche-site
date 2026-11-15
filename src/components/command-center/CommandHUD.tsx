@@ -42,6 +42,7 @@ function HudIconBtn({
   pressed,
   disabled,
   tint,
+  className,
 }: {
   children: React.ReactNode;
   onClick?: () => void;
@@ -50,6 +51,7 @@ function HudIconBtn({
   pressed?: boolean;
   disabled?: boolean;
   tint?: string;
+  className?: string;
 }) {
   const style: React.CSSProperties = {};
   if (tint) {
@@ -61,7 +63,7 @@ function HudIconBtn({
   return (
     <button
       type="button"
-      className="po-icbtn"
+      className={`po-icbtn${className ? ` ${className}` : ""}`}
       onClick={onClick}
       title={title}
       aria-label={ariaLabel}
@@ -197,6 +199,18 @@ export function CommandHUD({
           marginLeft: 0,
         }}
       >
+        {/* Phone navigation. The drawer owns its own close control; this is the
+            only menu affordance on mobile and it lives inside the HUD so it can
+            never be covered by the HUD's stacking context. */}
+        <button
+          type="button"
+          className="po-menu-btn"
+          aria-label="Open navigation"
+          onClick={() => window.dispatchEvent(new CustomEvent("cc:toggle-nav"))}
+        >
+          <span aria-hidden style={{ fontSize: 18, lineHeight: 1 }}>☰</span>
+        </button>
+
         {/* ⌘K command bar → opens the palette */}
         <button type="button" className="po-cmdbar" onClick={() => setPaletteOpen(true)} aria-label="Open command palette">
           <Icon name="search" size={16} style={{ color: "var(--accent)" }} />
@@ -267,6 +281,7 @@ export function CommandHUD({
           {/* pulse (preserved) */}
           {onTogglePulse && (
             <HudIconBtn
+              className="po-hud-secondary"
               onClick={onTogglePulse}
               ariaLabel={pulseOpen ? "Close chat pulse" : "Open chat pulse"}
               pressed={pulseOpen}
@@ -309,7 +324,7 @@ export function CommandHUD({
 
           {/* wake word (preserved, restyled) */}
           {onToggleWake && (
-            <div style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <div className="po-hud-secondary" style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4 }}>
               <HudIconBtn
                 onClick={onToggleWake}
                 ariaLabel={wakeEnabled ? "Disable wake word" : "Enable wake word"}
@@ -422,7 +437,7 @@ export function CommandHUD({
           )}
 
           {/* theme toggle (sun) */}
-          <HudIconBtn onClick={toggleTheme} ariaLabel="Toggle light / dark" title="Toggle light / dark">
+          <HudIconBtn className="po-hud-secondary" onClick={toggleTheme} ariaLabel="Toggle light / dark" title="Toggle light / dark">
             <Icon name="sun" size={16} />
           </HudIconBtn>
 
