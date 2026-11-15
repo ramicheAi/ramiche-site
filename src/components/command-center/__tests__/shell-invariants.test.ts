@@ -86,6 +86,8 @@ describe('touch targets are targeted, not blanket', () => {
     // `.task-actions` was invented by an earlier draft and exists in no page; `.pg-head-act` is
     // real (po/Instrument.tsx renders it), so only the invented one is forbidden.
     expect(shellCss).not.toMatch(/task-actions/);
+    // the component stopped emitting data-theme-state when Theme became a real aria-pressed toggle
+    expect(shellCss).not.toMatch(/data-theme-state/);
     expect(shellCss).toMatch(/\.pg-head-act/);
   });
 });

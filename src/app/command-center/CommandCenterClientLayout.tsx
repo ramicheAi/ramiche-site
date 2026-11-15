@@ -403,7 +403,7 @@ function Cockpit({
           .po-shell .po-quick { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 52px; min-width: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-glass); color: var(--t-mid); font: 600 10px/1.2 var(--f-sans, inherit); letter-spacing: 0.04em; cursor: pointer; }
           .po-shell .po-quick > span[aria-hidden] { font-size: 16px; line-height: 1; }
           .po-shell .po-quick .lbl { display: none; }
-          .po-shell .po-quick[aria-pressed='true'], .po-shell .po-quick[data-theme-state='light'] { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 45%, var(--line)); }
+          .po-shell .po-quick[aria-pressed='true'] { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 45%, var(--line)); }
         }
         @media (max-width: 767px) {
           .po-side-quick { grid-template-columns: repeat(3, 1fr); padding: 10px 12px; }

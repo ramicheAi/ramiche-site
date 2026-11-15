@@ -157,7 +157,9 @@ const failures = [];
 const results = [];
 const check = (ok, msg) => (ok ? results.push(`  ok   ${msg}`) : failures.push(msg));
 
-const WIDTHS = [320, 375, 390, 430, 768, 1024, 1440];
+// 667 is deliberate: the drawer's section-header floor had a gap only in 641-767, and a sweep that
+// skips that band cannot see it.
+const WIDTHS = [320, 375, 390, 430, 667, 768, 1024, 1440];
 if (SHOTS) mkdirSync(OUT, { recursive: true });
 
 for (const width of WIDTHS) {
@@ -197,7 +199,14 @@ for (const width of WIDTHS) {
       quickButtons: [...document.querySelectorAll('.po-side-quick .po-quick')].map((b) => {
         const st = getComputedStyle(b);
         const icon = b.querySelector('span[aria-hidden]');
+        const ics = icon ? getComputedStyle(icon) : null;
         const r = b.getBoundingClientRect();
+        const alpha = (c) => {
+          const m = c.match(/rgba?\(([^)]+)\)/);
+          if (!m) return 1;
+          const parts = m[1].split(',').map((x) => parseFloat(x));
+          return parts.length === 4 ? parts[3] : 1;
+        };
         return {
           name: b.getAttribute('aria-label') || (b.textContent || '').trim(),
           labelled: !!b.getAttribute('aria-label'),
@@ -205,7 +214,11 @@ for (const width of WIDTHS) {
           h: r.height,
           border: st.borderTopStyle !== 'none' && parseFloat(st.borderTopWidth) > 0,
           background: st.backgroundColor !== 'rgba(0, 0, 0, 0)' && st.backgroundColor !== 'transparent',
-          iconSize: icon ? parseFloat(getComputedStyle(icon).fontSize) : 0,
+          // a rectangle, a border and a background all still compute "painted" on an invisible box
+          visible: st.visibility === 'visible' && parseFloat(st.opacity) > 0,
+          iconSize: ics ? parseFloat(ics.fontSize) : 0,
+          iconInk: ics ? alpha(ics.color) : 0,
+          iconText: icon ? (icon.textContent || '').trim().length > 0 : false,
         };
       }),
       hudSecondary: cs('.po-hud-secondary', 'display'),
@@ -239,9 +252,11 @@ for (const width of WIDTHS) {
     check(m.quickButtons.length === 3, `${width}px: three quick controls (${m.quickButtons.length})`);
     for (const b of m.quickButtons) {
       check(b.labelled, `${width}px: quick control "${b.name}" has an aria-label`);
-      check(b.w >= 43 && b.h >= 43, `${width}px: quick control "${b.name}" is ${b.w}x${b.h}, expected >=44`);
+      check(b.w >= 44 && b.h >= 44, `${width}px: quick control "${b.name}" is ${b.w}x${b.h}, expected >=44`);
+      check(b.visible, `${width}px: quick control "${b.name}" is actually visible (visibility/opacity)`);
       check(b.border && b.background, `${width}px: quick control "${b.name}" paints chrome (border=${b.border} bg=${b.background})`);
-      check(b.iconSize >= 14, `${width}px: quick control "${b.name}" icon renders (${b.iconSize}px)`);
+      check(b.iconSize >= 14 && b.iconInk > 0 && b.iconText,
+        `${width}px: quick control "${b.name}" has a drawn, inked glyph (${b.iconSize}px, ink ${b.iconInk})`);
     }
   }
   if (narrow) {
@@ -325,6 +340,9 @@ for (const width of WIDTHS) {
     results.push(`  --   ${width}px (no alert): paddingTop=${noAlert.padTop} chatH=${noAlert.chat.h} composerBottom=${noAlert.composer.bottom}`);
   }
 
+  if (SHOTS && width >= 768) {
+    await pageEl.screenshot({ path: join(OUT, `rail-${width}.png`) });
+  }
   results.push(`  --   ${width}px: paddingTop=${m.contentPadTop} chatH=${m.chatH} composerBottom=${m.composerBottom} rail=${m.railH} actions=${m.actionW}x${m.actionH}`);
   await context.close();
 }
