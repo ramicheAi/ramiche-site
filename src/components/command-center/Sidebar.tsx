@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Logo, Icon } from '@/components/command-center/po/Brand';
+import { usePoTheme } from '@/components/command-center/PoShell';
 
 /* ══════════════════════════════════════════════════════════════════════════════
    COMMAND CENTER SIDEBAR — Parallax OS holographic accordion
@@ -135,10 +136,30 @@ function sectionForPath(pathname: string | null): string {
   return sections[0].label;
 }
 
-export default function Sidebar() {
+export default function Sidebar({
+  wakeEnabled = false,
+  pulseOpen = false,
+}: {
+  wakeEnabled?: boolean;
+  pulseOpen?: boolean;
+} = {}) {
   const pathname = usePathname();
+  const { theme, toggleTheme } = usePoTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openSec, setOpenSec] = useState<string>(() => sectionForPath(pathname));
+  const [isPhone, setIsPhone] = useState(false);
+  const closeRef = useRef<HTMLButtonElement | null>(null);
+  const openedFrom = useRef<HTMLElement | null>(null);
+
+  // The drawer is off-canvas only below md. Above it, this same <aside> is the permanent rail, so
+  // marking it inert there would disable navigation entirely.
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const sync = () => setIsPhone(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
 
   // when the route changes, expand the section that owns it (single-open)
   useEffect(() => {
@@ -146,12 +167,47 @@ export default function Sidebar() {
   }, [pathname]);
 
   // The mobile menu button lives in the HUD. It dispatches this event so the
-  // drawer state stays local to the navigation component.
+  // drawer state stays local to the navigation component; the state is reported
+  // back so the HUD control can describe itself as the toggle it is.
   useEffect(() => {
-    const toggle = () => setMobileOpen((open) => !open);
-    window.addEventListener("cc:toggle-nav", toggle);
-    return () => window.removeEventListener("cc:toggle-nav", toggle);
+    const toggle = () =>
+      setMobileOpen((open) => {
+        // remember the control that opened it here, at the moment of the click
+        if (!open) {
+          const active = document.activeElement;
+          openedFrom.current = active instanceof HTMLElement ? active : null;
+        }
+        return !open;
+      });
+    window.addEventListener('cc:toggle-nav', toggle);
+    return () => window.removeEventListener('cc:toggle-nav', toggle);
   }, []);
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('cc:nav-state', { detail: { open: mobileOpen } }));
+    if (!isPhone) return undefined;
+
+    if (mobileOpen) {
+      const focusId = window.setTimeout(() => closeRef.current?.focus(), 0);
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setMobileOpen(false);
+        }
+      };
+      document.addEventListener('keydown', onKey);
+      return () => {
+        window.clearTimeout(focusId);
+        document.removeEventListener('keydown', onKey);
+      };
+    }
+
+    // Closing returns focus to whatever opened the drawer, normally the HUD menu button.
+    const target = openedFrom.current ?? document.getElementById('cc-menu-btn');
+    openedFrom.current = null;
+    if (target && document.contains(target)) target.focus();
+    return undefined;
+  }, [mobileOpen, isPhone]);
 
   return (
     <>
@@ -160,8 +216,12 @@ export default function Sidebar() {
           mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
         style={{ position: 'fixed', height: '100dvh' }}
+        aria-label="Command Center navigation"
+        aria-hidden={isPhone && !mobileOpen ? true : undefined}
+        inert={isPhone && !mobileOpen ? true : undefined}
       >
         <button
+          ref={closeRef}
           type="button"
           className="po-side-close"
           aria-label="Close navigation"
@@ -229,6 +289,36 @@ export default function Sidebar() {
         <div className="po-side-foot">
           <span>ATLAS v4 // 20 AGENTS</span>
           <span className="po-foot-dot" />
+        </div>
+
+        {/* Quick controls. The HUD hides these three on phones and tablets to keep the primary
+            controls legible, so the drawer carries functional copies: not decorations, and not
+            disabled duplicates. Hidden on desktop, where the HUD already shows them. */}
+        <div className="po-side-quick" role="group" aria-label="Quick controls">
+          <button
+            type="button"
+            className="po-quick"
+            aria-pressed={pulseOpen}
+            onClick={() => window.dispatchEvent(new CustomEvent('cc:toggle-pulse'))}
+          >
+            <span aria-hidden>◈</span> Pulse
+          </button>
+          <button
+            type="button"
+            className="po-quick"
+            aria-pressed={wakeEnabled}
+            onClick={() => window.dispatchEvent(new CustomEvent('cc:toggle-wake'))}
+          >
+            <span aria-hidden>◉</span> Wake word
+          </button>
+          <button
+            type="button"
+            className="po-quick"
+            aria-pressed={theme === 'light'}
+            onClick={toggleTheme}
+          >
+            <span aria-hidden>☀</span> Theme
+          </button>
         </div>
       </aside>
 

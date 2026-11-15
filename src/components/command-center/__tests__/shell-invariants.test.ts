@@ -1,0 +1,126 @@
+/**
+ * @vitest-environment node
+ *
+ * Shell invariants for the Command Center mobile shell.
+ *
+ * Each assertion here reproduces a defect the independent review of PR #90 found, so the fix
+ * fails these tests when it is reverted. Several of them are read from source because the shell's
+ * responsive rules are a CSS-in-JS template string that no jsdom layout engine evaluates; the
+ * behavioural half of the drawer lives in Sidebar.mobile.test.tsx instead.
+ */
+import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+/** vitest runs from the repository root */
+const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
+
+const rootLayout = read('src/app/layout.tsx');
+const ccLayout = read('src/app/command-center/layout.tsx');
+const shell = read('src/app/command-center/CommandCenterClientLayout.tsx');
+const hud = read('src/components/command-center/CommandHUD.tsx');
+const sidebar = read('src/components/command-center/Sidebar.tsx');
+const chat = read('src/app/command-center/chat/page.tsx');
+
+/** the two responsive <style> blocks in the shell, joined */
+const shellCss = [...shell.matchAll(/<style>\{`([\s\S]*?)`\}<\/style>/g)].map((m) => m[1]).join('\n');
+
+describe('safe-area scope', () => {
+  it('does not put viewport-fit on the marketing root layout', () => {
+    expect(rootLayout).not.toMatch(/viewportFit/);
+  });
+
+  it('keeps viewport-fit on the Command Center layout', () => {
+    expect(ccLayout).toMatch(/viewportFit:\s*["']cover["']/);
+  });
+
+  it('handles safe-area insets nowhere outside the Command Center', () => {
+    // viewportFit:cover without a matching inset is how a layout slides under the notch, so if the
+    // inset handling ever spreads into marketing code the two must arrive together.
+    const outside = execSync(
+      "grep -rl 'safe-area-inset' src/app src/components src/lib 2>/dev/null | grep -v command-center || true",
+      { cwd: process.cwd(), encoding: 'utf8' }
+    ).trim();
+    expect(outside, `safe-area handling leaked outside Command Center: ${outside}`).toBe('');
+  });
+});
+
+describe('chat height against the alert ticker', () => {
+  it('reserves the ticker in the phone chat height', () => {
+    // #cc-content gains 38px of top padding when the ticker is mounted, so a chat pane sized from
+    // 100dvh alone overflows by exactly that much and pushes the composer under the fold.
+    expect(chat).toMatch(/body:has\(#cc-alertbar\)\s+\.chat-root\s*\{[^}]*100dvh\s*-\s*94px/);
+  });
+
+  it('reserves the ticker in the tablet chat height', () => {
+    expect(shellCss).toMatch(/body:has\(#cc-alertbar\)\s+\.chat-root\s*\{[^}]*100dvh\s*-\s*102px/);
+  });
+});
+
+describe('touch targets are targeted, not blanket', () => {
+  it('no rule sizes every button in the shell', () => {
+    // A blanket `button { min-height: 44px }` inflates the 26px rail dividers and turns dense
+    // inline clusters (chat message actions) into 44px squares that clip.
+    expect(shellCss).not.toMatch(/\.po-shell\s+button\s*\{/);
+  });
+
+  it('still sizes the icon controls and nav rows it means to', () => {
+    expect(shellCss).toMatch(/\.po-shell\s+\.po-icbtn/);
+    expect(shellCss).toMatch(/\.po-shell\s+\.po-navitem/);
+    expect(shellCss).toMatch(/\.po-menu-btn/);
+  });
+});
+
+describe('HUD, overlay and drawer stacking', () => {
+  const hudZ = Number((hud.match(/zIndex:\s*(\d+)/) || [])[1]);
+
+  it('keeps the HUD above the drawer overlay so the menu can be reached', () => {
+    const overlayZ = Number((shellCss.match(/\.po-nav-overlay\s*\{\s*z-index:\s*(\d+)/) || [])[1]);
+    expect(hudZ).toBeGreaterThan(0);
+    expect(overlayZ).toBeLessThan(hudZ);
+  });
+
+  it('starts the drawer below the phone HUD so the menu button stays clickable', () => {
+    // If the drawer covers the HUD, the HUD menu cannot close it: the button opens the drawer and
+    // can never close it, which is the regression the review found.
+    expect(shellCss).toMatch(/\.po-side\s*\{[^}]*top:\s*calc\(56px \+ env\(safe-area-inset-top\)\)/);
+  });
+
+  it('labels the menu button as a toggle', () => {
+    expect(hud).toMatch(/aria-expanded=\{/);
+    expect(hud).toMatch(/aria-label=\{[\s\S]{0,120}Close navigation/);
+  });
+});
+
+describe('drawer keyboard behaviour', () => {
+  it('removes the closed drawer from interaction and the tab order', () => {
+    expect(sidebar).toMatch(/inert=\{/);
+  });
+
+  it('closes on Escape', () => {
+    expect(sidebar).toMatch(/["']Escape["']|key\s*===\s*["']Esc/);
+  });
+
+  it('restores focus to the menu button when it closes', () => {
+    expect(sidebar).toMatch(/\.focus\(\)/);
+  });
+});
+
+describe('secondary controls stay reachable on mobile and tablet', () => {
+  const quick = sidebar.match(/po-side-quick[\s\S]*?<\/div>/);
+
+  it('offers pulse, wake word and theme from the drawer', () => {
+    expect(quick, 'the drawer has no quick-controls block').toBeTruthy();
+    expect(quick ? quick[0] : '').toMatch(/Pulse/i);
+    expect(quick ? quick[0] : '').toMatch(/Wake/i);
+    expect(quick ? quick[0] : '').toMatch(/Theme|Appearance/i);
+  });
+
+  it('does not hide those controls behind the HUD-only class', () => {
+    // The HUD may hide its own copies for density; the drawer copies must not carry the class that
+    // hides them.
+    const drawerCopy = quick ? quick[0] : '';
+    expect(drawerCopy).not.toMatch(/po-hud-secondary/);
+  });
+});
