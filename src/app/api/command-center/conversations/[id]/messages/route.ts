@@ -14,20 +14,6 @@ const OWNER_USER_ID = "00000000-0000-0000-0000-000000000001";
 const TENANT_ID = "11111111-1111-1111-1111-111111111111";
 const MAX_CONTENT_LENGTH = 20_000;
 
-/**
- * GET /api/command-center/conversations/[id]/messages
- *
- * The owner-gated server-side history read the Command Center chat page must
- * use instead of the browser anon Supabase client. anon/authenticated have
- * had zero table privileges on public.messages since the P05-B3 lockdown
- * migration (RLS enabled, no policies, defense in depth) — confirmed live on
- * the command-center-hq project. The anon client doesn't throw on that denial
- * (supabase-js resolves with `data: null, error: {code: "42501", ...}`), so a
- * browser read of this table can only ever render an empty channel, never
- * distinguish "no messages" from "denied." This endpoint uses the service-role
- * client (which bypasses RLS under explicit owner authorization) and always
- * reports a read failure as a failure, never as an empty array.
- */
 /** Stable stringify. jsonb read-back reorders keys, so a plain JSON.stringify comparison
  *  reports a genuine retry as a different payload and answers 409 instead of replay. */
 function canonical(value: unknown): string {
@@ -42,6 +28,20 @@ function canonical(value: unknown): string {
   return JSON.stringify(value) ?? "null";
 }
 
+/**
+ * GET /api/command-center/conversations/[id]/messages
+ *
+ * The owner-gated server-side history read the Command Center chat page must
+ * use instead of the browser anon Supabase client. anon/authenticated have
+ * had zero table privileges on public.messages since the P05-B3 lockdown
+ * migration (RLS enabled, no policies, defense in depth) — confirmed live on
+ * the command-center-hq project. The anon client doesn't throw on that denial
+ * (supabase-js resolves with `data: null, error: {code: "42501", ...}`), so a
+ * browser read of this table can only ever render an empty channel, never
+ * distinguish "no messages" from "denied." This endpoint uses the service-role
+ * client (which bypasses RLS under explicit owner authorization) and always
+ * reports a read failure as a failure, never as an empty array.
+ */
 async function GET_handler(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!UUID_RE.test(id)) {

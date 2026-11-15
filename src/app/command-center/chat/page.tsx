@@ -2265,7 +2265,7 @@ export default function CommandCenterChatPage() {
         const channelsRes = await fetch("/api/command-center/channels", { cache: "no-store" });
         if (!channelsRes.ok) {
           const body = await channelsRes.json().catch(() => ({}));
-          setChannelListError(body?.error?.message || `channel list request failed (${channelsRes.status})`);
+          setChannelListError(body?.error?.message || body?.reason || `channel list request failed (${channelsRes.status})`);
           if (!pendingDmRef.current) setActiveChannel(DEFAULT_CHANNELS[1]);
         } else {
           setChannelListError(null);
@@ -2759,7 +2759,7 @@ export default function CommandCenterChatPage() {
         if (cancelled) return;
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
-          setHistoryError(body?.error?.message || `history poll failed (${res.status})`);
+          setHistoryError(body?.error?.message || body?.reason || `history poll failed (${res.status})`);
           return;
         }
         setHistoryError(null);
