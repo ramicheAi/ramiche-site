@@ -464,6 +464,10 @@ function Cockpit({
           .po-shell .sw-filter-row button,
           .po-shell .task-quick,
           .po-shell .pg-btn { min-height: 44px; }
+          /* Action buttons and links live in the page header, not under .pg-btn: the leads filter
+             toggle and the calendar crons link were the two that lost the 44px floor when the
+             blanket button rule was replaced. */
+          .po-shell .pg-head-act a, .po-shell .pg-head-act button { min-height: 44px; display: inline-flex; align-items: center; }
           .po-shell .po-side-close, .po-shell .po-quick { min-width: 44px; }
           .po-shell .chat-input-area button, .po-shell .chat-header-bar button { min-width: 44px; }
           .po-shell .stage .orbit-node, .po-shell .stage .orbit-chip { display: none !important; }

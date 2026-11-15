@@ -67,6 +67,15 @@ describe('chat height against the alert ticker', () => {
   });
 });
 
+describe('header actions keep the phone floor', () => {
+  it('sizes links and buttons in the page header, not only .pg-btn', () => {
+    // Replacing the blanket button rule dropped these: the leads filter toggle is a plain button
+    // and the calendar crons link is an anchor, both inside .pg-head-act.
+    expect(chat).toMatch(/\.pg-head-act\s+a[^{]*\{[^}]*min-height:\s*44px/);
+    expect(chat).toMatch(/\.pg-head-act\s+button/);
+  });
+});
+
 describe('touch targets are targeted, not blanket', () => {
   it('no rule sizes every button in the shell', () => {
     // A blanket `button { min-height: 44px }` inflates the 26px rail dividers and turns dense
