@@ -286,10 +286,20 @@ function Cockpit({
           .po-shell .chat-inline-symbol { display: none !important; }
           .po-shell .chat-input-textarea { padding-right: 118px !important; }
           .po-shell .chat-top-nav a { min-height: 44px; display: inline-flex; align-items: center; }
+          body:has(#cc-alertbar) .chat-root { height: calc(100dvh - 102px - env(safe-area-inset-top)) !important; }
+          .po-shell .sanc-star { padding: 12px 14px; margin: -12px -14px; }
+        }
+        @media (max-width: 767px) {
+          .po-shell .sanc-star { padding: 12px 14px; margin: -12px -14px; }
         }
         @media (max-width: 430px) {
           .po-shell .instrument-head > div, .po-shell .pg-head > div { flex-wrap: wrap; min-width: 0; }
           .po-shell .sanc-tele, .po-shell .sanc-rays, .po-shell .sanc-halo, .po-shell .sanc-reticle { display: none !important; }
+        }
+        @media (max-width: 400px) {
+          .po-shell .sanc-truths { font-size: 10px; gap: 6px 10px; }
+          .po-shell .sanc-truths .t:last-of-type, .po-shell .sanc-truths .sep:last-of-type { display: none; }
+          .po-shell .sanc-constellation { transform: translateY(30px); }
         }
         @media (max-width: 640px) {
           #cc-content { margin-left: 56px; }
@@ -349,7 +359,6 @@ function Cockpit({
         .po-shell .pg-head-meta { flex-wrap: wrap; min-width: 0; }
         .po-shell .pg-serial { min-width: 0; overflow-wrap: anywhere; }
         @media (max-width: 360px) {
-          .po-shell .po-cmdbar .txt::after { content: ""; }
           .po-shell .po-cmdbar { justify-content: center; padding: 0 10px; }
         }
         .po-side-close { display: none; }
@@ -383,8 +392,10 @@ function Cockpit({
           .po-shell .sw-filter-row { flex-wrap: wrap; margin-left: 0 !important; width: 100%; }
           .po-shell .sw-filter-row button { min-height: 44px; padding: 6px 10px; }
           .po-shell .decision-stats { grid-template-columns: repeat(2, 1fr) !important; }
-          .po-shell .sw-stats { display: grid !important; grid-template-columns: repeat(2, 1fr) !important; }
-          .po-shell .sw-stats > div { border-right: none !important; border-bottom: 1px solid var(--line); }
+          .po-shell .sw-stats { display: flex !important; overflow-x: auto; }
+          .po-shell .sw-stats > div { flex: 0 0 110px !important; border-right: 1px solid var(--line); border-bottom: none; }
+          .po-shell .health-process-row { grid-template-columns: 44px 38px 38px 1fr !important; gap: 8px !important; }
+          .po-shell .health-process-cmd { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; word-break: break-word; }
           .po-shell .sw-main { display: flex !important; flex-direction: column-reverse !important; }
           .po-shell .sw-main > div:last-child { min-height: 420px; }
           .po-shell .sw-main > div:last-child > div:first-child { display: none !important; }

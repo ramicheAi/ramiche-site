@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import TerminalPage from "./page";
@@ -14,6 +15,10 @@ vi.mock("@/components/command-center/po/Instrument", () => ({
 afterEach(cleanup);
 
 describe("Command Center terminal", () => {
+  it("server-renders without client timestamps, preventing hydration error #418", () => {
+    expect(renderToString(<TerminalPage />)).not.toMatch(/\d{1,2}:\d{2}:\d{2}/);
+  });
+
   it("renders the intro on the client and runs a built-in command", async () => {
     render(<TerminalPage />);
     expect(await screen.findByText(/PARALLAX TERMINAL v1.0/)).toBeInTheDocument();

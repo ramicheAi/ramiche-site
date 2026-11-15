@@ -33,8 +33,12 @@ checks still require the owner's iPhone.
 | P1 | Alert ticker | code and geometry | 38px fixed ticker over 56px content padding when an alert exists | `:has(#cc-alertbar)` adds 38px to content padding; ticker top includes safe-area |
 | P1 | Safe areas | all screenshots | No `viewport-fit=cover`; HUD, drawer, briefing and composer ignored the notch and home indicator | `viewportFit: cover`; top and bottom safe-area insets on HUD, content, drawer, briefing, chat, composer |
 | P2 | Dashboard 3D stage | geometry before | Decorative orbit avatars reached x424 on a 393px viewport | Hide orbit nodes/chips on phones; central ATLAS core remains |
+| P1 | Sanctuary 320 | `after-width-320-dashboard.png` before fix | The fourth truth wrapped into the COMMS constellation node | At 400px and below the fourth truth is hidden, type tightens, and the constellation shifts down |
+| P2 | Signal Wire feed | before: feed below fold | Five stats occupied three rows on a phone | Stats are one horizontally scrollable row; feed header is visible in the first screen |
+| P2 | Chat filters | code | Empty state also fired for a search with no matches | Channel-empty and filter-empty states are separate |
+| P2 | Touch target | geometry | The clickable `sanc-star` navigation point was about 55x33px | Padding/margin expands the hit area to at least 44px on phones and tablets |
 | P2 | Health process list | geometry | Long command paths ellipsized with no way to read them | `title` added; intentional truncation remains |
-| P1 | Terminal | React error #418 before fix | Initial terminal timestamps were generated during SSR and again on the client, causing a hydration mismatch | Intro line is now created in a client-only mount effect; regression test added |
+| P1 | Terminal | React error #418 before fix | Initial terminal timestamps were generated during SSR and again on the client, causing a hydration mismatch | Intro line is now created in a client-only mount effect; SSR assertion and command regression test added |
 | P2 | Touch targets | geometry before | 17px task buttons, 24px edit buttons, 30 to 38px filter/action buttons | Minimum 44x44 for buttons on phones and tablets; desktop HUD controls remain 34px for mouse density |
 | P2 | Hidden HUD preference | before: theme toggle hidden on phones/tablets | The HUD theme toggle had no mobile alternative | Appearance control added to Settings; pulse stays available through Chat, wake word remains a desktop convenience |
 
@@ -74,7 +78,7 @@ checks still require the owner's iPhone.
 
 ## Before and after evidence
 
-All images are at 393x852 unless noted.
+All 393 screenshots are 393x659 CSS pixels (1179x1977 at 3x; the available Playwright iPhone 15 viewport). Screenshots are included at 320, 375, 393, 430, 768, 1440 and landscape 844x390.
 
 | Screen | Before | After |
 |---|---|---|
@@ -90,7 +94,11 @@ Interaction and width evidence:
 - `after-drawer-open.png`: navigation drawer, safe top, 264px, close control.
 - `after-briefing-open.png`: full-width briefing sheet, close control, safe bottom.
 - `after-chat-drawer-open.png`: chat drawer below the HUD, 280px, close control.
-- `after-width-320-dashboard.png`: 320px HUD and sanctuary layout.
+- `after-width-320-dashboard.png`: 320px HUD and sanctuary layout, no truth/constellation overlap.
+- `after-width-375-dashboard.png`, `after-width-430-agents.png`, `after-width-1440-dashboard.png`, `after-width-1440-agents.png`, `after-landscape-844x390-agents.png`: additional width evidence.
+- `after-393-signal-wire.png`: one-row scrollable stats and feed visible.
+- `after-393-health.png`: wrapped process paths.
+- `after-chat-drawer-open.png`: chat drawer height ends at the viewport; last channels scrollable.
 - `after-width-768-agents.png`: tablet two-column agents, icon rail, no clipping.
 - `after-terminal.png`: terminal renders and runs `help` with no page error.
 - `after-settings-appearance.png`: Appearance control in Settings.
@@ -108,11 +116,11 @@ Interaction and width evidence:
 | Briefing | mobile auto-open refused; desktop auto-open still works; mobile sheet is 393px wide with close |
 | Chat drawer | opens 0 to 280px at z80 below the HUD |
 | Authentication | local bootstrap and PIN session; all audited routes returned 200; no auth code changed |
-| Tests | 902 passed, 4 skipped |
+| Tests | 903 passed, 4 skipped |
 | TypeScript | clean |
 | ESLint | 0 errors, 191 pre-existing warnings |
 | Production build | clean |
-| Client errors | none on Terminal after the hydration fix; no shell or auth errors |
+| Client errors | no Terminal hydration or page errors after the fix; the chat `REALTIME ERROR` badge is the documented pre-existing fallback, not a hydration error |
 
 ## Remaining real-device acceptance
 

@@ -346,7 +346,7 @@ function SettingsContent() {
       <div style={{ marginBottom: 24, padding: "16px 18px", borderRadius: 12, background: "var(--ink-1)", border: "1px solid var(--line)", display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between" }}>
         <div>
           <div style={{ fontSize: 13, fontWeight: 700, color: "var(--t-hi)" }}>Appearance</div>
-          <div style={{ fontSize: 11, color: "var(--t-lo)" }}>Currently {theme} mode. The HUD theme control is hidden on small screens; use this control.</div>
+          <div style={{ fontSize: 11, color: "var(--t-lo)" }}>Currently {theme} mode. Choose the appearance for Command Center.</div>
         </div>
         <button type="button" onClick={toggleTheme} style={{ minHeight: 44, padding: "10px 16px", borderRadius: 8, border: "1px solid var(--line-2)", background: "var(--ink-2)", color: "var(--t-hi)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
           Switch to {theme === "dark" ? "light" : "dark"} mode
