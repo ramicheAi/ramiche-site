@@ -113,6 +113,18 @@ export function CommandHUD({
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [now, setNow] = useState<Date | null>(null);
   const [dockTab, setDockTab] = useState<StatusTab | null>(null);
+  // Whether the off-canvas drawer is open, reported by the Sidebar, so this control can describe
+  // itself as the toggle it is instead of always claiming "Open navigation".
+  const [navOpen, setNavOpen] = useState(false);
+
+  useEffect(() => {
+    const onState = (e: Event) => {
+      const detail = (e as CustomEvent<{ open?: boolean }>).detail;
+      setNavOpen(Boolean(detail && detail.open));
+    };
+    window.addEventListener("cc:nav-state", onState);
+    return () => window.removeEventListener("cc:nav-state", onState);
+  }, []);
 
   const openDock = useCallback((tab: StatusTab) => {
     setDockTab((current) => (current === tab ? null : tab));
@@ -207,8 +219,10 @@ export function CommandHUD({
             never be covered by the HUD's stacking context. */}
         <button
           type="button"
+          id="cc-menu-btn"
           className="po-menu-btn"
-          aria-label="Open navigation"
+          aria-label={navOpen ? "Close navigation" : "Open navigation"}
+          aria-expanded={navOpen}
           onClick={() => window.dispatchEvent(new CustomEvent("cc:toggle-nav"))}
         >
           <span aria-hidden style={{ fontSize: 18, lineHeight: 1 }}>☰</span>

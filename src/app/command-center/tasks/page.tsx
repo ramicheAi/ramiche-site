@@ -482,7 +482,7 @@ export default function TaskBoardPage() {
                       <div className="flex gap-1.5 mt-2">
                         {col.id === "backlog" && (
                           <button
-                            className="flex-1 text-[10px] py-1.5 rounded-lg font-medium transition-all hover:scale-105"
+                            className="task-quick flex-1 text-[10px] py-1.5 rounded-lg font-medium transition-all hover:scale-105"
                             style={{ background: "color-mix(in srgb, var(--c-amber) 15%, transparent)", color: "var(--c-amber)", border: "1px solid color-mix(in srgb, var(--c-amber) 25%, transparent)" }}
                             onClick={() => quickAction(task, col.id, "in-progress")}
                           >
@@ -491,7 +491,7 @@ export default function TaskBoardPage() {
                         )}
                         {col.id === "in-progress" && (
                           <button
-                            className="flex-1 text-[10px] py-1.5 rounded-lg font-medium transition-all hover:scale-105"
+                            className="task-quick flex-1 text-[10px] py-1.5 rounded-lg font-medium transition-all hover:scale-105"
                             style={{ background: "color-mix(in srgb, var(--c-purple) 15%, transparent)", color: "var(--c-purple)", border: "1px solid color-mix(in srgb, var(--c-purple) 25%, transparent)" }}
                             onClick={() => quickAction(task, col.id, "review")}
                           >
@@ -501,21 +501,21 @@ export default function TaskBoardPage() {
                         {col.id === "review" && (
                           <>
                             <button
-                              className="flex-1 text-[10px] py-1.5 rounded-lg font-medium transition-all hover:scale-105"
+                              className="task-quick flex-1 text-[10px] py-1.5 rounded-lg font-medium transition-all hover:scale-105"
                               style={{ background: "color-mix(in srgb, var(--c-green) 15%, transparent)", color: "var(--c-green)", border: "1px solid color-mix(in srgb, var(--c-green) 25%, transparent)" }}
                               onClick={() => quickAction(task, col.id, "done")}
                             >
                               Approve
                             </button>
                             <button
-                              className="flex-1 text-[10px] py-1.5 rounded-lg font-medium transition-all hover:scale-105"
+                              className="task-quick flex-1 text-[10px] py-1.5 rounded-lg font-medium transition-all hover:scale-105"
                               style={{ background: "color-mix(in srgb, var(--c-red) 15%, transparent)", color: "var(--c-red)", border: "1px solid color-mix(in srgb, var(--c-red) 25%, transparent)" }}
                               onClick={() => quickAction(task, col.id, "backlog")}
                             >
                               Reject
                             </button>
                             <button
-                              className="flex-1 text-[10px] py-1.5 rounded-lg font-medium transition-all hover:scale-105"
+                              className="task-quick flex-1 text-[10px] py-1.5 rounded-lg font-medium transition-all hover:scale-105"
                               style={{ background: "color-mix(in srgb, var(--c-amber) 15%, transparent)", color: "var(--c-amber)", border: "1px solid color-mix(in srgb, var(--c-amber) 25%, transparent)" }}
                               onClick={() => { setReviseTask(task); setReviseFeedback(""); }}
                             >
