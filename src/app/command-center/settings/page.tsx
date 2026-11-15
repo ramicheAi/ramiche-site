@@ -12,6 +12,13 @@ import { usePoTheme } from "@/components/command-center/PoShell";
    No hardcoded agents — purely API-driven
    ══════════════════════════════════════════════════════════════════════════════ */
 
+type FleetRegistryView = {
+  state: "loading" | "live" | "unavailable";
+  reason?: string;
+  observedAt?: string;
+  providers: { name: string; models: string[] }[];
+};
+
 interface AgentConfig {
   id: string;
   name: string;
@@ -35,18 +42,6 @@ const TIER_COLORS: Record<string, string> = {
   LOCAL: "#f59e0b",
   SYSTEM: "#6b7280",
 };
-
-const AVAILABLE_MODELS = [
-  { value: "claude-opus-4-6", label: "Claude Opus 4.6", tier: "APEX" },
-  { value: "claude-sonnet-4-5-20250929", label: "Claude Sonnet 4.5", tier: "PRO" },
-  { value: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro", tier: "PRO" },
-  { value: "kimi-k2.5", label: "Kimi K2.5", tier: "CORE" },
-  { value: "deepseek-v3.2", label: "DeepSeek V3.2", tier: "CORE" },
-  { value: "qwen3:14b", label: "Qwen3 14B", tier: "LOCAL" },
-  { value: "qwen3:8b", label: "Qwen3 8B", tier: "LOCAL" },
-  { value: "gemma2:9b", label: "Gemma2 9B", tier: "LOCAL" },
-  { value: "llama3.1:8b", label: "Llama 3.1 8B", tier: "LOCAL" },
-];
 
 function getStatusColor(status: string) {
   if (status === "active") return "#22c55e";
@@ -75,6 +70,7 @@ function SettingsContent() {
   const pathname = usePathname();
   const router = useRouter();
   const [agents, setAgents] = useState<AgentConfig[]>([]);
+  const [fleet, setFleet] = useState<FleetRegistryView>({ state: "loading", providers: [] });
   const [loading, setLoading] = useState(true);
   const [lastSync, setLastSync] = useState("");
   const [activeTab, setActiveTab] = useState<"agents" | "system" | "crons">("agents");
@@ -115,6 +111,28 @@ function SettingsContent() {
   const fetchData = useCallback(async () => {
     try {
       const res = await fetch("/api/command-center/agents", { cache: "no-store" });
+      // The authoritative model selection lives in openclaw.json, not directory.json. When this
+      // build runs where that file exists, it overrides the displayed model and supplies the
+      // model catalogue; where it does not, the UI says so instead of offering invented choices.
+      fetch("/api/command-center/fleet/models", { cache: "no-store" })
+        .then(async (r) => {
+          const body = await r.json().catch(() => ({}));
+          if (!r.ok || !body?.ok) {
+            setFleet({ state: "unavailable", reason: body?.reason || body?.detail || `registry returned ${r.status}`, providers: [] });
+            return;
+          }
+          const registry = body.registry as { providers?: { name: string; models: string[] }[]; agents?: { agentId: string; primary: string | null }[]; observedAt?: string };
+          setFleet({ state: "live", providers: registry.providers ?? [], observedAt: registry.observedAt });
+          setAgents((prev) =>
+            prev.map((a) => {
+              const runtime = registry.agents?.find((x) => x.agentId === a.id);
+              if (!runtime?.primary) return a;
+              const [provider, ...rest] = runtime.primary.split("/");
+              return { ...a, model: rest.join("/") || runtime.primary, provider };
+            }),
+          );
+        })
+        .catch((e) => setFleet({ state: "unavailable", reason: e instanceof Error ? e.message : "registry unreachable", providers: [] }));
       if (res.ok) {
         const data = await res.json();
         if (data.agents?.length > 0) {
@@ -265,17 +283,27 @@ function SettingsContent() {
   const handleSaveModel = async (agentId: string, newModel: string) => {
     setSaveError(null);
     try {
-      const res = await fetch("/api/command-center/agents", {
+      const res = await fetch("/api/command-center/fleet/models", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agentId, updates: { model: newModel } }),
+        // newModel is already "provider/model" from the registry-backed options.
+        body: JSON.stringify({ agentId, model: newModel }),
       });
-      if (res.ok) {
-        setAgents(prev => prev.map(a => a.id === agentId ? { ...a, model: newModel } : a));
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        write?: { after?: string; verified?: boolean; observedAt?: string };
+        reason?: string;
+        detail?: string;
+      };
+      // Success is the value read back from disk, never the value we asked for.
+      if (res.ok && data.ok && data.write?.verified && data.write.after) {
+        const [provider, ...rest] = data.write.after.split("/");
+        setAgents((prev) =>
+          prev.map((a) => (a.id === agentId ? { ...a, model: rest.join("/") || data.write!.after!, provider } : a)),
+        );
         setEditingAgent(null);
       } else {
-        const data = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
-        setSaveError(data.detail || data.error || `Save failed (${res.status})`);
+        setSaveError(data.detail || data.reason || `Save failed (${res.status})`);
       }
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : "Network error");
@@ -419,7 +447,7 @@ function SettingsContent() {
                           <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", padding: "4px 10px", borderRadius: 6, color: tierColor, border: `1px solid ${tierColor}40`, background: `${tierColor}12`, textTransform: "uppercase" }}>
                             {tier}
                           </span>
-                          <button onClick={() => { setEditingAgent(isEditing ? null : agent.id); setEditModel(agent.model.split("/").pop() || agent.model); }} style={{
+                          <button onClick={() => { setEditingAgent(isEditing ? null : agent.id); setEditModel(agent.provider ? `${agent.provider}/${agent.model.split("/").pop() || agent.model}` : agent.model); }} style={{
                             fontSize: 9, padding: "4px 8px", borderRadius: 4, cursor: "pointer", transition: "all 0.2s",
                             background: isEditing ? "rgba(201,168,76,0.15)" : "var(--ink-2)",
                             border: isEditing ? "1px solid rgba(201,168,76,0.3)" : "1px solid var(--line)",
@@ -433,20 +461,33 @@ function SettingsContent() {
 
                       {isEditing ? (
                         <div style={{ marginTop: 10 }}>
-                          <label style={{ fontSize: 9, color: "var(--t-lo)", letterSpacing: "0.15em", display: "block", marginBottom: 4 }}>MODEL</label>
+                          <label style={{ fontSize: 9, color: "var(--t-lo)", letterSpacing: "0.15em", display: "block", marginBottom: 4 }}>
+                            MODEL {fleet.state === "live" ? "· REGISTRY LIVE" : fleet.state === "unavailable" ? "· REGISTRY UNAVAILABLE" : "· READING REGISTRY"}
+                          </label>
+                          {fleet.state === "unavailable" && (
+                            <p role="status" style={{ fontSize: 10, color: "#fca5a5", margin: "0 0 6px" }}>
+                              {fleet.reason}. Saving is disabled here because only the runtime that owns openclaw.json can write it.
+                            </p>
+                          )}
                           <select value={editModel} onChange={e => setEditModel(e.target.value)} style={{
                             width: "100%", padding: "8px 10px", borderRadius: 6, fontSize: 11,
                             background: "var(--ink-2)", border: "1px solid rgba(255,255,255,0.12)",
                             color: "var(--t-hi)", fontFamily: "monospace", cursor: "pointer", outline: "none"
                           }}>
-                            {AVAILABLE_MODELS.map(m => (
-                              <option key={m.value} value={m.value} style={{ background: "#111", color: "var(--t-hi)" }}>
-                                {m.label} ({m.tier})
-                              </option>
-                            ))}
+                            {fleet.providers.flatMap((p) =>
+                              p.models.map((m) => {
+                                const ref = `${p.name}/${m}`;
+                                return (
+                                  <option key={ref} value={ref} style={{ background: "#111", color: "var(--t-hi)" }}>
+                                    {m} ({p.name})
+                                  </option>
+                                );
+                              }),
+                            )}
                           </select>
-                          <button onClick={() => handleSaveModel(agent.id, editModel)} style={{
+                          <button onClick={() => handleSaveModel(agent.id, editModel)} disabled={fleet.state !== "live" || !editModel} style={{
                             marginTop: 8, width: "100%", padding: "8px", fontSize: 10, fontWeight: 700,
+                            opacity: fleet.state === "live" && editModel ? 1 : 0.45,
                             letterSpacing: "0.1em", borderRadius: 6, cursor: "pointer",
                             background: "rgba(34,197,94,0.15)", border: "2px solid rgba(34,197,94,0.3)",
                             color: "#22c55e", transition: "all 0.2s"
