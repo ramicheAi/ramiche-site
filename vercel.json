@@ -1,4 +1,9 @@
 {
+  "git": {
+    "deploymentEnabled": {
+      "gate-test/deployment-gate": false
+    }
+  },
   "crons": [
     {
       "path": "/api/meet-results/cron",
