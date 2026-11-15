@@ -1665,6 +1665,9 @@ async function POST_handler(req: NextRequest) {
     // the reply vanished on the next reload. Fail loudly instead, while still
     // handing back the generated text so the caller can show it as unsaved.
     if (!persistence.ok) {
+      // The agents already ran; mark the dispatch so a replay after the lease does not run the
+      // same turn again, even though the reply itself could not be persisted.
+      await markRelay("delivered");
       return NextResponse.json(
         {
           ok: false,
@@ -1683,8 +1686,6 @@ async function POST_handler(req: NextRequest) {
       );
     }
 
-    // The agents already ran even if persisting their reply failed; marking prevents a replay from
-    // running the same turn again.
     await markRelay("delivered");
 
     return NextResponse.json({
