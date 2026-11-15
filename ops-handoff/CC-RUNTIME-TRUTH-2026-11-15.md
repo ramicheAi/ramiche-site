@@ -219,3 +219,96 @@ The reports guard asserts that `revenue30d === null` and `netPL === null` appear
 - The client never reuses an idempotency key on retry, so the unique index cannot fire from the UI yet.
 - Realtime is RLS-dead while the badge still reports connected.
 - Tenant scoping and channel-existence checks on the service-role routes are not enforced; not exploitable with owner-only credentials and a single tenant, but they should be.
+
+
+---
+
+## 12. Canonical cockpit migration audit (Phase 2)
+
+### 12.1 Live state
+
+| Item | Value |
+|---|---|
+| Live commit | `41d183a0`, 2026-10-05, "P06 M5C: Parallax OS pages carry their own title and manifest (#46)" |
+| Deployment path | `/Users/admin/cockpit-releases/41d183a0` (pinned copy, its own git checkout) |
+| LaunchAgent | `com.command-center`: `cd /Users/admin/cockpit-releases/41d183a0 && ... next start -H 127.0.0.1 -p 3000`, `NEXT_DIST_DIR=.next-cc`, `CC_EXECUTION_EVENTS=1`, KeepAlive, restart on exit |
+| Build | Next 16.2.4, build id `O_2PPHl3Wjiq0d_uIj5ZD` |
+| Tunnel | `com.command-center-tunnel`: `cloudflared tunnel run command-center`, tunnel `2bbb32b5-e281-4677-a4f7-7435dca76830` |
+| Access | Cloudflare Access in front of `command.parallaxvinc.com`, 302 to `calm-firefly-c94b.cloudflareaccess.com`, `CF_AppSession` cookie |
+
+Tunnel ingress, which is more than the cockpit:
+
+| Host / path | Target | Purpose |
+|---|---|---|
+| `command.parallaxvinc.com/webhooks/*` | 9876 | webhook listener |
+| `command.parallaxvinc.com/*` | 3000 | cockpit |
+| `claude.parallaxvinc.com/*` | 9999 | Claude Max bridge that Vercel calls (needs the Mac subscription) |
+| `openclaw.parallaxvinc.com/*` | 24511 | OpenClaw gateway, bearer auth, lets Vercel dispatch into agents |
+
+So Vercel and the iMac are already coupled: the marketing site depends on `claude.parallaxvinc.com` and `openclaw.parallaxvinc.com`. Any tunnel change affects the public site too.
+
+### 12.2 Pinned release versus main
+
+- Divergence: 37 commits only on the release side, 60 only on main. **458 files changed**, +11,990 / -27,999.
+- Changed areas: 198 files under `src/app`, 133 under `src/lib`, 21 components, 8 migrations, plus proxy and test changes.
+- The release has **no trusted-device routes** (`api/command-center/auth/device/*` count: 0), **no mobile shell** (`po-menu-btn` count: 0), and **no Command Center manifest**. It authenticates with a Firebase `__session` and `/command-login`.
+- `public/sw.js` is identical between release and main, so service-worker caching behaviour does not change. The manifest does: main serves `/manifest-command-center.webmanifest` with `id` and `scope` `/command-center`.
+- Next 16.2.4 (release) versus 16.4.1 (main), with the dependency and middleware changes that implies.
+
+### 12.3 Dependency map
+
+| Dependency | Where it lives | Migration note |
+|---|---|---|
+| Supabase (messages, channels, device trust) | Shared project, service role in env | New middleware and chat routes expect `cc_trusted_devices`, `cc_device_enrollment_codes` and the idempotency column. Confirm before deploy; a missing table turns every login into a 503 or a bootstrap loop. |
+| Firebase session | `__session` cookie, 12h guard window | Existing tunnel sessions keep working because the guard still accepts the session alone; device trust adds the PIN layer on top. |
+| OpenClaw gateway | `127.0.0.1:24511`, bearer token in `openclaw.json` | Untouched by a cockpit release. |
+| Claude Max bridge | `127.0.0.1:3456`, tunnel host `claude.` | Untouched. |
+| Builds inventory | `~/.openclaw/workspace/builds` | Only the iMac can read it. |
+| Env vars | LaunchAgent sets only `CC_EXECUTION_EVENTS`; the rest come from the shell/plist environment or `.env` | A new release must keep the same env contract; the safe-area and device features need `CC_PIN`, `CC_UNLOCK_SIGNING_SECRET`, `CC_BOOTSTRAP_SECRET`, `PARALLAX_OWNER_UID`. |
+
+### 12.4 Installed PWA and the canonical domain
+
+The release has no Command Center manifest, so a home-screen install of `command.parallaxvinc.com` inherits the root `manifest.json`: name "Parallax", `start_url: "/"`, `display: standalone`, and no scope narrower than the origin, which means the root marketing manifest governs the installed cockpit. Main fixes this with `id` and `scope` `/command-center`.
+
+Migration risks specific to the installed app:
+
+- **Origin trust is per host.** `cc_device` and `cc_unlock` cookies set on `ramiche-site.vercel.app` do not transfer to `command.parallaxvinc.com`. Moving origins means re-enrolling the phone once, by bootstrap token or approval code.
+- **Manifest identity change.** An installed app whose `start_url` or `scope` changes can open at a different route or be treated as a second install, because the manifest `id` changed from implicit `/` to `/command-center`.
+- **Service worker is unchanged**, so no stale-asset break is expected, but the install prompt and icon set will differ after the upgrade.
+- **Access session** (`CF_AppSession`) is independent of app auth, so a Cloudflare policy change would lock the door before the app is even reached.
+
+### 12.5 Rollback strategy (tested design, not executed)
+
+The release directory pattern makes rollback cheap and is the reason not to build in place:
+
+1. Keep `41d183a0` untouched. A new release goes to `/Users/admin/cockpit-releases/<new-sha>`.
+2. Repoint only the `cd` path inside `com.command-center.plist` (a one-line change), then `launchctl kickstart -k`.
+3. Rollback is the reverse: point back at `41d183a0`, kickstart, confirm port 3000 and a 200 on `/command-login`.
+4. The Cloudflare tunnel, DNS and Access are not touched at all, so rollback cannot break the public site.
+
+Pre-conditions to verify before any migration: the device tables exist, `CC_PIN` and the two signing/bootstrap secrets are present in the LaunchAgent environment, and a second device can complete bootstrap plus PIN on a preview port before the tunnel is repointed.
+
+### 12.6 Migration plan (not executed, requires authorization)
+
+1. Build the current main tree next to the pinned release and run it on port 3001, bound to 127.0.0.1 only.
+2. Give it the same env contract, plus the device secrets. Do not touch the tunnel.
+3. From the iMac itself, exercise `/command-login`, `/command-center`, `/command-center/unlock`, `/command-center/chat` and one API route on 3001. Confirm no 503 and no bootstrap loop.
+4. Verify the three device tables and the chat idempotency column exist; if the column is absent, the route already falls back, so chat still works.
+5. Only then repoint the LaunchAgent and kickstart. Expected downtime is one restart, under ten seconds.
+6. Immediately run the smoke list in section 12.7, then re-enroll the phone if it demands it.
+7. If anything fails, repoint to `41d183a0` and kickstart. Nothing else to undo.
+
+### 12.7 Production smoke plan
+
+- `GET /command-login` 200, `GET /command-center` 307 to login when unauthenticated.
+- Cloudflare Access challenge appears from a non-allowlisted network.
+- After auth: dashboard, agents, chat history load, finance shows measured or unavailable, builds show a real source label.
+- One chat send persists across reload.
+- Device trust survives a browser restart; lock returns to PIN.
+- A second device needs an approval code, not the bootstrap token.
+
+### 12.8 Current blockers
+
+- No owner authorization to repoint the LaunchAgent or touch device secrets.
+- The installed PWA origin is still unconfirmed.
+- `command.parallaxvinc.com` is behind Access, so end-to-end tests need an Access service token or an allowlisted network; neither exists on this machine.
