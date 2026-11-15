@@ -757,3 +757,20 @@ Applied the four auth migrations to a fresh PostgreSQL 17 with `service_role`, `
 | Production trusted devices | **2 rows**, counted, no values read, untouched |
 
 No grant broadening is needed. Enrollment recovery works through the RPCs.
+
+
+### 18.5 Phase 3 review outcomes
+
+| PR | Head reviewed | First verdict | What it found | Now |
+|---|---|---|---|---|
+| #95 fleet registry | `c5ef9d36` | REQUEST CHANGES | **P1:** every write replaced a 600 `openclaw.json` (gateway token, five provider keys) with a 644 temp. P2s: `__proto__`/`constructor` passed as providers; a provider with no catalogue skipped the model check; non-array `agents.list` returned an empty "live" fleet; rollback truncated; stale lock unrecoverable; no test could fail on missing readback. | Fixed at `f46d8923`, CI green, awaiting final confirmation |
+| #96 builds provenance | `452993f0` | REQUEST CHANGES | **P1:** on Vercel the only source is Firestore, and its caught error returned `null`, so a failed read rendered "the source reports zero builds". P2: state derived from dates while the grid rendered cards; 7-day boundary untested; label function tested but never called. | Fixed at `2299b6a5`, **APPROVE** |
+
+Fixes worth naming:
+
+- #95 now preserves the source file mode through the temp and rename, fsyncs the file and directory, restores through a rename instead of a truncating copy, refuses prototype-chain providers, refuses providers with no catalogue, treats a non-array `agents.list` as malformed (502), refuses duplicate agent ids and array-shaped selections, recovers a lock older than two minutes, and separates `lock_failed` from `locked`. The read-back is injectable so the mismatch rollback is actually tested; the default remains the real `readRegistry`.
+- #96 adds a tri-state manifest read (`ok`, `missing`, `read_failed`, `not_configured`), returns 503 `state=unavailable` with a reason when no source answered, keeps 200 `empty` only for a source that actually answered with zero builds, derives state from the build count so undated cards are not called empty, pins the 7-day boundary and the future-date clamp, uses the tested label in the page, and adds a tablet-band test the phone rule cannot satisfy.
+
+The `require()` lint error in #95's new test was mine; local `eslint` had not been run on that file, and CI caught it. Fixed at `f46d8923`.
+
+Both PRs remain unmerged. #95 is explicitly infrastructure only: the Settings page still writes `directory.json`, so the user-visible lie is unchanged until the wiring lands.
