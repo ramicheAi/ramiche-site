@@ -71,8 +71,8 @@ describe('header actions keep the phone floor', () => {
   it('sizes links and buttons in the page header, not only .pg-btn', () => {
     // Replacing the blanket button rule dropped these: the leads filter toggle is a plain button
     // and the calendar crons link is an anchor, both inside .pg-head-act.
-    expect(chat).toMatch(/\.pg-head-act\s+a[^{]*\{[^}]*min-height:\s*44px/);
-    expect(chat).toMatch(/\.pg-head-act\s+button/);
+    expect(shell).toMatch(/\.pg-head-act\s+a[^{]*\{[^}]*min-height:\s*44px/);
+    expect(shell).toMatch(/\.pg-head-act\s+button/);
   });
 });
 
