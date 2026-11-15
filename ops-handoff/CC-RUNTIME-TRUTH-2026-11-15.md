@@ -152,3 +152,36 @@ The release is **six weeks behind `main`** and does not contain the mobile shell
 ## 9. iMac access status
 
 Access is available and was used read-only. The remaining blocked question is not connectivity, it is contract: which endpoint may write `openclaw.json` (a new gateway config tool, or a guarded route on the iMac), and whether the pinned release should be advanced before any of this ships.
+
+
+---
+
+## 10. Integration reconciliation (Phase B)
+
+Merged locally, in order, into `integration/cc-recovery-02` off `origin/main` at `96b7e717`. Nothing was pushed to `main` and no PR was merged.
+
+| Step | Ref | Result |
+|---|---|---|
+| 1 | #92 `1649474` | clean |
+| 2 | #93 `0e97794` | clean |
+| 3 | #91 `7144acbb` | clean |
+
+Code merges without conflict. **One test conflict**, which is the real coupling between #91 and #93:
+
+- `shell-invariants.test.ts` asserted the phone chat height as a literal `100dvh - 94px`. #93 replaced that with `calc(var(--cc-vvh, 100dvh) - 94px)` so the composer follows the iOS keyboard. The assertion failed on the `)` before `- 94px`.
+- Reconciled by widening the assertion to accept either form while still requiring the 94px ticker allowance. That is the only change needed to land #91 after #93.
+
+Combined result on the integration branch: **1039 tests passed, 2 expected fail, 4 skipped (91 files), `tsc` clean, production build clean.**
+
+### Recommended order
+
+1. #92 finance truth.
+2. #93 chat recovery.
+3. #91 shell remediation, with the assertion update above.
+4. Sanctuary inset and YOLO chips on top of #91.
+
+### Shared surfaces to watch
+
+- `chat-root` height: #93 owns the mobile rule (viewport variable), #91 owns the tablet and desktop rule (content column). They do not conflict today, but the desktop rule still uses `100dvh`, so a tablet keyboard is not accounted for.
+- 44px targets: #91 replaced the blanket `button` rule with a targeted list. #92 and #93 add no new buttons.
+- `CommandHUD`: #92 edits the MRR readout, #91 edits the drawer and quick controls. Disjoint lines.
