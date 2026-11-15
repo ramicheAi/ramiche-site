@@ -774,3 +774,66 @@ Fixes worth naming:
 The `require()` lint error in #95's new test was mine; local `eslint` had not been run on that file, and CI caught it. Fixed at `f46d8923`.
 
 Both PRs remain unmerged. #95 is explicitly infrastructure only: the Settings page still writes `directory.json`, so the user-visible lie is unchanged until the wiring lands.
+
+
+---
+
+## 19. CC-RECOVERY-07
+
+### 19.1 Deployment gate: verified, landed, effective
+
+Documentation (Vercel, last updated 2026-08-25) confirms `git.deploymentEnabled` accepts a branch map; unspecified branches default to true.
+
+Empirical checks, not assumptions:
+
+| Test | Result |
+|---|---|
+| Throwaway branch `gate-test/deployment-gate` with `"gate-test/deployment-gate": false` | commit `7a1aa0c6` produced **no** Vercel deployment, so the setting is evaluated from the pushed commit |
+| PR previews on other branches | still deployed |
+| Gate merged to main as `f0c195e7` | **no production deployment**; alias stayed on `dpl_BxVfLSoZzLLB2Sto6SmxHZGEHT21` |
+| #95 merged as `2db8cde8` | no production deployment |
+| #96 merged as `c6241701` | no production deployment |
+
+Production has therefore stayed pinned since 16:30Z. `main` is `c6241701e2b7f123608652967a9d2949583e2345`, with lint-build, test and security green.
+
+Release procedure after the gate:
+
+```bash
+vercel ls ramiche-site                 # choose the reviewed deployment
+vercel inspect <dpl_id>                # confirm the commit and status
+vercel promote <dpl_id>                # alias production to it, no rebuild
+```
+
+The deployment's commit is read from `vercel inspect` and from the GitHub deployments API; a release note records both the SHA and the deployment id.
+
+### 19.2 Integration
+
+| PR | Approved head | Merge commit |
+|---|---|---|
+| #95 fleet registry | `f46d8923` | `2db8cde8` |
+| #96 builds provenance | `2299b6a5` | `c6241701` |
+
+Both used head-SHA protection after re-verifying head, main, clean mergeability and CI.
+
+### 19.3 Fleet Settings wiring (draft PR #99, `2aa2141d`)
+
+The page now reads the registry, uses its catalogue for options, overrides displayed models with the configured primary, saves through the registry API, and only updates when the response is `verified: true` with the value read back from disk. When the registry is absent it disables saving and shows why. The hardcoded model list is deleted. CI green; awaiting independent review.
+
+### 19.4 Relay correctness (draft PR #100, `de584a3f`)
+
+New migration adds `relay_status`, `relay_claimed_at`, `relay_attempts` and two SECURITY DEFINER functions. The claim excludes `delivered` and `failed_permanent`, and only re-claims `claimed`/`failed` after the lease. The route claims through the function and marks delivered after dispatch; before the migration the RPC is absent and behaviour is unchanged.
+
+PostgreSQL 17 receipts: first claim true, in-lease false, **delivered + aged false**, crash recovery true with attempts 2, retry after failed true, concurrent claims one winner.
+
+Guarantee: mutual exclusion per lease. Not exactly-once; an accepted-but-unacknowledged dispatch can run again after recovery. Migration prepared, not applied.
+
+### 19.5 Storage and preview readiness
+
+| Host | Disk | Memory / pressure | Container runtime |
+|---|---|---|---|
+| iMac cockpit host | **5.5 GB free, 99% used** | 32 GB RAM, swap 906 MB used, load 12.5 | none installed |
+| MacBook | 20 GB free | 24 GB | no Docker or Colima |
+
+Installing a JRE, a second node_modules and an emulator stack on the iMac would leave roughly 3 GB free on a volume already at 99%, with swap in use. That is not a safe place to add a second runtime. The MacBook has room but no container runtime, and adding one is host software requiring approval. A small cloud VM would satisfy isolation best and costs money.
+
+Recommendation: do not provision on the iMac. Either run the preview on the MacBook under a dedicated user with a local stack, or use a short-lived cloud VM. Neither is authorized yet.
