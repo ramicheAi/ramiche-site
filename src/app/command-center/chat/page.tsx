@@ -3465,6 +3465,7 @@ export default function CommandCenterChatPage() {
      ══════════════════════════════════════════════════════════════════════════ */
   return (
     <div
+      className="chat-root"
       style={{
         display: "flex",
         flexDirection: "column",
@@ -4318,6 +4319,7 @@ export default function CommandCenterChatPage() {
 
           <div
             ref={searchPortalRef}
+            className="chat-header-search"
             style={{
               flex: 1,
               minWidth: 0,
@@ -4639,6 +4641,7 @@ export default function CommandCenterChatPage() {
               </div>
             )}
             <div
+              className="chat-header-members"
               style={{
                 fontSize: 10,
                 fontWeight: 600,
@@ -4731,6 +4734,11 @@ export default function CommandCenterChatPage() {
             padding: "16px 20px",
           }}
         >
+          {filteredMessages.length === 0 && (
+            <div style={{ padding: "48px 16px", textAlign: "center", color: COLORS.text.tertiary, fontSize: 13 }}>
+              No messages in this channel yet. Start the conversation below.
+            </div>
+          )}
           {Object.entries(groupedMessages).map(([date, dateMessages]) => (
             <div key={date}>
               {/* Date Separator — matches command center section dividers */}
@@ -5801,6 +5809,7 @@ export default function CommandCenterChatPage() {
                   <button
                     key={sym}
                     type="button"
+                    className="chat-inline-symbol"
                     onClick={() => insertAtMainCursor(sym)}
                     style={{
                       padding: "4px 6px",
@@ -6224,12 +6233,16 @@ export default function CommandCenterChatPage() {
         @media (max-width: 767px) {
           .chat-sidebar {
             position: fixed !important;
-            top: 0 !important;
+            top: calc(56px + env(safe-area-inset-top)) !important;
             left: 0 !important;
             bottom: 0 !important;
-            z-index: 50 !important;
+            z-index: 80 !important;
             width: 280px !important;
+            padding-bottom: env(safe-area-inset-bottom);
             transform: translateX(-100%);
+          }
+          .chat-root {
+            height: calc(100dvh - 56px - env(safe-area-inset-top)) !important;
           }
           .chat-sidebar.open {
             transform: translateX(0) !important;
@@ -6242,12 +6255,13 @@ export default function CommandCenterChatPage() {
           }
           .chat-thread-panel {
             position: fixed !important;
-            top: 0 !important;
+            top: calc(56px + env(safe-area-inset-top)) !important;
             right: 0 !important;
             bottom: 0 !important;
-            z-index: 45 !important;
+            z-index: 80 !important;
             width: 100% !important;
             max-width: 100% !important;
+            padding-bottom: env(safe-area-inset-bottom);
           }
           .chat-top-nav {
             gap: 2px !important;
@@ -6260,12 +6274,36 @@ export default function CommandCenterChatPage() {
           .chat-messages-container {
             padding: 12px 10px !important;
           }
+          .chat-header-bar {
+            flex-wrap: wrap;
+          }
+          .chat-header-search {
+            order: 3;
+            flex: 1 0 100% !important;
+            max-width: none !important;
+            margin: 8px 0 0 !important;
+          }
+          .chat-header-members {
+            order: 2;
+          }
           .chat-input-area {
-            padding: 10px !important;
+            padding: 10px 10px calc(10px + env(safe-area-inset-bottom)) !important;
+          }
+          .chat-sidebar-close {
+            width: 44px !important;
+            height: 44px !important;
           }
           .chat-input-textarea {
-            padding-right: 60px !important;
+            padding-right: 118px !important;
             font-size: 16px !important;
+          }
+          .chat-inline-symbol {
+            display: none !important;
+          }
+          .chat-top-nav a {
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
           }
           .chat-header-bar {
             padding: 10px 12px !important;

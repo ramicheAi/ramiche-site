@@ -266,6 +266,31 @@ function Cockpit({
           #cc-content { margin-left: 66px; }
           #cc-hud, #cc-alertbar { left: 66px !important; }
         }
+        @media (min-width: 768px) and (max-width: 1024px) {
+          .po-hud-secondary { display: none !important; }
+          .po-shell .po-icbtn { width: 44px; height: 44px; }
+          .po-shell .po-atlasbtn { height: 44px; }
+          .po-shell button { min-height: 44px; min-width: 44px; }
+          .po-shell .pg-head-act a { min-height: 44px; display: inline-flex; align-items: center; }
+          .po-shell .pg-head, .po-shell .instrument-head { flex-wrap: wrap !important; }
+          .po-shell .pg-head-act { width: 100%; flex-wrap: wrap; }
+          .po-shell .ag-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .po-shell .arb-grid { grid-template-columns: 1fr !important; }
+          .po-shell .sw-main { display: flex !important; flex-direction: column-reverse !important; height: auto !important; min-height: 0 !important; overflow: visible !important; }
+          .po-shell .sw-main > div:first-child { max-height: 180px; overflow-y: auto; border-right: none !important; border-bottom: 1px solid var(--line); }
+          .po-shell .sw-main > div:last-child { min-height: 420px; }
+          .po-shell .sw-main > div:last-child > div:first-child { display: none !important; }
+          .po-shell .sw-filter-row { flex-wrap: wrap; margin-left: 0 !important; width: 100%; }
+          .po-shell .sw-filter-row button { min-height: 44px; padding: 6px 10px; }
+          .po-shell .chat-input-area button, .po-shell .chat-header-bar button { min-width: 44px; }
+          .po-shell .chat-inline-symbol { display: none !important; }
+          .po-shell .chat-input-textarea { padding-right: 118px !important; }
+          .po-shell .chat-top-nav a { min-height: 44px; display: inline-flex; align-items: center; }
+        }
+        @media (max-width: 430px) {
+          .po-shell .instrument-head > div, .po-shell .pg-head > div { flex-wrap: wrap; min-width: 0; }
+          .po-shell .sanc-tele, .po-shell .sanc-rays, .po-shell .sanc-halo, .po-shell .sanc-reticle { display: none !important; }
+        }
         @media (max-width: 640px) {
           #cc-content { margin-left: 56px; }
           #cc-hud, #cc-alertbar { left: 56px !important; }
@@ -310,6 +335,67 @@ function Cockpit({
           .cc-responsive-flex {
             flex-direction: column !important;
           }
+        }
+      `}</style>
+
+      <style>{`
+        /* ── phone shell: safe areas, one navigator, no controls hidden under chrome ── */
+        #cc-hud { height: calc(64px + env(safe-area-inset-top)) !important; padding-top: env(safe-area-inset-top); }
+        #cc-content { padding-top: calc(64px + env(safe-area-inset-top)) !important; padding-bottom: env(safe-area-inset-bottom); }
+        body:has(#cc-alertbar) #cc-content { padding-top: calc(64px + 38px + env(safe-area-inset-top)) !important; }
+        #cc-alertbar { top: calc(64px + env(safe-area-inset-top)) !important; }
+        .po-menu-btn { display: none; }
+        .po-hud-secondary { display: inline-flex; align-items: center; }
+        .po-shell .pg-head-meta { flex-wrap: wrap; min-width: 0; }
+        .po-shell .pg-serial { min-width: 0; overflow-wrap: anywhere; }
+        @media (max-width: 360px) {
+          .po-shell .po-cmdbar .txt::after { content: ""; }
+          .po-shell .po-cmdbar { justify-content: center; padding: 0 10px; }
+        }
+        .po-side-close { display: none; }
+        @media (max-width: 767px) {
+          #cc-hud { left: 0 !important; height: calc(56px + env(safe-area-inset-top)) !important; padding: env(safe-area-inset-top) 8px 0 !important; gap: 8px !important; }
+          #cc-content { margin-left: 0 !important; padding-top: calc(56px + env(safe-area-inset-top)) !important; padding-bottom: calc(env(safe-area-inset-bottom) + 12px); }
+          body:has(#cc-alertbar) #cc-content { padding-top: calc(56px + 38px + env(safe-area-inset-top)) !important; }
+          #cc-alertbar { left: 0 !important; top: calc(56px + env(safe-area-inset-top)) !important; }
+          .po-menu-btn { display: grid; width: 44px; height: 44px; flex: 0 0 44px; place-items: center; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-glass); color: var(--accent); font: inherit; cursor: pointer; }
+          .po-hud-secondary { display: none !important; }
+          .po-shell .po-icbtn { width: 44px; height: 44px; }
+          .po-shell .po-atlasbtn { height: 44px; padding: 0 8px; }
+          .po-shell .po-cmdbar { height: 44px; min-width: 0; }
+          .po-shell .po-cmdbar .txt { font-size: 0; }
+          .po-shell .po-cmdbar .txt::after { content: "Search"; font-size: 12px; }
+          .po-shell .po-cmdbar .kbd { display: none; }
+          .po-side { z-index: 80 !important; height: 100dvh !important; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+          .po-nav-overlay { z-index: 75 !important; }
+          .po-side-head { padding-right: 56px; }
+          .po-side-close { display: grid; position: absolute; top: calc(env(safe-area-inset-top) + 6px); right: 10px; width: 44px; height: 44px; place-items: center; z-index: 2; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-glass); color: var(--t-hi); font: inherit; cursor: pointer; }
+          .po-shell .po-navitem { min-height: 44px; }
+          .po-shell .atlas-briefing { top: calc(56px + env(safe-area-inset-top)) !important; width: 100vw !important; max-width: 100vw !important; z-index: 80 !important; padding-bottom: env(safe-area-inset-bottom); }
+          .po-shell .atlas-briefing button { min-width: 44px; min-height: 44px; }
+        }
+        @media (max-width: 640px) {
+          .po-shell .ag-grid { grid-template-columns: 1fr !important; }
+          .po-shell .coll-card { min-width: 0; width: 100%; }
+          .po-shell .arb-grid, .po-shell .arb-stats { grid-template-columns: 1fr !important; }
+          .po-shell .sw-main { grid-template-columns: 1fr !important; height: auto !important; min-height: 0 !important; overflow: visible !important; }
+          .po-shell .sw-main > div:first-child { max-height: 180px; overflow-y: auto; border-right: none !important; border-bottom: 1px solid var(--line); }
+          .po-shell .sw-filter-row { flex-wrap: wrap; margin-left: 0 !important; width: 100%; }
+          .po-shell .sw-filter-row button { min-height: 44px; padding: 6px 10px; }
+          .po-shell .decision-stats { grid-template-columns: repeat(2, 1fr) !important; }
+          .po-shell .sw-stats { display: grid !important; grid-template-columns: repeat(2, 1fr) !important; }
+          .po-shell .sw-stats > div { border-right: none !important; border-bottom: 1px solid var(--line); }
+          .po-shell .sw-main { display: flex !important; flex-direction: column-reverse !important; }
+          .po-shell .sw-main > div:last-child { min-height: 420px; }
+          .po-shell .sw-main > div:last-child > div:first-child { display: none !important; }
+          .po-shell button { min-height: 44px; min-width: 44px; }
+          .po-shell .pg-head-act a { min-height: 44px; display: inline-flex; align-items: center; }
+          .po-shell .chat-input-area button, .po-shell .chat-header-bar button { min-width: 44px; }
+          .po-shell .stage .orbit-node, .po-shell .stage .orbit-chip { display: none !important; }
+          .po-shell .task-head { flex-wrap: wrap; }
+          .po-shell .task-progress { max-width: 100%; }
+          .po-shell .pg-head, .po-shell .instrument-head { flex-wrap: wrap !important; }
+          .po-shell .pg-head-act { width: 100%; flex-wrap: wrap; }
         }
       `}</style>
     </div>

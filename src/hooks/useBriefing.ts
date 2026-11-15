@@ -319,8 +319,12 @@ export function useBriefing(): UseBriefingResult {
     if (hasSpokenToday()) return;
     autoFiredRef.current = true;
     const t = window.setTimeout(() => {
-      setOpen(true);
-      void speak();
+      // On phones the dock is a full-screen sheet. Auto-opening it would hide
+      // the page the owner just unlocked, so it only auto-opens on desktop.
+      if (typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches) {
+        setOpen(true);
+        void speak();
+      }
     }, AUTO_DELAY_MS);
     return () => window.clearTimeout(t);
   }, [hydrated, autoEnabled, composed, speak]);

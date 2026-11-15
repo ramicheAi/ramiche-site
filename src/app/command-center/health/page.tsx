@@ -260,7 +260,7 @@ export default function SystemHealthPage() {
                   <span style={{ color: "var(--c-purple)" }}>{p.pid}</span>
                   <span style={{ color: parseFloat(p.cpu) > 50 ? "var(--c-red)" : "var(--t-lo)" }}>{p.cpu}%</span>
                   <span style={{ color: parseFloat(p.mem) > 5 ? "var(--c-amber)" : "var(--t-lo)" }}>{p.mem}%</span>
-                  <span style={{ color: "var(--t-mid)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.cmd}</span>
+                  <span title={p.cmd} style={{ color: "var(--t-mid)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.cmd}</span>
                 </div>
               ))}
             </div>

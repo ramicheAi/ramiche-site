@@ -340,7 +340,7 @@ export default function SignalWirePage() {
     <div style={{ background: "var(--ink-0)", color: "var(--t-hi)", fontFamily: "var(--f-mono)", overflow: "hidden", borderRadius: "var(--r-lg)", border: "1px solid var(--line)" }}>
       <div style={{ fontSize: 9, color: "var(--t-lo)", letterSpacing: 2, padding: "12px 24px 0" }}>Live Agent Communication</div>
       {/* ── STATS STRIP ────────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", borderBottom: "1px solid var(--line)", background: "var(--ink-1)", marginTop: 12 }}>
+      <div className="sw-stats" style={{ display: "flex", borderBottom: "1px solid var(--line)", background: "var(--ink-1)", marginTop: 12 }}>
         {[
           { val: stats.signals, lbl: "SIGNALS", color: "var(--c-cyan)" },
           { val: agents.filter(a => activeAgents.has(a.id.toLowerCase())).length + "/" + agents.length, lbl: "AGENTS", color: "var(--c-gold)" },
@@ -356,7 +356,7 @@ export default function SignalWirePage() {
       </div>
 
       {/* ── MAIN SPLIT ─────────────────────────────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", flex: 1, overflow: "hidden", height: "calc(100vh - 240px)", minHeight: 420 }}>
+      <div className="sw-main" style={{ display: "grid", gridTemplateColumns: "280px 1fr", flex: 1, overflow: "hidden", height: "calc(100vh - 240px)", minHeight: 420 }}>
 
         {/* ── LEFT ROSTER ──────────────────────────────────────────────────── */}
         <div style={{ borderRight: "1px solid var(--line)", overflowY: "auto", background: "var(--ink-1)" }}>
@@ -391,9 +391,9 @@ export default function SignalWirePage() {
           </div>
 
           {/* ── FEED HEADER ────────────────────────────────────────────────── */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", borderBottom: "1px solid var(--line)", background: "var(--ink-1)", position: "sticky", top: 0, zIndex: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 12, padding: "12px 20px", borderBottom: "1px solid var(--line)", background: "var(--ink-1)", position: "sticky", top: 0, zIndex: 10 }}>
             <div style={{ fontSize: 9, letterSpacing: 3, color: "var(--t-lo)", textTransform: "uppercase" as const }}>Signal Feed</div>
-            <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
+            <div className="sw-filter-row" style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
               {filters.map(f => (
                 <button key={f} onClick={() => setActiveFilter(f)} style={{
                   fontSize: 9, letterSpacing: 1, padding: "3px 8px", borderRadius: 4,

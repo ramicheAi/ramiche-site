@@ -329,10 +329,10 @@ export default function TaskBoardPage() {
       icon="tasks"
       accent="var(--c-amber)"
       actions={
-        <div className="flex items-center gap-3">
+        <div className="task-head flex items-center gap-3">
           <PgBtn icon="spark" onClick={() => setShowNewTask(true)}>New Task</PgBtn>
           <div
-            className="flex items-center gap-3 px-4 py-2 rounded-xl"
+            className="task-progress flex items-center gap-3 px-4 py-2 rounded-xl"
             style={{ background: "var(--ink-2)", border: "1px solid var(--line)" }}
           >
             <div className="text-sm" style={{ color: "var(--t-mid)" }}>
