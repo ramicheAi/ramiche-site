@@ -3,6 +3,7 @@ import { readdirSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { fetchCommandCenterYoloManifest } from "@/lib/firebase-admin";
 import { ownerOnly } from "@/lib/server/command-center-guard";
+import { buildProvenance } from "@/lib/builds-provenance";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -176,9 +177,29 @@ async function GET_handler() {
 
     builds.sort(sortBuilds);
 
-    return NextResponse.json(builds, { headers: { "X-CC-YOLO-Source": source } });
+    // Provenance travels in headers so the response body stays the array every existing caller
+    // reads. The page can then say which source answered, when it was read, and whether the
+    // inventory is stale, instead of only "empty".
+    const prov = buildProvenance({
+      source,
+      dates: builds.map((b) => b.date),
+    });
+    return NextResponse.json(builds, {
+      headers: {
+        "X-CC-YOLO-Source": source,
+        "X-CC-YOLO-State": prov.state,
+        "X-CC-YOLO-Observed-At": prov.observedAt,
+        "X-CC-YOLO-Freshness": prov.freshness,
+        "X-CC-YOLO-Latest": prov.latestBuildDate ?? "",
+        "X-CC-YOLO-Age-Days": prov.ageDays === null ? "" : String(prov.ageDays),
+        "cache-control": "no-store",
+      },
+    });
   } catch {
-    return NextResponse.json([], { status: 500 });
+    return NextResponse.json([], {
+      status: 500,
+      headers: { "X-CC-YOLO-State": "unavailable", "cache-control": "no-store" },
+    });
   }
 }
 

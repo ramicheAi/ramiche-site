@@ -76,6 +76,15 @@ export default function YoloBuildsPage() {
   const [load, setLoad] = useState<{ state: "loading" | "ready" | "error"; reason?: string }>({
     state: "loading",
   });
+  // Provenance comes from the API headers: which source answered, when, and whether it is stale.
+  const [prov, setProv] = useState<null | {
+    source: string;
+    state: string;
+    observedAt: string;
+    freshness: string;
+    latest: string;
+    ageDays: string;
+  }>(null);
   const [filter, setFilter] = useState("all");
   const [toast, setToast] = useState<{ message: string; color: string } | null>(null);
 
@@ -88,6 +97,14 @@ export default function YoloBuildsPage() {
         const res = await fetch("/api/command-center/yolo-builds", { cache: "no-store" });
         if (!res.ok) loadFailure = `builds source returned ${res.status}`;
         if (res.ok) {
+          setProv({
+            source: res.headers.get("X-CC-YOLO-Source") || "unknown",
+            state: res.headers.get("X-CC-YOLO-State") || "unknown",
+            observedAt: res.headers.get("X-CC-YOLO-Observed-At") || "",
+            freshness: res.headers.get("X-CC-YOLO-Freshness") || "unknown",
+            latest: res.headers.get("X-CC-YOLO-Latest") || "",
+            ageDays: res.headers.get("X-CC-YOLO-Age-Days") || "",
+          });
           const data = await res.json();
           diskBuilds = Array.isArray(data) ? data.map((b: Record<string, unknown>) => ({
             date: (b.date as string) || "",
@@ -277,6 +294,13 @@ export default function YoloBuildsPage() {
       <div className="relative z-10">
         <p className="text-xs mb-6" style={{ color: "var(--t-lo)", letterSpacing: "0.15em", fontFamily: "var(--f-mono)" }}>
           {stats.agents} AGENTS WITH BUILDS // {stats.total} BUILDS // NIGHTLY 12:30 AM — 2:30 AM EST
+        </p>
+        <p className="text-[10px] mb-6" style={{ color: "var(--t-lo)", fontFamily: "var(--f-mono)", letterSpacing: "0.08em" }}>
+          {load.state === "error"
+            ? "source unavailable · no inventory read"
+            : prov
+            ? `${prov.source} · ${prov.state} · ${prov.freshness} · observed ${new Date(prov.observedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}${prov.latest ? ` · newest ${prov.latest}` : ""}${prov.ageDays ? ` (${prov.ageDays}d)` : ""}`
+            : "reading builds source…"}
         </p>
 
         {/* Agent filter chips */}
