@@ -28,6 +28,20 @@ const MAX_CONTENT_LENGTH = 20_000;
  * client (which bypasses RLS under explicit owner authorization) and always
  * reports a read failure as a failure, never as an empty array.
  */
+/** Stable stringify. jsonb read-back reorders keys, so a plain JSON.stringify comparison
+ *  reports a genuine retry as a different payload and answers 409 instead of replay. */
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+  if (value && typeof value === "object") {
+    const rec = value as Record<string, unknown>;
+    return `{${Object.keys(rec)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${canonical(rec[k])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
+
 async function GET_handler(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!UUID_RE.test(id)) {
@@ -65,7 +79,7 @@ async function GET_handler(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: sanitizeDbError(error) }, { status: 502 });
   }
 
-  return NextResponse.json({ data: data ?? [] });
+  return NextResponse.json({ data: data ?? [] }, { headers: { "cache-control": "no-store" } });
 }
 
 /**
@@ -198,9 +212,9 @@ async function POST_handler(req: Request, { params }: { params: Promise<{ id: st
     const samePayload =
       existing.channel_id === id &&
       existing.content === finalContent &&
-      JSON.stringify(existing.attachments ?? []) === JSON.stringify(insertRow.attachments) &&
+      canonical(existing.attachments ?? []) === canonical(insertRow.attachments) &&
       (existing.thread_parent_id ?? null) === threadParentId &&
-      JSON.stringify(existing.metadata ?? {}) === JSON.stringify(metadata);
+      canonical(existing.metadata ?? {}) === canonical(metadata);
     if (!samePayload) {
       // Same idempotency key, different content/channel/attachments/thread/
       // metadata: never silently keep the first write or silently accept
@@ -214,14 +228,17 @@ async function POST_handler(req: Request, { params }: { params: Promise<{ id: st
     // Return the original row's id, not a new one — and flag it as a replay
     // so the caller knows NOT to dispatch the agent relay a second time for
     // what is still the same logical turn.
-    return NextResponse.json({ data: { id: existing.id, created_at: existing.created_at }, replay: true });
+    return NextResponse.json(
+      { data: { id: existing.id, created_at: existing.created_at }, replay: true },
+      { headers: { "cache-control": "no-store" } },
+    );
   }
 
   if (error) {
     return NextResponse.json({ error: sanitizeDbError(error) }, { status: 502 });
   }
 
-  return NextResponse.json({ data: inserted, replay: false });
+  return NextResponse.json({ data: inserted, replay: false }, { headers: { "cache-control": "no-store" } });
 }
 
 // Owner-only: this is the authorized boundary that replaces the anon client's

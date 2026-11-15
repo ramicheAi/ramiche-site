@@ -34,7 +34,7 @@ async function GET_handler() {
     return NextResponse.json({ error: sanitizeDbError(error) }, { status: 502 });
   }
 
-  return NextResponse.json({ data: data ?? [] });
+  return NextResponse.json({ data: data ?? [] }, { headers: { "cache-control": "no-store" } });
 }
 
 export const GET = ownerOnly(GET_handler);

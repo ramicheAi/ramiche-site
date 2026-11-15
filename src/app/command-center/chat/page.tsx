@@ -2389,7 +2389,7 @@ export default function CommandCenterChatPage() {
         if (cancelled) return; // channel/agent changed again — don't touch state for a channel we left
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
-          setHistoryError(body?.error?.message || `history request failed (${res.status})`);
+          setHistoryError(body?.error?.message || body?.reason || `history request failed (${res.status})`);
         } else {
           setHistoryError(null);
           const json = await res.json();

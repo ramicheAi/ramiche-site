@@ -208,7 +208,11 @@ describe("POST /api/command-center/conversations/[id]/messages", () => {
   });
 
   describe("idempotency: a retry with the same clientMessageId", () => {
-    function mockUniqueViolationThenLookup(existingContent: string) {
+    function mockUniqueViolationThenLookup(
+      existingContent: string,
+      existingMetadata: Record<string, unknown> = {},
+      existingAttachments: unknown[] = [],
+    ) {
       // First `.from("messages")` call: the insert, which hits the unique
       // constraint on client_message_id (this IS the acceptance criterion
       // "concurrent retries cannot create duplicates" — the uniqueness is
@@ -233,9 +237,9 @@ describe("POST /api/command-center/conversations/[id]/messages", () => {
           created_at: "2026-11-12T00:00:00Z",
           content: existingContent,
           channel_id: CHANNEL_ID,
-          attachments: [],
+          attachments: existingAttachments,
           thread_parent_id: null,
-          metadata: {},
+          metadata: existingMetadata,
         },
         error: null,
       };
@@ -262,6 +266,46 @@ describe("POST /api/command-center/conversations/[id]/messages", () => {
       expect(res.status).toBe(200);
       expect(body.data.id).toBe("m-original");
       expect(body.replay).toBe(true);
+    });
+
+    // jsonb key order is not preserved: Postgres stores object keys sorted by length then
+    // bytewise, so an identical client payload reads back reordered. Comparing with a plain
+    // JSON.stringify would answer 409 to a genuine retry, the client would report "not sent" for
+    // a row that exists, and the user's second tap would create a real duplicate.
+    it("treats a reordered jsonb read-back as the same payload", async () => {
+      const requestMeta = {
+        targetAgent: "atlas",
+        isDM: false,
+        channelName: "mettle",
+        dmChannelId: null,
+        source: "chat",
+      };
+      // Postgres's normalized order: by key length, then bytewise.
+      const readBackMeta = {
+        isDM: false,
+        source: "chat",
+        channelName: "mettle",
+        dmChannelId: null,
+        targetAgent: "atlas",
+      };
+      mockUniqueViolationThenLookup("hello", readBackMeta);
+      const res = await POST(
+        postReq({ content: "hello", clientMessageId: CLIENT_MESSAGE_ID, metadata: requestMeta }),
+        ctx(),
+      );
+      const body = await res.json();
+      expect(res.status).toBe(200);
+      expect(body.replay).toBe(true);
+      expect(body.data.id).toBe("m-original");
+    });
+
+    it("still rejects a genuinely different payload shape", async () => {
+      mockUniqueViolationThenLookup("hello", { source: "chat", extra: "value" });
+      const res = await POST(
+        postReq({ content: "hello", clientMessageId: CLIENT_MESSAGE_ID, metadata: { source: "chat" } }),
+        ctx(),
+      );
+      expect(res.status).toBe(409);
     });
 
     // "Same key with different content is rejected": never silently keep
