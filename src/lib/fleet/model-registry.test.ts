@@ -1,4 +1,13 @@
-import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync, existsSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -279,7 +288,6 @@ describe("hardening found by independent review", () => {
     writeFileSync(`${path}.lock`, "999\n");
     const old = new Date(Date.now() - 10 * 60_000);
     // utimes backdates the lock without touching content
-    const { utimesSync } = require("node:fs") as typeof import("node:fs");
     utimesSync(`${path}.lock`, old, old);
     const result = writeAgentModel({ path, agentId: "atlas", ref: "claude-max/claude-sonnet-5" });
     expect(result).toMatchObject({ ok: true, verified: true });
