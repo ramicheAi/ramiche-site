@@ -8,31 +8,40 @@
 --   2. After a successful delivery, the same age-based predicate reclaims the row once the lease
 --      ages out, so a retry can dispatch an already-delivered message again.
 --
+-- The lease must exceed the route's maxDuration (120 s), otherwise a slow turn can be claimed
+-- again while it is still running. This migration defaults it to 300 s.
+--
 -- This migration adds an explicit terminal state and moves the claim into one atomic statement:
 -- delivered and failed_permanent are never reclaimable; claimed/failed rows are reclaimable only
 -- after the lease expires. It still does not provide exactly-once execution: if the gateway
 -- accepted a turn and the acknowledgement was lost, the retry can dispatch again after the lease.
 
+-- Self-sufficient: the earlier idempotency migration may not have been applied, and a missing
+-- column would only fail at call time inside a swallowed error. Create what this file needs.
 alter table public.messages
+  add column if not exists relay_claimed boolean not null default false,
   add column if not exists relay_status text not null default 'pending',
   add column if not exists relay_claimed_at timestamptz,
   add column if not exists relay_attempts int not null default 0;
 
+-- Rows dispatched before this migration have no claim timestamp; without a backfill they are
+-- immediately re-claimable forever. Only meaningful where relay_claimed is already live.
+update public.messages
+   set relay_claimed_at = coalesce(relay_claimed_at, updated_at, created_at, now())
+ where relay_claimed = true
+   and relay_claimed_at is null;
+
 comment on column public.messages.relay_status is
   'pending | claimed | delivered | failed | failed_permanent. delivered and failed_permanent are terminal and are never reclaimed.';
-
-create index if not exists messages_relay_status_idx
-  on public.messages (relay_status)
-  where relay_status in ('claimed', 'failed');
 
 -- Claim the right to dispatch one agent turn for a persisted message.
 create or replace function public.cc_claim_relay_dispatch(
   p_message_id uuid,
-  p_lease_seconds int default 120
+  p_lease_seconds int default 300
 )
 returns table(claimed boolean, attempts int)
 language plpgsql
-security definer
+security invoker
 set search_path = pg_catalog, pg_temp
 as $$
 declare
@@ -60,11 +69,12 @@ $$;
 -- Record the outcome. Only delivered and failed_permanent are terminal.
 create or replace function public.cc_mark_relay_status(
   p_message_id uuid,
-  p_status text
+  p_status text,
+  p_attempt int default null
 )
 returns boolean
 language plpgsql
-security definer
+security invoker
 set search_path = pg_catalog, pg_temp
 as $$
 begin
@@ -74,12 +84,14 @@ begin
   update public.messages
      set relay_status = p_status
    where id = p_message_id
-     and coalesce(relay_status, 'pending') not in ('delivered', 'failed_permanent');
+     and coalesce(relay_status, 'pending') not in ('delivered', 'failed_permanent')
+     -- A stale attempt (its lease expired and a newer one claimed) must not write the outcome.
+     and (p_attempt is null or relay_attempts = p_attempt);
   return found;
 end;
 $$;
 
 revoke all on function public.cc_claim_relay_dispatch(uuid, int) from public;
-revoke all on function public.cc_mark_relay_status(uuid, text) from public;
+revoke all on function public.cc_mark_relay_status(uuid, text, int) from public;
 grant execute on function public.cc_claim_relay_dispatch(uuid, int) to service_role;
-grant execute on function public.cc_mark_relay_status(uuid, text) to service_role;
+grant execute on function public.cc_mark_relay_status(uuid, text, int) to service_role;

@@ -1133,6 +1133,7 @@ async function POST_handler(req: NextRequest) {
     // Fails OPEN (proceeds with dispatch) if the column doesn't exist yet
     // (prepared migration not applied) or on any lookup error — this must
     // never be the reason a legitimate, first-ever send gets no reply.
+    let claimAttempt: number | null = null;
     if (svc && userMessageId) {
       try {
         // Atomic claim with an explicit terminal state. delivered and failed_permanent are never
@@ -1141,23 +1142,39 @@ async function POST_handler(req: NextRequest) {
         // accepted but never acknowledged can still run twice after recovery.
         const { data: claimRows, error: claimError } = await svc.rpc("cc_claim_relay_dispatch", {
           p_message_id: userMessageId,
-          p_lease_seconds: 120,
+          // Must exceed maxDuration (120 s); a shorter lease lets a slow turn be claimed twice.
+          p_lease_seconds: 300,
         });
         const row = Array.isArray(claimRows) ? claimRows[0] : claimRows;
-        if (!claimError && row && row.claimed === false) {
+        claimAttempt = typeof row?.attempts === "number" ? row.attempts : null;
+        if (claimError) {
+          // The claim failing must be visible. Without this line the whole mechanism can be inert
+          // (missing migration, revoked EXECUTE) while chat looks perfectly healthy.
+          console.warn("[chat] relay claim unavailable, dispatch is not deduplicated:", {
+            code: (claimError as { code?: string }).code,
+            message: (claimError as { message?: string }).message,
+          });
+        } else if (row && row.claimed === false) {
           return NextResponse.json({ ok: true, alreadyDispatched: true });
         }
-      } catch {
-        // Migration not applied yet, or any other failure — fail open.
+      } catch (e) {
+        console.warn("[chat] relay claim threw, dispatch is not deduplicated:", e instanceof Error ? e.message : e);
       }
     }
 
-    const markRelay = async (status: "delivered" | "failed") => {
+    const markRelay = async (status: "delivered" | "failed" | "failed_permanent") => {
       if (!svc || !userMessageId) return;
       try {
-        await svc.rpc("cc_mark_relay_status", { p_message_id: userMessageId, p_status: status });
-      } catch {
-        /* status is best effort; the message itself is already persisted */
+        const { error } = await svc.rpc("cc_mark_relay_status", {
+          p_message_id: userMessageId,
+          p_status: status,
+          p_attempt: claimAttempt,
+        });
+        if (error) {
+          console.warn("[chat] relay status not recorded:", { code: (error as { code?: string }).code, message: (error as { message?: string }).message });
+        }
+      } catch (e) {
+        console.warn("[chat] relay status threw:", e instanceof Error ? e.message : e);
       }
     };
 
@@ -1666,6 +1683,8 @@ async function POST_handler(req: NextRequest) {
       );
     }
 
+    // The agents already ran even if persisting their reply failed; marking prevents a replay from
+    // running the same turn again.
     await markRelay("delivered");
 
     return NextResponse.json({

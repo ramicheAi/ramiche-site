@@ -76,14 +76,15 @@ describe("POST /api/command-center/chat — relay dispatch claim", () => {
     expect(body.alreadyDispatched).toBe(true);
     expect(rpc).toHaveBeenCalledWith("cc_claim_relay_dispatch", {
       p_message_id: "22222222-2222-2222-2222-222222222222",
-      p_lease_seconds: 120,
+      p_lease_seconds: 300,
     });
   });
 
   it("a delivered message is not reclaimed", async () => {
     // The function encodes the terminal-state rule; from the route's point of view this is the
     // same short-circuit. The rule itself is proven against PostgreSQL in the migration PR.
-    const { body } = await runWithClaim({ data: [{ claimed: false, attempts: 3 }], error: null });
+    const { res, body } = await runWithClaim({ data: [{ claimed: false, attempts: 3 }], error: null });
+    expect(res.status).toBe(200);
     expect(body.alreadyDispatched).toBe(true);
   });
 
@@ -92,11 +93,18 @@ describe("POST /api/command-center/chat — relay dispatch claim", () => {
     expect(body.alreadyDispatched).toBeUndefined();
   });
 
-  it("fails open when the claim function is missing — the migration is not applied yet", async () => {
+  it("fails open when the claim function is missing, and says so", async () => {
+    // A silent fail-open is how this mechanism can be completely inert while chat looks healthy.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { body } = await runWithClaim({
       data: null,
       error: { code: "PGRST202", message: "Could not find the function public.cc_claim_relay_dispatch" },
     });
     expect(body.alreadyDispatched).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("relay claim unavailable"),
+      expect.objectContaining({ code: "PGRST202" }),
+    );
+    warn.mockRestore();
   });
 });
