@@ -503,3 +503,100 @@ A preview that can be trusted for authenticated acceptance needs a purpose-built
 ### Lesson
 
 Staging from a production `.env` copies authority, not just configuration. "Side effects disabled" has to be constructed key by key, and verified against the running process, not assumed from an empty override line.
+
+
+---
+
+## 17. CC-RECOVERY-05
+
+### 17.1 Containment receipt (read-only)
+
+| Check | Result |
+|---|---|
+| Listeners on 127.0.0.1:3001 | **0** |
+| `next start ... -p 3001` processes | **0** |
+| Processes referencing `cockpit-preview` | **0** |
+| Preview `.env` copies | none |
+| Preview build artifacts | node_modules and `.next` removed; 267M of source and logs remain |
+| Production pid on 3000 | 1834, unchanged |
+| Production health | 200 |
+| Production plist hash | `d522cfc4dca5` |
+| Production build id | `O_2PPHl3Wjiq0d_uIj5ZD` |
+
+Residual exposure is limited to build and preview logs in `~/cockpit-preview`. They contain paths and framework warnings, no credentials, and the environment files they would have referenced are gone.
+
+### 17.2 Isolated preview architecture (designed, not provisioned)
+
+The previous preview failed because it was a privileged copy. The replacement is built from five separations, each of which must be provisioned deliberately:
+
+| Boundary | Design |
+|---|---|
+| Identity | A dedicated standard macOS user `ccpreview`, member of no admin group, owning `/Users/ccpreview/cc-preview`. The production release and `/Users/admin` are not readable by that user. Requires `sudo` to create, so it needs authorization. |
+| Database | A local Postgres + PostgREST instance on 127.0.0.1 with the repo migrations and a synthetic seed: one owner uid, one trusted device with a known secret, two channels, a handful of messages. No production Supabase URL or key anywhere in the environment. |
+| Authentication | Firebase Auth emulator on loopback, with `FIREBASE_AUTH_EMULATOR_HOST` for admin and `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` pointed at it. A script mints the emulator session cookie for the synthetic owner. No production Firebase project, no production owner uid. |
+| Fleet and workspace | `OPENCLAW_WORKSPACE` and `REPO_DIR` set to `/Users/ccpreview/scratch/...`, `OPENCLAW_GATEWAY_URL=http://127.0.0.2:9`, `OPENCLAW_GATEWAY_TOKEN` empty so the gateway reports unavailable rather than authenticating to the live one. No SMTP, VAPI, ElevenLabs, Sentry or model-provider keys. |
+| Network and cookies | Bind `127.0.0.2:3001`. A different loopback IP keeps the preview out of the `127.0.0.1` cookie jar, so an owner who visited production cannot arrive authenticated. PF rules blocking outbound except loopback would need `sudo` and are a separate approval. |
+
+Provisioning needs privileged host changes (new user, PF rules) and a local Firebase emulator install. Those are outside the granted authorization, so nothing was created.
+
+Negative tests required before calling it isolated: production Supabase unreachable, live gateway unreachable, production workspace unreadable, no paid API key present, no cookies shared with 3000, and a synthetic write lands only in the preview database. A 401 alone is not proof.
+
+### 17.3 Database 403 root cause: not a defect
+
+The independent earlier report called enrollment broken. That was wrong, and the read-only evidence contradicts it.
+
+`20261114010000_cc_auth_service_role_least_privilege.sql` deliberately grants:
+
+- `cc_trusted_devices`: SELECT, INSERT, UPDATE
+- `cc_device_enrollment_codes`: **INSERT only**
+- `cc_bootstrap_state`: **no direct grant**, by design
+
+and grants EXECUTE on six SECURITY DEFINER functions: `cc_bootstrap_claim_attempt`, `cc_bootstrap_consume_and_enroll`, `cc_bootstrap_reset`, `cc_redeem_device_enrollment_code`, `cc_trusted_device_claim_pin_attempt`, `cc_trusted_device_reset_pin_attempts`.
+
+The code matches: `command-center-device-trust.ts` inserts enrollment codes and calls those RPCs; it never selects from either table. The 403 in the probe was the intended least-privilege boundary doing its job against a SELECT nobody makes.
+
+**Minimal correction: none.** Enrollment works. If a diagnostic needs to read a code row, do it through a SECURITY DEFINER function, not a new table grant.
+
+### 17.4 Relay idempotency design
+
+Requirement is **at-most-once dispatch**, not exactly-once execution. The message route can guarantee one persisted row; the relay needs its own claim because a lost acknowledgement can resend the message while the first dispatch is still running.
+
+Proposed state on `messages`:
+
+| Column | Purpose |
+|---|---|
+| `client_message_id` | dedupes the message insert, already prepared |
+| `relay_claimed` | true once a caller owns dispatch |
+| `relay_claimed_at` | lease start, so a dead process can be recovered |
+| `relay_attempts` | bounded retries for observability |
+
+Claim, one statement, atomic in the database:
+
+```sql
+with claim as (
+  update public.messages
+     set relay_claimed = true,
+         relay_claimed_at = now(),
+         relay_attempts = relay_attempts + 1
+   where id = $1
+     and (relay_claimed = false or relay_claimed_at < now() - interval '2 minutes')
+  returning id
+)
+select count(*) from claim;
+```
+
+A return of 1 means this caller owns dispatch. 0 means someone else does, or a previous attempt is still inside its lease. After a crash, the lease expires and a retry can claim again, which is at-most-once per lease window and at-least-once overall.
+
+Verified against a real PostgreSQL 17, not a mock:
+
+| Scenario | Result |
+|---|---|
+| Two concurrent claims on the same message | sum of winners = **1** |
+| Immediate third claim | **0** |
+| Claim after the 2 minute lease expires | **1** |
+| Claim inside the lease | **0** |
+| `relay_attempts` after initial + recovery claim | **2** |
+
+Failure after claim but before dispatch is the honest gap: the message is persisted, the lease will expire, and a retry can dispatch, so the agent may run once later. It cannot run twice concurrently. Guaranteeing exactly one execution needs the agent side to accept an idempotency key, which the gateway does not expose today. The design therefore promises at-most-once dispatch and states the gap rather than claiming exactly-once.
+
+Migration SQL is the prepared `20261112180000_messages_client_idempotency_key.sql` plus the lease columns; rollback is the paired `.sql.txt`. Neither has been applied to production.
