@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { InstrumentPage, PgBtn } from "@/components/command-center/po/Instrument";
 import { usePoTheme } from "@/components/command-center/PoShell";
+import FleetModelSettings from "@/components/command-center/FleetModelSettings";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    SETTINGS — System Configuration & Agent Management
@@ -262,24 +263,19 @@ function SettingsContent() {
     return () => es.close();
   }, []);
 
-  const handleSaveModel = async (agentId: string, newModel: string) => {
-    setSaveError(null);
-    try {
-      const res = await fetch("/api/command-center/agents", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agentId, updates: { model: newModel } }),
-      });
-      if (res.ok) {
-        setAgents(prev => prev.map(a => a.id === agentId ? { ...a, model: newModel } : a));
-        setEditingAgent(null);
-      } else {
-        const data = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
-        setSaveError(data.detail || data.error || `Save failed (${res.status})`);
-      }
-    } catch (e) {
-      setSaveError(e instanceof Error ? e.message : "Network error");
-    }
+  /**
+   * Model changes are owned by <FleetModelSettings />, which writes the runtime registry through
+   * the locked-write API (#95) and reads the value back. The previous implementation posted to
+   * /api/command-center/agents, which wrote directory.json. That file is not what the gateway
+   * reads, so the UI could report success while the runtime kept its old model. This handler now
+   * refuses rather than pretending: the remaining calls stay only for consumers that still need
+   * the legacy path outside Settings.
+   */
+  const handleSaveModel = async (agentId: string) => {
+    setSaveError(
+      `Model changes for ${agentId} are made in Fleet models above, which writes the runtime registry. ` +
+        `This legacy control no longer writes directory.json.`,
+    );
   };
 
   const handleGatewayAction = async (action: string) => {
@@ -381,6 +377,7 @@ function SettingsContent() {
         {/* Agents Grid */}
         {activeTab === "agents" && (
           <div>
+            <FleetModelSettings />
             {saveError && (
               <div style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 10, background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.35)", color: "#fca5a5", fontSize: 13 }}>
                 {saveError}
@@ -439,13 +436,16 @@ function SettingsContent() {
                             background: "var(--ink-2)", border: "1px solid rgba(255,255,255,0.12)",
                             color: "var(--t-hi)", fontFamily: "monospace", cursor: "pointer", outline: "none"
                           }}>
+                            {/* Legacy static list. The runtime catalogue lives in Fleet models above; this
+                                select is kept only so the legacy card still renders, and its save no
+                                longer writes anything. */}
                             {AVAILABLE_MODELS.map(m => (
                               <option key={m.value} value={m.value} style={{ background: "#111", color: "var(--t-hi)" }}>
-                                {m.label} ({m.tier})
+                                {m.label} ({m.tier}) — legacy
                               </option>
                             ))}
                           </select>
-                          <button onClick={() => handleSaveModel(agent.id, editModel)} style={{
+                          <button onClick={() => handleSaveModel(agent.id)} style={{
                             marginTop: 8, width: "100%", padding: "8px", fontSize: 10, fontWeight: 700,
                             letterSpacing: "0.1em", borderRadius: 6, cursor: "pointer",
                             background: "rgba(34,197,94,0.15)", border: "2px solid rgba(34,197,94,0.3)",
