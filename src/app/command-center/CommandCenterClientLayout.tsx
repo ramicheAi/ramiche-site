@@ -294,7 +294,8 @@ function Cockpit({
           .po-shell .chat-input-area button,
           .po-shell .chat-header-bar button { min-height: 44px; }
           .po-shell .po-side-close, .po-shell .po-quick { min-width: 44px; }
-          .po-shell .pg-head-act a { min-height: 44px; display: inline-flex; align-items: center; }
+          /* Header actions are used with a finger on tablets too; a raw button was 26px here. */
+          .po-shell .pg-head-act a, .po-shell .pg-head-act button { min-height: 44px; display: inline-flex; align-items: center; }
           .po-shell .pg-head, .po-shell .instrument-head { flex-wrap: wrap !important; }
           .po-shell .pg-head-act { width: 100%; flex-wrap: wrap; }
           .po-shell .ag-grid { grid-template-columns: repeat(2, 1fr) !important; }
