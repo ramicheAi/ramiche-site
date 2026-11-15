@@ -16,6 +16,8 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Avatar } from '@/components/command-center/po/Avatar';
 import { AGENTS } from '@/lib/po-data';
 import { usePoTheme } from '@/components/command-center/PoShell';
+import { useFinanceTruth } from '@/hooks/useFinanceTruth';
+import { financeProvenance, formatUsdCompact } from '@/lib/finance-truth';
 
 // pick 7 agents to orbit (Atlas is the core, others orbit)
 const ORBITERS = AGENTS.filter((a) => !a.lead).slice(0, 7);
@@ -43,7 +45,9 @@ type Gauge = {
 };
 const GAUGES: Gauge[] = [
   { lab: 'Agents', val: '19', sub: '/20', serial: 'FLT·01A', arc: 0.95, pos: { left: '3%', top: '14%' }, conn: { width: 70, left: '100%' } },
-  { lab: 'MRR', val: '$48.2k', sub: '+6%', serial: 'FIN·04C', arc: 0.62, pos: { right: '2%', top: '11%' }, conn: { width: 64, right: '100%' } },
+  // The MRR gauge is filled from the measured finance state at render time. No default figure
+  // and no trend: the previous "$48.2k / +6%" was invented chrome.
+  { lab: 'MRR', val: '\u2014', sub: 'not measured', serial: 'FIN·04C', arc: 0, pos: { right: '2%', top: '11%' }, conn: { width: 64, right: '100%' } },
   { lab: 'Jobs', val: '7', sub: 'live', serial: 'OPS·02B', arc: 0.45, pos: { left: '5%', bottom: '20%' }, conn: { width: 60, left: '100%' } },
   { lab: 'Shipped', val: '23', sub: 'today', serial: 'BLD·07F', arc: 0.78, pos: { right: '4%', bottom: '17%' }, conn: { width: 58, right: '100%' } },
 ];
@@ -86,6 +90,20 @@ export default function Stage({ go }: { go?: (id: string) => void }) {
 
   // live-drifting gauge values
   const [gv, setGv] = useState<number[]>(() => GAUGES.map((g) => g.arc));
+  const finance = useFinanceTruth();
+  const finProv = financeProvenance(finance);
+  // Only the money gauge is data-backed. It states the measured value or that there isn't one.
+  const gauges: Gauge[] = GAUGES.map((g) =>
+    g.lab === 'MRR'
+      ? {
+          ...g,
+          val: formatUsdCompact(finance.mrr),
+          sub: finProv.status === 'live' ? 'live' : finProv.status,
+          arc:
+            finance.mrr === null ? 0 : Math.max(0.05, Math.min(1, finance.mrr / 100000)),
+        }
+      : g,
+  );
   useEffect(() => {
     const reduced =
       typeof matchMedia !== 'undefined' &&
@@ -236,7 +254,7 @@ export default function Stage({ go }: { go?: (id: string) => void }) {
       </div>
 
       {/* floating gauges — cockpit instruments (serial · arc reticle · brackets) */}
-      {GAUGES.map((g, gi) => (
+      {gauges.map((g, gi) => (
         <div key={g.lab} className="holo-gauge" style={{ ...g.pos, position: 'absolute' }}>
           <div className="gauge-card instrument">
             <span className="gauge-conn" style={g.conn} />
@@ -250,7 +268,9 @@ export default function Stage({ go }: { go?: (id: string) => void }) {
               <div className="gauge-readout">
                 <div className="gauge-lab">{g.lab}</div>
                 <div className="gauge-val tnum">
-                  {g.val}
+                  <span title={g.lab === 'MRR' ? `${finProv.source} \u00b7 measured ${finProv.measured}` : undefined}>
+                    {g.val}
+                  </span>
                   <small>{g.sub}</small>
                 </div>
               </div>

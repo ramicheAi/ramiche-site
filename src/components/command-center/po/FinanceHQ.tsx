@@ -19,22 +19,18 @@
  *   LIVE while showing a fallback.
  * ========================================================================== */
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { type CSSProperties } from 'react';
 import { Icon } from '@/components/command-center/po/Brand';
 import QuantPanel from '@/components/command-center/po/QuantPanel';
 import { PAGE } from '@/lib/po-data';
 import { poPlay } from '@/lib/po-sound';
 import {
-  DEMO_STATE,
-  INITIAL_STATE,
   formatArrK,
   formatUsdCompact,
-  isDemoRequested,
-  resolveFinanceState,
+  financeProvenance,
   sourceBadge,
-  type FinanceState,
-  type StripeRevenuePayload,
 } from '@/lib/finance-truth';
+import { useFinanceTruth } from '@/hooks/useFinanceTruth';
 
 // deterministic serial code per page (matches prototype serialFor)
 function serialFor(id: string): string {
@@ -71,29 +67,10 @@ function RingGauge({ v, size = 44, crit }: { v: number; size?: number; crit?: bo
 export default function FinanceHQ() {
   const p = PAGE['finance'] || { label: 'Finance HQ', icon: 'finance', section: 'Business' };
 
-  const [fin, setFin] = useState<FinanceState>(INITIAL_STATE);
-
-  // Read the revenue endpoint once. `?demo=1` short-circuits to the labelled demo state.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (isDemoRequested(window.location.search)) {
-        if (!cancelled) setFin(DEMO_STATE);
-        return;
-      }
-      try {
-        const response = await fetch('/api/command-center/stripe-revenue');
-        const payload = (await response.json()) as StripeRevenuePayload;
-        if (!cancelled) setFin(resolveFinanceState(payload, false));
-      } catch {
-        if (!cancelled) setFin(resolveFinanceState(null, false));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
+  // One shared reading, the same one Sanctuary, Stage and the HUD use. `?demo=1` resolves to a
+  // labelled demo state inside the hook, so this component never decides what "demo" means.
+  const fin = useFinanceTruth();
+  const prov = financeProvenance(fin);
   const badge = sourceBadge(fin);
   const isLive = fin.source === 'live';
   const isDemo = fin.source === 'demo';
@@ -172,7 +149,7 @@ export default function FinanceHQ() {
             </div>
             <div className="fn-big tnum">{formatUsdCompact(fin.mrr)}</div>
             <div className="fn-delta">
-              {isLive && <>measured from Stripe · ${formatArrK(fin.arr)} ARR</>}
+              {isLive && <>measured from Stripe · ${formatArrK(fin.arr)} ARR · {prov.measured}</>}
               {isDemo && <>sample series · ${formatArrK(fin.arr)} ARR</>}
               {!isLive && !isDemo && (fin.reason || 'No measured revenue available.')}
             </div>
@@ -228,7 +205,9 @@ export default function FinanceHQ() {
           <div className="cv-sec-head">
             <Icon name="finance" size={16} style={{ color: 'var(--accent)' }} />
             <h3>Transaction stream</h3>
-            <span className="po-pal-grp">{isLive ? 'LEDGER · live sync' : isDemo ? 'LEDGER · demo' : 'LEDGER · no live source'}</span>
+            <span className="po-pal-grp" title={`${prov.source} · measured ${prov.measured}`}>
+              {isLive ? 'LEDGER · live sync' : isDemo ? 'LEDGER · demo' : 'LEDGER · no live source'}
+            </span>
           </div>
           <div style={{ padding: '4px 0' }}>
             {fin.transactions.length === 0 && (

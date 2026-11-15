@@ -42,6 +42,11 @@ export type FinanceState = {
   transactions: FinanceTx[];
   /** Real historical series only. null = no series available, so no trend line is drawn. */
   chart: number[] | null;
+  /**
+   * ISO timestamp of the measurement the figures came from, or null when nothing was measured.
+   * Shown next to the source so a reader can tell a fresh reading from an old one.
+   */
+  measuredAt: string | null;
   /** Why a number is missing, shown to the reader instead of a guess. */
   reason?: string;
 };
@@ -57,6 +62,8 @@ export type StripeRevenuePayload = {
   }[];
   source?: 'live' | 'unavailable';
   error?: string;
+  /** ISO timestamp the server stamped when it read the provider. */
+  fetchedAt?: string;
 };
 
 /** The state before any response has been read. Deliberately empty, not seeded. */
@@ -67,6 +74,7 @@ export const INITIAL_STATE: FinanceState = {
   activeSubscriptions: null,
   transactions: [],
   chart: null,
+  measuredAt: null,
 };
 
 /**
@@ -87,6 +95,7 @@ export const DEMO_STATE: FinanceState = {
     { id: 'demo-5', name: 'Refund · Pylon', plan: 'Downgrade', amount: '\u2212$890' },
   ],
   chart: [72, 66, 70, 50, 44, 28, 18, 8],
+  measuredAt: null,
   reason: 'Demo data requested with ?demo=1. Not real revenue.',
 };
 
@@ -124,6 +133,13 @@ function mapTransactions(payload: StripeRevenuePayload): FinanceTx[] {
             : `${amount < 0 ? '\u2212' : '+'}$${Math.round(Math.abs(amount)).toLocaleString('en-US')}`,
       };
     });
+}
+
+/** Only a parseable ISO timestamp counts as a measurement time. Anything else is unknown. */
+function isoOrNull(value: unknown): string | null {
+  if (typeof value !== 'string' || !value) return null;
+  const t = Date.parse(value);
+  return Number.isFinite(t) ? new Date(t).toISOString() : null;
 }
 
 /**
@@ -172,6 +188,7 @@ export function resolveFinanceState(
   return {
     source: 'live',
     mrr,
+    measuredAt: isoOrNull(payload.fetchedAt),
     // Deriving ARR from MRR is arithmetic, not invention. Only used when Stripe omits it.
     arr: declaredArr ?? mrr * 12,
     activeSubscriptions: finiteNumber(payload.subscriptions?.active),
@@ -225,5 +242,62 @@ export function sourceBadge(state: FinanceState): SourceBadge {
       return { label: 'UNAVAILABLE', tone: 'unavailable' };
     default:
       return { label: 'SYNC', tone: 'loading' };
+  }
+}
+
+
+/** Human readable measurement time, or an explicit "not measured". Never a fake time. */
+export function formatMeasuredAt(iso: string | null, locale = 'en-US'): string {
+  if (!iso) return 'not measured';
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return 'not measured';
+  return new Date(t).toLocaleString(locale, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+export type FinanceProvenance = {
+  /** Plain sentence naming where the figures came from. */
+  source: string;
+  /** Measurement time, or the word that says there isn't one. */
+  measured: string;
+  /** Availability in one word, safe to render as a status chip. */
+  status: 'live' | 'demo' | 'unavailable' | 'loading';
+  /** True only when the figures are real and measured. */
+  trustworthy: boolean;
+};
+
+/**
+ * The one place that describes a finance reading in words. Surfaces render this instead of
+ * inventing their own phrasing, so "source" and "measured" cannot drift apart from the numbers.
+ */
+export function financeProvenance(state: FinanceState, locale = 'en-US'): FinanceProvenance {
+  switch (state.source) {
+    case 'live':
+      return {
+        source: 'Stripe (live)',
+        measured: formatMeasuredAt(state.measuredAt, locale),
+        status: 'live',
+        trustworthy: true,
+      };
+    case 'demo':
+      return {
+        source: 'Demo fixture (?demo=1)',
+        measured: 'not real',
+        status: 'demo',
+        trustworthy: false,
+      };
+    case 'unavailable':
+      return {
+        source: 'Stripe (unreachable)',
+        measured: 'not measured',
+        status: 'unavailable',
+        trustworthy: false,
+      };
+    default:
+      return {
+        source: 'Stripe (reading)',
+        measured: 'not measured yet',
+        status: 'loading',
+        trustworthy: false,
+      };
   }
 }

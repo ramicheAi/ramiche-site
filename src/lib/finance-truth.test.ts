@@ -11,6 +11,8 @@ import {
   isDemoRequested,
   resolveFinanceState,
   sourceBadge,
+  financeProvenance,
+  formatMeasuredAt,
   type StripeRevenuePayload,
 } from './finance-truth';
 
@@ -234,5 +236,64 @@ describe('the component cannot reintroduce the defect', () => {
 
   it('reads its numbers from the truth model', () => {
     expect(source).toMatch(/from '@\/lib\/finance-truth'/);
+  });
+});
+
+
+describe('measurement provenance', () => {
+  const live = (over: Partial<StripeRevenuePayload> = {}): StripeRevenuePayload => ({
+    source: 'live',
+    subscriptions: { mrr: 5000, arr: 60000, active: 3 },
+    recentTransactions: [],
+    fetchedAt: '2026-11-15T13:34:00.000Z',
+    ...over,
+  });
+
+  it('carries the measurement time through a live reading', () => {
+    const state = resolveFinanceState(live(), false);
+    expect(state.measuredAt).toBe('2026-11-15T13:34:00.000Z');
+    expect(financeProvenance(state).trustworthy).toBe(true);
+    expect(financeProvenance(state).source).toBe('Stripe (live)');
+  });
+
+  it('does not invent a measurement time when the server omits one', () => {
+    const state = resolveFinanceState(live({ fetchedAt: undefined }), false);
+    expect(state.measuredAt).toBeNull();
+    expect(financeProvenance(state).measured).toBe('not measured');
+    // The figure is still real; only its timestamp is unknown.
+    expect(state.mrr).toBe(5000);
+  });
+
+  it('rejects a malformed timestamp instead of rendering it', () => {
+    const state = resolveFinanceState(live({ fetchedAt: 'not-a-date' }), false);
+    expect(state.measuredAt).toBeNull();
+    expect(formatMeasuredAt('not-a-date')).toBe('not measured');
+  });
+
+  it('reports unavailable with no measured time when the source is down', () => {
+    const state = resolveFinanceState({ source: 'unavailable', error: 'boom' }, false);
+    expect(state.mrr).toBeNull();
+    expect(state.measuredAt).toBeNull();
+    const prov = financeProvenance(state);
+    expect(prov.status).toBe('unavailable');
+    expect(prov.trustworthy).toBe(false);
+    expect(prov.measured).toBe('not measured');
+  });
+
+  it('labels demo data as not real, even though it has numbers', () => {
+    const prov = financeProvenance(DEMO_STATE);
+    expect(prov.status).toBe('demo');
+    expect(prov.trustworthy).toBe(false);
+    expect(prov.measured).toBe('not real');
+    expect(DEMO_STATE.measuredAt).toBeNull();
+  });
+
+  it('keeps a measured zero trustworthy and distinguishable from unknown', () => {
+    const zero = resolveFinanceState(live({ subscriptions: { mrr: 0, arr: 0, active: 0 } }), false);
+    expect(zero.source).toBe('live');
+    expect(zero.mrr).toBe(0);
+    expect(financeProvenance(zero).trustworthy).toBe(true);
+    expect(formatUsdCompact(zero.mrr)).toBe('$0');
+    expect(formatUsdCompact(INITIAL_STATE.mrr)).toBe('\u2014');
   });
 });

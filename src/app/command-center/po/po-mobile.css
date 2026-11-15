@@ -59,6 +59,11 @@
   .po-shell .cv-vital { flex: 1 1 calc(50% - 14px); min-width: 0; }
   /* finance ring-gauge tiles: 4-col grid → 2x2 */
   .po-shell .fn-tiles { grid-template-columns: 1fr 1fr; }
+  /* the header meta row now carries a long honest status word (UNAVAILABLE), and the tile
+     labels are words rather than numbers. Both must wrap instead of being clipped. */
+  .po-shell .pg-head-meta { flex-wrap: wrap; row-gap: 4px; }
+  .po-shell .fn-tile .eyebrow { white-space: normal; overflow-wrap: anywhere; letter-spacing: .1em; }
+  .po-shell .fn-tile { min-width: 0; }
   /* gallery render wall + agents roster: 2-up on phones */
   .po-shell .gal-wall, .po-shell .ag-grid { grid-template-columns: 1fr 1fr; }
 
