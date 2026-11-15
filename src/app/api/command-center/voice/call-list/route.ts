@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { rankCallList, type PriorityLead } from "@/lib/voice/call-priority";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -13,7 +14,7 @@ const CLOSED_STAGES = new Set(["won", "lost", "closed", "archived", "dead"]);
  * Returns today's ranked call list — who Mercury should call, in order, with the
  * compliance gate applied. Powers the call-center cockpit.
  */
-export async function GET(req: Request) {
+async function GET_handler(req: Request) {
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 
@@ -50,3 +51,6 @@ export async function GET(req: Request) {
   const callableNow = candidates.filter((c) => c.callable).length;
   return NextResponse.json({ count: candidates.length, callableNow, requireConsent, candidates });
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -15,11 +16,11 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
-export async function OPTIONS() {
+async function OPTIONS_handler() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
 }
 
-export async function GET() {
+async function GET_handler() {
   try {
     const raw = await fs.readFile(DATA_PATH, "utf-8");
     const items = JSON.parse(raw);
@@ -29,7 +30,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+async function POST_handler(request: Request) {
   try {
     const body = await request.json();
     const items = body.items || [];
@@ -46,3 +47,8 @@ export async function POST(request: Request) {
     );
   }
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const OPTIONS = ownerOnly(OPTIONS_handler);
+export const GET = ownerOnly(GET_handler);
+export const POST = ownerOnly(POST_handler);

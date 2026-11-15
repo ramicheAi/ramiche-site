@@ -3,6 +3,7 @@ import { readFile } from "fs/promises";
 import { join } from "path";
 import { fsUrl } from "@/lib/bridge-handlers";
 import { fetchMeridianDashboardFromFirestore } from "@/lib/firebase-admin";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 const DATA_PATH = join(
   process.env.HOME || "/Users/admin",
@@ -31,7 +32,7 @@ function isValidPayload(data: unknown): data is { portfolio: { equity: number } 
   return "equity" in p && typeof (p as { equity: unknown }).equity === "number";
 }
 
-export async function GET() {
+async function GET_handler() {
   try {
     const raw = await readFile(DATA_PATH, "utf-8");
     const data = JSON.parse(raw) as unknown;
@@ -64,3 +65,6 @@ export async function GET() {
     { status: 200, headers: { "X-CC-Meridian-Source": "unavailable" } }
   );
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);

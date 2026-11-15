@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -30,7 +31,7 @@ interface RecentRow {
  * preview of the 5 most recent root messages. Read receipts are tracked
  * client-side via localStorage so this endpoint stays stateless.
  */
-export async function GET(req: NextRequest) {
+async function GET_handler(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const sinceRaw = sp.get("since") ?? "";
   let sinceIso: string | null = null;
@@ -129,3 +130,6 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);

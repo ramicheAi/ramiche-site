@@ -38,6 +38,17 @@ import * as chatRoute from "@/app/api/command-center/chat/route";
 import * as streamRoute from "@/app/api/command-center/chat/stream/route";
 import { chatAgentIds } from "./agent-registry-core";
 
+// These are CONTRACT tests of each route's business behaviour. The routes are owner-only
+// at the handler (CC-SECURITY-RECONCILIATION-02); authorization itself is proven per route
+// and per method in src/app/api/command-center/authorization-inventory.test.ts, so the
+// guard is passed through here rather than re-faked per request.
+vi.mock("@/lib/server/command-center-guard", () => ({
+  ownerOnly: <H,>(h: H) => h,
+  requireCommandCenterOwner: async () => ({ ok: true, uid: "test-owner" }),
+  ownerDenialResponse: () => new Response(null, { status: 401 }),
+}));
+
+
 const CTX = { purpose: "agent-reply" as const };
 const CLAUDE_URL = "http://127.0.0.1:3456/v1/chat/completions";
 const LM_URL = "http://127.0.0.1:1234/v1/chat/completions";

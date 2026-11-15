@@ -8,6 +8,17 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
 
+// These are CONTRACT tests of each route's business behaviour. The routes are owner-only
+// at the handler (CC-SECURITY-RECONCILIATION-02); authorization itself is proven per route
+// and per method in src/app/api/command-center/authorization-inventory.test.ts, so the
+// guard is passed through here rather than re-faked per request.
+vi.mock("@/lib/server/command-center-guard", () => ({
+  ownerOnly: <H,>(h: H) => h,
+  requireCommandCenterOwner: async () => ({ ok: true, uid: "test-owner" }),
+  ownerDenialResponse: () => new Response(null, { status: 401 }),
+}));
+
+
 const sb: { admin: unknown; log: unknown[] } = { admin: null, log: [] };
 vi.mock("@/lib/supabase-admin", () => ({ getSupabaseAdmin: () => sb.admin }));
 

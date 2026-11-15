@@ -12,6 +12,7 @@ export default function AgentPricingModelerPage() {
       accent="var(--c-amber)"
     >
       <iframe
+        sandbox="allow-scripts"
         src="/api/command-center/yolo-builds/preview/2026-03-19-verified-agent-pricing-modeler/index.html"
         style={{
           width: "100%",

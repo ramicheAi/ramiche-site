@@ -17,6 +17,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { AGENT_UUID_TO_SHORT_ID } from "@/lib/cc-agent-dm-uuids";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -34,7 +35,7 @@ function getSupabaseService() {
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
-export async function GET(req: NextRequest) {
+async function GET_handler(req: NextRequest) {
   const svc = getSupabaseService();
   if (!svc) {
     return NextResponse.json(
@@ -174,3 +175,6 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({ ok: true, decisions });
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);

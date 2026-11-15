@@ -7,6 +7,7 @@ import { resolveChatTargets } from "@/lib/chat-routing";
 import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
 import { personaMap } from "@/lib/agent-registry";
 import { sanitizeDbError } from "@/lib/chat-persistence";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -58,7 +59,7 @@ function sseEvent(name: string, data: unknown) {
   return `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   let body: {
     message?: string;
     channelId?: string;
@@ -296,3 +297,6 @@ export async function POST(req: NextRequest) {
     },
   });
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const POST = ownerOnly(POST_handler);

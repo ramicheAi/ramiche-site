@@ -4,6 +4,7 @@ import nodemailer from "nodemailer";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { PARALLAX } from "@/lib/parallax-co";
 import { parseBody, badRequest, isValidEmail } from "@/lib/api-security";
+import { requireCommandCenterOwner, ownerDenialResponse } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -17,6 +18,12 @@ export const runtime = "nodejs";
  * Env: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, EMAIL_FROM (e.g. hello@parallaxvinc.com)
  */
 export async function POST(req: Request) {
+  // Defense-in-depth (CC-P06-SECURITY-RECONCILIATION-01): this sends real
+  // outbound email from the Parallax domain. middleware.ts gates it too, but
+  // an outbound-send route must not depend on middleware alone.
+  const guard = await requireCommandCenterOwner(req);
+  if (!guard.ok) return ownerDenialResponse(guard);
+
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 

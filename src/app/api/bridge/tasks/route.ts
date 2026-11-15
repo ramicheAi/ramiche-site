@@ -2,21 +2,17 @@
 // POST: Approve/reject/create tasks from Command Center UI
 
 import { NextRequest, NextResponse } from "next/server";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "apex-athlete-73755";
 const API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "";
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
-const BRIDGE_SECRET = (process.env.BRIDGE_API_SECRET || "").trim().replace(/\\n$/, "");
 function fsUrl(path: string) { const b = `${FIRESTORE_BASE}/${path}`; return API_KEY ? `${b}?key=${API_KEY}` : b; }
 
 export const dynamic = "force-dynamic";
 
-export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get("x-bridge-secret");
-  if (!BRIDGE_SECRET || authHeader !== BRIDGE_SECRET) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
+async function POST_handler(req: NextRequest) {
+  // Authorization: owner session via ownerOnly() below. The browser no longer holds or sends a bridge secret.
   try {
     const { action, taskId, title, description, assignee, priority, status } = await req.json();
 
@@ -96,11 +92,8 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get("x-bridge-secret");
-  if (!BRIDGE_SECRET || authHeader !== BRIDGE_SECRET) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+async function GET_handler(req: NextRequest) {
+  // Authorization: owner session via ownerOnly() below. The browser no longer holds or sends a bridge secret.
   try {
     const res = await fetch(
       `${FIRESTORE_BASE}/command-center-tasks?pageSize=100`,
@@ -128,3 +121,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ items: [], error: String(e) });
   }
 }
+
+// Owner-only at the handler (CC-SECURITY-RECONCILIATION-02, independent review B1/B2).
+export const GET = ownerOnly(GET_handler);
+export const POST = ownerOnly(POST_handler);

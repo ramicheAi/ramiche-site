@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 
 import { geocode, searchBusinesses } from "@/lib/prospector";
 import { parseBody, sanitize, badRequest } from "@/lib/api-security";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 
 /** POST { category, location, onlyNoWebsite?, limit? } -> { area, results } */
-export async function POST(req: Request) {
+async function POST_handler(req: Request) {
   const { data: body, error: parseError } = await parseBody(req);
   if (parseError || !body) return badRequest(parseError || "Invalid request");
 
@@ -29,3 +30,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "search failed" }, { status: 502 });
   }
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const POST = ownerOnly(POST_handler);

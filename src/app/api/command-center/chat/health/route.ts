@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -29,7 +30,7 @@ function getSupabaseService() {
  *
  * Visit `/api/command-center/chat/health` in the browser.
  */
-export async function GET() {
+async function GET_handler() {
   const checks: Check[] = [];
   const env = {
     NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -253,3 +254,6 @@ export async function GET() {
     nextSteps: failures.filter((f) => f.fix).map((f) => `${f.name}: ${f.fix}`),
   });
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);

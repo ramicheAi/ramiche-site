@@ -18,6 +18,7 @@ import {
   summarizePersistence,
   type PersistenceFailure,
 } from "@/lib/chat-persistence";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 // Pro-tier ceiling. Group-chat fan-out with synthesis + Phase E critic can
@@ -35,11 +36,11 @@ export const maxDuration = 120;
 // every API endpoint to render service uptime; without this, the chat route
 // would return 405 to those GET pings and clutter the browser console with
 // red "method not allowed" errors despite the service being healthy.
-export async function GET() {
+async function GET_handler() {
   return NextResponse.json({ ok: true, accepts: ["POST"] });
 }
 
-export async function HEAD() {
+async function HEAD_handler() {
   return new Response(null, { status: 200 });
 }
 
@@ -1061,7 +1062,7 @@ Output the refined synthesis only — do not narrate the changes.`;
   void channelName;
 }
 
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   // Phase E budget guard: wall-clock anchor used to skip the critic pass if
   // synthesis already burned most of the route's 60s maxDuration window.
   const postStartedAt = Date.now();
@@ -1117,6 +1118,41 @@ export async function POST(req: NextRequest) {
     // should respond within the focused back-and-forth, not get distracted by
     // unrelated channel chatter.
     const svc = getSupabaseService();
+
+    // Relay-dispatch idempotency (CC-RECOVERY-DELIVERY-CONVERGENCE-01): this
+    // route is a SEPARATE client-initiated call from the message-persistence
+    // write in .../conversations/[id]/messages/route.ts, so de-duplicating
+    // the persisted ROW there does not by itself de-duplicate the AGENT
+    // DISPATCH — a lost-ack retry of the send correctly reuses the original
+    // message id, but each client attempt that reaches this far would
+    // otherwise still trigger its own agent turn. Claim the right to
+    // dispatch atomically, server-side, via a conditional UPDATE keyed by
+    // the persisted message id (stable across retries) — never by any
+    // client-side "was this a replay" guess, which can't tell whether an
+    // EARLIER attempt's dispatch actually happened or was itself lost.
+    // Fails OPEN (proceeds with dispatch) if the column doesn't exist yet
+    // (prepared migration not applied) or on any lookup error — this must
+    // never be the reason a legitimate, first-ever send gets no reply.
+    if (svc && userMessageId) {
+      try {
+        const { data: claimed, error: claimError } = await svc
+          .from("messages")
+          .update({ relay_claimed: true })
+          .eq("id", userMessageId)
+          .eq("relay_claimed", false)
+          .select("id")
+          .maybeSingle();
+        if (!claimError && !claimed) {
+          // Zero rows updated: either already claimed by a concurrent/prior
+          // call for this exact message, or the row doesn't exist. Either
+          // way, do not dispatch a second agent turn for it.
+          return NextResponse.json({ ok: true, alreadyDispatched: true });
+        }
+      } catch {
+        // Migration not applied yet, or any other failure — fail open.
+      }
+    }
+
     const history = threadUuid
       ? await loadThreadHistory(svc, threadUuid, userMessageId, 50)
       : await loadChannelHistory(svc, channelId, userMessageId, 30);
@@ -1637,3 +1673,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);
+export const HEAD = ownerOnly(HEAD_handler);
+export const POST = ownerOnly(POST_handler);

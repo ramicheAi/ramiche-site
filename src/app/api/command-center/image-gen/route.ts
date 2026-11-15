@@ -25,6 +25,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { generateImage, type ImageGenProvider } from "@/lib/image-gen";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -72,7 +73,7 @@ async function uploadToSupabase(
   return { ok: true, url: pub.publicUrl };
 }
 
-export async function GET() {
+async function GET_handler() {
   return NextResponse.json({
     ok: true,
     accepts: ["POST"],
@@ -86,7 +87,7 @@ export async function GET() {
   });
 }
 
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   let body: {
     prompt?: string;
     agentId?: string;
@@ -186,3 +187,7 @@ export async function POST(req: NextRequest) {
     mediaType,
   });
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);
+export const POST = ownerOnly(POST_handler);

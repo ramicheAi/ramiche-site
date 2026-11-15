@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { AGENT_DM_UUID, AGENT_UUID_TO_SHORT_ID } from "@/lib/cc-agent-dm-uuids";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,7 @@ function normalizeAgentParam(raw: string | null): string | null {
  * Tenant-scoped message search (root timeline rows only — scrollable in main feed).
  * Query: optional text (min 2 chars when used alone) plus optional channel, agent, date range.
  */
-export async function GET(req: NextRequest) {
+async function GET_handler(req: NextRequest) {
   try {
     const sp = req.nextUrl.searchParams;
     const rawQ = sp.get("q")?.trim() ?? "";
@@ -122,3 +123,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);

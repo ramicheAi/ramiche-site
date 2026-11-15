@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { CLAUDE_MAX_DEFAULT_URL, executeCompletion, type ChatMessage } from "@/lib/provider-adapter";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -21,7 +22,7 @@ interface Turn {
   content: string;
 }
 
-export async function POST(req: Request) {
+async function POST_handler(req: Request) {
   try {
     const body = (await req.json().catch(() => ({}))) as { text?: string; history?: Turn[] };
     const text = (body.text || "").trim();
@@ -59,3 +60,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: aborted ? "timeout" : "atlas failed" }, { status: aborted ? 504 : 500 });
   }
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const POST = ownerOnly(POST_handler);

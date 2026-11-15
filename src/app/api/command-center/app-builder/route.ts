@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { execSync } from "child_process";
 import { existsSync } from "fs";
 import { join } from "path";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 const REPO_ROOT = process.env.REPO_DIR?.trim() || process.cwd();
 
@@ -59,7 +60,7 @@ function checkPrerequisite(id: string): { status: "configured" | "not-configured
   }
 }
 
-export async function GET() {
+async function GET_handler() {
   const prerequisites = ["apple-dev", "app-store-api", "eas-cli", "expo-project"].map(id => ({
     id,
     ...checkPrerequisite(id),
@@ -73,3 +74,6 @@ export async function GET() {
     checkedAt: new Date().toISOString(),
   });
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);

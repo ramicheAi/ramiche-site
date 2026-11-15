@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { InstrumentPage, PgBtn } from "@/components/command-center/po/Instrument";
+import { usePoTheme } from "@/components/command-center/PoShell";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    SETTINGS — System Configuration & Agent Management
@@ -69,6 +70,7 @@ interface SystemVitals {
 }
 
 function SettingsContent() {
+  const { theme, toggleTheme } = usePoTheme();
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
@@ -341,6 +343,15 @@ function SettingsContent() {
       accent="var(--c-indigo)"
       actions={<PgBtn icon="pulse" onClick={fetchData}>Refresh</PgBtn>}
     >
+      <div style={{ marginBottom: 24, padding: "16px 18px", borderRadius: 12, background: "var(--ink-1)", border: "1px solid var(--line)", display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between" }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--t-hi)" }}>Appearance</div>
+          <div style={{ fontSize: 11, color: "var(--t-lo)" }}>Currently {theme} mode. Choose the appearance for Command Center.</div>
+        </div>
+        <button type="button" onClick={toggleTheme} style={{ minHeight: 44, padding: "10px 16px", borderRadius: 8, border: "1px solid var(--line-2)", background: "var(--ink-2)", color: "var(--t-hi)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+          Switch to {theme === "dark" ? "light" : "dark"} mode
+        </button>
+      </div>
       <div style={{ marginBottom: 24 }}>
         <p style={{ fontSize: 13, color: "var(--t-mid)", margin: "0 0 18px" }}>
           {loading ? "LOADING..." : `${agents.length} agents registered`}

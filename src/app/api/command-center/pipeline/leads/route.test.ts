@@ -5,8 +5,17 @@ const { getSupabaseAdmin } = vi.hoisted(() => ({ getSupabaseAdmin: vi.fn() }));
 
 vi.mock("@/lib/supabase-admin", () => ({ getSupabaseAdmin }));
 
+// The route is owner-only at the handler (CC-SECURITY-RECONCILIATION-02): this test
+// exercises the data path as the verified owner. Authorization itself is covered
+// by authorization-inventory.test.ts.
+const { verifySessionCookie } = vi.hoisted(() => ({ verifySessionCookie: vi.fn() }));
+vi.mock("@/lib/firebase-admin", () => ({ verifySessionCookie }));
+process.env.PARALLAX_OWNER_UID = "the-real-owner-uid";
+const OWNER_HEADERS = { cookie: "__session=owner-session" };
+
 describe("GET /api/command-center/pipeline/leads", () => {
   beforeEach(() => {
+    verifySessionCookie.mockResolvedValue({ uid: "the-real-owner-uid", signInProvider: "password" });
     const row = {
       id: "lead-1",
       name: null,
@@ -28,7 +37,7 @@ describe("GET /api/command-center/pipeline/leads", () => {
 
   it("emits the allowlisted source and distinct fresh source/response timestamps", async () => {
     const before = Date.now();
-    const response = await GET(new Request("http://localhost/api/command-center/pipeline/leads?limit=300"));
+    const response = await GET(new Request("http://localhost/api/command-center/pipeline/leads?limit=300", { headers: OWNER_HEADERS }));
     const after = Date.now();
     const body = await response.json();
 

@@ -18,6 +18,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { CLAUDE_MAX_DEFAULT_URL, executeCompletion } from "@/lib/provider-adapter";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -190,12 +191,12 @@ async function getOrCreateToday(opts: { mood?: string; force?: boolean }): Promi
   return { ...chosen, verse_date: date, context_summary: context.slice(0, 1200) };
 }
 
-export async function GET() {
+async function GET_handler() {
   const verse = await getOrCreateToday({});
   return NextResponse.json(verse);
 }
 
-export async function POST(req: Request) {
+async function POST_handler(req: Request) {
   let mood: string | undefined;
   try {
     const body = await req.json();
@@ -206,3 +207,7 @@ export async function POST(req: Request) {
   const verse = await getOrCreateToday({ mood, force: true });
   return NextResponse.json(verse);
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);
+export const POST = ownerOnly(POST_handler);

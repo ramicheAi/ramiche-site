@@ -1,6 +1,17 @@
 import type { NextConfig } from "next";
 import path from "node:path";
+import { existsSync, readdirSync } from "node:fs";
 import { withSentryConfig } from "@sentry/nextjs";
+
+// Agent-generated builds must never live under public/: Next serves public/ statically with the
+// global CSP (no sandbox) and header rules match the raw path, so encoded URLs bypass the sandbox
+// rule. Fail the build/start on any host that has content there (CC-FINAL-MERGE-GATE-05).
+{
+  const d = path.join(__dirname, "public", "yolo-builds");
+  if (existsSync(d) && readdirSync(d).length > 0) {
+    throw new Error("public/yolo-builds must be empty: agent builds are served only via the owner-gated preview API");
+  }
+}
 
 const securityHeaders = [
   {
@@ -116,6 +127,28 @@ const nextConfig: NextConfig = {
         { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization" },
         { key: "Access-Control-Max-Age", value: "86400" },
         { key: "X-Content-Type-Options", value: "nosniff" },
+      ],
+    },
+    {
+      // Agent-generated builds under public/ are untrusted active content. Serve them in an
+      // opaque-origin sandbox so they can never act as the owner (same-origin fetch + cookie).
+      source: "/yolo-builds/:path*",
+      headers: [
+        { key: "Content-Security-Policy", value: "sandbox allow-scripts; default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data: https:; media-src 'self' data: blob: https:; connect-src 'none'; form-action 'none'; base-uri 'none'" },
+        { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+        { key: "Referrer-Policy", value: "no-referrer" },
+      ],
+    },
+    {
+      // The owner-only preview API route serves the same untrusted builds. Next keeps the FIRST
+      // value set for a header key, and the global rule already set a CSP, so a CSP set in the route
+      // handler is dropped; the rule must live here (last wins) to reach the wire. Opaque-origin
+      // opaque-origin sandbox so they can never act as the owner (same-origin fetch + cookie).
+      source: "/api/command-center/yolo-builds/preview/:path*",
+      headers: [
+        { key: "Content-Security-Policy", value: "sandbox allow-scripts; default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data: https:; media-src 'self' data: blob: https:; connect-src 'none'; form-action 'none'; base-uri 'none'" },
+        { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+        { key: "Referrer-Policy", value: "no-referrer" },
       ],
     },
   ],

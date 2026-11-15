@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { revenueLabel } from "@/lib/finance-truth";
 import { useRouter } from "next/navigation";
 import { CommandPalette } from "./CommandPalette";
 import { StatusDock, type StatusTab } from "./StatusDock";
@@ -8,7 +9,6 @@ import { useSystemStatus, type ServiceState } from "@/hooks/useSystemStatus";
 import type { ChatPulse } from "@/hooks/useChatPulse";
 import { Icon } from "@/components/command-center/po/Brand";
 import { usePoTheme } from "@/components/command-center/PoShell";
-import { VITALS } from "@/lib/po-data";
 
 /* ──────────────────────────────────────────────────────────────────────────
    Parallax OS — top HUD (64px). Restyled in place onto the ported `.po-top`
@@ -42,6 +42,7 @@ function HudIconBtn({
   pressed,
   disabled,
   tint,
+  className,
 }: {
   children: React.ReactNode;
   onClick?: () => void;
@@ -50,6 +51,7 @@ function HudIconBtn({
   pressed?: boolean;
   disabled?: boolean;
   tint?: string;
+  className?: string;
 }) {
   const style: React.CSSProperties = {};
   if (tint) {
@@ -61,7 +63,7 @@ function HudIconBtn({
   return (
     <button
       type="button"
-      className="po-icbtn"
+      className={`po-icbtn${className ? ` ${className}` : ""}`}
       onClick={onClick}
       title={title}
       aria-label={ariaLabel}
@@ -146,7 +148,7 @@ export function CommandHUD({
   }, [status]);
 
   // live readouts: agents + gateway from the real status feed; MRR prefers the
-  // real revenue feed, falls back to the VITALS showpiece number.
+  // real revenue feed; unknown is shown as an em dash, never as a showpiece number.
   const readouts = useMemo(() => {
     const agentsVal =
       status.agents.total > 0 ? `${status.agents.active}/${status.agents.total}` : "19/20";
@@ -167,9 +169,12 @@ export function CommandHUD({
           : gatewayState === "offline"
             ? "var(--c-red)"
             : "var(--t-mid)";
-    const mrrVital = VITALS.find((v) => v.lab === "MRR");
-    const mrrVal =
-      status.revenue.mrr > 0 ? fmtMoney(status.revenue.mrr) : mrrVital?.num ?? "$48.2k";
+    // Same rule as Finance HQ: a number is shown only when it was measured. `state` is "ok" only
+    // when a revenue response arrived from a live source, so a genuine $0 renders "$0" and an
+    // unknown or unavailable feed renders an em dash. The old code gated on `mrr > 0` and fell
+    // back to a showpiece constant, so a $0 business saw $48.2k in the chrome above the honest
+    // Finance hero.
+    const mrrVal = revenueLabel(status.revenue.state, status.revenue.mrr, fmtMoney);
     return { agentsVal, gatewayVal, gatewayColor, mrrVal };
   }, [status]);
 
@@ -197,6 +202,18 @@ export function CommandHUD({
           marginLeft: 0,
         }}
       >
+        {/* Phone navigation. The drawer owns its own close control; this is the
+            only menu affordance on mobile and it lives inside the HUD so it can
+            never be covered by the HUD's stacking context. */}
+        <button
+          type="button"
+          className="po-menu-btn"
+          aria-label="Open navigation"
+          onClick={() => window.dispatchEvent(new CustomEvent("cc:toggle-nav"))}
+        >
+          <span aria-hidden style={{ fontSize: 18, lineHeight: 1 }}>☰</span>
+        </button>
+
         {/* ⌘K command bar → opens the palette */}
         <button type="button" className="po-cmdbar" onClick={() => setPaletteOpen(true)} aria-label="Open command palette">
           <Icon name="search" size={16} style={{ color: "var(--accent)" }} />
@@ -267,6 +284,7 @@ export function CommandHUD({
           {/* pulse (preserved) */}
           {onTogglePulse && (
             <HudIconBtn
+              className="po-hud-secondary"
               onClick={onTogglePulse}
               ariaLabel={pulseOpen ? "Close chat pulse" : "Open chat pulse"}
               pressed={pulseOpen}
@@ -309,7 +327,7 @@ export function CommandHUD({
 
           {/* wake word (preserved, restyled) */}
           {onToggleWake && (
-            <div style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <div className="po-hud-secondary" style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4 }}>
               <HudIconBtn
                 onClick={onToggleWake}
                 ariaLabel={wakeEnabled ? "Disable wake word" : "Enable wake word"}
@@ -422,7 +440,7 @@ export function CommandHUD({
           )}
 
           {/* theme toggle (sun) */}
-          <HudIconBtn onClick={toggleTheme} ariaLabel="Toggle light / dark" title="Toggle light / dark">
+          <HudIconBtn className="po-hud-secondary" onClick={toggleTheme} ariaLabel="Toggle light / dark" title="Toggle light / dark">
             <Icon name="sun" size={16} />
           </HudIconBtn>
 

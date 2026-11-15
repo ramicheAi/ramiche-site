@@ -4,6 +4,7 @@ import { promisify } from "util";
 import { NextRequest, NextResponse } from "next/server";
 import { VOICE_CONFIG } from "@/lib/voice-config";
 import { expandVoicePath } from "@/lib/voice-path";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -76,7 +77,7 @@ async function elevenLabsTTS(text: string, voiceId: string): Promise<ArrayBuffer
   }
 }
 
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   let outWav: string | null = null;
   try {
     const body = (await req.json()) as { text?: string; voice?: string; voiceId?: string };
@@ -169,3 +170,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Speech synthesis failed" }, { status: 500 });
   }
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const POST = ownerOnly(POST_handler);

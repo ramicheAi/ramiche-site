@@ -255,6 +255,7 @@ export default function AppBuilderPage() {
               border: `1px solid ${prereq.status === "configured" ? "color-mix(in srgb, var(--c-green) 30%, transparent)" : "color-mix(in srgb, var(--c-red) 30%, transparent)"}`,
               display: "flex",
               alignItems: "center",
+              flexWrap: "wrap",
               gap: 16
             }}>
               {/* Status icon */}
@@ -270,7 +271,7 @@ export default function AppBuilderPage() {
               </div>
 
               {/* Content */}
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                   <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: "var(--t-hi)" }}>
                     {prereq.label}

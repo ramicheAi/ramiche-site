@@ -145,33 +145,30 @@ export default function Sidebar() {
     setOpenSec(sectionForPath(pathname));
   }, [pathname]);
 
+  // The mobile menu button lives in the HUD. It dispatches this event so the
+  // drawer state stays local to the navigation component.
+  useEffect(() => {
+    const toggle = () => setMobileOpen((open) => !open);
+    window.addEventListener("cc:toggle-nav", toggle);
+    return () => window.removeEventListener("cc:toggle-nav", toggle);
+  }, []);
+
   return (
     <>
-      {/* Mobile toggle (preserved behavior) */}
-      <button
-        onClick={() => setMobileOpen(!mobileOpen)}
-        className="fixed top-4 left-4 z-50 md:hidden"
-        style={{
-          padding: '8px 10px',
-          background: 'rgba(10,10,10,0.95)',
-          border: '1px solid rgba(124,58,237,0.3)',
-          borderRadius: 8,
-          color: '#7c3aed',
-          fontSize: 16,
-          cursor: 'pointer',
-          boxShadow: '0 0 12px rgba(124,58,237,0.15)',
-        }}
-        aria-label={mobileOpen ? 'Close navigation' : 'Open navigation'}
-      >
-        {mobileOpen ? '✕' : '☰'}
-      </button>
-
       <aside
         className={`po-side fixed left-0 top-0 z-40 transition-transform duration-200 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
-        style={{ position: 'fixed', height: '100vh' }}
+        style={{ position: 'fixed', height: '100dvh' }}
       >
+        <button
+          type="button"
+          className="po-side-close"
+          aria-label="Close navigation"
+          onClick={() => setMobileOpen(false)}
+        >
+          ✕
+        </button>
         <div className="po-side-head">
           <Logo size={30} />
           <div>
@@ -239,7 +236,7 @@ export default function Sidebar() {
       {mobileOpen && (
         <div
           onClick={() => setMobileOpen(false)}
-          className="fixed inset-0 z-30 md:hidden"
+          className="po-nav-overlay fixed inset-0 z-30 md:hidden"
           style={{ background: 'rgba(0,0,0,0.8)' }}
         />
       )}

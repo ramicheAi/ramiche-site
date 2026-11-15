@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { runJob } from "@/lib/jobs";
 import { parseBody, sanitize, badRequest } from "@/lib/api-security";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ function svc() {
 }
 
 /** GET /api/command-center/jobs?status=running&limit=50 */
-export async function GET(req: Request) {
+async function GET_handler(req: Request) {
   const { db, err } = svc();
   if (err) return err;
   const url = new URL(req.url);
@@ -48,7 +49,7 @@ export async function GET(req: Request) {
  * body: { title, kind?, agent?, source?, input? }
  * Creates a queued job and dispatches it to an agent (fire-and-forget).
  */
-export async function POST(req: Request) {
+async function POST_handler(req: Request) {
   const { db, err } = svc();
   if (err) return err;
   const { data: body, error: parseError } = await parseBody(req);
@@ -84,3 +85,7 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ job });
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);
+export const POST = ownerOnly(POST_handler);

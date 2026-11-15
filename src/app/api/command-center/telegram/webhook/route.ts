@@ -3,6 +3,7 @@ import { approveSynthesisMessage } from "@/lib/cc-approve-synthesis";
 import {
   telegramAnswerCallbackQuery,
   verifyTelegramWebhookSecret,
+  isAuthorizedTelegramApprover,
   TG_CB_APPROVE_PREFIX,
 } from "@/lib/telegram-cc-bot";
 
@@ -12,6 +13,7 @@ export const maxDuration = 120;
 type TgCallbackQuery = {
   id: string;
   data?: string;
+  from?: { id?: number; is_bot?: boolean };
   message?: { chat?: { id?: number }; message_id?: number };
 };
 
@@ -83,6 +85,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
+  // Authorization: only an explicitly configured approver may trigger execution.
+  if (!isAuthorizedTelegramApprover(cq.from)) {
+    await telegramAnswerCallbackQuery(cq.id, "Not authorized to approve.", true);
+    return NextResponse.json({ ok: true });
+  }
+
   const synthesisId = data.slice(TG_CB_APPROVE_PREFIX.length);
   if (!/^[0-9a-f-]{36}$/i.test(synthesisId)) {
     await telegramAnswerCallbackQuery(cq.id, "Invalid synthesis id.", true);
@@ -118,7 +126,11 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Same secret as POST; no unauthenticated disclosure.
+  if (!verifyTelegramWebhookSecret(req)) {
+    return NextResponse.json({ ok: false }, { status: 401 });
+  }
   return NextResponse.json({
     ok: true,
     hint: "POST Telegram updates here. setWebhook(..., { url, secret_token }) must match TELEGRAM_WEBHOOK_SECRET (sent as X-Telegram-Bot-Api-Secret-Token).",

@@ -1,12 +1,19 @@
-/* CC-CHAT-MOBILE-RECOVERY-01: regression tests for the Content Team disappearance.
+/* CC-CHAT-MOBILE-RECOVERY-01 / CC-RECOVERY-INTEGRATION-01: regression tests for
+   the Content Team disappearance.
 
    Two kinds of test live here:
-   - `it(...)`        evidence that the defect mechanism is real (passes today).
-   - `it.fails(...)`  the CONTRACT the fix must satisfy. These fail today on purpose.
-                      Vitest reports them green while they fail; the moment a fix PR
-                      makes one pass, vitest turns it red so the author must flip it to
-                      `it(...)`. That makes each defect impossible to "fix" silently or
-                      to regress after the flip.
+   - `it(...)`        evidence that a defect mechanism is real, or (once fixed)
+                      the CONTRACT the fix satisfies — flipped from `it.fails`
+                      the moment the fix landed, per this suite's own rule.
+   - `it.fails(...)`  a CONTRACT not yet satisfied. Fails today on purpose; the
+                      moment a fix makes one pass, vitest turns it red so the
+                      author must flip it to `it(...)`. That makes a defect
+                      impossible to "fix" silently or regress after the flip.
+
+   D1 (server-authorized reads), D2 (explicit error state) and D3 (persisted
+   conversation, no hardcoded fallback) are FIXED as of CC-RECOVERY-INTEGRATION-01
+   and flipped below. D4 (idempotency) and D5 (mobile lifecycle reconciliation)
+   remain open `it.fails` contracts — deliberately not attempted in this PR.
 
    Nothing here touches the network or a real Supabase project. The supabase-js client
    is driven by an in-process fetch stub; the source checks read files from the repo. */
@@ -70,15 +77,14 @@ describe('D1 denied read: browser reads private tables that are locked down', ()
     expect(sql).toMatch(/from anon, authenticated/i)
   })
 
-  it('chat page still queries messages and channels with the browser (anon) client', () => {
-    expect(PAGE).toMatch(/import \{ supabase \} from "@\/lib\/supabase"/)
-    expect(PAGE).toMatch(/\.from\("messages"\)/)
-    expect(PAGE).toMatch(/\.from\("channels"\)/)
-  })
-
-  it.fails('CONTRACT: chat page reads history only through an authorized server API, never the anon client', () => {
+  // FIXED (CC-RECOVERY-INTEGRATION-01, R1): the chat page no longer reads
+  // messages/channels directly with the anon Supabase client. It calls the
+  // owner-gated server routes below, which use the service-role client.
+  it('CONTRACT: chat page reads history only through an authorized server API, never the anon client', () => {
     expect(PAGE).not.toMatch(/\.from\("messages"\)\s*\n?\s*\.select/)
     expect(PAGE).not.toMatch(/\.from\("channels"\)\s*\n?\s*\.select/)
+    expect(PAGE).toMatch(/fetch\(\s*`\/api\/command-center\/conversations\/\$\{channelId\}\/messages/)
+    expect(PAGE).toMatch(/fetch\("\/api\/command-center\/channels"/)
   })
 })
 
@@ -91,62 +97,69 @@ describe('D2 swallowed error: a denied read is indistinguishable from empty hist
     expect(result.error?.code).toBe('42501')
   })
 
-  it('the exact destructure the page uses drops the error and yields "no data"', async () => {
+  it('the exact destructure the page used to use drops the error and yields "no data" (still true of the raw anon client)', async () => {
     const { client } = stubClient(() => ({ status: 401, body: PERMISSION_DENIED_BODY }))
-    // Mirrors page.tsx loadMessages: `const { data } = await sb.from("messages")...`
+    // This is exactly why the page no longer destructures the anon client this way.
     const { data } = await client.from('messages').select('*').eq('channel_id', INCIDENT_CHANNEL_ID)
     const rendered = data ?? []
-    expect(rendered).toEqual([]) // six persisted replies render as an empty channel
+    expect(rendered).toEqual([]) // would render six persisted replies as an empty channel
   })
 
-  it('page destructures history and channel reads without the error field', () => {
-    expect(PAGE).toMatch(/const \{ data \} = await sb\s*\n\s*\.from\("messages"\)/)
-    expect(PAGE).toMatch(/const \{ data: channelsData \} = await supabase\s*\n\s*\.from\("channels"\)/)
-  })
-
-  it.fails('CONTRACT: every history/channel read inspects error and renders a typed error state', () => {
+  // FIXED (CC-RECOVERY-INTEGRATION-01, R2): a failed/denied history or
+  // channel-list request sets `historyError` and renders an explicit banner
+  // (see the `historyError &&` block above the messages container), instead
+  // of being coerced into "no messages."
+  it('CONTRACT: every history/channel read inspects error and renders a typed error state', () => {
+    expect(PAGE).toMatch(/setHistoryError\(/)
     expect(PAGE).not.toMatch(/const \{ data \} = await sb\s*\n\s*\.from\("messages"\)/)
-    expect(PAGE).not.toMatch(/const \{ data: channelsData \} = await supabase/)
-  })
-
-  it('polling fallback also silently returns on error', () => {
-    expect(PAGE).toMatch(/if \(error \|\| !data \|\| cancelled\) return;/)
+    expect(PAGE).not.toMatch(/const \{ data: channelsData \} = await supabase\s*\n\s*\.from\("channels"\)/)
   })
 })
 
 describe('D3 wrong conversation on restart: active channel is not durably restored', () => {
-  it('startup selects the most recently active channel or a hardcoded default', () => {
-    expect(PAGE).toMatch(/setActiveChannel\(\(mapped\[0\] \|\| merged\[0\]\) as Channel\)/)
-    expect(PAGE).toMatch(/setActiveChannel\(DEFAULT_CHANNELS\[1\]\)/)
-  })
-
-  it('with the incident fixture, the startup rule lands on a different channel', () => {
-    // Same ordering the page requests: .order("last_activity_at", { ascending: false })
+  it('with the incident fixture, the "most recently active" rule alone would land on a different channel', () => {
+    // Same ordering the page requests: .order("last_activity_at", { ascending: false }).
+    // This is exactly why "most recent" can never be the ONLY rule — it's the
+    // reason persisted restoration (the fix below) has to run first.
     const ordered = [...incidentChannels].sort((a, b) => b.last_activity_at.localeCompare(a.last_activity_at))
     const startupPick = ordered[0]
     expect(startupPick.id).not.toBe(INCIDENT_CHANNEL_ID)
   })
 
-  it.fails('CONTRACT: last active conversation is persisted and restored before any default', () => {
+  // FIXED (CC-RECOVERY-INTEGRATION-01, R3): the last channel the owner was
+  // actually on is persisted to localStorage on every select and restored
+  // on load, before falling back to "most recent" or a hardcoded default.
+  it('CONTRACT: last active conversation is persisted and restored before any default', () => {
     expect(PAGE).toMatch(/(cc:lastConversation|lastActiveConversation|last_active_conversation)/)
+    expect(PAGE).toMatch(/readLastConversationId\(\)/)
+    expect(PAGE).toMatch(/writeLastConversationId\(/)
   })
 
-  it('send path falls back to a hardcoded channel UUID when none is active', () => {
-    expect(PAGE).toMatch(/activeChannel\?\.id \|\| "22222222-2222-2222-2222-222222222222"/)
+  it('send path no longer falls back to a hardcoded channel UUID when none is active', () => {
+    expect(PAGE).not.toMatch(/activeChannel\?\.id \|\| "22222222-2222-2222-2222-222222222222"/)
   })
 })
 
 describe('D4 no idempotency or durable acceptance on send', () => {
+  // Still open: POST /api/command-center/chat (the agent-relay route) has no
+  // client-generated idempotency key. Out of this PR's R1-R4 scope.
   it.fails('CONTRACT: POST /api/command-center/chat requires a client-generated idempotency key', () => {
     expect(CHAT_ROUTE).toMatch(/(clientMessageId|client_message_id|Idempotency-Key)/i)
   })
 
-  it.fails('CONTRACT: an authorized history GET exists (route exposes a paginated list, not only health)', () => {
-    // Today GET only reports liveness. The contract route is
-    // /api/command-center/conversations/[id]/messages (see CC-CHAT-RECOVERY-CONTRACTS.md).
+  // FIXED (CC-RECOVERY-INTEGRATION-01, R1): the authorized history route now
+  // exists with a real GET, exposing a paginated list — not just liveness.
+  // (The original regex, `/export async function GET/`, would never match
+  // the shipped `export const GET = ownerOnly(...)` shape even though the
+  // route is real; fixed to check the actual shape rather than one literal
+  // export style — independent review finding.)
+  it('CONTRACT: an authorized history GET exists (route exposes a paginated list, not only health)', () => {
     const historyRoute = join(ROOT, 'src/app/api/command-center/conversations/[id]/messages/route.ts')
     expect(readdirSync(join(ROOT, 'src/app/api/command-center'))).toContain('conversations')
-    expect(readFileSync(historyRoute, 'utf8')).toMatch(/export async function GET/)
+    const routeSrc = readFileSync(historyRoute, 'utf8')
+    expect(routeSrc).toMatch(/async function GET_handler/)
+    expect(routeSrc).toMatch(/export const GET = ownerOnly\(GET_handler\)/)
+    expect(routeSrc).toMatch(/\.limit\(/) // paginated, not a liveness-only stub
   })
 })
 
@@ -154,5 +167,78 @@ describe('D5 mobile lifecycle: no resume reconciliation', () => {
   it.fails('CONTRACT: page reconciles history on visibilitychange/pageshow (iOS bfcache, app resume)', () => {
     expect(PAGE).toMatch(/addEventListener\("pageshow"/)
     expect(PAGE).toMatch(/visibilitychange/)
+  })
+})
+
+describe('D6 conversation switching must not race (CC-RECOVERY-INTEGRATION-01 pre-merge review)', () => {
+  // FIXED: a slow history fetch for a channel the owner has already switched
+  // away from used to be able to land late and overwrite the NOW-active
+  // channel's messages, because the loadMessages effect had no cleanup/
+  // cancellation guard at all. Verified by code shape here (the effect is
+  // 6000+ lines deep in a client component, which this repo's own convention
+  // for this file tests by source inspection, not by mounting it — see the
+  // D1-D5 contracts above).
+  it('CONTRACT: the history-loading effect cancels itself when the channel/agent changes again before it resolves', () => {
+    const loadMessagesEffect = PAGE.slice(
+      PAGE.indexOf('Guards against a slow fetch for a channel the owner has already'),
+      PAGE.indexOf('}, [activeChannel, activeAgent, viewMode]);') + 1
+    )
+    expect(loadMessagesEffect).toMatch(/let cancelled = false/)
+    expect(loadMessagesEffect).toMatch(/if \(cancelled\) return/)
+    expect(loadMessagesEffect).toMatch(/return \(\) => \{\s*cancelled = true;\s*\}/)
+  })
+})
+
+describe('D7 failed send must not vanish silently (CC-RECOVERY-INTEGRATION-01 pre-merge review)', () => {
+  // FIXED: a failed POST (expired session, 401/403, network error) used to
+  // remove the optimistic bubble and log only to console.error — the owner
+  // saw their message and composer go empty with zero on-screen trace it
+  // was never persisted. Same silent-failure class as the incident this
+  // whole recovery effort exists to close.
+  it('CONTRACT: a failed send surfaces relayError instead of discarding the message with console.error only', () => {
+    const sendFailureBranch = PAGE.slice(
+      PAGE.indexOf('if (sendError || !inserted?.id) {'),
+      PAGE.indexOf('const realId = inserted.id;')
+    )
+    expect(sendFailureBranch).not.toMatch(/setMessages\(\(prev\) => prev\.filter\(\(m\) => m\.id !== tempId\)\)/)
+    expect(sendFailureBranch).toMatch(/setRelayError\(/)
+  })
+})
+
+describe('D8 chat send idempotency (CC-RECOVERY-DELIVERY-CONVERGENCE-01)', () => {
+  // The message-persistence half (unique constraint + replay lookup + 409 on
+  // key reuse with a different payload, scoped per-channel) is proven in
+  // src/app/api/command-center/conversations/[id]/messages/route.test.ts.
+  // The agent-dispatch half (exactly-once relay claim) is proven in
+  // src/app/api/command-center/chat/relay-claim.test.ts. This proves the
+  // client generates and sends a stable per-attempt key, and — corrected
+  // after independent review — always calls the relay regardless of replay,
+  // since "replay" only means the ROW wasn't duplicated, not that the agent
+  // was already dispatched (that de-dup is now the server's job).
+  it('CONTRACT: a stable clientMessageId is generated once and sent on every send attempt', () => {
+    expect(PAGE).toMatch(/const clientMessageId = crypto\.randomUUID\(\)/)
+    expect(PAGE).toMatch(/clientMessageId,/)
+  })
+
+  it('CONTRACT: the relay is always dispatched on a successful send, replay or not — dedup lives server-side', () => {
+    const sendSuccessBranch = PAGE.slice(
+      PAGE.indexOf('const realId = inserted.id;'),
+      PAGE.indexOf('} else {\n      lastPendingUserMessageIdRef.current = null;')
+    )
+    expect(sendSuccessBranch).not.toMatch(/isReplay/)
+    expect(sendSuccessBranch).toMatch(/runRelay\(realId\)/)
+  })
+})
+
+describe('Cross-device restoration — explicitly pending, not claimed', () => {
+  it('CONTRACT: the persisted-conversation mechanism is browser localStorage, not a cross-device/server-side preference', () => {
+    // D3's fix is real but scoped to ONE browser: it reads/writes
+    // localStorage, which never syncs across devices or browser profiles.
+    // A second device/browser restores "most recently active" the same way
+    // it always did. That gap is real and intentionally not closed here —
+    // closing it needs a durable, server-side "last viewed conversation"
+    // record per owner, which is a feature, not this PR's R1-R4 scope.
+    expect(PAGE).toMatch(/localStorage\.getItem\(LAST_CONVERSATION_KEY\)/)
+    expect(PAGE).toMatch(/localStorage\.setItem\(LAST_CONVERSATION_KEY/)
   })
 })

@@ -3,6 +3,7 @@ import { readFile, writeFile } from "fs/promises";
 import { join } from "path";
 import { execSync } from "child_process";
 import { directoryAgents } from "@/lib/agent-registry";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -78,7 +79,7 @@ function mapAgent(id: string, a: DirectoryAgent, isActive: boolean) {
   };
 }
 
-export async function GET() {
+async function GET_handler() {
   const activeSet = getRecentlyActiveAgents();
 
   // Try live filesystem first (works when self-hosted / local dev)
@@ -116,7 +117,7 @@ interface PostBody {
 }
 
 /** Persist model change to `agents/directory.json` when workspace is writable (local OpenClaw). */
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   let body: PostBody;
   try {
     body = (await req.json()) as PostBody;
@@ -161,3 +162,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ok: true, agentId, model, provider });
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);
+export const POST = ownerOnly(POST_handler);

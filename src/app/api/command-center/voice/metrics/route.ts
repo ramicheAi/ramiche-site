@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { aggregateCallMetrics, type CallRecord } from "@/lib/voice/call-scorecard";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -13,7 +14,7 @@ const NON_CONNECT = new Set(["no_answer", "voicemail"]);
  * Rolls call events into the leading-indicator dashboard (connect/book rate,
  * capture completeness, disclosure rate, cost per booked). See call-scorecard.ts.
  */
-export async function GET() {
+async function GET_handler() {
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 
@@ -48,3 +49,6 @@ export async function GET() {
   const metrics = aggregateCallMetrics([...byCall.values()]);
   return NextResponse.json({ metrics });
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);

@@ -7,9 +7,21 @@
 
    Session verification calls GET /api/auth/session (Node + firebase-admin);
    middleware runs on Edge and cannot import firebase-admin directly.
+
+   Command Center (CC-P06-SECURITY-RECONCILIATION-01 / -02): `/command-center*`
+   and `/api/command-center/*` require exact owner authorization via
+   requireCommandCenterOwner (src/lib/server/command-center-guard.ts), run
+   DIRECTLY in this middleware (Node runtime, like the deployed p06 line) —
+   no internal self-fetch, so nothing depends on how the request URL resolves
+   behind Cloudflare Tunnel / Vercel Preview protection. Every handler re-runs
+   the same check itself; this layer only adds early rejection + login
+   redirects. Host headers are used for ROUTING ONLY, never authorization.
    ══════════════════════════════════════════════════════════════ */
 
 import { NextRequest, NextResponse } from "next/server";
+import { requireCommandCenterOwner } from "@/lib/server/command-center-guard";
+import { isMachineRoutePath, isDeviceRoutePath } from "@/lib/server/command-center-routes";
+import { safeCommandCenterNext } from "@/lib/command-center-next";
 
 const SESSION_COOKIE = "__session";
 
@@ -61,29 +73,119 @@ async function firebaseSessionValid(req: NextRequest): Promise<boolean> {
   }
 }
 
+/**
+ * Next's middleware adapter requires an ABSOLUTE Location (a relative one 500s,
+ * verified against a production build). Build it from the Host header the browser
+ * actually used plus x-forwarded-proto (the tunnel/CDN terminates TLS), never from
+ * x-forwarded-host. This is a redirect target for the requester themselves, not an
+ * authorization input; `next` is validated by safeCommandCenterNext.
+ */
+function loginRedirect(req: NextRequest, next: string): NextResponse {
+  // A `cc_device` cookie present at all (valid or not — the unlock page's
+  // own preflight tells the owner which, and offers Firebase sign-in as a
+  // fallback if it's no longer trusted) means this browser was previously
+  // enrolled, so send it to the low-friction PIN unlock.
+  //
+  // A device with NO such cookie — founder correction (CC-PRODUCTION-OWNER-
+  // RECOVERY-01 follow-up): Firebase email/password must never be the
+  // NORMAL user-facing login, not even for first-time enrollment — now
+  // goes to the bootstrap/device-approval entry page instead of straight to
+  // Firebase. That page offers the bootstrap-secret path (first device) or
+  // an approval-code path (every subsequent device), with Firebase sign-in
+  // only as an explicit, visible fallback link, never the default.
+  const hasDeviceCookie = !!req.cookies.get("cc_device")?.value;
+  const path = hasDeviceCookie
+    ? `/command-center/unlock?next=${encodeURIComponent(next)}`
+    : `/command-center/bootstrap?next=${encodeURIComponent(next)}`;
+  let target: URL;
+  try {
+    const proto =
+      req.headers.get("x-forwarded-proto")?.split(",")[0].trim() === "https"
+        ? "https"
+        : req.nextUrl.protocol.replace(":", "");
+    const host = req.headers.get("host") || req.nextUrl.host;
+    target = new URL(path, `${proto}://${host}`);
+  } catch {
+    target = new URL(path, req.nextUrl.origin);
+  }
+  return NextResponse.redirect(target, { status: 307, headers: { "cache-control": "no-store" } });
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // command.parallaxvinc.com (or any command.* host) root → Command Center.
   // The Cloudflare tunnel forwards the original host (sometimes via
   // x-forwarded-host); we rebuild the redirect on that host so the user stays
-  // on their domain instead of bouncing to localhost.
+  // on their domain instead of bouncing to localhost. ROUTING ONLY — the real
+  // authorization decision happens below, independent of this value.
   const fwdHost = (req.headers.get("x-forwarded-host") || req.headers.get("host") || "").toLowerCase();
   if (pathname === "/" && fwdHost.startsWith("command.")) {
     const proto = req.headers.get("x-forwarded-proto") || "https";
-    return NextResponse.redirect(new URL("/command-center", `${proto}://${fwdHost}`));
+    const r = NextResponse.redirect(new URL("/command-center", `${proto}://${fwdHost}`));
+    r.headers.set("Cache-Control", "no-store"); // host-derived: never cacheable
+    return r;
   }
 
-  // SECURITY: the command center + its data APIs (leads, pipeline, financials) are
-  // ONLY reachable via the command.* domain, localhost, or the tailnet — NEVER the
-  // public *.vercel.app alias. Without this, anyone could GET the lead list publicly.
   if (pathname.startsWith("/command-center") || pathname.startsWith("/api/command-center")) {
-    const trusted =
-      fwdHost.startsWith("command.") ||
-      fwdHost.startsWith("localhost") ||
-      fwdHost.startsWith("127.0.0.1") ||
-      fwdHost.endsWith(".ts.net");
-    if (!trusted) return new NextResponse("Not found", { status: 404 });
+    // Explicit lock: the cockpit's lock control lands on the unlock page with
+    // ?lock=1. The unlock cookie is httpOnly, so the server has to clear it;
+    // doing it here avoids adding another authenticated route. The device
+    // cookie is deliberately kept, so locking returns to a PIN prompt rather
+    // than re-enrollment.
+    const lockRequested = pathname === "/command-center/unlock" && req.nextUrl.searchParams.get("lock") === "1";
+    const lockOrigin = req.headers.get("sec-fetch-site");
+    if (lockRequested && (!lockOrigin || lockOrigin === "same-origin" || lockOrigin === "none")) {
+      const response = NextResponse.next();
+      response.cookies.set("cc_unlock", "", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 0,
+        path: "/",
+      });
+      response.headers.set("cache-control", "no-store");
+      return response;
+    }
+
+    // Machine routes authenticate themselves with their own secret (listed in
+    // command-center-routes.ts; each verifies on every method). Exact-match only.
+    if (isMachineRoutePath(pathname)) {
+      return NextResponse.next();
+    }
+    // Device routes (pin/bootstrap/redeem APIs) and their pages (unlock,
+    // bootstrap) are exempt from the Firebase owner gate on purpose — that
+    // gate is exactly what each exists to let the owner skip (an
+    // already-enrolled device for unlock; a brand-new device for
+    // bootstrap). Each route itself still fails closed on a missing/
+    // invalid credential of its own kind; see command-center-device-trust.ts.
+    if (isDeviceRoutePath(pathname) || pathname === "/command-center/unlock" || pathname === "/command-center/bootstrap") {
+      return NextResponse.next();
+    }
+
+    const isApi = pathname.startsWith("/api/command-center");
+    const guard = await requireCommandCenterOwner(req);
+    if (!guard.ok) {
+      if (isApi) {
+        return NextResponse.json(
+          { ok: false, error: "denied", reason: guard.reason },
+          { status: guard.status, headers: { "cache-control": "no-store" } }
+        );
+      }
+      // Misconfiguration or a blocked browser mutation must not bounce to the
+      // login page (that would loop / hide the problem): answer directly.
+      if (guard.status === 503 || (guard.status === 403 && guard.reason !== "not_owner")) {
+        return new NextResponse(guard.status === 503 ? "Service unavailable" : "Forbidden", {
+          status: guard.status,
+          headers: { "cache-control": "no-store" },
+        });
+      }
+      return loginRedirect(req, safeCommandCenterNext(pathname + req.nextUrl.search));
+    }
+
+    const response = NextResponse.next();
+    response.headers.set("cache-control", "private, no-store");
+    return response;
   }
 
   if (!isProtectedPath(pathname)) {
@@ -101,6 +203,8 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
+  // Node runtime so owner verification (firebase-admin) runs directly here.
+  runtime: "nodejs",
   matcher: [
     "/",
     "/coach",

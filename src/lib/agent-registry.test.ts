@@ -20,6 +20,17 @@ import { AGENT_DM_UUID, AGENT_UUID_TO_SHORT_ID } from "./cc-agent-dm-uuids";
 import { resolveChatSessionKey } from "./openclaw-gateway";
 import { AGENT_ORBIT_IDS } from "@/app/command-center/dashboard-agents";
 
+// These are CONTRACT tests of each route's business behaviour. The routes are owner-only
+// at the handler (CC-SECURITY-RECONCILIATION-02); authorization itself is proven per route
+// and per method in src/app/api/command-center/authorization-inventory.test.ts, so the
+// guard is passed through here rather than re-faked per request.
+vi.mock("@/lib/server/command-center-guard", () => ({
+  ownerOnly: <H,>(h: H) => h,
+  requireCommandCenterOwner: async () => ({ ok: true, uid: "test-owner" }),
+  ownerDenialResponse: () => new Response(null, { status: 401 }),
+}));
+
+
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
 
 describe("registry integrity", () => {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readFile, readdir } from "fs/promises";
 import { join } from "path";
 import { PROJECTS } from "../../../command-center/shared-projects";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 const PROJECTS_DIR = join(process.cwd(), "public/projects");
 const ALLOWED_DOCS = ["ARCHITECTURE.md", "DECISIONS.md", "MEMORY.md", "PIPELINE.md", "TASKS.md"];
@@ -133,7 +134,7 @@ async function loadDocContent(slug: string, doc: string): Promise<string | null>
   }
 }
 
-export async function GET(req: NextRequest) {
+async function GET_handler(req: NextRequest) {
   const slug = req.nextUrl.searchParams.get("slug");
   const doc = req.nextUrl.searchParams.get("doc");
 
@@ -163,3 +164,6 @@ export async function GET(req: NextRequest) {
   if (content) return NextResponse.json({ slug, doc, content });
   return NextResponse.json({ error: "Document not found" }, { status: 404 });
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);

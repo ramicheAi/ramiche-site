@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readdirSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { fetchCommandCenterYoloManifest } from "@/lib/firebase-admin";
+import { ownerOnly } from "@/lib/server/command-center-guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -148,7 +149,7 @@ function loadBuildsFromDir(buildsDir: string): BuildMeta[] {
   return builds;
 }
 
-export async function GET() {
+async function GET_handler() {
   try {
     let source: "workspace" | "firestore" | "public" | "empty" = "empty";
     let builds: BuildMeta[] = [];
@@ -180,3 +181,6 @@ export async function GET() {
     return NextResponse.json([], { status: 500 });
   }
 }
+
+// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
+export const GET = ownerOnly(GET_handler);
