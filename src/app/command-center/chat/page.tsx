@@ -17,6 +17,7 @@ import { VoiceButton } from "@/components/command-center/VoiceButton";
 import { useVoiceLoop } from "@/hooks/useVoiceLoop";
 import { VOICE_CONFIG } from "@/lib/voice-config";
 import { serialFor } from "@/components/command-center/po/Instrument";
+import { useViewportHeightVar } from "@/hooks/useViewportHeightVar";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    COMMAND CENTER CHAT — Unified Design Language
@@ -3619,6 +3620,8 @@ export default function CommandCenterChatPage() {
     {} as Record<string, Message[]>,
   );
 
+  useViewportHeightVar();
+
   if (!mounted) return null;
 
   /* ══════════════════════════════════════════════════════════════════════════
@@ -6060,8 +6063,9 @@ export default function CommandCenterChatPage() {
             </div>
           </div>
 
-          {/* Help text */}
+          {/* Help text — desktop keys. Hidden on touch, where the keyboard leaves no room. */}
           <div
+            className="chat-key-hint"
             style={{
               marginTop: 8,
               paddingLeft: 52,
@@ -6432,15 +6436,19 @@ export default function CommandCenterChatPage() {
             bottom: 0 !important;
             z-index: 80 !important;
             width: 280px !important;
-            height: calc(100dvh - 56px - env(safe-area-inset-top)) !important;
+            /* --cc-vvh is the visible viewport; it shrinks when the iOS keyboard opens,
+               which dvh does not. Without it the composer sits behind the keyboard. */
+            height: calc(var(--cc-vvh, 100dvh) - 56px - env(safe-area-inset-top)) !important;
             padding-bottom: env(safe-area-inset-bottom);
             transform: translateX(-100%);
           }
           .chat-root {
-            height: calc(100dvh - 56px - env(safe-area-inset-top)) !important;
+            /* --cc-vvh is the visible viewport; it shrinks when the iOS keyboard opens,
+               which dvh does not. Without it the composer sits behind the keyboard. */
+            height: calc(var(--cc-vvh, 100dvh) - 56px - env(safe-area-inset-top)) !important;
           }
           body:has(#cc-alertbar) .chat-root {
-            height: calc(100dvh - 94px - env(safe-area-inset-top)) !important;
+            height: calc(var(--cc-vvh, 100dvh) - 94px - env(safe-area-inset-top)) !important;
           }
           .chat-sidebar.open {
             transform: translateX(0) !important;
@@ -6514,6 +6522,9 @@ export default function CommandCenterChatPage() {
           .chat-top-nav {
             display: none !important;
           }
+        }
+        @media (hover: none) and (pointer: coarse) {
+          .chat-key-hint { display: none !important; }
         }
         @media (min-width: 768px) {
           .chat-sidebar {
