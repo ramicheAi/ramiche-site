@@ -163,8 +163,12 @@ describe('D4 no idempotency or durable acceptance on send', () => {
   })
 })
 
-describe('D5 mobile lifecycle: no resume reconciliation', () => {
-  it.fails('CONTRACT: page reconciles history on visibilitychange/pageshow (iOS bfcache, app resume)', () => {
+describe('D5 mobile lifecycle: resume reconciliation', () => {
+  // FIXED (CC-RECOVERY-03): the page bumps a resume counter on pageshow and on
+  // visibilitychange -> visible, and the history effect depends on it, so a PWA
+  // restored from bfcache refetches the active conversation instead of showing
+  // whatever was on screen when it was backgrounded.
+  it('CONTRACT: page reconciles history on visibilitychange/pageshow (iOS bfcache, app resume)', () => {
     expect(PAGE).toMatch(/addEventListener\("pageshow"/)
     expect(PAGE).toMatch(/visibilitychange/)
   })

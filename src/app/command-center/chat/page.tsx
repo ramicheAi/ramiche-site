@@ -1728,6 +1728,8 @@ export default function CommandCenterChatPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({ project: false, team: false, personal: false });
   const [mounted, setMounted] = useState(false);
+  // Bumped when iOS restores the PWA from bfcache or the tab becomes visible again.
+  const [resumeTick, setResumeTick] = useState(0);
   const [loading, setLoading] = useState(true);
   const [channels, setChannels] = useState<Channel[]>(DEFAULT_CHANNELS);
   const [agents, setAgents] = useState<Agent[]>(DEFAULT_AGENTS);
@@ -2494,7 +2496,7 @@ export default function CommandCenterChatPage() {
     return () => {
       cancelled = true;
     };
-  }, [activeChannel, activeAgent, viewMode]);
+  }, [activeChannel, activeAgent, viewMode, resumeTick]);
 
   /* ── real-time subscription for new messages ── */
   useEffect(() => {
@@ -3621,6 +3623,22 @@ export default function CommandCenterChatPage() {
   );
 
   useViewportHeightVar();
+
+  // iOS restores a backgrounded PWA from bfcache without re-running the page's effects, so a
+  // conversation that changed while the app was away stayed stale until a manual refresh. The
+  // counter declared with the other state is bumped here, and the history effect depends on it.
+  useEffect(() => {
+    const bump = () => setResumeTick((t) => t + 1);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") bump();
+    };
+    window.addEventListener("pageshow", bump);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pageshow", bump);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
 
   if (!mounted) return null;
 

@@ -162,3 +162,22 @@
   50%      { transform: scale(1.08); box-shadow: 0 0 110px color-mix(in oklab, var(--gold) 92%, transparent), inset 0 0 30px rgba(255,255,255,0.55); }
 }
 .po-shell .sanc-vstate { color: var(--gold); letter-spacing: 0.02em; font-weight: 600; }
+
+
+/* The sanctuary is absolutely positioned inside a static content column, so `inset: 0` put the
+   wordmark and truth line under the fixed HUD. These offsets are the HUD height per breakpoint,
+   plus the ticker when it is mounted. */
+@media (max-width: 767px) {
+  .po-shell .sanc { top: calc(56px + env(safe-area-inset-top)); }
+  body:has(#cc-alertbar) .po-shell .sanc { top: calc(94px + env(safe-area-inset-top)); }
+  .po-shell .sanc-bottom { bottom: calc(env(safe-area-inset-bottom) + 3%); }
+}
+@media (min-width: 768px) {
+  .po-shell .sanc { top: calc(64px + env(safe-area-inset-top)); }
+  body:has(#cc-alertbar) .po-shell .sanc { top: calc(102px + env(safe-area-inset-top)); }
+}
+
+/* No physical keyboard on a phone; the shortcut hint is noise and the space is scarce. */
+@media (hover: none) and (pointer: coarse) {
+  .po-shell .sanc-word .kbd { display: none; }
+}
