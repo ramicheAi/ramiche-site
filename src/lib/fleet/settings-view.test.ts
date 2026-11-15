@@ -172,3 +172,39 @@ describe('half a catalogue is not ready', () => {
     expect(view.state).toBe('empty');
   });
 });
+
+describe('selection refs with slashes and guard denials', () => {
+  const snapshot = {
+    agents: [{ agentId: 'atlas', primary: 'claude-max/claude-opus-5', fallbacks: [], unsupported: false }],
+    providers: [
+      { name: 'claude-max', models: ['claude-opus-5'], reachability: 'unverified' as const },
+      { name: 'lmstudio', models: ['google/gemma-4-e4b'], reachability: 'unverified' as const },
+    ],
+    warnings: [],
+    observedAt: '2026-11-15T00:00:00.000Z',
+  };
+
+  it('accepts a model id that itself contains a slash', () => {
+    expect(checkSelection(snapshot, 'atlas', 'lmstudio/google/gemma-4-e4b')).toMatchObject({
+      ok: true,
+      provider: 'lmstudio',
+      model: 'google/gemma-4-e4b',
+    });
+  });
+
+  it('still refuses an empty side', () => {
+    expect(checkSelection(snapshot, 'atlas', '/model').ok).toBe(false);
+    expect(checkSelection(snapshot, 'atlas', 'provider/').ok).toBe(false);
+  });
+
+  it('maps guard denials to unauthorized, not to an outage', () => {
+    for (const reason of ['missing_session', 'session_expired', 'not_owner', 'owner_not_configured']) {
+      expect(describeWrite({ ok: false, reason }).state).toBe('unauthorized');
+    }
+  });
+
+  it('never renders a blank rejection', () => {
+    const view = describeWrite({ ok: false, reason: 'something_new' });
+    if (view.state === 'rejected') expect(view.message.length).toBeGreaterThan(10);
+  });
+});

@@ -90,11 +90,15 @@ export function checkSelection(
 ): SelectionCheck {
   const trimmed = typeof ref === 'string' ? ref.trim() : '';
   if (!trimmed) return { ok: false, reason: 'choose a model' };
-  if (trimmed.includes(' ') || trimmed.split('/').length !== 2) {
-    return { ok: false, reason: 'a selection must be exactly "provider/model"' };
+  // Split on the FIRST slash, exactly like the server's splitRef. Provider model ids can contain
+  // slashes (lmstudio/google/gemma-4-e4b), and requiring exactly one slash refused options the
+  // dropdown itself offered.
+  const slash = trimmed.indexOf('/');
+  if (trimmed.includes(' ') || slash <= 0 || slash === trimmed.length - 1) {
+    return { ok: false, reason: 'a selection must be "provider/model"' };
   }
-  const [provider, ...rest] = trimmed.split('/');
-  const model = rest.join('/');
+  const provider = trimmed.slice(0, slash);
+  const model = trimmed.slice(slash + 1);
   if (!provider || !model) return { ok: false, reason: 'a selection must be exactly "provider/model"' };
 
   const agent = snapshot.agents.find((a) => a.agentId === agentId);
@@ -126,6 +130,7 @@ export type WriteView =
   | { state: 'saved'; agentId: string; persisted: string; before: string | null; backupPath: string }
   | { state: 'rejected'; code: string; message: string }
   | { state: 'unavailable'; code: string; message: string }
+  | { state: 'unauthorized'; code: string; message: string }
   | { state: 'busy'; code: string; message: string };
 
 const REJECTION_TEXT: Record<string, string> = {
@@ -167,11 +172,14 @@ export function describeWrite(
     };
   }
   const code = flat.reason;
+  if (new Set(['missing_session', 'session_expired', 'not_owner', 'owner_not_configured']).has(code)) {
+    return { state: 'unauthorized', code, message: 'the session is not authorized for this runtime; sign in again' };
+  }
   if (code === 'locked') return { state: 'busy', code, message: 'another change is in progress; nothing was written' };
   if (code === 'source_unavailable' || code === 'lock_failed' || code === 'write_failed') {
     return { state: 'unavailable', code, message: flat.detail ?? 'the runtime could not be written' };
   }
-  return { state: 'rejected', code, message: REJECTION_TEXT[code] ?? flat.detail ?? code };
+  return { state: 'rejected', code, message: REJECTION_TEXT[code] ?? flat.detail ?? 'the runtime rejected the change' };
 }
 
 /** Options for a select, grouped by provider, with nothing invented. */

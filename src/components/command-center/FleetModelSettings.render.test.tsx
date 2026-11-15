@@ -26,6 +26,18 @@ const READY = {
   },
 };
 
+// After a successful save the panel re-reads the registry and requires the persisted value to
+// appear there, so the follow-up GET must show the new model rather than the old snapshot.
+const READY_UPDATED = {
+  ...READY,
+  registry: {
+    ...READY.registry,
+    agents: READY.registry.agents.map((a) =>
+      a.agentId === 'atlas' ? { ...a, primary: 'claude-max/claude-haiku-5' } : a,
+    ),
+  },
+};
+
 function stubFetch(...responses: unknown[]) {
   const fn = vi.fn();
   for (const body of responses) fn.mockResolvedValueOnce({ ok: true, json: async () => body } as unknown as Response);
@@ -84,7 +96,7 @@ describe('a successful save shows what actually persisted', () => {
         backupPath: '/tmp/x.bak',
         observedAt: '2026-11-15T18:01:00.000Z',
       },
-    }, READY);
+    }, READY_UPDATED);
 
     render(<FleetModelSettings />);
     await waitFor(() => expect(screen.getByLabelText('model for atlas')).toBeTruthy());

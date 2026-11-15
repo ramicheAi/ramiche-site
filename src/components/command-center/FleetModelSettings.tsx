@@ -35,15 +35,18 @@ export default function FleetModelSettings() {
   const [busy, setBusy] = useState<string | null>(null);
   const [result, setResult] = useState<WriteView | { state: 'idle' }>({ state: 'idle' });
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<RegistryView> => {
     setView({ state: 'loading' });
+    let next: RegistryView;
     try {
       const res = await fetch('/api/command-center/fleet/models', { cache: 'no-store' });
       const body = (await res.json()) as RegistryResponse;
-      setView(describeRegistry(body));
+      next = describeRegistry(body);
     } catch {
-      setView(describeRegistry({ ok: false, source: 'unavailable', reason: 'the request failed before it reached the runtime' }));
+      next = describeRegistry({ ok: false, source: 'unavailable', reason: 'the request failed before it reached the runtime' });
     }
+    setView(next);
+    return next;
   }, []);
 
   useEffect(() => {
@@ -73,8 +76,18 @@ export default function FleetModelSettings() {
       setResult(described);
       if (described.state === 'saved') {
         setDraft((d) => ({ ...d, [agentId]: '' }));
-        // Re-read the registry so the row shows the persisted configuration, not a local guess.
-        await load();
+        // Re-read and compare: the confirmation must match the registry, not only the POST body.
+        const fresh = await load();
+        if (fresh.state === 'ready' || fresh.state === 'empty') {
+          const row = fresh.registry.agents.find((a) => a.agentId === agentId);
+          if (row?.primary !== described.persisted) {
+            setResult({
+              state: 'rejected',
+              code: 'readback_mismatch',
+              message: `the runtime returned ${described.persisted} but the re-read shows ${row?.primary ?? 'nothing'}`,
+            });
+          }
+        }
       }
     } catch {
       setResult({ state: 'unavailable', code: 'network', message: 'the request failed before the runtime answered' });
@@ -191,6 +204,9 @@ export default function FleetModelSettings() {
         <p role="alert" style={{ color: 'var(--c-rose)' }}>Not saved: {result.message}</p>
       )}
       {result.state === 'busy' && (
+        <p role="alert" style={{ color: 'var(--c-gold)' }}>{result.message}</p>
+      )}
+      {result.state === 'unauthorized' && (
         <p role="alert" style={{ color: 'var(--c-gold)' }}>{result.message}</p>
       )}
       {result.state === 'unavailable' && (
