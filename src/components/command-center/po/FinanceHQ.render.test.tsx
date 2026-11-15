@@ -10,15 +10,13 @@
  * whether the JSX actually used them.
  *
  * This test renders the real component with the real fetch path and asserts what appears on screen.
- * Only external collaborators are mocked: the theme provider, the sound engine, the quant panel and
- * the icon set. The truth module and the component under test are the real ones.
+ * Only external collaborators are mocked: the sound engine and the quant panel. The truth module
+ * and the component under test are the real ones. The theme provider is no longer mocked because
+ * the component stopped importing it when the fabricated drift was removed.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 
-vi.mock('@/components/command-center/PoShell', () => ({
-  usePoTheme: () => ({ still: true, theme: 'dark', toggle: () => {} }),
-}));
 vi.mock('@/lib/po-sound', () => ({ poPlay: () => {} }));
 vi.mock('@/components/command-center/po/QuantPanel', () => ({
   default: () => <div data-testid="quant-panel" />,

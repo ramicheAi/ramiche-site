@@ -104,16 +104,24 @@ function finiteNumber(value: unknown): number | null {
 }
 
 function mapTransactions(payload: StripeRevenuePayload): FinanceTx[] {
-  return (payload.recentTransactions ?? [])
+  // A malformed row must never throw: the caller would lose a genuinely live MRR because one
+  // unrelated entry was the wrong shape. Non-arrays and non-objects are skipped, not trusted.
+  const rows = Array.isArray(payload.recentTransactions) ? payload.recentTransactions : [];
+  return rows
+    .filter((t): t is NonNullable<typeof t> => Boolean(t) && typeof t === 'object')
     .filter((t) => t.status === 'succeeded' || t.status === 'paid')
     .slice(0, 4)
     .map((t, i) => {
-      const amount = finiteNumber(t.amount) ?? 0;
+      const amount = finiteNumber(t.amount);
       return {
         id: t.id ?? `tx-${i}`,
         name: t.description || 'Payment',
         plan: 'Stripe \u00b7 live',
-        amount: `${amount < 0 ? '\u2212' : '+'}$${Math.round(Math.abs(amount)).toLocaleString('en-US')}`,
+        // An amount we cannot measure is not zero. It renders as an em dash.
+        amount:
+          amount === null
+            ? '\u2014'
+            : `${amount < 0 ? '\u2212' : '+'}$${Math.round(Math.abs(amount)).toLocaleString('en-US')}`,
       };
     });
 }
@@ -129,7 +137,15 @@ export function resolveFinanceState(
   payload: StripeRevenuePayload | null | undefined,
   demoRequested: boolean,
 ): FinanceState {
-  if (demoRequested) return DEMO_STATE;
+  // A copy, not the constant: a consumer that mutates state must not corrupt the demo fixture
+  // for every later caller.
+  if (demoRequested) {
+    return {
+      ...DEMO_STATE,
+      transactions: DEMO_STATE.transactions.map((t) => ({ ...t })),
+      chart: DEMO_STATE.chart ? [...DEMO_STATE.chart] : null,
+    };
+  }
 
   if (!payload) {
     return { ...INITIAL_STATE, source: 'unavailable', reason: 'No revenue response was received.' };
@@ -177,6 +193,23 @@ export function formatUsdCompact(value: number | null): string {
 export function formatArrK(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return '\u2014';
   return `${(value / 1000).toFixed(0)}k`;
+}
+
+
+/**
+ * The revenue label shared by every surface that shows MRR.
+ *
+ * `state` is the feed's own status, so this is the one place that decides "measured or unknown".
+ * A real zero renders as zero; anything that was not measured renders as an em dash. CommandHUD
+ * previously gated on `mrr > 0` and fell back to a showpiece constant, which is how a $0 business
+ * saw $48.2k in the chrome above an honest Finance hero.
+ */
+export function revenueLabel(
+  state: 'ok' | 'degraded' | 'offline' | 'unknown',
+  mrr: number,
+  format: (value: number) => string = formatUsdCompact,
+): string {
+  return state === 'ok' && Number.isFinite(mrr) ? format(mrr) : '\u2014';
 }
 
 export type SourceBadge = { label: string; tone: 'live' | 'demo' | 'unavailable' | 'loading' };

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import {
   DEMO_STATE,
+  revenueLabel,
   INITIAL_STATE,
   formatArrK,
   formatUsdCompact,
@@ -150,6 +151,69 @@ describe('the pre-data default cannot be mistaken for revenue', () => {
   it('renders the em dash for every unmeasured value', () => {
     expect(formatUsdCompact(null)).toBe('\u2014');
     expect(formatArrK(null)).toBe('\u2014');
+  });
+});
+
+describe('malformed data cannot throw or invent a number', () => {
+  it('a non-array recentTransactions is ignored instead of throwing', () => {
+    const state = resolveFinanceState(
+      { source: 'live', subscriptions: { mrr: 900 }, recentTransactions: {} as never },
+      false,
+    );
+    expect(state.source).toBe('live');
+    expect(state.mrr).toBe(900);
+    expect(state.transactions).toEqual([]);
+  });
+
+  it('a null row is skipped, and the live MRR survives', () => {
+    const state = resolveFinanceState(
+      { source: 'live', subscriptions: { mrr: 900 }, recentTransactions: [null as never] },
+      false,
+    );
+    expect(state.source).toBe('live');
+    expect(state.mrr).toBe(900);
+    expect(state.transactions).toEqual([]);
+  });
+
+  it('an unmeasurable amount renders an em dash, not a fabricated zero', () => {
+    const state = resolveFinanceState(
+      {
+        source: 'live',
+        subscriptions: { mrr: 900 },
+        recentTransactions: [
+          { id: 's', amount: '2500' as unknown as number, status: 'succeeded' },
+          { id: 'n', amount: 2500, status: 'succeeded' },
+        ],
+      },
+      false,
+    );
+    expect(state.transactions[0].amount).toBe('\u2014');
+    expect(state.transactions[1].amount).toBe('+$2,500');
+  });
+
+  it('the demo state is a copy, so a consumer cannot corrupt the fixture', () => {
+    const first = resolveFinanceState(null, true);
+    first.transactions[0].name = 'mutated';
+    const second = resolveFinanceState(null, true);
+    expect(second.transactions[0].name).not.toBe('mutated');
+  });
+});
+
+
+describe('the shared revenue label cannot fabricate a figure', () => {
+  it('renders a measured zero as zero', () => {
+    expect(revenueLabel('ok', 0)).toBe('$0');
+  });
+
+  it('renders every unmeasured state as an em dash', () => {
+    for (const state of ['degraded', 'offline', 'unknown'] as const) {
+      expect(revenueLabel(state, 0)).toBe('\u2014');
+      expect(revenueLabel(state, 48200)).toBe('\u2014');
+    }
+  });
+
+  it('uses the caller formatter when measured', () => {
+    expect(revenueLabel('ok', 12000, (v) => `$${(v / 1000).toFixed(1)}k`)).toBe('$12.0k');
   });
 });
 

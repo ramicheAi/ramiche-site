@@ -326,3 +326,19 @@
 @keyframes inst-rgb { 0%,100% { transform: translateX(0); } 50% { transform: translateX(1.5px); } }
 .po-shell .po-still .inst-mod.crit, .po-shell .po-still .inst-mod[data-glitch] { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { .po-shell .inst-mod.crit, .po-shell .inst-mod[data-glitch], .po-shell .inst-mod.crit .inst-mod-lab::after { animation: none !important; } }
+
+/* Tone follows the data source. Before this, a chip reporting UNAVAILABLE rendered in the same
+ * green with the same blink as LIVE, because the chip carried a data-tone attribute that no rule
+ * consumed. Text said one thing and the beacon said the opposite. */
+.po-shell .pg-head-meta .pg-live[data-tone="unavailable"],
+.po-shell .fn-livetag[data-tone="unavailable"] { color: var(--c-rose); }
+.po-shell .pg-head-meta .pg-live[data-tone="unavailable"] i,
+.po-shell .fn-livetag[data-tone="unavailable"] i { background: var(--c-rose); box-shadow: none; animation: none; }
+.po-shell .pg-head-meta .pg-live[data-tone="demo"],
+.po-shell .fn-livetag[data-tone="demo"] { color: var(--c-gold); }
+.po-shell .pg-head-meta .pg-live[data-tone="demo"] i,
+.po-shell .fn-livetag[data-tone="demo"] i { background: var(--c-gold); box-shadow: none; animation: none; }
+.po-shell .pg-head-meta .pg-live[data-tone="loading"],
+.po-shell .fn-livetag[data-tone="loading"] { color: var(--t-lo); }
+.po-shell .pg-head-meta .pg-live[data-tone="loading"] i,
+.po-shell .fn-livetag[data-tone="loading"] i { background: var(--t-lo); box-shadow: none; animation: none; }

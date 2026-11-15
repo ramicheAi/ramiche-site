@@ -172,7 +172,7 @@ export default function FinanceHQ() {
             </div>
             <div className="fn-big tnum">{formatUsdCompact(fin.mrr)}</div>
             <div className="fn-delta">
-              {isLive && <>{'▲'} measured from Stripe · ${formatArrK(fin.arr)} ARR</>}
+              {isLive && <>measured from Stripe · ${formatArrK(fin.arr)} ARR</>}
               {isDemo && <>sample series · ${formatArrK(fin.arr)} ARR</>}
               {!isLive && !isDemo && (fin.reason || 'No measured revenue available.')}
             </div>
@@ -242,7 +242,17 @@ export default function FinanceHQ() {
                   <div style={{ fontSize: 13.5, fontWeight: 500 }}>{t.name}</div>
                   <div style={{ fontSize: 11, color: 'var(--t-lo)', marginTop: 1 }}>{t.plan}</div>
                 </div>
-                <span className="fn-amt" style={{ color: t.amount.startsWith('−') ? 'var(--c-rose)' : 'var(--c-green)' }}>
+                <span
+                  className="fn-amt"
+                  style={{
+                    color:
+                      t.amount === '—'
+                        ? 'var(--t-lo)'
+                        : t.amount.startsWith('−')
+                          ? 'var(--c-rose)'
+                          : 'var(--c-green)',
+                  }}
+                >
                   {t.amount}
                 </span>
               </div>
