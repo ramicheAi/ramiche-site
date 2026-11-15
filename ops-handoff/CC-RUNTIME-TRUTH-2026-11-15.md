@@ -600,3 +600,31 @@ Verified against a real PostgreSQL 17, not a mock:
 Failure after claim but before dispatch is the honest gap: the message is persisted, the lease will expire, and a retry can dispatch, so the agent may run once later. It cannot run twice concurrently. Guaranteeing exactly one execution needs the agent side to accept an idempotency key, which the gateway does not expose today. The design therefore promises at-most-once dispatch and states the gap rather than claiming exactly-once.
 
 Migration SQL is the prepared `20261112180000_messages_client_idempotency_key.sql` plus the lease columns; rollback is the paired `.sql.txt`. Neither has been applied to production.
+
+
+### 17.5 Phase 5 status
+
+| Item | State |
+|---|---|
+| Fleet model Settings wiring | **not done**. #95 supplies the authoritative API; the page still posts to the old `directory.json` route. |
+| YOLO provenance | **draft PR #96** at `452993f0`: source, state, observedAt, freshness, verified-empty, plus six unit tests |
+| Tablet touch target | **draft PR #96**: raw header buttons restored to 44px on 768-1024 |
+| iPhone acceptance plan | below |
+| Upgrade and rollback plan | section 12.5 and 12.6 |
+
+### 17.6 Physical iPhone acceptance plan
+
+Run only after the canonical cockpit serves the new build. Each step is pass or fail, no partial credit.
+
+1. **Origin and install.** Confirm which origin the installed app uses (Settings, or the installed icon's URL). If the origin changes, uninstall and reinstall, then confirm the manifest says `RAMICHE Command Center` and opens `/command-center`.
+2. **Access and trust.** Cloudflare Access challenge appears; after it, the app asks for bootstrap or PIN. Existing device must still unlock after the upgrade without re-enrollment. If it asks to re-enroll, stop and record it.
+3. **Layout.** Open Sanctuary, Agents, Chat, YOLO and Finance at the phone's natural width. Check: no content under the HUD, no horizontal scroll, no overlapping chips, composer above the home indicator.
+4. **Keyboard.** Focus the chat composer. Page must not zoom (16px input), the conversation must stay visible, the composer must sit above the keyboard, and dismissing must restore the full layout.
+5. **Chat.** Load an existing channel, confirm history renders. Send one message, confirm it appears once, reload, confirm it persists. Tap an agent action only with explicit approval.
+6. **Truth.** Finance shows a measured figure with its timestamp, or `UNAVAILABLE`. No invented number anywhere. Sanctuary and the HUD agree with Finance.
+7. **Builds.** YOLO shows a source, observation time and freshness, and states whether zero builds is a verified empty.
+8. **Model API.** With the registry absent, the API returns 503 unavailable; with it present, the list matches the registry and a save reports the value read back from disk.
+9. **Resume.** Background the app, change a conversation from another client, return. History must reconcile rather than show stale messages.
+10. **Rollback.** Confirm the previous release id is recorded, so a rollback is one LaunchAgent repoint.
+
+Any failure is a PRODUCT NO-GO, with the failing step and a screenshot.
