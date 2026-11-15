@@ -1296,6 +1296,11 @@ async function POST_handler(req: NextRequest) {
       const r = settled.value;
       allAttempts[target] = r.attempts;
       if (r.openClawError && singleTargetStrict) {
+        // This response never reaches the caller as a delivery, so the relay row must not stay
+        // 'claimed' with no record anything went wrong (the gap the second independent review
+        // found: only the outer catch marked 'failed', not this or the "no backend responded"
+        // 502 below — both leave the lease fully occupied with no outcome recorded otherwise).
+        await markRelay("failed");
         return NextResponse.json(
           {
             ok: false,
@@ -1393,6 +1398,9 @@ async function POST_handler(req: NextRequest) {
         fallbackOnlyTargets.length === 0 &&
         rejectedTargets.length === 0 &&
         targets.length > 0;
+      // Same reasoning as the openClawError 502 above: nothing was delivered, so this must not
+      // stay 'claimed' with no outcome recorded for the remainder of the lease.
+      await markRelay("failed");
       return NextResponse.json(
         {
           ok: false,
