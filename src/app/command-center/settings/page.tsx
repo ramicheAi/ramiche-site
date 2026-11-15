@@ -388,8 +388,12 @@ function SettingsContent() {
                       {/* Model editing lives in Fleet models above, which writes the runtime
                           registry and reads the value back. This card shows what the legacy roster
                           reports and nothing more: it used to offer a hardcoded model list whose
-                          save wrote directory.json, a file the gateway never reads. */}
+                          save wrote directory.json, a file the gateway never reads. A visible label
+                          is required here, not just this comment — after a verified save in Fleet
+                          models, this line can show a different, stale value for the same agent,
+                          and nothing else on screen says why. */}
                       <p style={{ fontSize: 11, color: "var(--t-lo)", fontFamily: "monospace" }}>
+                        <span style={{ opacity: 0.6, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em" }}>legacy roster: </span>
                         {agent.model || "no model reported"}
                       </p>
 

@@ -110,6 +110,24 @@ describe('a write is only a success when the server read it back', () => {
     expect(view.state).toBe('unavailable');
   });
 
+  it('never puts a filesystem path from detail into the rendered message', () => {
+    // Regression lock for the P2 fix: source_unavailable/lock_failed/write_failed detail text is
+    // a real path on the runtime host. A future change that goes back to `flat.detail` here would
+    // pass every other test in this file but leak the path again — this is the one that catches it.
+    for (const reason of ['source_unavailable', 'lock_failed', 'write_failed']) {
+      const view = describeWrite({
+        ok: false,
+        reason,
+        detail: '/Users/admin/.openclaw/openclaw.json.lock exists; another update is in progress',
+      });
+      expect(view.state).toBe('unavailable');
+      if (view.state === 'unavailable') {
+        expect(view.message).not.toMatch(/\/Users\//);
+        expect(view.message).not.toMatch(/openclaw\.json/);
+      }
+    }
+  });
+
   it('has no idle success state', () => {
     expect(describeWrite(null)).toEqual({ state: 'idle' });
   });

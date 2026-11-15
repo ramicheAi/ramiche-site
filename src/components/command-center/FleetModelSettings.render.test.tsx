@@ -63,6 +63,23 @@ describe('the three runtime states are visibly different', () => {
     expect(screen.getByText(/not present on this runtime/)).toBeTruthy();
   });
 
+  it('never renders a filesystem path from the unavailable registry response', async () => {
+    // Regression lock for the P2 fix: a future change that goes back to rendering view.detail
+    // would pass the other "unavailable" test above (it only checks for `reason`) but leak the
+    // path again — this is the one that actually checks the rendered DOM text for it.
+    stubFetch({
+      ok: false,
+      source: 'unavailable',
+      reason: 'not present on this runtime',
+      detail: '/Users/admin/.openclaw/openclaw.json missing',
+    });
+    render(<FleetModelSettings />);
+    await waitFor(() => expect(screen.getByText(/Runtime unavailable/i)).toBeTruthy());
+    const text = document.body.textContent ?? '';
+    expect(text).not.toMatch(/\/Users\//);
+    expect(text).not.toMatch(/openclaw\.json/);
+  });
+
   it('says malformed when the configuration cannot be parsed', async () => {
     stubFetch({ ok: false, source: 'malformed', reason: 'agents.list is not an array' });
     render(<FleetModelSettings />);
