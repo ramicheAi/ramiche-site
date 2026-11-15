@@ -68,22 +68,42 @@ describe("POST /api/command-center/chat — relay dispatch claim", () => {
     return { res, rpc, body: await res.json() };
   }
 
-  it("a message already claimed by a prior attempt gets no second agent dispatch", async () => {
-    // cc_claim_relay_dispatch returns claimed=false: another attempt owns this message or a
-    // previous dispatch is inside its lease. No second agent turn.
-    const { res, rpc, body } = await runWithClaim({ data: [{ claimed: false, attempts: null }], error: null });
-    expect(res.status).toBe(200);
-    expect(body.alreadyDispatched).toBe(true);
+  it("a message still claimed within the lease gets an honest 'in progress', not a false success", async () => {
+    // cc_claim_relay_dispatch returns claimed=false, status='claimed': another attempt owns this
+    // message and is still inside its lease. No second agent turn, and — this is the fix — no
+    // alreadyDispatched:true either, since nothing was actually delivered yet.
+    const { res, rpc, body } = await runWithClaim({
+      data: [{ claimed: false, attempts: 1, status: "claimed" }],
+      error: null,
+    });
+    expect(res.status).toBe(409);
+    expect(body.ok).toBe(false);
+    expect(body.alreadyDispatched).toBeUndefined();
+    expect(body.relayStatus).toBe("claimed");
     expect(rpc).toHaveBeenCalledWith("cc_claim_relay_dispatch", {
       p_message_id: "22222222-2222-2222-2222-222222222222",
       p_lease_seconds: 300,
     });
   });
 
-  it("a delivered message is not reclaimed", async () => {
+  it("a failed-but-not-yet-expired message also gets the honest 'in progress' response, not a false success", async () => {
+    const { res, body } = await runWithClaim({
+      data: [{ claimed: false, attempts: 2, status: "failed" }],
+      error: null,
+    });
+    expect(res.status).toBe(409);
+    expect(body.ok).toBe(false);
+    expect(body.alreadyDispatched).toBeUndefined();
+    expect(body.relayStatus).toBe("failed");
+  });
+
+  it("a delivered message is not reclaimed, and IS reported as alreadyDispatched (a genuine prior success)", async () => {
     // The function encodes the terminal-state rule; from the route's point of view this is the
     // same short-circuit. The rule itself is proven against PostgreSQL in the migration PR.
-    const { res, body } = await runWithClaim({ data: [{ claimed: false, attempts: 3 }], error: null });
+    const { res, body } = await runWithClaim({
+      data: [{ claimed: false, attempts: 3, status: "delivered" }],
+      error: null,
+    });
     expect(res.status).toBe(200);
     expect(body.alreadyDispatched).toBe(true);
   });

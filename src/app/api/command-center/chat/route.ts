@@ -1066,6 +1066,16 @@ async function POST_handler(req: NextRequest) {
   // Phase E budget guard: wall-clock anchor used to skip the critic pass if
   // synthesis already burned most of the route's 60s maxDuration window.
   const postStartedAt = Date.now();
+  // Hoisted OUTSIDE the try so the catch block below can still mark the dispatch 'failed'.
+  // svc/userMessageId/claimAttempt are normally computed inside the try; without this, an
+  // uncaught exception left relay_status='claimed' forever (until the lease ages it out), and a
+  // retry within the lease read that as {ok:true, alreadyDispatched:true} — a real crash
+  // reported to the retrying caller as a success.
+  const relayFailureTracker: {
+    svc: ReturnType<typeof getSupabaseService> | null;
+    userMessageId?: string;
+    attempt: number | null;
+  } = { svc: null, attempt: null };
   try {
     const body = await req.json();
     const {
@@ -1134,6 +1144,8 @@ async function POST_handler(req: NextRequest) {
     // (prepared migration not applied) or on any lookup error — this must
     // never be the reason a legitimate, first-ever send gets no reply.
     let claimAttempt: number | null = null;
+    relayFailureTracker.svc = svc;
+    relayFailureTracker.userMessageId = userMessageId;
     if (svc && userMessageId) {
       try {
         // Atomic claim with an explicit terminal state. delivered and failed_permanent are never
@@ -1147,6 +1159,7 @@ async function POST_handler(req: NextRequest) {
         });
         const row = Array.isArray(claimRows) ? claimRows[0] : claimRows;
         claimAttempt = typeof row?.attempts === "number" ? row.attempts : null;
+        relayFailureTracker.attempt = claimAttempt;
         if (claimError) {
           // The claim failing must be visible. Without this line the whole mechanism can be inert
           // (missing migration, revoked EXECUTE) while chat looks perfectly healthy.
@@ -1155,7 +1168,27 @@ async function POST_handler(req: NextRequest) {
             message: (claimError as { message?: string }).message,
           });
         } else if (row && row.claimed === false) {
-          return NextResponse.json({ ok: true, alreadyDispatched: true });
+          // Truthful by status, not a blanket "already dispatched". 'delivered' is a genuine
+          // prior success — safe to short-circuit as such. 'claimed' or 'failed' means the prior
+          // attempt is still in flight or errored and has not yet cleared its lease: reporting
+          // alreadyDispatched:true here is exactly the masquerade this fix exists to remove, so
+          // this caller gets an honest "not ready" instead of a false success.
+          const priorStatus = typeof row.status === "string" ? row.status : "claimed";
+          if (priorStatus === "delivered") {
+            return NextResponse.json({ ok: true, alreadyDispatched: true });
+          }
+          return NextResponse.json(
+            {
+              ok: false,
+              error: "dispatch_in_progress_or_failed",
+              detail:
+                priorStatus === "failed"
+                  ? "A prior attempt for this message failed and has not yet cleared its retry window."
+                  : "A prior attempt for this message is still in flight.",
+              relayStatus: priorStatus,
+            },
+            { status: 409 }
+          );
         }
       } catch (e) {
         console.warn("[chat] relay claim threw, dispatch is not deduplicated:", e instanceof Error ? e.message : e);
@@ -1700,8 +1733,31 @@ async function POST_handler(req: NextRequest) {
     });
   } catch (e) {
     console.error("Chat API error:", e);
-    // No mark here: svc and the message id are scoped to the try body. A failed dispatch keeps
-    // relay_status='claimed', so the lease expiry makes it retryable, which is the safe default.
+    // Mark the dispatch 'failed' so the row no longer sits at a plain 'claimed' with no record
+    // that anything went wrong. It is still lease-gated like 'claimed' (not immediately
+    // reclaimable) — mutual exclusion still holds — but the claim RPC above now reports this
+    // status back to a retrying caller instead of a blanket alreadyDispatched:true, so a crash
+    // here can no longer be read by the caller as a successful delivery.
+    if (relayFailureTracker.svc && relayFailureTracker.userMessageId) {
+      try {
+        const { error: markErr } = await relayFailureTracker.svc.rpc("cc_mark_relay_status", {
+          p_message_id: relayFailureTracker.userMessageId,
+          p_status: "failed",
+          p_attempt: relayFailureTracker.attempt,
+        });
+        if (markErr) {
+          console.warn("[chat] relay failure status not recorded:", {
+            code: (markErr as { code?: string }).code,
+            message: (markErr as { message?: string }).message,
+          });
+        }
+      } catch (markException) {
+        console.warn(
+          "[chat] relay failure status threw:",
+          markException instanceof Error ? markException.message : markException
+        );
+      }
+    }
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }

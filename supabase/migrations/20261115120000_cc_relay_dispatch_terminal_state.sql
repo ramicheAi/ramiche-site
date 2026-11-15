@@ -35,17 +35,24 @@ comment on column public.messages.relay_status is
   'pending | claimed | delivered | failed | failed_permanent. delivered and failed_permanent are terminal and are never reclaimed.';
 
 -- Claim the right to dispatch one agent turn for a persisted message.
+--
+-- Also returns the row's relay_status so a caller whose claim is refused can tell a genuine
+-- prior success ('delivered') from a dispatch that is still in flight or that failed and is
+-- waiting out the lease ('claimed' / 'failed') — without this, a caller that treats every
+-- refused claim as "already delivered" reports a real failure to the retrying client as a
+-- success for as long as the lease lasts.
 create or replace function public.cc_claim_relay_dispatch(
   p_message_id uuid,
   p_lease_seconds int default 300
 )
-returns table(claimed boolean, attempts int)
+returns table(claimed boolean, attempts int, status text)
 language plpgsql
 security invoker
 set search_path = pg_catalog, pg_temp
 as $$
 declare
   v_attempts int;
+  v_status text;
 begin
   update public.messages m
      set relay_claimed = true,
@@ -59,10 +66,13 @@ begin
   returning m.relay_attempts into v_attempts;
 
   if v_attempts is null then
-    return query select false, null::int;
+    select coalesce(m.relay_status, 'pending') into v_status
+      from public.messages m
+     where m.id = p_message_id;
+    return query select false, null::int, v_status;
     return;
   end if;
-  return query select true, v_attempts;
+  return query select true, v_attempts, 'claimed'::text;
 end;
 $$;
 
@@ -91,7 +101,11 @@ begin
 end;
 $$;
 
-revoke all on function public.cc_claim_relay_dispatch(uuid, int) from public;
-revoke all on function public.cc_mark_relay_status(uuid, text, int) from public;
+-- Supabase grants EXECUTE on every new public function to anon and authenticated by default
+-- (ALTER DEFAULT PRIVILEGES), independent of what this file revokes from `public`. Revoke from
+-- both explicitly, or the "service_role only" contract this migration claims is not the one
+-- actually in effect on a real Supabase project.
+revoke all on function public.cc_claim_relay_dispatch(uuid, int) from public, anon, authenticated;
+revoke all on function public.cc_mark_relay_status(uuid, text, int) from public, anon, authenticated;
 grant execute on function public.cc_claim_relay_dispatch(uuid, int) to service_role;
 grant execute on function public.cc_mark_relay_status(uuid, text, int) to service_role;
