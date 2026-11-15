@@ -443,3 +443,41 @@ There is no owner session available to this machine, and minting a device cookie
 - a temporary Access service token.
 
 Unauthenticated preview checks (boot, login page, redirects, API denial with reason, absence of 503) can proceed without any of these.
+
+
+---
+
+## 15. CC-RECOVERY-04 execution record
+
+### 15.1 Merges (authorized, head-SHA protected)
+
+| PR | Approved head | Merge commit | Post-merge CI |
+|---|---|---|---|
+| #92 | `ce071f71` | `e0accc199852bc683cc78e3241ccc461f47ca0a3` | pass |
+| #93 | `97377128` | `8cafa0abd4cb43884752a7be98d4d6c8c35040dc` | pass |
+| #91 | `51561a84` | `f5c88ba48f1188e9ccca53d8fac6809dad775a4d` | pass |
+
+Main is now `f5c88ba48f1188e9ccca53d8fac6809dad775a4d`.
+
+#91 required a second review round: the first approval was at `d051a125`, then two P2 touch-target regressions it introduced (calendar crons link, leads filter toggle) were fixed at `51561a84` and re-approved. One residual P2 remains: the header-action floor stops at 640px, so a raw header button is 26px on the 768-1024 tablet band. It is above the 24px AA floor and is recorded as a follow-up.
+
+### 15.2 Candidate
+
+Rebuilt from the new main plus the two mobile commits (reapplied cleanly):
+
+- `candidate/cc-recovery-04b` at `3fd5dc13384ee6b9ad92f1beb016e4a0275553f8`
+- Finance truth, chat recovery, mobile shell, sanctuary HUD inset, YOLO chip and state fixes, iOS resume reconciliation
+- Suite: **1043 passed, 1 expected fail, 4 skipped**; `tsc` and build clean
+- The single expected failure is the relay idempotency contract from #93
+
+### 15.3 Preview
+
+- Path: `/Users/admin/cockpit-preview/stage` (separate from `~/cockpit-releases`)
+- Commit: `3fd5dc13`, Next 16.4.1, built on the iMac
+- Bind: **127.0.0.1:3001 only**, pid 47350
+- Production: pid 1834 still on 127.0.0.1:3000, LaunchAgent plist hash unchanged
+- Isolation: execution events and agent relay empty, Sentry DSN empty, gateway URL pinned to a discard port, gateway token empty. No schedulers, workers or polling loops start with the server. `vercel.json` crons do not run under `next start`.
+
+**Preview blocked for authenticated acceptance.** The app returns 503 `owner_not_configured` because `PARALLAX_OWNER_UID` is marked sensitive in Vercel (pull returns a placeholder) and is not present in the release environment. Without it the owner guard fails closed, so login, device trust, chat history and provenance cannot be exercised. This is the correct failure mode, not a leak, but it means the preview proves isolation and boot only.
+
+Exact unblock: supply `PARALLAX_OWNER_UID` for the preview (owner can read it in Firebase Auth), or open the preview over an SSH tunnel and sign in, or authorize one synthetic device row created and revoked by label.
