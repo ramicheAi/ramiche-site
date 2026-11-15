@@ -763,7 +763,7 @@ No grant broadening is needed. Enrollment recovery works through the RPCs.
 
 | PR | Head reviewed | First verdict | What it found | Now |
 |---|---|---|---|---|
-| #95 fleet registry | `c5ef9d36` | REQUEST CHANGES | **P1:** every write replaced a 600 `openclaw.json` (gateway token, five provider keys) with a 644 temp. P2s: `__proto__`/`constructor` passed as providers; a provider with no catalogue skipped the model check; non-array `agents.list` returned an empty "live" fleet; rollback truncated; stale lock unrecoverable; no test could fail on missing readback. | Fixed at `f46d8923`, CI green, awaiting final confirmation |
+| #95 fleet registry | `c5ef9d36` | REQUEST CHANGES | **P1:** every write replaced a 600 `openclaw.json` (gateway token, five provider keys) with a 644 temp. P2s: `__proto__`/`constructor` passed as providers; a provider with no catalogue skipped the model check; non-array `agents.list` returned an empty "live" fleet; rollback truncated; stale lock unrecoverable; no test could fail on missing readback. | Fixed at `f46d8923`, CI green, **APPROVE** on final confirmation |
 | #96 builds provenance | `452993f0` | REQUEST CHANGES | **P1:** on Vercel the only source is Firestore, and its caught error returned `null`, so a failed read rendered "the source reports zero builds". P2: state derived from dates while the grid rendered cards; 7-day boundary untested; label function tested but never called. | Fixed at `2299b6a5`, **APPROVE** |
 
 Fixes worth naming:
