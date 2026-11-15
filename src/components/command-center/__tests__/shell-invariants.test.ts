@@ -50,11 +50,13 @@ describe('chat height against the alert ticker', () => {
   it('reserves the ticker in the phone chat height', () => {
     // #cc-content gains 38px of top padding when the ticker is mounted, so a chat pane sized from
     // 100dvh alone overflows by exactly that much and pushes the composer under the fold.
-    expect(chat).toMatch(/body:has\(#cc-alertbar\)\s+\.chat-root\s*\{[^}]*100dvh\s*-\s*94px/);
+    // #93 replaced the literal 100dvh with the visible-viewport variable so the composer follows
+    // the iOS keyboard. Accept either form; the 94px ticker allowance is still required.
+    expect(chat).toMatch(/body:has\(#cc-alertbar\)\s+\.chat-root\s*\{[^}]*(?:100dvh|--cc-vvh)[^}]*-\s*94px/);
   });
 
   it('reserves the ticker in the tablet and desktop chat height', () => {
-    expect(shellCss).toMatch(/body:has\(#cc-alertbar\)\s+#cc-content\s+\.chat-root\s*\{[^}]*100dvh\s*-\s*102px/);
+    expect(shellCss).toMatch(/body:has\(#cc-alertbar\)\s+#cc-content\s+\.chat-root\s*\{[^}]*(?:100dvh|--cc-vvh)[^}]*-\s*102px/);
   });
 
   it('scopes the pane height to the content column rather than every page', () => {
