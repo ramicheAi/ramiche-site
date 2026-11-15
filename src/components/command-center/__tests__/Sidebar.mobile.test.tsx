@@ -131,5 +131,7 @@ describe('mobile drawer', () => {
     // come from aria-label or the control is anonymous exactly where it matters most.
     expect(screen.getByRole('button', { name: /pulse/i })).toHaveAttribute('aria-label');
     expect(screen.getByRole('button', { name: /wake word/i })).toHaveAttribute('aria-label');
+    // Theme is a two-state toggle, so its state is pressed, not a label that has to be re-read.
+    expect(screen.getByRole('button', { name: /light theme/i })).toHaveAttribute('aria-pressed');
   });
 });

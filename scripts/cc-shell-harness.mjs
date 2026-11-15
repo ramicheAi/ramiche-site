@@ -79,9 +79,9 @@ const page = () => `<!doctype html>
     </nav>
     <div class="po-side-foot"><span>ATLAS v4 // 20 AGENTS</span></div>
     <div class="po-side-quick" role="group" aria-label="Quick controls">
-      <button type="button" class="po-quick" aria-pressed="false">◈ Pulse</button>
-      <button type="button" class="po-quick" aria-pressed="false">◉ Wake word</button>
-      <button type="button" class="po-quick" aria-pressed="false">☀ Theme</button>
+      <button type="button" class="po-quick" aria-label="Show chat pulse" aria-pressed="false"><span aria-hidden>◈</span><span class="lbl">Pulse</span></button>
+      <button type="button" class="po-quick" aria-label="Enable wake word" aria-pressed="false"><span aria-hidden>◉</span><span class="lbl">Wake word</span></button>
+      <button type="button" class="po-quick" aria-label="Light theme" aria-pressed="false"><span aria-hidden>☀</span><span class="lbl">Theme</span></button>
     </div>
   </aside>
 
@@ -193,6 +193,21 @@ for (const width of WIDTHS) {
       railH: rect('#railDivider') ? rect('#railDivider').h : null,
       quick: rect('.po-side-quick') ? rect('.po-side-quick').h : null,
       quickDisplay: cs('.po-side-quick', 'display'),
+      // "visible" is not "display:grid": a blank, unnamed box satisfies that. Measure the control.
+      quickButtons: [...document.querySelectorAll('.po-side-quick .po-quick')].map((b) => {
+        const st = getComputedStyle(b);
+        const icon = b.querySelector('span[aria-hidden]');
+        const r = b.getBoundingClientRect();
+        return {
+          name: b.getAttribute('aria-label') || (b.textContent || '').trim(),
+          labelled: !!b.getAttribute('aria-label'),
+          w: r.width,
+          h: r.height,
+          border: st.borderTopStyle !== 'none' && parseFloat(st.borderTopWidth) > 0,
+          background: st.backgroundColor !== 'rgba(0, 0, 0, 0)' && st.backgroundColor !== 'transparent',
+          iconSize: icon ? parseFloat(getComputedStyle(icon).fontSize) : 0,
+        };
+      }),
       hudSecondary: cs('.po-hud-secondary', 'display'),
       docOverflow: document.documentElement.scrollWidth > window.innerWidth,
       chatH: rect('#chatRoot') ? rect('#chatRoot').h : null,
@@ -221,6 +236,13 @@ for (const width of WIDTHS) {
   }
   if (width <= 1024) {
     check(m.quickDisplay !== 'none', `${width}px: quick controls present in the band the HUD hides them`);
+    check(m.quickButtons.length === 3, `${width}px: three quick controls (${m.quickButtons.length})`);
+    for (const b of m.quickButtons) {
+      check(b.labelled, `${width}px: quick control "${b.name}" has an aria-label`);
+      check(b.w >= 43 && b.h >= 43, `${width}px: quick control "${b.name}" is ${b.w}x${b.h}, expected >=44`);
+      check(b.border && b.background, `${width}px: quick control "${b.name}" paints chrome (border=${b.border} bg=${b.background})`);
+      check(b.iconSize >= 14, `${width}px: quick control "${b.name}" icon renders (${b.iconSize}px)`);
+    }
   }
   if (narrow) {
     check(m.menuVisible, `${width}px: the menu button is visible on a phone`);

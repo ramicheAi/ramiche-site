@@ -314,7 +314,7 @@ export default function Sidebar({
             onClick={() => {
               // the dock paints below the drawer overlay, so hand the screen back to it
               window.dispatchEvent(new CustomEvent('cc:toggle-pulse'));
-              setMobileOpen(false);
+              if (isPhone) setMobileOpen(false);
             }}
           >
             <span aria-hidden>◈</span><span className="lbl">Pulse</span>
@@ -326,7 +326,7 @@ export default function Sidebar({
             aria-pressed={wakeEnabled}
             onClick={() => {
               window.dispatchEvent(new CustomEvent('cc:toggle-wake'));
-              setMobileOpen(false);
+              if (isPhone) setMobileOpen(false);
             }}
           >
             <span aria-hidden>◉</span><span className="lbl">Wake word</span>
@@ -334,9 +334,9 @@ export default function Sidebar({
           <button
             type="button"
             className="po-quick"
-            aria-label={`Theme: ${theme}`}
+            aria-label="Light theme"
+            aria-pressed={theme === 'light'}
             onClick={toggleTheme}
-            data-theme-state={theme}
           >
             <span aria-hidden>☀</span><span className="lbl">Theme</span>
           </button>

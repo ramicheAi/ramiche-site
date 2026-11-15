@@ -83,9 +83,10 @@ describe('touch targets are targeted, not blanket', () => {
   });
 
   it('names only classes that exist, so the floor is not decorative', () => {
-    for (const dead of ['task-actions', 'pg-head-act button']) {
-      expect(shellCss, `${dead} is styled but appears in no page`).not.toMatch(new RegExp(dead));
-    }
+    // `.task-actions` was invented by an earlier draft and exists in no page; `.pg-head-act` is
+    // real (po/Instrument.tsx renders it), so only the invented one is forbidden.
+    expect(shellCss).not.toMatch(/task-actions/);
+    expect(shellCss).toMatch(/\.pg-head-act/);
   });
 });
 
@@ -137,7 +138,7 @@ describe('secondary controls stay reachable on mobile and tablet', () => {
   it('shows the quick controls across the whole range the HUD hides its copies', () => {
     // The HUD hides pulse/wake/theme at <=1024. If the drawer only restores them <=767, every
     // iPad width has no path to any of the three.
-    const flat = shellCss.replace(/\s+/g, ' ');
+    const flat = shellCss.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ');
     expect(flat, 'the quick row is not shown in the <=1024 range the HUD hides its copies')
       .toMatch(/@media \(max-width: 1024px\) \{ \.po-side-quick \{ display: grid/);
   });

@@ -397,13 +397,16 @@ function Cockpit({
            range it hides them in, not only on phones. On the 66px rail they stack icon-only. */
         .po-side-quick { display: none; }
         @media (max-width: 1024px) {
+          /* Every bit of the control's chrome belongs here, in the shared band: defining it only
+             at <=767 left the tablet rail showing three blank, unnamed boxes. */
           .po-side-quick { display: grid; grid-template-columns: 1fr; gap: 6px; padding: 8px 8px 10px; border-top: 1px solid var(--line); }
-          .po-shell .po-quick { min-height: 44px; font-size: 0; }
+          .po-shell .po-quick { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 52px; min-width: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-glass); color: var(--t-mid); font: 600 10px/1.2 var(--f-sans, inherit); letter-spacing: 0.04em; cursor: pointer; }
+          .po-shell .po-quick > span[aria-hidden] { font-size: 16px; line-height: 1; }
           .po-shell .po-quick .lbl { display: none; }
+          .po-shell .po-quick[aria-pressed='true'], .po-shell .po-quick[data-theme-state='light'] { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 45%, var(--line)); }
         }
         @media (max-width: 767px) {
           .po-side-quick { grid-template-columns: repeat(3, 1fr); padding: 10px 12px; }
-          .po-shell .po-quick { font-size: 10px; }
           .po-shell .po-quick .lbl { display: block; }
         }
         @media (max-width: 767px) {
@@ -431,12 +434,10 @@ function Cockpit({
             padding-bottom: env(safe-area-inset-bottom);
           }
           .po-nav-overlay { z-index: 65 !important; top: calc(56px + env(safe-area-inset-top)); }
-          .po-side-quick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 10px 12px; border-top: 1px solid var(--line); }
-          .po-shell .po-quick { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 52px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-glass); color: var(--t-mid); font: 600 10px/1.2 var(--f-sans, inherit); letter-spacing: 0.04em; cursor: pointer; }
-          .po-shell .po-quick[aria-pressed='true'] { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 45%, var(--line)); }
           .po-side-head { padding-right: 56px; }
           .po-side-close { display: grid; position: absolute; top: 6px; right: 10px; width: 44px; height: 44px; place-items: center; z-index: 2; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-glass); color: var(--t-hi); font: inherit; cursor: pointer; }
-          .po-shell .po-navitem { min-height: 44px; }
+          .po-shell .po-navitem, .po-shell .po-nav-sec, .po-shell .task-quick, .po-shell .pg-btn { min-height: 44px; }
+          .po-shell .po-nav-sec { min-width: 44px; }
           .po-shell .atlas-briefing { top: calc(56px + env(safe-area-inset-top)) !important; width: 100vw !important; max-width: 100vw !important; z-index: 80 !important; padding-bottom: env(safe-area-inset-bottom); }
           .po-shell .atlas-briefing button { min-width: 44px; min-height: 44px; }
         }
@@ -464,7 +465,6 @@ function Cockpit({
           .po-shell .task-quick,
           .po-shell .pg-btn { min-height: 44px; }
           .po-shell .po-side-close, .po-shell .po-quick { min-width: 44px; }
-          .po-shell .pg-head-act a { min-height: 44px; display: inline-flex; align-items: center; }
           .po-shell .chat-input-area button, .po-shell .chat-header-bar button { min-width: 44px; }
           .po-shell .stage .orbit-node, .po-shell .stage .orbit-chip { display: none !important; }
           .po-shell .task-head { flex-wrap: wrap; }
