@@ -1310,3 +1310,112 @@ looks like proof and is not. Recording them costs more than hiding them.
 | Physical iPhone acceptance | still outstanding |
 | Independent review at final head | **not obtained** (quota), recorded above |
 | Merges, deploys, migrations, fleet writes, deletions | none |
+
+## 23. CC-RECOVERY-14
+
+Production frozen throughout: no merge, no migration applied, no deployment, no cron or launchd
+change, no file changed on the iMac, nothing deleted, no live fleet write. The only writes were git
+commits to three non-production branches, PR comments, and read-only queries.
+
+### 23.1 Ownership
+
+| Branch | Head at start | Head at end | Owner |
+|---|---|---|---|
+| `fix/cc-relay-terminal-state` (#100) | `7dc2caac` | `b8525c8a` | this session |
+| `feat/cc-fleet-settings` (#101) | `becb0e37` | `7f38d87a` | this session, declared on the PR before touching it (previously another session's) |
+| `docs/cc-runtime-truth-01` (#94) | `6bd8e4f3` | `ff694b69` | this session |
+
+The #101 ownership transfer was declared as a PR comment before the first commit, with an explicit
+offer to stop if the previous owner had work in progress. No force-push anywhere; nothing rewritten.
+
+### 23.2 #100: fail-closed dispatch
+
+The claim's own failure modes were the one situation where duplicate execution was certain, and
+every route dispatched anyway. Concretely: with the claim RPC missing, unauthorized, unreachable or
+returning a malformed row, `claimRelayDispatch` returned `unprotected` and the caller proceeded. No
+lease was held, so a second request could dispatch concurrently; and the outcome could not be
+recorded either, because a mark with a null attempt is refused on an already-claimed row. The row
+then stayed `claimed`, the lease expired, and the next retry ran the agent again. Two further
+bypasses of the same shape: neither chat route required `userMessageId`, so omitting it skipped the
+claim entirely, and the message-row-not-found case dispatched unclaimed into a turn whose result had
+nowhere to go.
+
+Now the claim returns `unavailable` with a typed reason
+(`not_configured | not_deployed | unauthorized | transport | malformed | no_message`), and all four
+dispatchers refuse before touching a provider. `describeUnavailable` maps each reason to a status, a
+code, and a sentence that always states the one fact the caller cannot see: **nothing ran**. Only a
+transport fault is marked retryable, because a missing migration or a revoked grant needs an
+operator. Both chat routes now require `userMessageId` (400) and a database to record the claim
+(503). A malformed claim reply is "cannot confirm", never "no prior attempt".
+
+Deliberately breaking: any caller that dispatches without a persisted message id now gets 400 instead
+of a dispatch. That is the only way to be able to say that every dispatch is claimed.
+
+One more defect found by asking who actually sees these refusals: the routes put the machine code in
+`error` and the human sentence in `detail`, and the chat page rendered `error`. A fail-closed refusal
+would have shown the operator the string `relay_not_deployed` and nothing else. Both consumers now
+prefer the sentence, through a pure function with its own tests.
+
+### 23.3 #101: the two denial defects
+
+- The denied state hardcoded "Your session expired." above a detail that, for `not_owner`, correctly
+  said the session **is** signed in. The heading is now derived from the same reason as the detail
+  and carried as its own field, so the two cannot disagree.
+- `UNAUTHORIZED_CODES` listed ten codes and called itself complete while the guard mints
+  `unlock_${reason}` and `device_${reason}` from unions it never saw. A revoked or expired device, an
+  ordinary daily state on the iMac where the PIN unlock is a primary credential, therefore rendered
+  "the runtime rejected the change" on every save. The write path now gates on the authorization
+  envelope (`error === "denied"`), as the read path already did, with a reason-shape fallback.
+
+Verified against the producer rather than a guess: `src/lib/fleet/denial-envelope.test.ts` imports the
+guard's own `ownerDenialResponse` and round-trips all 21 reasons it can currently produce through
+both the read and write mappings.
+
+### 23.4 Mutation sweeps
+
+Rule applied throughout: **a mutation must compile before its result counts** (`tsc --noEmit` on the
+mutated tree). This rule exists because the previous round reported a figure that came from a
+mutation which did not compile.
+
+#100, fail-closed (12 of 12 caught): claim error treated as granted; malformed reply treated as
+granted; claim replaced by a granted literal on each of the three implementations (7, 9 and 7 tests
+fail); an agent turn dispatched before the claim (9); unavailable claim allowed to proceed on the JSON
+and approve paths; the `userMessageId` requirement removed; everything marked retryable; every error
+classified as transport; a zero-row mark reported as recorded.
+
+#101 (5 of 5 caught): the hardcoded heading restored (4 tests fail); the heading derived from the
+detail (3); the enumerated list restored (14); `device_revoked` allowed to fall through (1); the
+envelope-less fallback removed (1).
+
+### 23.5 Release readiness, re-confirmed
+
+| Item | Value |
+|---|---|
+| Active production | `dpl_BxVfLSoZzLLB2Sto6SmxHZGEHT21`, `main@f5c88ba4` (merge of PR #91), Ready, 9 h old, unchanged through the freeze |
+| Rollback target | `dpl_HGbLgiU72d8kd7LhBh6V6BMFCswB`, `main@8cafa0ab` (merge of PR #93), Ready; an alias switch, no rebuild |
+| How far behind | production is 13 commits behind `origin/main` (`00d68238`); the rollback target is 23 |
+| iMac free space | 10.3 GB on `/System/Volumes/Data` (98% used) |
+| `main.sqlite` | 3.1 GB, `freelist_count` 0, `auto_vacuum` 0 |
+| MacBook free space | 16 GB (99% used) |
+| Deploy gate | `vercel.json` has `git.deploymentEnabled.main = false` on all three branches, so merging does not auto-deploy |
+| Guard installed | **no** |
+| Cron step 6 | **still the raw `sqlite3 "$db" "VACUUM;"` loop** |
+
+Two numbers worth reading together. `main.sqlite` has a freelist of 0, so a maintenance run today
+would reclaim nothing and is not justified at all. And at 10.3 GB free, an in-place run would pass
+the 2.5x gate (7.75 GB needed) with about 2.5 GB to spare, while a copy-and-swap would be refused
+(10.85 GB needed). That is the correct behaviour, not a problem to work around.
+
+Physical-iPhone acceptance is still outstanding. Nothing server-side substitutes for it. The specific
+items, and the two that this round changed:
+
+1. Sign in with Firebase on iOS Safari; reload; confirm the app recovers without a re-prompt.
+2. Clear `__session` and confirm the PIN-unlock redirect behaves the same as desktop Safari.
+3. Background or lock the phone for a minute, reopen, confirm no stale chat state.
+4. **New:** send a chat message with the network dropped mid-send. The refusal is now fail-closed, so
+   the expected result is a visible error sentence (not the old silent dispatch), and never a
+   duplicate on retry.
+5. **New:** a revoked or expired trusted device must render "This device is not authorized." plus
+   re-auth advice, not "session expired" and not "the runtime rejected the change". These strings are
+   new and longer, so readability on a small screen has to be looked at.
+6. Safe-area and keyboard behaviour for the composer, which has its own history of defects.
