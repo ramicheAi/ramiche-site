@@ -1,0 +1,58 @@
+-- ============================================================================
+-- CC-ORG-AUTHZ-SECURITY-ASSESSMENT-01: revoke stale anon/authenticated table
+-- grants (NOT APPLIED — proposal file only, never run against the live
+-- database by any agent).
+-- Target: Supabase project command-center-hq (qkbkfsjkysdsfmhgfdoc).
+-- ============================================================================
+--
+-- Part 1. Tables where RLS is enabled with zero policies, so these grants are
+-- latent, not currently exploitable (relrowsecurity=true, anon/authenticated
+-- lack BYPASSRLS, confirmed by direct read-only query against pg_roles and
+-- pg_class before this file was written). Revoking removes the latent risk:
+-- if anyone ever adds a single permissive policy to one of these tables for
+-- an unrelated reason, these grants would otherwise become live immediately.
+--
+-- REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+--   ON public.jobs, public.daily_verses, public.job_events,
+--      public.pipeline_events, public.pipeline_gate, public.pipeline_leads,
+--      public.pipeline_proposals
+--   FROM anon, authenticated;
+-- -- SELECT is intentionally left alone here: revoking it is a product
+-- -- decision (do any of these need to stay anon/authenticated-readable for a
+-- -- legitimate reason?), not purely a security cleanup. Revoke it too once
+-- -- that's confirmed per table.
+--
+-- Part 2. Tables with ACTIVE, currently effective anon policies granting
+-- unrestricted read and write (qual=true, with_check=true, no row-level
+-- restriction) -- this is live today, not latent. Confirmed by reading
+-- pg_policies directly; not inferred.
+--
+-- public.parallax_bets:
+--   policy "parallax anon read bets"   (anon, SELECT, qual=true)
+--   policy "parallax anon write bets"  (anon, INSERT, with_check=true)
+--   policy "parallax anon update bets" (anon, UPDATE, qual=true, no with_check)
+-- public.parallax_odds_cache:
+--   policy "parallax anon read cache"   (anon, SELECT, qual=true)
+--   policy "parallax anon write cache"  (anon, INSERT, with_check=true)
+--   policy "parallax anon update cache" (anon, UPDATE, qual=true, no with_check)
+--
+-- DROP POLICY "parallax anon write bets" ON public.parallax_bets;
+-- DROP POLICY "parallax anon update bets" ON public.parallax_bets;
+-- DROP POLICY "parallax anon write cache" ON public.parallax_odds_cache;
+-- DROP POLICY "parallax anon update cache" ON public.parallax_odds_cache;
+-- -- Read policies left in the proposal as SELECT-only, pending a decision on
+-- -- whether anon read of odds/bet cache data is intentional product
+-- -- behavior (e.g. a public odds display) or should also be revoked. If a
+-- -- server-side writer needs to write this data, it should do so with the
+-- -- service-role key, not via an anon-writable policy.
+--
+-- parallax.bets, parallax.odds_snapshots:
+--   policy "read_all" (public, SELECT, qual=true) on both.
+-- This is read exposure of the Kelly betting engine's bet and odds data to
+-- any caller, including unauthenticated ones, not a write risk. Revoking
+-- this is a product decision (is any of this meant to be public?), not
+-- purely security cleanup -- flagged here, no DROP proposed without that
+-- decision.
+--
+-- Nothing above was executed. Applying any of it is a human decision for a
+-- separate PR, after confirming which SELECT access is actually needed.
