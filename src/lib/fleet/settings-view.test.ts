@@ -179,6 +179,26 @@ describe('an expired session is not an outage', () => {
     const view = describeRegistry({ ok: false, error: 'denied', reason: 'missing_session' } as never);
     expect(view).toEqual({ state: 'denied', reason: 'your session expired; sign in again' });
   });
+
+  it('does not describe every denial reason as a session problem', () => {
+    // ownerDenialResponse wraps every guard refusal identically as {error:"denied", reason}, so
+    // a 403 not_owner or a 503 owner_not_configured must not render "sign in again" — the operator
+    // IS signed in; signing in again changes nothing for either case.
+    const notOwner = describeRegistry({ ok: false, error: 'denied', reason: 'not_owner' } as never);
+    const noOwner = describeRegistry({ ok: false, error: 'denied', reason: 'owner_not_configured' } as never);
+    expect(notOwner.state).toBe('denied');
+    expect(noOwner.state).toBe('denied');
+    if (notOwner.state === 'denied') expect(notOwner.reason.toLowerCase()).not.toContain('sign in again');
+    if (noOwner.state === 'denied') expect(noOwner.reason.toLowerCase()).not.toContain('sign in again');
+  });
+
+  it('gives a CSRF/origin denial on GET a distinct message too', () => {
+    const view = describeRegistry({ ok: false, error: 'denied', reason: 'origin_mismatch' } as never);
+    expect(view).toEqual({
+      state: 'denied',
+      reason: 'the request was blocked for security reasons; reload the page and try again',
+    });
+  });
 });
 
 describe('half a catalogue is not ready', () => {
@@ -216,9 +236,46 @@ describe('selection refs with slashes and guard denials', () => {
     expect(checkSelection(snapshot, 'atlas', 'provider/').ok).toBe(false);
   });
 
-  it('maps guard denials to unauthorized, not to an outage', () => {
-    for (const reason of ['missing_session', 'session_expired', 'not_owner', 'owner_not_configured']) {
-      expect(describeWrite({ ok: false, reason }).state).toBe('unauthorized');
+  it('accepts a model id containing a space, exactly like the server splitRef does', () => {
+    const spacedSnapshot = {
+      ...snapshot,
+      providers: [...snapshot.providers, { name: 'spacey', models: ['Qwen3 14B'], reachability: 'unverified' as const }],
+    };
+    expect(checkSelection(spacedSnapshot, 'atlas', 'spacey/Qwen3 14B')).toMatchObject({
+      ok: true,
+      provider: 'spacey',
+      model: 'Qwen3 14B',
+    });
+  });
+
+  it('maps every guard denial reason to unauthorized, not to an outage', () => {
+    for (const reason of [
+      'missing_session',
+      'invalid_session',
+      'session_expired',
+      'not_owner',
+      'owner_not_configured',
+      'missing_unlock',
+      'device_mismatch',
+      'cross_site',
+      'origin_mismatch',
+      'missing_origin',
+    ]) {
+      const view = describeWrite({ ok: false, reason });
+      expect(view.state).toBe('unauthorized');
+      // The runtime did not reject anything here — the request never reached it. A denial must
+      // never be described as the runtime's own refusal.
+      if (view.state === 'unauthorized') expect(view.message.toLowerCase()).not.toContain('the runtime rejected');
+    }
+  });
+
+  it('gives a CSRF/origin denial a distinct message from a session denial', () => {
+    const origin = describeWrite({ ok: false, reason: 'origin_mismatch' });
+    const session = describeWrite({ ok: false, reason: 'session_expired' });
+    expect(origin.state).toBe('unauthorized');
+    expect(session.state).toBe('unauthorized');
+    if (origin.state === 'unauthorized' && session.state === 'unauthorized') {
+      expect(origin.message).not.toBe(session.message);
     }
   });
 

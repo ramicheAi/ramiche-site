@@ -41,16 +41,35 @@ export type RegistryView =
   | { state: 'empty'; registry: RegistrySnapshot }
   | { state: 'ready'; registry: RegistrySnapshot };
 
+// requireCommandCenterOwner() can refuse for any of these (command-center-guard.ts); every one of
+// them is wrapped identically by ownerDenialResponse as {ok:false, error:"denied", reason}. "sign
+// in again" is the right advice for a session problem but wrong for not_owner (you ARE signed in,
+// just not the configured owner) and for owner_not_configured (there is no owner to sign in as).
+const UNAUTHORIZED_ORIGIN_REASONS = new Set(['cross_site', 'origin_mismatch', 'missing_origin']);
+
+/** The one denial message shown for both the GET (registry) and POST (write) auth failures. */
+function authDenialMessage(reason: string | undefined): string {
+  if (reason && UNAUTHORIZED_ORIGIN_REASONS.has(reason)) {
+    return 'the request was blocked for security reasons; reload the page and try again';
+  }
+  if (reason === 'not_owner') return 'this session is signed in, but not as this runtime’s configured owner';
+  if (reason === 'owner_not_configured') return 'no owner is configured for this runtime yet';
+  // missing_session / invalid_session / session_expired / missing_unlock / device_mismatch
+  return 'your session expired; sign in again';
+}
+
 /** Turn a GET response into exactly one truth state. "No data" and "no answer" are different. */
 export function describeRegistry(response: RegistryResponse | null | undefined): RegistryView {
   if (!response) return { state: 'loading' };
   if (response.ok === false) {
-    const reason = (response as { reason?: string }).reason ?? '';
-    // The guard answers {error:"denied", reason:"missing_session"} with no `source`. That is an
-    // expired session, not an unreachable runtime, and telling the operator "runtime unavailable"
-    // sends them to debug the wrong thing.
-    if (reason === 'missing_session' || reason === 'denied' || (response as { error?: string }).error === 'denied') {
-      return { state: 'denied', reason: 'your session expired; sign in again' };
+    const reason = (response as { reason?: string }).reason;
+    // The guard answers {error:"denied", reason} with no `source` for every refusal reason — that
+    // is an auth problem, not an unreachable runtime, and telling the operator "runtime
+    // unavailable" sends them to debug the wrong thing. Gate strictly on error==='denied' (not on
+    // the specific reason value) so every guard refusal lands here, then pick the message by the
+    // actual reason instead of defaulting all of them to "session expired".
+    if ((response as { error?: string }).error === 'denied') {
+      return { state: 'denied', reason: authDenialMessage(reason) };
     }
     if (response.source === 'malformed') {
       return { state: 'malformed', reason: response.reason ?? 'the registry could not be parsed' };
@@ -92,10 +111,13 @@ export function checkSelection(snapshot: RegistrySnapshot, agentId: string, ref:
   const trimmed = typeof ref === 'string' ? ref.trim() : '';
   if (!trimmed) return { ok: false, reason: 'choose a model' };
   // Split on the FIRST slash, exactly like the server's splitRef. Provider model ids can contain
-  // slashes (lmstudio/google/gemma-4-e4b), and requiring exactly one slash refused options the
-  // dropdown itself offered.
+  // slashes (lmstudio/google/gemma-4-e4b) AND spaces (a provider can legitimately advertise
+  // "Qwen3 14B"), and the server's own splitRef/validateChange accept both — an earlier version
+  // of this check refused any id containing a space, which is the same class of invented
+  // client-only rule the header doctrine above says this module must not add (the dropdown itself
+  // can offer an option this check then refuses to save).
   const slash = trimmed.indexOf('/');
-  if (trimmed.includes(' ') || slash <= 0 || slash === trimmed.length - 1) {
+  if (slash <= 0 || slash === trimmed.length - 1) {
     return { ok: false, reason: 'a selection must be "provider/model"' };
   }
   const provider = trimmed.slice(0, slash);
@@ -166,8 +188,24 @@ export function describeWrite(
     };
   }
   const code = flat.reason;
-  if (new Set(['missing_session', 'session_expired', 'not_owner', 'owner_not_configured']).has(code)) {
-    return { state: 'unauthorized', code, message: 'the session is not authorized for this runtime; sign in again' };
+  // Same reason codes as describeRegistry's guard denial, listed in full so a code the guard adds
+  // later doesn't silently fall through to the generic "the runtime rejected the change" below,
+  // which blames the runtime for what is actually an auth/origin refusal and hides the sign-in
+  // cue. See UNAUTHORIZED_ORIGIN_REASONS / authDenialMessage above for the per-reason wording.
+  const UNAUTHORIZED_CODES = new Set([
+    'missing_session',
+    'invalid_session',
+    'session_expired',
+    'not_owner',
+    'owner_not_configured',
+    'missing_unlock',
+    'device_mismatch',
+    'cross_site',
+    'origin_mismatch',
+    'missing_origin',
+  ]);
+  if (UNAUTHORIZED_CODES.has(code)) {
+    return { state: 'unauthorized', code, message: authDenialMessage(code) };
   }
   if (code === 'locked') return { state: 'busy', code, message: 'another change is in progress; nothing was written' };
   if (code === 'source_unavailable' || code === 'lock_failed' || code === 'write_failed') {
