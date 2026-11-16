@@ -1,14 +1,20 @@
 import { describe, expect, it, vi } from "vitest";
-import { sendCommanderChat } from "./legacy-console-chat";
+import { sendCommanderChat, LEGACY_CONSOLE_CHANNEL_ID } from "./legacy-console-chat";
 
 /**
- * CC-RECOVERY-17: the classic console's chat send used to fire a second, unclaimed dispatch
- * attempt at /api/bridge/chat alongside this one. These tests pin the contract of the one
- * surviving call: exactly one fetch per send, independent of any other call, with no hidden
- * state carried between sends (a "refresh" is just a fresh call with no prior state to leak).
+ * CC-RECOVERY-16/17/18/19: the classic console's chat send has had two bugs stacked on top of
+ * each other. First it fired a second, unclaimed dispatch attempt at /api/bridge/chat alongside
+ * the real one (removed in CC-RECOVERY-17). Then it turned out the "real" one was never actually
+ * functional either: it called /api/command-center/chat with no userMessageId, which that route
+ * has refused since CC-RECOVERY-14. CC-RECOVERY-19 fixes that by persisting the message first
+ * (same server-authorized endpoint the main chat page uses) and dispatching with the id the server
+ * hands back. These tests pin: persist-then-dispatch happens in that order with the right id
+ * threaded through, a failed persist never reaches the dispatch step, and duplicate
+ * sends/retries/refreshes/error-recovery all behave correctly.
  */
 
-const PARAMS = { message: "hi", agentName: "atlas", channelName: "Command Center", channelId: "cc-dashboard" };
+const PARAMS = { message: "hi", agentName: "atlas", channelName: "Command Center", clientMessageId: "11111111-1111-1111-1111-111111111111" };
+const PERSIST_URL = `/api/command-center/conversations/${LEGACY_CONSOLE_CHANNEL_ID}/messages`;
 
 function relayErrorMessage(parsed: unknown, status?: number): string {
   const p = (parsed ?? {}) as { detail?: string; error?: string };
@@ -16,96 +22,152 @@ function relayErrorMessage(parsed: unknown, status?: number): string {
 }
 
 function jsonResponse(body: unknown, status = 200) {
-  return { status, json: async () => body } as Response;
+  return { status, ok: status >= 200 && status < 300, json: async () => body } as Response;
 }
 
-describe("sendCommanderChat — the one authoritative dispatch request per send", () => {
-  it("issues exactly one fetch call, to /api/command-center/chat only", async () => {
-    const fetchImpl = vi.fn(async (..._args: Parameters<typeof fetch>) => jsonResponse({ ok: true, response: "hello" }));
-    await sendCommanderChat(PARAMS, { fetchImpl: fetchImpl as unknown as typeof fetch, relayErrorMessage });
+/** A fetchImpl that persists successfully to a given id, then dispatches per `dispatchBody`. */
+function fetchFixture(persistedId: string, dispatchBody: unknown, dispatchStatus = 200) {
+  return vi.fn(async (url: unknown) => {
+    if (url === PERSIST_URL) return jsonResponse({ data: { id: persistedId }, replay: false });
+    if (url === "/api/command-center/chat") return jsonResponse(dispatchBody, dispatchStatus);
+    throw new Error(`unexpected fetch to ${url}`);
+  }) as unknown as typeof fetch;
+}
+
+describe("sendCommanderChat — persist first, then dispatch with the real id", () => {
+  it("persists before dispatching, and sends the persisted id as userMessageId", async () => {
+    const fetchImpl = fetchFixture("msg-abc-123", { ok: true, response: "hello" });
+    const result = await sendCommanderChat(PARAMS, { fetchImpl, relayErrorMessage });
+    expect(result).toEqual({ kind: "delivered", response: "hello", source: undefined });
+    const calls = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls;
+    expect(calls).toHaveLength(2);
+    expect(calls[0][0]).toBe(PERSIST_URL);
+    expect(calls[1][0]).toBe("/api/command-center/chat");
+    const dispatchBody = JSON.parse((calls[1][1] as RequestInit).body as string);
+    expect(dispatchBody.userMessageId).toBe("msg-abc-123");
+    expect(dispatchBody.channelId).toBe(LEGACY_CONSOLE_CHANNEL_ID);
+  });
+
+  it("sends the client message id on the persist call, for server-side replay on retry", async () => {
+    const fetchImpl = fetchFixture("msg-1", { ok: true, response: "x" });
+    await sendCommanderChat(PARAMS, { fetchImpl, relayErrorMessage });
+    const calls = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls;
+    const persistBody = JSON.parse((calls[0][1] as RequestInit).body as string);
+    expect(persistBody.clientMessageId).toBe(PARAMS.clientMessageId);
+    expect(persistBody.content).toBe(PARAMS.message);
+  });
+
+  it("never reaches dispatch when persistence fails — nothing is sent", async () => {
+    const fetchImpl = vi.fn(async (url: unknown) => {
+      if (url === PERSIST_URL) return jsonResponse({ error: { message: "db down" } }, 502);
+      throw new Error("must not call anything else");
+    }) as unknown as typeof fetch;
+    const result = await sendCommanderChat(PARAMS, { fetchImpl, relayErrorMessage });
+    expect(result).toEqual({ kind: "not_persisted", message: "db down" });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-    expect(fetchImpl.mock.calls[0][0]).toBe("/api/command-center/chat");
-    // The bug this fix removes was a second, separate fetch to /api/bridge/chat alongside this
-    // one. Asserting the call count is 1 is what catches that regressing.
   });
 
-  it("reports delivered only when the route returns ok and a response", async () => {
-    const fetchImpl = vi.fn(async () => jsonResponse({ ok: true, response: "hello", source: "openclaw" }));
-    const result = await sendCommanderChat(PARAMS, { fetchImpl: fetchImpl as unknown as typeof fetch, relayErrorMessage });
-    expect(result).toEqual({ kind: "delivered", response: "hello", source: "openclaw" });
+  it("never reaches dispatch when the persist call itself throws", async () => {
+    const fetchImpl = vi.fn(async (url: unknown) => {
+      if (url === PERSIST_URL) throw new Error("network blip");
+      throw new Error("must not call anything else");
+    }) as unknown as typeof fetch;
+    const result = await sendCommanderChat(PARAMS, { fetchImpl, relayErrorMessage });
+    expect(result.kind).toBe("network_error");
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
-  it("reports refused, with the route's own message, when the claim is refused", async () => {
-    // This is the CC-RECOVERY-14 case: no persisted message id, so the route refuses before any
-    // dispatch happens. The function must surface the server's sentence, not swallow it.
-    const fetchImpl = vi.fn(async () =>
-      jsonResponse({ ok: false, error: "user_message_id_required", detail: "Nothing ran." }, 400),
-    );
-    const result = await sendCommanderChat(PARAMS, { fetchImpl: fetchImpl as unknown as typeof fetch, relayErrorMessage });
-    expect(result).toEqual({ kind: "refused", message: "Nothing ran." });
+  it("reports refused with the route's own message when dispatch itself is refused", async () => {
+    const fetchImpl = fetchFixture("msg-1", { ok: false, error: "relay_unavailable", detail: "Retry shortly." }, 503);
+    const result = await sendCommanderChat(PARAMS, { fetchImpl, relayErrorMessage });
+    expect(result).toEqual({ kind: "refused", message: "Retry shortly." });
   });
 
-  it("reports network_error when fetch itself throws, without throwing", async () => {
-    const fetchImpl = vi.fn(async () => {
-      throw new Error("fetch failed");
-    });
-    const result = await sendCommanderChat(PARAMS, { fetchImpl: fetchImpl as unknown as typeof fetch, relayErrorMessage });
+  it("reports network_error when the dispatch call throws after a successful persist", async () => {
+    const fetchImpl = vi.fn(async (url: unknown) => {
+      if (url === PERSIST_URL) return jsonResponse({ data: { id: "msg-1" } });
+      throw new Error("dispatch network blip");
+    }) as unknown as typeof fetch;
+    const result = await sendCommanderChat(PARAMS, { fetchImpl, relayErrorMessage });
     expect(result.kind).toBe("network_error");
   });
 
-  it("duplicate sends each make their own independent call — no shared state to race on", async () => {
-    // The UI's own chatSending flag is what stops a literal double-click; this module holds no
-    // state at all, so two calls in flight at once are just two independent fetches, each
-    // resolving on its own. Confirms there is no module-level lock or memoized promise that would
-    // make the second call silently reuse (or block on) the first.
-    let calls = 0;
-    const fetchImpl = vi.fn(async () => {
-      calls += 1;
-      return jsonResponse({ ok: true, response: `reply ${calls}` });
-    });
-    const [a, b] = await Promise.all([
-      sendCommanderChat(PARAMS, { fetchImpl: fetchImpl as unknown as typeof fetch, relayErrorMessage }),
-      sendCommanderChat(PARAMS, { fetchImpl: fetchImpl as unknown as typeof fetch, relayErrorMessage }),
-    ]);
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
-    expect(a.kind).toBe("delivered");
-    expect(b.kind).toBe("delivered");
+  it("a retry (same clientMessageId) that replays the persisted row still dispatches with that same id", async () => {
+    // The persistence route's own idempotency key means a retry with the same clientMessageId
+    // returns the ORIGINAL row's id (replay:true), not a new one. This function must thread that
+    // same id through to dispatch rather than treating a replay as a fresh message — otherwise a
+    // retry would try to dispatch under a second, never-before-seen id with no claim history.
+    const fetchImpl = vi.fn(async (url: unknown) => {
+      if (url === PERSIST_URL) return jsonResponse({ data: { id: "original-row-id" }, replay: true });
+      return jsonResponse({ ok: true, response: "dispatched" });
+    }) as unknown as typeof fetch;
+    const result = await sendCommanderChat(PARAMS, { fetchImpl, relayErrorMessage });
+    expect(result.kind).toBe("delivered");
+    const dispatchCall = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[1];
+    const dispatchBody = JSON.parse((dispatchCall[1] as RequestInit).body as string);
+    expect(dispatchBody.userMessageId).toBe("original-row-id");
   });
 
-  it("recovers after a failed send — a retry is a fresh call, not stuck on the prior error", async () => {
+  it("a genuine retry after a lost response dispatches exactly once more, server-claim-safe", async () => {
+    // Simulates: first attempt's dispatch call is lost to the network (never resolves to this
+    // caller), caller retries with the SAME clientMessageId. This function always re-calls
+    // dispatch — duplicate-dispatch protection for one persisted id is the server's claim, not a
+    // decision this function makes. What this function must get right is always sending the SAME
+    // userMessageId on every retry, which the prior test already pins; this test just confirms
+    // retrying doesn't throw or get stuck.
     const fetchImpl = vi
       .fn()
-      .mockRejectedValueOnce(new Error("network blip"))
-      .mockResolvedValueOnce(jsonResponse({ ok: true, response: "second try worked" }));
+      .mockImplementationOnce(async () => jsonResponse({ data: { id: "row-1" } }))
+      .mockImplementationOnce(async () => {
+        throw new Error("dispatch lost");
+      })
+      .mockImplementationOnce(async () => jsonResponse({ data: { id: "row-1" }, replay: true }))
+      .mockImplementationOnce(async () => jsonResponse({ ok: true, response: "second attempt landed" }));
     const first = await sendCommanderChat(PARAMS, { fetchImpl: fetchImpl as unknown as typeof fetch, relayErrorMessage });
     expect(first.kind).toBe("network_error");
     const second = await sendCommanderChat(PARAMS, { fetchImpl: fetchImpl as unknown as typeof fetch, relayErrorMessage });
-    expect(second).toEqual({ kind: "delivered", response: "second try worked" });
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(second).toEqual({ kind: "delivered", response: "second attempt landed" });
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
+  });
+
+  it("duplicate sends with DIFFERENT clientMessageIds are two independent persisted messages", async () => {
+    let n = 0;
+    const fetchImpl = vi.fn(async (url: unknown) => {
+      if (url === PERSIST_URL) {
+        n += 1;
+        return jsonResponse({ data: { id: `row-${n}` } });
+      }
+      return jsonResponse({ ok: true, response: `reply ${n}` });
+    }) as unknown as typeof fetch;
+    const [a, b] = await Promise.all([
+      sendCommanderChat({ ...PARAMS, clientMessageId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" }, { fetchImpl, relayErrorMessage }),
+      sendCommanderChat({ ...PARAMS, clientMessageId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb" }, { fetchImpl, relayErrorMessage }),
+    ]);
+    expect(a.kind).toBe("delivered");
+    expect(b.kind).toBe("delivered");
+    expect(fetchImpl).toHaveBeenCalledTimes(4); // 2 persists + 2 dispatches, no cross-talk
   });
 
   it("a page refresh is just a fresh call — no hidden module state survives between invocations", async () => {
-    // Simulates "send, (conceptually) reload the page, send again": since the module keeps no
-    // state between calls, this is identical to the retry test above but is named for that
-    // scenario explicitly, per the CC-RECOVERY-17 test list (duplicate sends, retries, refreshes,
-    // error recovery).
-    const fetchImpl = vi.fn(async () => jsonResponse({ ok: true, response: "post-refresh reply" }));
-    await sendCommanderChat(PARAMS, { fetchImpl: fetchImpl as unknown as typeof fetch, relayErrorMessage });
-    const afterRefresh = await sendCommanderChat(PARAMS, { fetchImpl: fetchImpl as unknown as typeof fetch, relayErrorMessage });
-    expect(afterRefresh).toEqual({ kind: "delivered", response: "post-refresh reply" });
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    const fetchImpl = fetchFixture("row-after-refresh", { ok: true, response: "post-refresh reply" });
+    await sendCommanderChat(PARAMS, { fetchImpl, relayErrorMessage });
+    const afterRefresh = await sendCommanderChat(
+      { ...PARAMS, clientMessageId: "22222222-2222-2222-2222-222222222222" },
+      { fetchImpl, relayErrorMessage },
+    );
+    expect(afterRefresh).toEqual({ kind: "delivered", response: "post-refresh reply", source: undefined });
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
   });
 
   it("never calls /api/bridge/chat under any outcome", async () => {
-    for (const body of [
-      jsonResponse({ ok: true, response: "x" }),
-      jsonResponse({ ok: false, error: "nope" }, 400),
+    for (const fetchImpl of [
+      fetchFixture("row-x", { ok: true, response: "x" }),
+      fetchFixture("row-y", { ok: false, error: "nope" }, 400),
     ]) {
-      const fetchImpl = vi.fn(async (..._args: Parameters<typeof fetch>) => body);
-      await sendCommanderChat(PARAMS, { fetchImpl: fetchImpl as unknown as typeof fetch, relayErrorMessage });
-      const urls = fetchImpl.mock.calls.map((c) => c[0]);
+      await sendCommanderChat(PARAMS, { fetchImpl, relayErrorMessage });
+      const urls = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]);
       expect(urls).not.toContain("/api/bridge/chat");
-      expect(urls).toEqual(["/api/command-center/chat"]);
+      expect(urls).toEqual([PERSIST_URL, "/api/command-center/chat"]);
     }
   });
 });

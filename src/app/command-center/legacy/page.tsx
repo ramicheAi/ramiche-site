@@ -468,8 +468,13 @@ export default function CommandCenter() {
     // not because anything stopped it from dispatching twice. It is gone: sendCommanderChat below
     // is the one authoritative dispatch request this page makes per send. See
     // src/lib/legacy-console-chat.ts.
+    // CC-RECOVERY-19: a fresh id per send, not per keystroke — if sendCommanderChat is ever
+    // retried for this exact logical send (the caller re-invoking it after losing the response to
+    // a network blip), reusing this same id makes the persistence route replay the original row
+    // instead of creating a second one.
+    const clientMessageId = crypto.randomUUID();
     const result = await sendCommanderChat(
-      { message: text, agentName, channelName: "Command Center", channelId: "cc-dashboard" },
+      { message: text, agentName, channelName: "Command Center", clientMessageId },
       { fetchImpl: fetch, relayErrorMessage },
     );
     if (result.kind === "delivered") {
