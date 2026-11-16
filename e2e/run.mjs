@@ -52,6 +52,12 @@ const gwState = () => j(`${GW}/__e2e/state`);
 const dispatches = async () => (await gwState()).invocations.filter((i) => /sessions_send|sessions_spawn/.test(String(i.tool)));
 /** Clear recorded gateway calls only, so page-load work (the Atlas briefing) is not counted as a
  *  dispatch caused by the action under test. */
+const storageMode = (fail) =>
+  fetch(`${SB}/__e2e/storage-mode`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ fail }),
+  });
 const resetGwCalls = () => fetch(`${GW}/__e2e/reset`, { method: "POST" });
 const gwMode = (mode, delayMs = 0) =>
   fetch(`${GW}/__e2e/mode`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode, delayMs }) });
@@ -215,6 +221,91 @@ const journeys = [
   },
 
   {
+    id: "B2",
+    name: "A failed attachment upload cannot send, and can be retried or dropped",
+    kind: "integrated",
+    async run(browser) {
+      await reset();
+      await storageMode(true);
+      const page = await newPage(browser);
+      await openDm(page);
+      const png = Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+        "base64",
+      );
+      const text = `B2: failed upload ${Date.now()}`;
+      await page.locator("input[type=file]").first().setInputFiles({ name: "broken.png", mimeType: "image/png", buffer: png });
+      // The chip must reach "Not stored" rather than looking attached.
+      const failedShown = await waitFor(async () => (await page.locator('[data-attachment-state="failed"]').count()) > 0, 20_000);
+      await shot(page, "B2-01-failed-chip");
+      await page.locator('textarea[placeholder^="Message"]').first().fill(text);
+      await page.locator('button[aria-label="Send message"]').first().click({ force: true });
+      await sleep(2500);
+      const notice = await page.locator('[data-testid="attachment-notice"]').count();
+      const blockedBody = await bodyText(page);
+      await shot(page, "B2-02-blocked");
+      const afterBlocked = (await msgs()).filter((m) => String(m.content ?? "").startsWith(text));
+      // Retry with storage healthy.
+      await storageMode(false);
+      const retry = page.getByRole("button", { name: "Retry" }).first();
+      const hadRetry = (await retry.count()) > 0;
+      if (hadRetry) await retry.click({ force: true });
+      const readyShown = await waitFor(async () => (await page.locator('[data-attachment-state="ready"]').count()) > 0, 20_000);
+      await shot(page, "B2-03-retried");
+      await page.locator('button[aria-label="Send message"]').first().click({ force: true });
+      const sent = await waitFor(async () => (await msgs()).some((m) => String(m.content ?? "").startsWith(text)), 25_000);
+      const state = await sbState();
+      const row = state.tables.messages.find((m) => String(m.content ?? "").startsWith(text));
+      const atts = Array.isArray(row?.attachments) ? row.attachments : [];
+      await shot(page, "B2-04-sent-after-retry");
+      await page.__context.close();
+
+      // The explicit text-only path: a failed attachment stays on screen, and the operator chooses
+      // to send without it. That is the escape hatch the composer offers, and it must persist a
+      // message with no attachments rather than silently dropping the file.
+      await reset();
+      await storageMode(true);
+      const p2 = await newPage(browser);
+      await openDm(p2);
+      const text2 = `B2: text only ${Date.now()}`;
+      await p2.locator("input[type=file]").first().setInputFiles({ name: "cancel.png", mimeType: "image/png", buffer: png });
+      const failed2 = await waitFor(async () => (await p2.locator('[data-attachment-state="failed"]').count()) > 0, 20_000);
+      await p2.locator('textarea[placeholder^="Message"]').first().fill(text2);
+      const textOnly = p2.getByRole("button", { name: /send without attachments/i }).first();
+      const hadTextOnly = (await textOnly.count()) > 0;
+      // No force: this control is disabled until React commits the typed text, and forcing the
+      // click would land on a disabled button and be swallowed, which looks like a product failure.
+      if (hadTextOnly) await textOnly.click({ timeout: 10_000 });
+      const cancelledSent = await waitFor(async () => (await msgs()).some((m) => String(m.content ?? "").startsWith(text2)), 25_000);
+      const cancelledRow = (await msgs()).find((m) => String(m.content ?? "").startsWith(text2));
+      if (!cancelledSent) await shot(p2, "B2-05-text-only-not-sent");
+      await p2.__context.close();
+      const hadRemove = failed2 && hadTextOnly;
+
+      const checks = {
+        failed_chip_is_visible: failedShown,
+        dispatch_blocked_while_failed: afterBlocked.length === 0,
+        operator_told_why: notice > 0 && /could not be stored/i.test(blockedBody),
+        retry_available: hadRetry,
+        retry_makes_it_stored: readyShown,
+        send_works_after_retry: sent,
+        persisted_url_matches_upload: atts.length === 1 && String(atts[0]?.url ?? "").includes("/storage/v1/object/"),
+        // "No attachments" is stored as [] or null depending on the insert path; both mean none.
+        text_only_send_works: hadRemove && cancelledSent && (cancelledRow?.attachments ?? []).length === 0,
+        _dbg: { failed2, hadTextOnly, cancelledSent, atts: (cancelledRow?.attachments ?? []).length },
+      };
+      const failed = Object.entries(checks).filter(([, v]) => !v).map(([k]) => k);
+      return {
+        status: failed.length ? "FAIL" : "PASS",
+        detail: failed.length
+          ? `failed: ${failed.join(", ")}`
+          : "failed upload is visible and blocks the send; retry stores it; removal sends text only",
+        checks,
+      };
+    },
+  },
+
+  {
     id: "C",
     name: "Reload the page and recover the conversation",
     kind: "integrated",
@@ -299,6 +390,36 @@ const journeys = [
         detail: `approve control present; ${approveResult}`,
         checks,
         findings: hasReject ? [] : ["the synthesis card offers no reject control: an approval can only be approved"],
+      };
+    },
+  },
+
+  {
+    id: "D2",
+    name: "Reject a synthesis request",
+    kind: "integrated",
+    async run(browser) {
+      // There is no rejection contract in the backend: the only terminal state is `approved_at`,
+      // and no route writes a rejected/declined state. Rather than fake it by hiding the card, this
+      // journey proves the absence and reports the minimum contract that would be required.
+      await reset();
+      const page = await newPage(browser);
+      await openDm(page);
+      await sleep(1500);
+      const reject = page.getByRole("button", { name: /reject|decline|deny|dismiss/i });
+      const count = await reject.count();
+      await page.__context.close();
+      return {
+        status: count > 0 ? "PASS" : "BLOCKED",
+        detail:
+          count > 0
+            ? "a reject affordance exists"
+            : "no rejection contract exists: the only terminal state is metadata.approved_at, and no route records a rejection. Minimum change: POST {messageId, decision:'reject'} writing rejected_at + resolution:'rejected', owner-gated and idempotent, plus a card control.",
+        checks: { reject_control_present: count > 0 },
+        findings:
+          count > 0
+            ? []
+            : ["rejection is unsupported end to end; approving is the only way to resolve a synthesis card"],
       };
     },
   },
@@ -402,6 +523,9 @@ const journeys = [
       await page.__context.close();
       const checks = {
         visible_failure: /error|failed|no chat backend|not delivered|try again/i.test(body),
+        // The defect: raw upstream JSON was rendered to the operator.
+        no_raw_json: !/\{\s*"ok"\s*:\s*false/.test(body),
+        has_reference: /Reference [0-9a-f]{8}\./.test(body),
         // The turn did not reach an agent, so the relay must not claim a delivery.
         relay_not_delivered: user ? user.relay_status !== "delivered" : true,
       };
@@ -422,37 +546,29 @@ const journeys = [
       await reset();
       const page = await newPage(browser);
       await page.goto(`${BASE}/command-center/legacy`, { waitUntil: "domcontentloaded", timeout: 90_000 });
-      await page.locator('input[placeholder^="Message an agent"], textarea').first().waitFor({ state: "visible", timeout: 30_000 });
-      await sleep(1500);
+      await page.locator('[data-testid="legacy-composer-retired"]').first().waitFor({ state: "attached", timeout: 30_000 });
+      await sleep(800);
       await shot(page, "H-01-legacy");
-      const inputs = page.locator('input[placeholder^="Message an agent"], textarea');
-      const count = await inputs.count();
-      if (count === 0) {
-        await page.__context.close();
-        return { status: "BLOCKED", detail: "no message input rendered on the classic console" };
-      }
-      await resetGwCalls();
-      const text = `H: legacy ${Date.now()}`;
-      const box = inputs.first();
-      await box.fill(text);
-      await box.press("Enter");
-      await sleep(7000);
-      await shot(page, "H-02-legacy-sent");
       const body = await bodyText(page);
-      const d = await dispatches();
+      // The composer was removed because it was not connected to anything: it accepted text and
+      // issued no request. The route must now say so and point at the surface that works, and the
+      // historical message list must still be present.
+      const retiredNotice = await page.locator('[data-testid="legacy-composer-retired"]').count();
+      const composerInputs = await page.locator('input[placeholder^="Message an agent"]').count();
+      const link = await page.locator('a[href="/command-center/chat"]').count();
       await page.__context.close();
-      // A reply is only evidence if a dispatch actually happened. Matching the text alone passed
-      // with zero gateway calls, which would have been a false PASS.
-      const responded = body.includes("Synthetic agent reply") && d.length >= 1;
-      const refused = /user_message_id_required|needs its id|not a UUID|could not be saved or claimed/i.test(body);
-      if (responded) return { status: "PASS", detail: `classic console answered (dispatches=${d.length})`, checks: { responded } };
-      if (refused) return { status: "PASS", detail: "classic console refused the dispatch and explained why", checks: { refused_explicitly: true } };
+      const checks = {
+        composer_removed: composerInputs === 0,
+        explains_why: retiredNotice > 0 && /not connected/i.test(body),
+        points_to_working_chat: link > 0,
+      };
+      const failed = Object.entries(checks).filter(([, v]) => !v).map(([k]) => k);
       return {
-        status: "BLOCKED",
-        detail:
-          "/command-center/legacy renders the v6 mission-control dashboard, not a classic console; its chat input accepted text and cleared it but issued no dispatch request, so this workflow could not be exercised",
-        findings: ["the legacy route no longer presents a working message workflow, so the classic console cannot be accepted as-is"],
-        checks: { responded: false, refused_explicitly: false, dispatches: d.length },
+        status: failed.length ? "FAIL" : "PASS",
+        detail: failed.length
+          ? `failed: ${failed.join(", ")}`
+          : "no dead composer; the screen explains it and links to the working chat",
+        checks,
       };
     },
   },
@@ -520,8 +636,8 @@ const journeys = [
 /* ══════════════════════════════════════════════════════════════
    RESPONSIVE PASS (mobile viewport, visual acceptance)
    ══════════════════════════════════════════════════════════════ */
-async function mobilePass(browser) {
-  const page = await newPage(browser, { viewport: { width: 390, height: 844 } });
+async function mobilePass(browser, width = 390, height = 844) {
+  const page = await newPage(browser, { viewport: { width, height } });
   await openDm(page);
   await sleep(1200);
   const text = `M: mobile ${Date.now()}`;
@@ -569,18 +685,37 @@ try {
   if (!only || only.has("M")) {
     try {
       const m = await mobilePass(browser);
-      const layoutOk = m.metrics.horizontalOverflow <= 0 && m.replyVisible;
+      // Measure the primary control at every supported width, not just one.
+      const widths = [320, 390, 1440];
+      const measured = [];
+      for (const w of widths) {
+        const probe = await newPage(browser, { viewport: { width: w, height: w === 1440 ? 900 : 844 } });
+        await openDm(probe);
+        await probe.waitForTimeout(900);
+        measured.push({
+          width: w,
+          send: await probe.evaluate(() => {
+            const b = [...document.querySelectorAll("button")].find((x) => /send message/i.test(x.getAttribute("aria-label") || ""));
+            if (!b) return null;
+            const r = b.getBoundingClientRect();
+            return { w: Math.round(r.width), h: Math.round(r.height) };
+          }),
+          overflow: await probe.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth),
+        });
+        await probe.__context.close();
+      }
+      const touchOk = measured.every((m2) => m2.send && m2.send.w >= 44 && m2.send.h >= 44);
+      const overflowOk = measured.every((m2) => m2.overflow <= 0);
+      const layoutOk = overflowOk && m.replyVisible && touchOk;
       record({
         id: "M",
         name: "Mobile viewport (390x844) visual acceptance",
         kind: "integrated",
         status: layoutOk ? "PASS" : "FAIL",
-        detail: `overflow=${m.metrics.horizontalOverflow}px, reply=${m.replyVisible}, send button=${m.metrics.send?.w}x${m.metrics.send?.h}px`,
-        checks: m.metrics,
+        detail: `send control ${measured.map((x) => `${x.width}:${x.send?.w}x${x.send?.h}`).join(" ")}; overflow ${measured.map((x) => `${x.width}:${x.overflow}`).join(" ")}; reply=${m.replyVisible}`,
+        checks: { ...m.metrics, measured, touchOk, overflowOk },
         shots: m.shots,
-        // Kept separate from PASS/FAIL: the layout works, and the control is smaller than the
-        // 44x44 touch minimum, which is a product finding for the report rather than an outage.
-        findings: m.metrics.sendTouchOk ? [] : [`SEND control is ${m.metrics.send?.w}x${m.metrics.send?.h}px, below the 44x44 touch-target minimum`],
+        findings: touchOk ? [] : ["SEND control is below 44x44 at one or more widths"],
       });
     } catch (e) {
       record({ id: "M", name: "Mobile viewport visual acceptance", kind: "integrated", status: "FAIL", detail: `threw: ${String(e.message).slice(0, 200)}` });

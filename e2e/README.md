@@ -89,16 +89,20 @@ pkill -f "e2e/support/fake-supabase"; pkill -f "e2e/support/fake-gateway"; pkill
 |---|---|---|---|
 | A | Send a message, receive the agent response | integrated | PASS |
 | B | Send a message with an attachment | integrated | PASS |
+| B2 | Failed upload blocks the send; retry and text-only paths | integrated | PASS |
 | C | Reload and recover the conversation | integrated | PASS |
 | D1 | Approve a synthesis request | integrated | PASS |
-| D2 | Reject a synthesis request | — | BLOCKED: no reject control exists in the UI |
+| D2 | Reject a synthesis request | — | BLOCKED: no rejection contract exists in the backend |
 | E | Duplicate clicks do not duplicate execution | integrated | PASS |
 | F | Lost acknowledgment, then retry | integrated | PASS |
 | G | Backend failure produces actionable feedback | integrated | PASS |
-| H | Classic console message workflow | — | BLOCKED: route renders the v6 dashboard; composer issues no request |
+| H | Classic console: composer retired, points at working chat | integrated | PASS |
 | I | Visible delivery state matches backend outcome | integrated | PASS |
-| M | Mobile viewport 390x844 | integrated | PASS (layout), finding: SEND is 62x29 px |
+| M | 320 / 390 / 1440 layout and touch targets | integrated | PASS |
 | Z | Isolation cannot reach a real service | simulated | PASS |
+
+The synthetic Supabase also exposes `POST /__e2e/storage-mode {fail:true}` so the attachment failure
+path can be driven through the real UI, and `POST /__e2e/reset` between journeys.
 
 ## Known limits of this environment
 

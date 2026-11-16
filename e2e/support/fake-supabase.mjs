@@ -78,6 +78,8 @@ const tables = new Map([
 const writes = [];
 /** bucket/object -> { buf, type }, so an uploaded attachment can be read back like real storage. */
 const storage = new Map();
+/** When set, uploads fail the way an unavailable bucket does. Used to prove the UI's failure path. */
+let storageFail = false;
 const requests = [];
 
 const rows = (table) => {
@@ -153,13 +155,21 @@ const server = createServer(async (req, res) => {
     res.end(JSON.stringify({ writes, requests, tables: Object.fromEntries(tables) }));
     return;
   }
+  if (url.pathname === "/__e2e/storage-mode" && req.method === "POST") {
+    let raw = "";
+    req.on("data", (c) => (raw += c));
+    req.on("end", () => {
+      try { storageFail = JSON.parse(raw || "{}").fail === true; } catch { /* keep */ }
+      res.writeHead(204).end();
+    });
+    return;
+  }
   if (url.pathname === "/__e2e/reset" && req.method === "POST") {
     writes.length = 0;
     rows("messages").length = 0;
-    storage.clear();
     rows("message_reactions").length = 0;
-    rows("messages").length = 0;
     storage.clear();
+    storageFail = false;
     res.writeHead(204).end();
     return;
   }
@@ -176,6 +186,11 @@ const server = createServer(async (req, res) => {
       if (!hit) { res.writeHead(404).end(JSON.stringify({ error: "not found" })); return; }
       res.writeHead(200, { "content-type": hit.type, "content-length": hit.buf.length });
       res.end(hit.buf);
+      return;
+    }
+    if ((req.method === "POST" || req.method === "PUT") && storageFail) {
+      res.writeHead(503, { "content-type": "application/json" });
+      res.end(JSON.stringify({ statusCode: "503", error: "Service Unavailable", message: "storage unavailable (e2e)" }));
       return;
     }
     if (req.method === "POST" || req.method === "PUT") {
