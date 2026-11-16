@@ -11,11 +11,12 @@
  */
 export function relayErrorMessage(
   parsed: unknown,
-  status: number,
+  status?: number,
   fallback = "Chat relay failed",
 ): string {
   const p = (parsed ?? {}) as { detail?: unknown; error?: unknown };
   if (typeof p.detail === "string" && p.detail.trim()) return p.detail;
   if (typeof p.error === "string" && p.error.trim()) return p.error;
-  return `${fallback} (${status})`;
+  // There is no HTTP status to name on an SSE frame, so do not invent "error (0)".
+  return status && status > 0 ? `${fallback} (${status})` : fallback;
 }

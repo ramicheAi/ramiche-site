@@ -42,6 +42,12 @@ describe("relayErrorMessage", () => {
     expect(relayErrorMessage({}, 400)).toBe("Chat relay failed (400)");
   });
 
+  it("does not render a bogus status for an SSE frame", () => {
+    // The approval stream has no HTTP status per frame; "Approve stream error (0)" would be noise.
+    expect(relayErrorMessage({}, undefined, "Approve stream error")).toBe("Approve stream error");
+    expect(relayErrorMessage({}, 0, "Approve stream error")).toBe("Approve stream error");
+  });
+
   it("never returns an empty string", () => {
     for (const body of [null, undefined, {}, { detail: "" }, { error: "" }, 0, "text"]) {
       expect(relayErrorMessage(body, 500).length).toBeGreaterThan(0);
