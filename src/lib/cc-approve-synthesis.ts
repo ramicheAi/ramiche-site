@@ -33,6 +33,7 @@ import {
   executeOpenClaw,
 } from "@/lib/provider-adapter";
 import { processImageMarkers } from "@/lib/image-gen/markers";
+import { claimRelayDispatch, markRelayStatus } from "@/lib/relay-dispatch";
 
 export const TENANT_ID = "11111111-1111-1111-1111-111111111111";
 
@@ -803,6 +804,44 @@ export async function approveSynthesisMessageStreamed(
     return { ok: true, alreadyApproved: true, approvedAt };
   }
 
+  // This function dispatches agent turns for ONE persisted message (the synthesis row), exactly like
+  // the chat routes, so it needs the same claim. The metadata check above is not a substitute: it is
+  // a read, and `approved_at` is only written after every action finishes, so two concurrent
+  // approvals both read it as absent and both execute the whole plan. The claim is atomic in the
+  // database, which is the only place this can be decided safely.
+  //
+  // A throw during execution deliberately leaves the row 'claimed'. Nothing there is recorded as
+  // delivered (it was not) and nothing is recorded as failed (we cannot prove it did not run); the
+  // lease expires and the next approval re-claims it, incrementing relay_attempts, which is the
+  // durable signal that this message was dispatched more than once. A partial run is therefore
+  // retryable, at the documented cost of at-least-once execution.
+  let claimAttempt: number | null = null;
+  const claim = await claimRelayDispatch(svc, row.id as string);
+  if (claim.state === "duplicate") {
+    if (claim.status === "delivered") {
+      return {
+        ok: false,
+        error:
+          "this synthesis was already executed (the relay recorded a delivery); reload to see its result",
+        status: 409,
+      };
+    }
+    if (claim.status === "failed_permanent") {
+      return { ok: false, error: "this synthesis failed permanently and will not be retried", status: 409 };
+    }
+    return {
+      ok: false,
+      error: "an approval for this synthesis is already executing; wait for it to finish",
+      status: 409,
+    };
+  }
+  if (claim.state === "claimed") {
+    claimAttempt = claim.attempt;
+  }
+  // 'unprotected' means the claim could not be consulted (migration not applied, grant revoked,
+  // transport fault). The helper logs it. Proceed: a schema problem must not block approving, and
+  // the caller can see in the logs that deduplication is off.
+
   const channelId = row.channel_id as string;
   const tenantId = (row.tenant_id as string) || TENANT_ID;
   const channelName = (meta.channel_name as string | undefined) ?? undefined;
@@ -959,7 +998,7 @@ export async function approveSynthesisMessageStreamed(
   const blocked = results.filter((r) => r.status === "blocked").length;
   const approvedAt = new Date().toISOString();
 
-  await svc
+  const { error: approveWriteError } = await svc
     .from("messages")
     .update({
       metadata: {
@@ -970,6 +1009,15 @@ export async function approveSynthesisMessageStreamed(
       },
     })
     .eq("id", row.id);
+
+  // 'delivered' is claimed only when the record of the run actually landed. If the metadata write
+  // failed, the plan ran but nothing says so: that is unknown, not a delivery.
+  if (approveWriteError) {
+    console.error("[approve] execution record failed to persist:", approveWriteError);
+    await markRelayStatus(svc, row.id as string, "unknown", claimAttempt);
+  } else {
+    await markRelayStatus(svc, row.id as string, "delivered", claimAttempt);
+  }
 
   onEvent({ type: "complete", executed, blocked, total, mode });
 

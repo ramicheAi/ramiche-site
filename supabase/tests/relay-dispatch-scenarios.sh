@@ -46,29 +46,26 @@ psqlq -c "create role service_role nologin bypassrls;
 echo "== migration applies alone, with no predecessor =="
 psqlq -f "$MIGRATION" && echo "  PASS  applied"
 
-# Observation hook: the demotion of an expired claim is visible only as a transition, and the
-# claim overwrites it immediately. Record every status change.
-psqlq -c "create table relay_audit (seq serial, id uuid, from_status text, to_status text, at timestamptz default now());
-          create function audit_relay() returns trigger language plpgsql as \$\$
-          begin
-            if new.relay_status is distinct from old.relay_status then
-              insert into public.relay_audit(id, from_status, to_status) values (new.id, old.relay_status, new.relay_status);
-            end if;
-            return new;
-          end \$\$;
-          create trigger relay_audit_trg after update on messages for each row execute function audit_relay();"
+# No audit trigger: an earlier version of this script installed one to observe a demotion of an
+# expired claim to 'unknown' that happened inside the claim's own transaction. A reader can never
+# see that value, and the row it produces is identical to one reclaimed straight from 'claimed', so
+# asserting it was asserting an implementation detail, not production behaviour. What is asserted
+# below is what an operator can actually observe: the attempt counter and the stored status.
 
 M=11111111-1111-1111-1111-111111111111
 psqlq -c "insert into messages(id) values ('$M');"
+
+check "index on non-terminal statuses exists" "t" "$(val "select exists (select 1 from pg_indexes where indexname='messages_relay_status_idx')")"
 
 echo "== one live claim per lease =="
 check "first claim wins" "t|1|claimed" "$(val "select claimed||'|'||attempts||'|'||status from cc_claim_relay_dispatch('$M'::uuid)")"
 check "second claim inside the lease is refused with its status" "f||claimed" "$(val "select claimed||'|'||coalesce(attempts::text,'')||'|'||status from cc_claim_relay_dispatch('$M'::uuid)")"
 
-echo "== a lease that expires is recorded as unknown, then retryable =="
+echo "== a lease that expires is reclaimable, and the retry is visible in the counter =="
 psqlq -c "update messages set relay_claimed_at = now() - interval '10 minutes' where id = '$M';"
 check "expired attempt is claimed by the next caller" "t|2|claimed" "$(val "select claimed||'|'||attempts||'|'||status from cc_claim_relay_dispatch('$M'::uuid)")"
-check "the expired attempt was recorded as unknown" "1" "$(val "select count(*) from relay_audit where id='$M' and from_status='claimed' and to_status='unknown'")"
+check "the row records that it was dispatched twice" "2" "$(val "select relay_attempts from messages where id='$M'")"
+check "a live lease, by contrast, is not reclaimable" "f||claimed" "$(val "select claimed||'|'||coalesce(attempts::text,'')||'|'||status from cc_claim_relay_dispatch('$M'::uuid)")"
 
 echo "== a stale attempt cannot write the outcome =="
 check "attempt 1 mark is refused" "f" "$(val "select cc_mark_relay_status('$M'::uuid,'delivered',1)")"
@@ -88,6 +85,25 @@ check "recorded state is unknown" "unknown" "$(val "select relay_status from mes
 check "an unknown outcome is retryable immediately" "t|2" "$(val "select claimed||'|'||attempts from cc_claim_relay_dispatch('$U'::uuid)")"
 check "a verified failure is recorded as failed" "t" "$(val "select cc_mark_relay_status('$U'::uuid,'failed',2)")"
 check "a failed outcome is retryable immediately" "t|3" "$(val "select claimed||'|'||attempts from cc_claim_relay_dispatch('$U'::uuid)")"
+
+echo "== legacy rows claim no outcome and are never retried =="
+L=55555555-5555-5555-5555-555555555555
+psqlq -c "insert into messages(id, relay_claimed, relay_status, relay_claimed_at) values ('$L', true, 'legacy', now() - interval '30 days');"
+check "a legacy row is never reclaimed, even long after any lease" "f|legacy" "$(val "select claimed||'|'||status from cc_claim_relay_dispatch('$L'::uuid)")"
+check "a late mark cannot turn legacy into a delivery" "f" "$(val "select cc_mark_relay_status('$L'::uuid,'delivered',1)")"
+check "legacy was not silently rewritten" "legacy" "$(val "select relay_status from messages where id='$L'")"
+
+echo "== a pre-migration claimed row is backfilled to legacy, not to delivered =="
+B=66666666-6666-6666-6666-666666666666
+psqlq -c "insert into messages(id, relay_claimed, relay_status, relay_claimed_at) values ('$B', true, 'pending', now() - interval '20 days');"
+psqlq -f "$MIGRATION" >/dev/null 2>&1
+check "backfill chose legacy" "legacy" "$(val "select relay_status from messages where id='$B'")"
+check "the backfilled row is not reclaimable" "f|legacy" "$(val "select claimed||'|'||status from cc_claim_relay_dispatch('$B'::uuid)")"
+R=77777777-7777-7777-7777-777777777777
+psqlq -c "insert into messages(id) values ('$R');"
+val "select claimed from cc_claim_relay_dispatch('$R'::uuid)" >/dev/null
+psqlq -f "$MIGRATION" >/dev/null 2>&1
+check "re-applying the migration leaves an in-flight claim alone" "claimed|1" "$(val "select relay_status||'|'||relay_attempts from messages where id='$R'")"
 
 echo "== failed_permanent is terminal =="
 check "permanent mark lands" "t" "$(val "select cc_mark_relay_status('$U'::uuid,'failed_permanent',3)")"
@@ -120,6 +136,7 @@ check "search_path pinned" "search_path=pg_catalog, pg_temp" "$(val "select proc
 echo "== rollback executes and keeps the column the older route needs =="
 psqlq -f "$ROLLBACK" >/dev/null 2>&1 && echo "  PASS  rollback clean"
 check "relay_claimed retained" "t" "$(val "select exists (select 1 from information_schema.columns where table_name='messages' and column_name='relay_claimed')")"
+check "index dropped with the rollback" "f" "$(val "select exists (select 1 from pg_indexes where indexname='messages_relay_status_idx')")"
 
 echo
 if [ "$FAIL" = "0" ]; then echo "ALL SCENARIOS PASSED"; else echo "SCENARIOS FAILED"; exit 1; fi

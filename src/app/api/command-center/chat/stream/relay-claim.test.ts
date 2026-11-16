@@ -20,14 +20,27 @@ vi.mock("@/lib/provider-adapter", () => ({
   executeOpenClaw,
   streamCompletion: vi.fn(() => ({ deltas: (async function* () {})(), outcome: Promise.resolve(null) })),
 }));
+const { gatewayConfigured } = vi.hoisted(() => ({ gatewayConfigured: vi.fn(() => true) }));
 vi.mock("@/lib/openclaw-gateway", () => ({
-  isOpenClawGatewayConfigured: () => true,
+  isOpenClawGatewayConfigured: () => gatewayConfigured(),
   resolveChatSessionKey: (agent: string) => `agent:${agent}:main`,
   gatewaySessionsSend: vi.fn(),
 }));
 
 const ENV_KEYS = ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const;
 const originalEnv: Record<string, string | undefined> = {};
+
+function postReqWith(body: Record<string, unknown>) {
+  return new NextRequest("http://localhost/api/command-center/chat/stream", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      cookie: "__session=owner-session",
+      "sec-fetch-site": "same-origin",
+    },
+    body: JSON.stringify(body),
+  });
+}
 
 function postReq() {
   return new NextRequest("http://localhost/api/command-center/chat/stream", {
@@ -41,13 +54,13 @@ function postReq() {
   });
 }
 
-function makeSvc(rpc: ReturnType<typeof vi.fn>) {
+function makeSvc(rpc: ReturnType<typeof vi.fn>, insertResult: { data: unknown; error: unknown } = { data: { id: "agent-message-id" }, error: null }) {
   const chain = {
     insert: vi.fn(() => chain),
     update: vi.fn(() => chain),
     eq: vi.fn(() => chain),
     select: vi.fn(() => chain),
-    single: vi.fn().mockResolvedValue({ data: { id: "agent-message-id" }, error: null }),
+    single: vi.fn().mockResolvedValue(insertResult),
     then: (resolve: (v: unknown) => unknown) => Promise.resolve({ data: null, error: null }).then(resolve),
   };
   return { rpc, from: vi.fn(() => chain) };
@@ -56,6 +69,7 @@ function makeSvc(rpc: ReturnType<typeof vi.fn>) {
 describe("POST /api/command-center/chat/stream — relay claim", () => {
   beforeEach(() => {
     for (const k of ENV_KEYS) originalEnv[k] = process.env[k];
+    gatewayConfigured.mockReturnValue(true);
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-test-key";
     createClient.mockReset();
@@ -70,12 +84,15 @@ describe("POST /api/command-center/chat/stream — relay claim", () => {
     }
   });
 
-  async function runWith(rpcResult: { data: unknown; error: unknown }) {
+  async function runWith(
+    rpcResult: { data: unknown; error: unknown },
+    opts: { body?: Record<string, unknown>; insertResult?: { data: unknown; error: unknown } } = {},
+  ) {
     const rpc = vi.fn().mockResolvedValue(rpcResult);
-    createClient.mockReturnValue(makeSvc(rpc));
+    createClient.mockReturnValue(makeSvc(rpc, opts.insertResult));
     vi.resetModules();
     const { POST } = (await import("./route")) as { POST: (r: NextRequest) => Promise<Response> };
-    const res = await POST(postReq());
+    const res = await POST(opts.body ? postReqWith(opts.body) : postReq());
     const text = await res.text();
     return { res, text, rpc, svc: createClient.mock.results.at(-1)?.value as ReturnType<typeof makeSvc> };
   }
@@ -116,5 +133,60 @@ describe("POST /api/command-center/chat/stream — relay claim", () => {
     executeOpenClaw.mockRejectedValue(new Error("gateway timeout"));
     const { rpc } = await runWith({ data: [{ claimed: true, attempts: 2, status: "claimed" }], error: null });
     expect(rpc).toHaveBeenCalledWith("cc_mark_relay_status", expect.objectContaining({ p_status: "unknown", p_attempt: 2 }));
+  });
+
+  // The following pin the STATUS LABEL for each terminal path, not just the response shape. An
+  // independent review mutated each of these labels and the whole suite still passed, so these are
+  // the tests that make the honesty claim testable.
+
+  it("records unknown, never delivered, when the reply could not be saved", async () => {
+    const { rpc } = await runWith(
+      { data: [{ claimed: true, attempts: 1, status: "claimed" }], error: null },
+      { insertResult: { data: null, error: { code: "23503", message: "insert failed" } } },
+    );
+    expect(rpc).toHaveBeenCalledWith(
+      "cc_mark_relay_status",
+      expect.objectContaining({ p_status: "unknown", p_attempt: 1 }),
+    );
+    expect(rpc).not.toHaveBeenCalledWith(
+      "cc_mark_relay_status",
+      expect.objectContaining({ p_status: "delivered" }),
+    );
+  });
+
+  it("records unknown when no channelId means there was nowhere to save the reply", async () => {
+    const { rpc } = await runWith(
+      { data: [{ claimed: true, attempts: 1, status: "claimed" }], error: null },
+      { body: { message: "hello", userMessageId: "22222222-2222-2222-2222-222222222222" } },
+    );
+    expect(rpc).toHaveBeenCalledWith(
+      "cc_mark_relay_status",
+      expect.objectContaining({ p_status: "unknown" }),
+    );
+  });
+
+  it("records failed only when no provider was even configured", async () => {
+    gatewayConfigured.mockReturnValue(false);
+    const warn = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { rpc } = await runWith({ data: [{ claimed: true, attempts: 1, status: "claimed" }], error: null });
+    expect(executeOpenClaw).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith(
+      "cc_mark_relay_status",
+      expect.objectContaining({ p_status: "failed" }),
+    );
+    warn.mockRestore();
+  });
+
+  it("records unknown, not failed, when a provider was called and its error is ambiguous", async () => {
+    executeOpenClaw.mockResolvedValue({ ok: false, provider: "openclaw", model: "unknown", executionId: "e", error: "Gateway returned no reply text", latencyMs: 900 });
+    const { rpc } = await runWith({ data: [{ claimed: true, attempts: 1, status: "claimed" }], error: null });
+    expect(rpc).toHaveBeenCalledWith(
+      "cc_mark_relay_status",
+      expect.objectContaining({ p_status: "unknown" }),
+    );
+    expect(rpc).not.toHaveBeenCalledWith(
+      "cc_mark_relay_status",
+      expect.objectContaining({ p_status: "failed" }),
+    );
   });
 });

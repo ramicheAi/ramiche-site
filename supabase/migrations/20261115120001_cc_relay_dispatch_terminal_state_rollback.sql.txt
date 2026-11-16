@@ -1,5 +1,18 @@
 -- Rollback for 20261115120000_cc_relay_dispatch_terminal_state.sql
--- Restores the previous (lease-only) behaviour. Safe only when no dispatch is in flight.
+--
+-- Read this before running it. This does NOT restore a previous version of the dedup mechanism:
+-- the two functions exist only in the forward migration, so dropping them removes deduplication
+-- entirely. The live database keeps the older `relay_claimed` column (from a migration that is not
+-- in this repo), which is why that column is deliberately NOT dropped here.
+--
+-- Consequence of applying this file, stated plainly: both chat routes call cc_claim_relay_dispatch,
+-- get a PostgREST "function does not exist" error, and fail OPEN — the helper logs
+-- "dispatch is not deduplicated" and proceeds. Chat keeps working; duplicate dispatch becomes
+-- possible again for every message. That is the intended rollback path only if a route bug makes
+-- deduplication itself harmful.
+--
+-- The index is dropped with the columns it indexes; it is created by the forward migration.
+-- Safe only when no dispatch is in flight.
 drop function if exists public.cc_mark_relay_status(uuid, text, int);
 drop function if exists public.cc_claim_relay_dispatch(uuid, int);
 drop index if exists public.messages_relay_status_idx;
@@ -7,3 +20,6 @@ alter table public.messages
   drop column if exists relay_status,
   drop column if exists relay_claimed_at,
   drop column if exists relay_attempts;
+
+-- relay_claimed is retained on purpose: the current route still reads it and dropping it would
+-- break chat, not deduplication.

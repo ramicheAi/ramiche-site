@@ -25,6 +25,7 @@ export const RELAY_LEASE_SECONDS = 300;
  * - failed: the dispatch definitely did not run (explicit rejection)
  * - unknown: the dispatch may or may not have run (timeout, transport loss, lost ack)
  * - failed_permanent: never retry
+ * - legacy: dispatched before outcomes were recorded; nothing is known, and it is never retried
  */
 export type RelayStatus =
   | "pending"
@@ -32,7 +33,8 @@ export type RelayStatus =
   | "delivered"
   | "failed"
   | "unknown"
-  | "failed_permanent";
+  | "failed_permanent"
+  | "legacy";
 
 export type RelayClaim =
   /** We hold the lease. `attempt` fences the eventual mark. */
@@ -143,17 +145,50 @@ export async function markRelayStatus(
 /**
  * Classify a dispatch that did not succeed.
  *
- * `verified` means the gateway answered with an explicit failure: the turn did not run.
- * `unknown` means the call was lost after it may have been accepted: the turn may have run and its
- * result may have been discarded. Recording an unknown as a failure would invite a retry that can
- * duplicate the work, so the two must not be collapsed.
+ * Only one of these is a verified non-delivery: `not_configured`, where nothing was sent anywhere.
+ * Everything else is ambiguous, because an error string cannot distinguish "refused before the
+ * agent ran" from "ran, then failed to report":
+ *
+ *   gateway_error  an HTTP status, a timeout, or an Access/login page. The turn may have been
+ *                  accepted before the error surfaced.
+ *   no_reply       the gateway answered but produced no reply text. The turn most likely ran.
+ *   threw          the call itself threw. Unknown whether it reached the gateway.
+ *
+ * Recording an ambiguous outcome as `failed` would assert a non-delivery we cannot prove and invite
+ * a retry that duplicates real work, so those map to `unknown`. Both states stay retryable; the
+ * difference is what the audit trail is allowed to claim.
  */
-export function classifyDispatchFailure(cause: "threw" | "gateway_error" | "no_reply"): {
+export function classifyDispatchFailure(cause: "threw" | "gateway_error" | "no_reply" | "not_configured"): {
   status: "failed" | "unknown";
   verified: boolean;
 } {
-  if (cause === "gateway_error") return { status: "failed", verified: true };
-  // A thrown call and a gateway answer with no reply text are both ambiguous: in either case the
-  // gateway may have accepted the turn before the result was lost.
+  if (cause === "not_configured") return { status: "failed", verified: true };
   return { status: "unknown", verified: false };
+}
+
+/**
+ * The status to record after a turn has been generated and its reply was (or was not) written.
+ *
+ * Extracted so it can be tested directly: an earlier version of this logic lived inline in two
+ * routes, and the tests only asserted the shape of the response, so every mutation of the status
+ * label survived the whole suite. `delivered` requires a reply that actually exists on disk.
+ *
+ * The `attempted === 0` case matters: a request with no channelId cannot persist anything, and
+ * summarizePersistence calls that a success ("nothing attempted is a configuration choice"). For
+ * the relay it is not a delivery — and `delivered` is terminal, so a retry would be refused with
+ * alreadyDispatched:true while the reply exists nowhere.
+ */
+export function statusAfterTurn(summary: { ok: boolean; attempted: number }): "delivered" | "unknown" {
+  return summary.ok && summary.attempted > 0 ? "delivered" : "unknown";
+}
+
+/**
+ * The status to record when a dispatch produced no reply at all.
+ *
+ * `failed` is reserved for "nothing was ever sent". If any provider was called, its failure is
+ * ambiguous and the honest record is `unknown` — including a provider that answered and declined,
+ * where the agent did run.
+ */
+export function statusAfterEmptyDispatch(attempted: boolean): "failed" | "unknown" {
+  return attempted ? "unknown" : "failed";
 }

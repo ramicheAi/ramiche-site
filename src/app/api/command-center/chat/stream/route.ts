@@ -8,7 +8,13 @@ import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
 import { personaMap } from "@/lib/agent-registry";
 import { sanitizeDbError } from "@/lib/chat-persistence";
 import { ownerOnly } from "@/lib/server/command-center-guard";
-import { claimRelayDispatch, classifyDispatchFailure, markRelayStatus } from "@/lib/relay-dispatch";
+import {
+  claimRelayDispatch,
+  classifyDispatchFailure,
+  markRelayStatus,
+  statusAfterEmptyDispatch,
+  statusAfterTurn,
+} from "@/lib/relay-dispatch";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -168,10 +174,15 @@ async function POST_handler(req: NextRequest) {
             })
             .eq("id", userMessageId);
         }
-        // The turn ran, so the relay must not stay 'claimed'. If the reply could not be saved,
-        // the outcome is a failed delivery of a completed turn: record it as failed so a retry is
-        // allowed (the user has nothing on disk), not delivered.
-        await settleRelay(persisted ? "delivered" : "failed");
+        // The turn ran, so the relay must not stay 'claimed'. 'delivered' means the reply is on
+        // disk. If it could not be saved (or no channelId was supplied, so there was nowhere to
+        // save it), the turn ran but the outcome was not recorded: 'unknown', not 'failed', which
+        // would assert the turn never ran. Both are retryable.
+        // A reply that could not be saved is not a delivery. No channelId means there was nowhere
+        // to save it, which is the same outcome, not a configuration success.
+        await settleRelay(
+          statusAfterTurn({ ok: persisted, attempted: svc && channelId ? 1 : 0 })
+        );
         // Surfaced BEFORE done so a client cannot mistake an unsaved reply for a
         // persisted one. The text is still sent as chunks above; it just has to
         // be shown as unsaved until a reload confirms otherwise.
@@ -206,12 +217,17 @@ async function POST_handler(req: NextRequest) {
           }
         }
 
+        // Did anything actually get sent? Only a run where nothing was attempted is a verified
+        // non-delivery. Any attempt may have reached the agent.
+        let attempted = false;
+
         // 1) OpenClaw — preferred. Gateway HTTP doesn't currently emit a
         //    streaming sessions_send response, so we await once and replay
         //    the result to the client as a single chunk + done. The UX is
         //    still better than the non-stream endpoint because we don't
         //    block on the unrelated provider fallbacks.
         if (isOpenClawGatewayConfigured()) {
+          attempted = true;
           const sessionKey = resolveChatSessionKey(target);
           const routed = `[CC chat → ${displayName} / session ${sessionKey}]\n${systemPrompt}\n\nUser:\n${message}`;
           const gw = await executeOpenClaw({
@@ -239,6 +255,7 @@ async function POST_handler(req: NextRequest) {
         // 2) Gemini streaming
         const geminiKey = process.env.GEMINI_API_KEY;
         if (geminiKey) {
+          attempted = true;
           let acc = "";
           try {
             const s = streamCompletion({
@@ -264,6 +281,7 @@ async function POST_handler(req: NextRequest) {
         // 3) DeepSeek streaming
         const deepseekKey = process.env.DEEPSEEK_API_KEY;
         if (deepseekKey) {
+          attempted = true;
           let acc = "";
           try {
             const s = streamCompletion({
@@ -289,6 +307,7 @@ async function POST_handler(req: NextRequest) {
         // 4) OpenRouter streaming
         const openrouterKey = process.env.OPENROUTER_API_KEY;
         if (openrouterKey) {
+          attempted = true;
           let acc = "";
           try {
             const s = streamCompletion({
@@ -311,9 +330,10 @@ async function POST_handler(req: NextRequest) {
           }
         }
 
-        // Nothing worked. Every provider answered with an explicit failure, so this is a
-        // verified non-delivery, not an unknown.
-        await settleRelay("failed");
+        // Nothing worked. If a provider was attempted, its failure is ambiguous (an error string
+        // cannot prove the turn did not run), so this is unknown. Only a run where nothing was even
+        // tried is a verified non-delivery.
+        await settleRelay(statusAfterEmptyDispatch(attempted));
         send("error", {
           error:
             "All chat providers failed or are not configured (OpenClaw, Gemini, DeepSeek, OpenRouter).",

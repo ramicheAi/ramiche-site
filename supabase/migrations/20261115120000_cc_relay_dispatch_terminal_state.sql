@@ -1,7 +1,9 @@
 -- Relay dispatch: terminal-state-aware claiming.
 --
--- The earlier idempotency migration added relay_claimed but the claim predicate the route used
--- was "not claimed, or claimed longer than the lease". Two problems were proven on PostgreSQL 17:
+-- There is no predecessor migration in this repo for these columns; this file creates them itself.
+-- (An earlier idempotency migration exists on the live database, which is why the claim used to be
+-- "not claimed, or claimed longer than the lease". That predicate had two proven problems on
+-- PostgreSQL 17:
 --
 --   1. A slow dispatch that outlives the lease lets a second caller claim while the first is still
 --      running, so the agent can execute twice concurrently.
@@ -11,42 +13,62 @@
 -- The lease must exceed the route's maxDuration (120 s), otherwise a slow turn can be claimed
 -- again while it is still running. This migration defaults it to 300 s.
 --
--- This migration adds an explicit terminal state and moves the claim into one atomic statement:
--- delivered and failed_permanent are never reclaimable; 'claimed' is reclaimable only after the
--- lease expires (it may still be running); 'failed' is reclaimable immediately (it definitely is
--- not running). It still does not provide exactly-once execution. What it does provide is an honest
--- record: 'failed' means the dispatch definitely did not run (an explicit rejection), while
--- 'unknown' means it may or may not have run (timeout, transport loss, lost acknowledgement, or a
--- lease that expired with no outcome recorded). Both are retryable; only 'unknown' is ambiguous.
--- A lease that expires is demoted to 'unknown' before the next attempt claims, so the audit trail
--- never claims a delivery that was never recorded. (CC-RECOVERY-13 independent review: a revoke-exploit PoC, 1600-attempt concurrency
--- proof, and the false-delivered/duplicate-dispatch repros below all passed against real
--- PostgreSQL 17 with a Supabase-faithful anon/authenticated default-privilege bootstrap.)
+-- This migration moves the claim into one atomic statement with an explicit terminal state:
+--
+--   pending          never dispatched
+--   claimed          a caller holds the lease and is dispatching
+--   delivered        the turn ran AND its result was recorded (terminal)
+--   failed           nothing was ever sent, or the gateway refused before running (retryable)
+--   unknown          the turn may have run and its outcome was not recorded (retryable)
+--   failed_permanent never retry (terminal)
+--
+-- delivered and failed_permanent are never reclaimable; claimed is reclaimable only after the
+-- lease expires; failed and unknown are reclaimable immediately.
+--
+-- This is NOT exactly-once execution, and this file does not pretend otherwise. A turn that
+-- outlives its lease, or any dispatch taken while these functions are unavailable (the routes fail
+-- open), can still run the agent twice. What the states buy is an honest record: a run whose
+-- outcome is unknown is never written down as delivered, and is never written down as failed
+-- either. 'unknown' is written by the routes, in the transaction of the request that learned the
+-- outcome was ambiguous, so it is durable and visible in the row.
+--
+-- One thing this file deliberately does NOT do: it does not demote an expired 'claimed' row to
+-- 'unknown' before re-claiming it. That demotion was in an earlier draft of this migration and an
+-- independent review proved it is unobservable — it happens in the same transaction as the claim,
+-- so no reader ever sees it, and the row it leaves behind is indistinguishable from one that was
+-- reclaimed straight from 'claimed'. A state nobody can ever observe is not an audit trail. The
+-- claim simply increments relay_attempts, which IS observable: attempts > 1 on a row means it was
+-- dispatched more than once.
 
--- Self-sufficient: the earlier idempotency migration may not have been applied, and a missing
--- column would only fail at call time inside a swallowed error. Create what this file needs.
+-- Self-sufficient: this file may be applied to a database that never got the earlier idempotency
+-- migration, and a missing column would only fail at call time inside a swallowed error. Create
+-- what this file needs.
 alter table public.messages
   add column if not exists relay_claimed boolean not null default false,
   add column if not exists relay_status text not null default 'pending',
   add column if not exists relay_claimed_at timestamptz,
   add column if not exists relay_attempts int not null default 0;
 
--- Rows dispatched before this migration have relay_status defaulted to 'pending' by the column
--- add above, which is indistinguishable from "never claimed" — the lease-based reclaim predicate
--- below would treat every one of them as immediately reclaimable the moment relay_claimed_at
--- (itself backfilled to an old timestamp) looks lease-expired, re-dispatching messages the old,
--- pre-terminal-state system already delivered. There is no reliable outcome recorded for them
--- under the old system, so treat "was claimed" as "was delivered" rather than guessing — the
--- safe default is to never re-dispatch a message this host already attempted, not to retry one
--- that might already have gone out.
+-- Non-terminal rows only: this is the "what is stuck or ambiguous right now" query, which would
+-- otherwise sequential-scan a messages table that grows without bound. Partial, so it stays small.
+create index if not exists messages_relay_status_idx
+  on public.messages (relay_status)
+  where relay_status in ('claimed', 'failed', 'unknown');
+
+-- Rows dispatched before this migration have relay_status defaulted to 'pending' by the column add
+-- above, which is indistinguishable from "never claimed". Their outcome was never recorded at all,
+-- so neither 'delivered' nor 'failed' is true of them: the old system only recorded THAT a dispatch
+-- was taken, not what came of it. Mark them 'legacy', which is terminal (never reclaimed) but
+-- claims no outcome. Marking them 'delivered' would have asserted a delivery nobody observed;
+-- leaving them claimable would re-dispatch messages this host already sent.
 update public.messages
-   set relay_status = 'delivered',
+   set relay_status = 'legacy',
        relay_claimed_at = coalesce(relay_claimed_at, updated_at, created_at, now())
  where relay_claimed = true
    and relay_status = 'pending';
 
 comment on column public.messages.relay_status is
-  'pending | claimed | delivered | failed | unknown | failed_permanent. delivered and failed_permanent are terminal and are never reclaimed. failed is a verified non-delivery; unknown means the dispatch may have run (timeout, lost ack, expired lease).';
+  'pending | claimed | delivered | failed | unknown | failed_permanent | legacy. delivered, failed_permanent and legacy are terminal and are never reclaimed. failed means nothing was sent (or the gateway refused before running); unknown means the dispatch may have run and its outcome was not recorded; legacy means the dispatch was taken before outcomes were recorded, so nothing is known and it is never retried.';
 
 -- Claim the right to dispatch one agent turn for a persisted message.
 --
@@ -69,16 +91,13 @@ declare
   v_status text;
   v_found boolean;
 begin
-  -- An expired 'claimed' row has no recorded outcome. The lease is longer than the route budget,
-  -- so the process that held it is gone: the turn may have completed, or never started. Record
-  -- that ambiguity honestly before this attempt overwrites the state, so an operator can tell
-  -- "we retried an unknown" from "we retried something we know failed".
-  update public.messages m
-     set relay_status = 'unknown'
-   where m.id = p_message_id
-     and m.relay_status = 'claimed'
-     and m.relay_claimed_at is not null
-     and m.relay_claimed_at < now() - make_interval(secs => greatest(p_lease_seconds, 1));
+  -- An expired 'claimed' row is reclaimed below, not demoted here first. Demoting it to 'unknown'
+  -- inside this same transaction was in an earlier draft and is unobservable: no reader can see the
+  -- intermediate value, and the row it leaves behind is identical to one reclaimed straight from
+  -- 'claimed'. What IS observable is relay_attempts, incremented by the claim below: attempts > 1
+  -- means this message was dispatched more than once, which is the fact an operator needs. The
+  -- 'unknown' state remains, written by the routes when a request learns its outcome was
+  -- ambiguous.
 
   -- 'claimed' is the only status actually in flight, so it is the only one the lease protects —
   -- a dispatch that errored out and was marked 'failed' is definitely not running any more and
@@ -91,7 +110,7 @@ begin
          relay_attempts = m.relay_attempts + 1,
          relay_status = 'claimed'
    where m.id = p_message_id
-     and coalesce(m.relay_status, 'pending') not in ('delivered', 'failed_permanent')
+     and coalesce(m.relay_status, 'pending') not in ('delivered', 'failed_permanent', 'legacy')
      and (
        coalesce(m.relay_status, 'pending') in ('pending', 'failed', 'unknown')
        or m.relay_claimed_at is null
@@ -134,7 +153,7 @@ begin
   update public.messages
      set relay_status = p_status
    where id = p_message_id
-     and coalesce(relay_status, 'pending') not in ('delivered', 'failed_permanent')
+     and coalesce(relay_status, 'pending') not in ('delivered', 'failed_permanent', 'legacy')
      -- A stale attempt (its lease expired and a newer one claimed) must not write the outcome.
      -- A null p_attempt only happens when this caller's own claim call itself failed/threw, so
      -- the dedup mechanism never incremented relay_attempts for it — only ever match that

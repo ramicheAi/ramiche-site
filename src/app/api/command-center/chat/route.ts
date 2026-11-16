@@ -19,7 +19,12 @@ import {
   type PersistenceFailure,
 } from "@/lib/chat-persistence";
 import { ownerOnly } from "@/lib/server/command-center-guard";
-import { claimRelayDispatch, markRelayStatus } from "@/lib/relay-dispatch";
+import {
+  claimRelayDispatch,
+  markRelayStatus,
+  statusAfterEmptyDispatch,
+  statusAfterTurn,
+} from "@/lib/relay-dispatch";
 
 export const dynamic = "force-dynamic";
 // Pro-tier ceiling. Group-chat fan-out with synthesis + Phase E critic can
@@ -1167,8 +1172,8 @@ async function POST_handler(req: NextRequest) {
             ok: false,
             error: "dispatch_in_progress_or_failed",
             detail:
-              claim.status === "failed"
-                ? "A prior attempt for this message failed and has not yet cleared its retry window."
+              claim.status === "failed_permanent"
+                ? "A prior attempt for this message failed permanently and will not be retried."
                 : "A prior attempt for this message is still in flight.",
             relayStatus: claim.status,
           },
@@ -1373,9 +1378,20 @@ async function POST_handler(req: NextRequest) {
         fallbackOnlyTargets.length === 0 &&
         rejectedTargets.length === 0 &&
         targets.length > 0;
-      // Same reasoning as the openClawError 502 above: nothing was delivered, so this must not
-      // stay 'claimed' with no outcome recorded for the remainder of the lease.
-      await markRelay("failed");
+      // Same reasoning as the openClawError 502 above: the row must not stay 'claimed' with no
+      // outcome recorded for the remainder of the lease. Which state is honest depends on whether
+      // anything was actually sent. If every provider was merely unconfigured ("skipped"), nothing
+      // ran and this is a verified non-delivery. If any provider was called, the result is
+      // ambiguous — including the silent-decline case, where the agent ran and returned
+      // [NO_RESPONSE]: the user got nothing, so the record must not claim a delivery, but a retry
+      // is safe and is exactly what the caller is being invited to do.
+      // A rejected target counts as attempted even though it recorded no provider attempts: the
+      // promise threw, and a throw can happen before OR after the agent ran. That is the definition
+      // of ambiguous, so it must not be recorded as a verified non-delivery.
+      const attempted =
+        rejectedTargets.length > 0 ||
+        Object.values(allAttempts).some((list) => list.some((a) => a.status !== "skipped"));
+      await markRelay(statusAfterEmptyDispatch(attempted));
       return NextResponse.json(
         {
           ok: false,
@@ -1645,11 +1661,18 @@ async function POST_handler(req: NextRequest) {
     // persistenceAttempted/persistenceFailures are fully finalized at this point; nothing above
     // or below this line mutates them.
     //
-    // A reply that was generated but never written is not a delivered message — don't mark
-    // 'delivered' for a turn whose reply doesn't exist anywhere; mark 'failed' so it is
-    // immediately retryable (a fresh attempt can still generate and persist the reply).
+    // 'delivered' requires a reply that exists on disk. Two distinct ways that fails, and neither
+    // is a delivery:
+    //   - a write was attempted and failed        -> the turn ran, the record did not land
+    //   - no write was ever attempted (no channelId, or no service client) -> the turn ran and
+    //     nothing could be recorded
+    // summarizePersistence reports ok:true for the second case, because "nothing attempted" is a
+    // configuration choice rather than a failure. For the relay it is not a delivery: marking it
+    // delivered would be terminal, so a retry would be refused with alreadyDispatched:true and the
+    // reply would be lost with the relay claiming success. Both cases are 'unknown': the turn ran,
+    // the outcome was not recorded, and a retry is safe.
     const persistence = summarizePersistence(persistenceAttempted, persistenceFailures);
-    await markRelay(persistence.ok ? "delivered" : "failed");
+    await markRelay(statusAfterTurn(persistence));
 
     const combined =
       responses.length === 0
@@ -1732,24 +1755,14 @@ async function POST_handler(req: NextRequest) {
     // it is immediately reclaimable, so a retry still works, and nothing is reported as delivered
     // that was not.
     if (relayFailureTracker.svc && relayFailureTracker.userMessageId) {
-      try {
-        const { error: markErr } = await relayFailureTracker.svc.rpc("cc_mark_relay_status", {
-          p_message_id: relayFailureTracker.userMessageId,
-          p_status: "unknown",
-          p_attempt: relayFailureTracker.attempt,
-        });
-        if (markErr) {
-          console.warn("[chat] relay failure status not recorded:", {
-            code: (markErr as { code?: string }).code,
-            message: (markErr as { message?: string }).message,
-          });
-        }
-      } catch (markException) {
-        console.warn(
-          "[chat] relay failure status threw:",
-          markException instanceof Error ? markException.message : markException
-        );
-      }
+      // Through the shared helper, so a fenced write (another attempt has taken over) is reported
+      // the same way here as everywhere else instead of going unnoticed.
+      await markRelayStatus(
+        relayFailureTracker.svc,
+        relayFailureTracker.userMessageId,
+        "unknown",
+        relayFailureTracker.attempt
+      );
     }
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }

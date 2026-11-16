@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { claimRelayDispatch, classifyDispatchFailure, markRelayStatus } from './relay-dispatch';
+import {
+  claimRelayDispatch,
+  classifyDispatchFailure,
+  markRelayStatus,
+  statusAfterEmptyDispatch,
+  statusAfterTurn,
+} from './relay-dispatch';
 
 /** Minimal stand-in for the service client: the module only ever calls rpc(). */
 function svcWith(rpc: ReturnType<typeof vi.fn>) {
@@ -93,8 +99,44 @@ describe('classifyDispatchFailure', () => {
     expect(classifyDispatchFailure('threw')).toEqual({ status: 'unknown', verified: false });
   });
 
-  it('treats an explicit gateway error as a verified non-delivery', () => {
-    expect(classifyDispatchFailure('gateway_error')).toEqual({ status: 'failed', verified: true });
+  it('treats a gateway error or a missing reply as unknown, because neither proves non-delivery', () => {
+    expect(classifyDispatchFailure('gateway_error')).toEqual({ status: 'unknown', verified: false });
     expect(classifyDispatchFailure('no_reply')).toEqual({ status: 'unknown', verified: false });
+  });
+
+  it('treats a provider that was never configured as the one verified non-delivery', () => {
+    expect(classifyDispatchFailure('not_configured')).toEqual({ status: 'failed', verified: true });
+  });
+});
+
+// The relay's whole value is that its status labels are true. These are asserted directly, because
+// an earlier version of this suite passed with every status label mutated (a route that always
+// recorded 'delivered' was indistinguishable from a correct one).
+describe('statusAfterTurn', () => {
+  it('records delivered when a reply was written', () => {
+    expect(statusAfterTurn({ ok: true, attempted: 1 })).toBe('delivered');
+  });
+
+  it('records unknown, not delivered, when a write was attempted and failed', () => {
+    expect(statusAfterTurn({ ok: false, attempted: 1 })).toBe('unknown');
+  });
+
+  it('records unknown, not delivered, when nothing could even be attempted (no channelId)', () => {
+    // summarizePersistence reports ok:true for this case, which is why the attempted count decides.
+    expect(statusAfterTurn({ ok: true, attempted: 0 })).toBe('unknown');
+  });
+
+  it('records unknown when every write failed and none was attempted', () => {
+    expect(statusAfterTurn({ ok: false, attempted: 0 })).toBe('unknown');
+  });
+});
+
+describe('statusAfterEmptyDispatch', () => {
+  it('records failed only when nothing was ever sent', () => {
+    expect(statusAfterEmptyDispatch(false)).toBe('failed');
+  });
+
+  it('records unknown when a provider was called, including one that answered and declined', () => {
+    expect(statusAfterEmptyDispatch(true)).toBe('unknown');
   });
 });
