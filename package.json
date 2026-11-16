@@ -12,7 +12,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "prepare": "husky"
+    "prepare": "husky",
+    "e2e:build": "next build --webpack",
+    "e2e": "node e2e/run.mjs",
+    "e2e:stack": "node e2e/boot.mjs"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
