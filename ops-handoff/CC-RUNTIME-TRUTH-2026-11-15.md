@@ -1526,3 +1526,25 @@ will actually feel:
    again, and that approving twice does not silently do nothing.
 
 Both are unverified on a real iPhone, and no render simulation substitutes for it.
+
+### 23.9 The out-of-repo dispatcher: verified, not assumed
+
+The reviewer could not tell whether the message-polling bridge was live, and I had recorded it as
+unverifiable. It is verifiable with read-only checks on the host, and this is what they say:
+
+```
+com.parallax.chat-bridge.plist   runs scripts/chat-bridge.mjs (RunAtLoad 1, KeepAlive 1)
+launchctl print-disabled gui/501 -> "com.parallax.chat-bridge" => disabled
+pgrep chat-bridge                -> no process
+crontab                          -> no bridge entry
+```
+
+So the daemon that could produce a second agent turn per send is **installed but disabled, and not
+running**. `chat-bridge-poll.mjs` exists on the host but no launchd job or cron entry references it.
+`com.openclaw.bridge-sync` IS loaded and running (pid 642), and it reads Firestore chat documents, not
+`messages` rows, so it does not race the claim.
+
+That converts a caveat into a fact with a condition attached: the duplicate-turn risk from that path
+is latent, not active, and it returns the moment someone re-enables `com.parallax.chat-bridge`. It is
+a one-line command, so it belongs in the same category as the cron VACUUM: a live hazard that is
+currently quiet.
