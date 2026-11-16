@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback, useRef, type CSSProperties } from "react";
 import Link from "next/link";
+import { relayErrorMessage } from "@/lib/relay-error-message";
 import ParticleField from "@/components/ParticleField";
 import {
   AGENT_ORBIT_IDS,
@@ -493,11 +494,15 @@ export default function CommandCenter() {
           ...prev,
         ]);
       } else {
+        // This page dispatches without a persisted message id, so since CC-RECOVERY-14 the route
+        // refuses it: an agent turn cannot be claimed, and an unclaimed dispatch is exactly the
+        // duplicate-execution hole the claim exists to close. Show the route's own sentence rather
+        // than its machine code, so the operator sees why nothing ran instead of a mystery.
         setChatMessages((prev) => [
           {
             sender: "system",
             targetAgent: chatAgent,
-            message: data.error || `Chat relay failed (${res.status})`,
+            message: relayErrorMessage(data, res.status),
             timestamp: new Date().toISOString(),
           },
           ...prev,

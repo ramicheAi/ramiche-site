@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { supabase } from "@/lib/supabase";
 import { parseMentions } from "@/lib/chat-routing";
+import { relayErrorMessage } from "@/lib/relay-error-message";
 import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
 import {
   aggregateReactions,
@@ -1914,12 +1915,23 @@ export default function CommandCenterChatPage() {
               total: (data.total as number) || 0,
             },
           }));
+          // A run whose output did not land is not an approval. The card must not settle into
+          // "Approved" and invite the operator to walk away from something that needs re-approving;
+          // the server leaves approved_at unset for exactly this case, so the next attempt works.
+          if (data.persisted === false) {
+            setApproveError({
+              id: messageId,
+              message:
+                "the plan ran but some of its output was not saved, so this does not count as approved. Nothing is lost: approve again to retry.",
+            });
+          }
           return;
         }
         if (eventName === "error") {
+          // Same rule as the chat send: the sentence beats the code.
           setApproveError({
             id: messageId,
-            message: typeof data.error === "string" ? data.error : "Approve stream error",
+            message: relayErrorMessage(data, 0, "Approve stream error"),
           });
           return;
         }
@@ -3031,7 +3043,10 @@ export default function CommandCenterChatPage() {
             /* non-JSON */
           }
           if (!r.ok) {
-            const msg = parsed.error || `Chat relay failed (${r.status})`;
+            // `error` is a stable machine code and `detail` is the sentence written for a person.
+            // Showing the code would tell the operator "relay_not_deployed" instead of "nothing
+            // ran". The choice lives in a pure function so it is tested.
+            const msg = relayErrorMessage(parsed, r.status);
             setWaitingForResponse(false);
             setTypingUsers([]);
             if (waitingTimeoutRef.current) {
@@ -3255,13 +3270,19 @@ export default function CommandCenterChatPage() {
       // the top of that route's POST_handler.
       runRelay(realId);
     } else {
+      // No browser database client, so the message was never persisted and there is no id to
+      // claim. Dispatching anyway used to work by skipping the claim entirely; since CC-RECOVERY-14
+      // the route fails closed and returns 400, so firing the request would just be a doomed round
+      // trip. Refuse here, with the same sentence the route would have given.
       lastPendingUserMessageIdRef.current = null;
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === tempId ? { ...m, deliveryStatus: "sent" } : m
-        )
-      );
-      runRelay();
+      setWaitingForResponse(false);
+      setTypingUsers([]);
+      setRelayError({
+        id: tempId,
+        message:
+          "This browser has no database connection, so the message could not be saved or claimed. Nothing was sent. Reload, and if it persists the app is misconfigured.",
+      });
+      onVoiceRelayError?.();
     }
     } finally {
       sendingRef.current = false;

@@ -1,0 +1,35 @@
+-- Rollback for 20261115120000_cc_relay_dispatch_terminal_state.sql
+--
+-- Read this before running it. This does NOT restore a previous version of the dedup mechanism:
+-- the two functions exist only in the forward migration, so dropping them removes deduplication
+-- entirely. There is nothing to restore: no earlier function exists in this repo or on the live
+-- database.
+--
+-- Consequence of applying this file, stated plainly, and it CHANGED in CC-RECOVERY-14: every
+-- message-scoped dispatcher (chat, chat/stream, chat/approve, approve/stream) calls
+-- cc_claim_relay_dispatch, gets a PostgREST "function does not exist" error, and now FAILS CLOSED.
+-- chat and chat/approve answer 503 relay_not_deployed with "Nothing ran"; chat/stream and
+-- chat/approve/stream answer HTTP 200 carrying the same error in an SSE frame (SSE has no per-frame
+-- status). In every case NO agent turn is dispatched. Chat STOPS WORKING.
+--
+-- That is the correct behaviour for an unavailable claim, and it means this file is not a safe
+-- "restore the old behaviour" button any more: rolling back the schema while the new code is
+-- deployed is a chat outage, by design. Roll back the CODE first, or accept the outage knowingly.
+-- An earlier version of this comment said the routes failed open and chat kept working; that was
+-- true before CC-RECOVERY-14 and is now wrong, which is worse than saying nothing.
+--
+-- The index is dropped with the columns it indexes; it is created by the forward migration.
+-- Safe only when no dispatch is in flight.
+drop function if exists public.cc_mark_relay_status(uuid, text, int);
+drop function if exists public.cc_claim_relay_dispatch(uuid, int);
+drop index if exists public.messages_relay_status_idx;
+alter table public.messages
+  drop column if exists relay_status,
+  drop column if exists relay_claimed_at,
+  drop column if exists relay_attempts;
+
+-- relay_claimed is deliberately retained, and NOT because a route reads it: nothing does any more
+-- (verified by grep across src/). It is retained because this migration does not own the column.
+-- 20261112180000_messages_client_idempotency_key.sql added it, and a rollback of THIS file has no
+-- business dropping an artefact of another one. Dropping it here would also make the forward
+-- migration non-reappliable on a database that had never run the older one.

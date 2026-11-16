@@ -53,68 +53,88 @@ describe("POST /api/command-center/chat — relay dispatch claim", () => {
     }
   });
 
-  it("a message already claimed by a prior attempt gets no second agent dispatch", async () => {
-    // Zero rows updated by the conditional UPDATE (relay_claimed was already
-    // true) — simulates: attempt 1 claimed and dispatched (or is mid-
-    // dispatch), attempt 2 is a lost-ack retry's relay call for the SAME
-    // persisted message id.
-    const query: Record<string, unknown> = { data: null, error: null };
-    query.update = vi.fn(() => query);
-    query.eq = vi.fn(() => query);
-    query.select = vi.fn(() => query);
-    query.maybeSingle = vi.fn(() => query);
-    const fromMock = vi.fn(() => query);
-    createClient.mockReturnValue({ from: fromMock });
-
+  async function runWithClaim(result: { data: unknown; error: unknown }) {
+    const rpc = vi.fn().mockResolvedValue(result);
+    createClient.mockReturnValue({ rpc });
     vi.resetModules();
     const { POST } = (await import("./route")) as { POST: (r: NextRequest) => Promise<Response> };
     const res = await POST(
-      postReq({ message: "hello", channelId: "11111111-1111-1111-1111-111111111111", userMessageId: "22222222-2222-2222-2222-222222222222" })
+      postReq({
+        message: "hello",
+        channelId: "11111111-1111-1111-1111-111111111111",
+        userMessageId: "22222222-2222-2222-2222-222222222222",
+      }),
     );
-    const body = await res.json();
+    return { res, rpc, body: await res.json() };
+  }
+
+  it("a message still claimed within the lease gets an honest 'in progress', not a false success", async () => {
+    // cc_claim_relay_dispatch returns claimed=false, status='claimed': another attempt owns this
+    // message and is still inside its lease. No second agent turn, and — this is the fix — no
+    // alreadyDispatched:true either, since nothing was actually delivered yet.
+    const { res, rpc, body } = await runWithClaim({
+      data: [{ claimed: false, attempts: 1, status: "claimed" }],
+      error: null,
+    });
+    expect(res.status).toBe(409);
+    expect(body.ok).toBe(false);
+    expect(body.alreadyDispatched).toBeUndefined();
+    expect(body.relayStatus).toBe("claimed");
+    expect(rpc).toHaveBeenCalledWith("cc_claim_relay_dispatch", {
+      p_message_id: "22222222-2222-2222-2222-222222222222",
+      p_lease_seconds: 300,
+    });
+  });
+
+  it("a failed-but-not-yet-expired message also gets the honest 'in progress' response, not a false success", async () => {
+    const { res, body } = await runWithClaim({
+      data: [{ claimed: false, attempts: 2, status: "failed" }],
+      error: null,
+    });
+    expect(res.status).toBe(409);
+    expect(body.ok).toBe(false);
+    expect(body.alreadyDispatched).toBeUndefined();
+    expect(body.relayStatus).toBe("failed");
+  });
+
+  it("a delivered message is not reclaimed, and IS reported as alreadyDispatched (a genuine prior success)", async () => {
+    // The function encodes the terminal-state rule; from the route's point of view this is the
+    // same short-circuit. The rule itself is proven against PostgreSQL in the migration PR.
+    const { res, body } = await runWithClaim({
+      data: [{ claimed: false, attempts: 3, status: "delivered" }],
+      error: null,
+    });
     expect(res.status).toBe(200);
     expect(body.alreadyDispatched).toBe(true);
-    expect(fromMock).toHaveBeenCalledWith("messages");
-    expect(query.update).toHaveBeenCalledWith({ relay_claimed: true });
-    expect(query.eq).toHaveBeenNthCalledWith(1, "id", "22222222-2222-2222-2222-222222222222");
-    expect(query.eq).toHaveBeenNthCalledWith(2, "relay_claimed", false);
   });
 
-  it("the first-ever claim for a message succeeds and does NOT short-circuit", async () => {
-    // One row returned: this call won the claim and must proceed to dispatch.
-    const query: Record<string, unknown> = { data: { id: "22222222-2222-2222-2222-222222222222" }, error: null };
-    query.update = vi.fn(() => query);
-    query.eq = vi.fn(() => query);
-    query.select = vi.fn(() => query);
-    query.maybeSingle = vi.fn(() => query);
-    createClient.mockReturnValue({ from: vi.fn(() => query) });
-
-    vi.resetModules();
-    const { POST } = (await import("./route")) as { POST: (r: NextRequest) => Promise<Response> };
-    const res = await POST(
-      postReq({ message: "hello", channelId: "11111111-1111-1111-1111-111111111111", userMessageId: "22222222-2222-2222-2222-222222222222" })
-    );
-    const body = await res.json();
-    // Proceeding past the claim means it does NOT take the short-circuit
-    // shape — whatever happens next in the (unmocked) dispatch pipeline is
-    // out of scope for this test, which covers only the claim itself.
+  it("the first-ever claim proceeds to dispatch", async () => {
+    const { body } = await runWithClaim({ data: [{ claimed: true, attempts: 1 }], error: null });
     expect(body.alreadyDispatched).toBeUndefined();
   });
 
-  it("fails open (proceeds to dispatch) when the claim query errors — e.g. the migration hasn't been applied yet", async () => {
-    const query: Record<string, unknown> = { data: null, error: { code: "PGRST204", message: "Could not find the 'relay_claimed' column" } };
-    query.update = vi.fn(() => query);
-    query.eq = vi.fn(() => query);
-    query.select = vi.fn(() => query);
-    query.maybeSingle = vi.fn(() => query);
-    createClient.mockReturnValue({ from: vi.fn(() => query) });
-
-    vi.resetModules();
-    const { POST } = (await import("./route")) as { POST: (r: NextRequest) => Promise<Response> };
-    const res = await POST(
-      postReq({ message: "hello", channelId: "11111111-1111-1111-1111-111111111111", userMessageId: "22222222-2222-2222-2222-222222222222" })
-    );
-    const body = await res.json();
+  it("refuses to dispatch when the claim function is missing, and names the cause", async () => {
+    // CC-RECOVERY-14. This used to fail open and dispatch anyway. That was the one state where the
+    // duplicate-dispatch guarantee was provably absent, so it is now a refusal: 503, a code that
+    // tells the operator it is a deployment problem, and no provider touched.
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { res, body, rpc } = await runWithClaim({
+      data: null,
+      error: { code: "PGRST202", message: "Could not find the function public.cc_claim_relay_dispatch" },
+    });
+    expect(res.status).toBe(503);
+    expect(body.ok).toBe(false);
+    expect(body.error).toBe("relay_not_deployed");
+    expect(body.relayUnavailable).toBe("not_deployed");
+    expect(body.retryable).toBe(false);
+    expect(body.detail).toMatch(/nothing ran/i);
     expect(body.alreadyDispatched).toBeUndefined();
+    // The claim was consulted, and nothing beyond it happened.
+    expect(rpc).toHaveBeenCalledWith("cc_claim_relay_dispatch", expect.objectContaining({
+      p_message_id: "22222222-2222-2222-2222-222222222222",
+    }));
+    const logged = err.mock.calls.map((c) => c.join(" ")).join("\n");
+    expect(logged).toMatch(/refusing to dispatch/i);
+    err.mockRestore();
   });
 });
