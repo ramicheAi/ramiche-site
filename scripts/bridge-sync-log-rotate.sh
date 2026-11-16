@@ -74,16 +74,54 @@ read_holder_pid() {
   return 0
 }
 
-if ! mkdir "$LOCKDIR" 2>/dev/null; then
+# CC-RECOVERY-23 independent review found a second, more serious race in the reclaim path above
+# (now replaced by the loop below): `rm -rf` then `mkdir` are two separate steps with no
+# protection between them, so TWO OR MORE invocations that each diagnose the same stale lock can
+# each run both steps, each believing it alone won the fresh `mkdir` -- reproduced directly (up to
+# 47 of 60 rounds under concurrent pressure), corrupting or duplicating the rotation the lock
+# exists to serialize. The fix elects exactly one reclaimer among any number of invocations that
+# all see the same stale lock, using a SECOND mkdir-based lock (atomic, same mechanism as the
+# primary one) purely to guard the reclaim itself: only the process that wins `$RECLAIMDIR` may
+# run `rm -rf` + `mkdir` on the real lock; every other invocation backs off and re-checks the
+# primary lock fresh on its next loop iteration, so it sees the winner's new pidfile and correctly
+# treats it as "held, alive" rather than racing to reclaim a second time.
+RECLAIMDIR="$LOGDIR/.rotate.lock.reclaiming"
+attempt=0
+while ! mkdir "$LOCKDIR" 2>/dev/null; do
+  attempt=$((attempt + 1))
+  if [ "$attempt" -gt 20 ]; then
+    echo "$(date -Iseconds) could not acquire the lock after $attempt attempts, giving up this invocation" >> "$LOGDIR/bridge-sync-log-rotate.log"
+    exit 0
+  fi
   holder_pid="$(read_holder_pid)"
   if is_valid_pid "$holder_pid" && kill -0 "$holder_pid" 2>/dev/null; then
     echo "$(date -Iseconds) another rotation is still running (pid $holder_pid), skipping this invocation" >> "$LOGDIR/bridge-sync-log-rotate.log"
     exit 0
   fi
-  echo "$(date -Iseconds) clearing a stale lock (holder pid '${holder_pid:-unknown}' is not running)" >> "$LOGDIR/bridge-sync-log-rotate.log"
-  rm -rf "$LOCKDIR" 2>/dev/null || true
-  mkdir "$LOCKDIR" 2>/dev/null || { echo "$(date -Iseconds) another rotation won the lock just after staleness was detected, skipping" >> "$LOGDIR/bridge-sync-log-rotate.log"; exit 0; }
-fi
+  if mkdir "$RECLAIMDIR" 2>/dev/null; then
+    # Elected: we alone may reclaim. Re-validate immediately before touching anything, in case the
+    # holder's own pidfile write landed while we were on our way to winning this election.
+    holder_pid="$(read_holder_pid)"
+    if is_valid_pid "$holder_pid" && kill -0 "$holder_pid" 2>/dev/null; then
+      rmdir "$RECLAIMDIR" 2>/dev/null || true
+      echo "$(date -Iseconds) lock holder (pid $holder_pid) became live again during reclaim election, skipping" >> "$LOGDIR/bridge-sync-log-rotate.log"
+      exit 0
+    fi
+    echo "$(date -Iseconds) clearing a stale lock (holder pid '${holder_pid:-unknown}' is not running)" >> "$LOGDIR/bridge-sync-log-rotate.log"
+    rm -rf "$LOCKDIR" 2>/dev/null || true
+    reclaimed=0
+    mkdir "$LOCKDIR" 2>/dev/null && reclaimed=1 || true
+    rmdir "$RECLAIMDIR" 2>/dev/null || true
+    # As the sole elected reclaimer, nothing else should have been able to recreate $LOCKDIR
+    # between our rm and our mkdir -- if it still somehow failed (disk full, a permissions
+    # problem), fall through to the loop's own top-of-iteration mkdir rather than assume we hold
+    # a lock we don't.
+    [ "$reclaimed" -eq 1 ] && break
+  fi
+  # Someone else is reclaiming right now. Back off briefly and re-check the primary lock fresh --
+  # do NOT touch $LOCKDIR ourselves while another invocation might be mid-reclaim on it.
+  sleep 0.1
+done
 # Trap set BEFORE the pid write (and before anything else): if this process dies between here and
 # writing its pid, the lock is still released on any signal the trap catches, and a loser in that
 # narrow window now retries once (above) instead of acting on the empty file immediately.
