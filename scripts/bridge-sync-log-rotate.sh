@@ -9,7 +9,10 @@
 # step -- after archiving a bounded tail of its content first, so recent diagnostic evidence
 # (including 401/403 patterns) survives the rotation.
 set -euo pipefail
-LOGDIR="/Users/admin/.openclaw/workspace/logs"
+# CC-RECOVERY-22 independent review: hardcoding this made the script untestable in place, forcing
+# every review copy to hand-edit the path first. An env override makes it testable without
+# changing production behavior at all (nothing sets this env var there).
+LOGDIR="${LOGDIR:-/Users/admin/.openclaw/workspace/logs}"
 ARCHDIR="$LOGDIR/archive"
 mkdir -p "$ARCHDIR"
 MAX_BYTES=$((50*1024*1024))   # 50MB -- rotate well before this becomes a disk risk again
@@ -42,9 +45,38 @@ PIDFILE="$LOCKDIR/pid"
 # invocation would skip needlessly (safe direction: a missed rotation, not a lost lock) -- on a
 # quiet single host with launchd's own short-lived children, this is not worth the complexity of
 # a start-time comparison (`ps -o lstart=`) to close completely.
+# CC-RECOVERY-22 independent review found a real race here: `mkdir` and the pidfile write used to
+# be two separate steps, so a second invocation arriving in between saw a lock dir with no pidfile
+# yet, read an empty holder_pid, and declared a perfectly live holder's lock "stale" -- reproduced
+# directly (1 occurrence in a 300-round x 8-way concurrency stress test). Two changes close it:
+# the trap is set IMMEDIATELY after acquiring the lock, before anything else can fail partway and
+# leak it; and a loser that reads an EMPTY pidfile retries once after a brief pause rather than
+# treating "no pidfile yet" the same as "no pidfile ever" -- a live holder writes its own pid
+# within milliseconds of acquiring the lock, so one retry is enough to tell the two apart.
+is_valid_pid() {
+  case "$1" in
+    ''|*[!0-9]*) return 1 ;;  # empty, or contains a non-digit (rejects '-1', '0' is caught below)
+    0) return 1 ;;            # kill -0 0 signals the whole process group -- never a real holder
+    *) return 0 ;;
+  esac
+}
+
+read_holder_pid() {
+  local attempt pid
+  for attempt in 1 2; do
+    pid="$(cat "$PIDFILE" 2>/dev/null || true)"
+    if [ -n "$pid" ]; then
+      printf '%s' "$pid"
+      return 0
+    fi
+    [ "$attempt" -eq 1 ] && sleep 0.2
+  done
+  return 0
+}
+
 if ! mkdir "$LOCKDIR" 2>/dev/null; then
-  holder_pid="$(cat "$PIDFILE" 2>/dev/null || true)"
-  if [ -n "$holder_pid" ] && kill -0 "$holder_pid" 2>/dev/null; then
+  holder_pid="$(read_holder_pid)"
+  if is_valid_pid "$holder_pid" && kill -0 "$holder_pid" 2>/dev/null; then
     echo "$(date -Iseconds) another rotation is still running (pid $holder_pid), skipping this invocation" >> "$LOGDIR/bridge-sync-log-rotate.log"
     exit 0
   fi
@@ -52,8 +84,11 @@ if ! mkdir "$LOCKDIR" 2>/dev/null; then
   rm -rf "$LOCKDIR" 2>/dev/null || true
   mkdir "$LOCKDIR" 2>/dev/null || { echo "$(date -Iseconds) another rotation won the lock just after staleness was detected, skipping" >> "$LOGDIR/bridge-sync-log-rotate.log"; exit 0; }
 fi
-echo $$ > "$PIDFILE"
+# Trap set BEFORE the pid write (and before anything else): if this process dies between here and
+# writing its pid, the lock is still released on any signal the trap catches, and a loser in that
+# narrow window now retries once (above) instead of acting on the empty file immediately.
 trap 'rm -rf "$LOCKDIR" 2>/dev/null || true' EXIT
+echo $$ > "$PIDFILE"
 
 rotate_one() {
   local f="$1"
