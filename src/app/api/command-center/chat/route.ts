@@ -21,6 +21,7 @@ import {
 import { ownerOnly } from "@/lib/server/command-center-guard";
 import {
   claimRelayDispatch,
+  describeDuplicate,
   markRelayStatus,
   statusAfterEmptyDispatch,
   statusAfterTurn,
@@ -1160,22 +1161,20 @@ async function POST_handler(req: NextRequest) {
         claimAttempt = claim.attempt;
         relayFailureTracker.attempt = claimAttempt;
       } else if (claim.state === "duplicate") {
-        // Truthful by status, not a blanket "already dispatched". 'delivered' is a genuine prior
-        // success. 'claimed' or 'failed' means the prior attempt is in flight or errored and has
-        // not cleared its retry window: reporting alreadyDispatched:true would be the masquerade
-        // this mechanism exists to prevent.
-        if (claim.status === "delivered") {
+        // Truthful by status, not a blanket "already dispatched". The decision is shared with the
+        // other two dispatchers so a terminal state cannot be reported as "in flight" here and
+        // retryable there; see describeDuplicate.
+        const dup = describeDuplicate(claim.status);
+        if (dup.alreadyDispatched) {
           return NextResponse.json({ ok: true, alreadyDispatched: true });
         }
         return NextResponse.json(
           {
             ok: false,
             error: "dispatch_in_progress_or_failed",
-            detail:
-              claim.status === "failed_permanent"
-                ? "A prior attempt for this message failed permanently and will not be retried."
-                : "A prior attempt for this message is still in flight.",
+            detail: dup.detail,
             relayStatus: claim.status,
+            retryable: dup.retryable,
           },
           { status: 409 }
         );

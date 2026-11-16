@@ -10,7 +10,7 @@ import { sanitizeDbError } from "@/lib/chat-persistence";
 import { ownerOnly } from "@/lib/server/command-center-guard";
 import {
   claimRelayDispatch,
-  classifyDispatchFailure,
+  describeDuplicate,
   markRelayStatus,
   statusAfterEmptyDispatch,
   statusAfterTurn,
@@ -201,15 +201,19 @@ async function POST_handler(req: NextRequest) {
           if (claim.state === "claimed") {
             claimAttempt = claim.attempt;
           } else if (claim.state === "duplicate") {
-            // Same contract as the JSON route: only a genuine prior delivery is reported as
-            // already dispatched. Anything else is an honest "not ready", never a false success.
-            if (claim.status === "delivered") {
+            // Same contract as the JSON route, from the same decision function: only a genuine
+            // prior delivery is reported as already dispatched, and `retryable` is never true for
+            // a terminal state. It used to be `status !== "failed_permanent"`, which told the
+            // client to retry a `legacy` row that can never be claimed again.
+            const dup = describeDuplicate(claim.status);
+            if (dup.alreadyDispatched) {
               send("done", { agent: target, source: "relay", alreadyDispatched: true, persisted: true });
             } else {
               send("error", {
                 error: "dispatch_in_progress_or_failed",
+                detail: dup.detail,
                 relayStatus: claim.status,
-                retryable: claim.status !== "failed_permanent",
+                retryable: dup.retryable,
               });
             }
             controller.close();
@@ -242,7 +246,10 @@ async function POST_handler(req: NextRequest) {
             return;
           }
           if (openclawStrict) {
-            await settleRelay(classifyDispatchFailure("gateway_error").status);
+            // A gateway error is ambiguous (it may have accepted the turn and failed to report),
+            // so this is 'unknown', never 'failed'. statusAfterEmptyDispatch(true) says exactly
+            // that, and the 'attempted' flag is already true on this path.
+            await settleRelay(statusAfterEmptyDispatch(true));
             send("error", {
               error: gw.error,
               source: "openclaw",

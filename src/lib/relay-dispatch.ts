@@ -143,30 +143,6 @@ export async function markRelayStatus(
 }
 
 /**
- * Classify a dispatch that did not succeed.
- *
- * Only one of these is a verified non-delivery: `not_configured`, where nothing was sent anywhere.
- * Everything else is ambiguous, because an error string cannot distinguish "refused before the
- * agent ran" from "ran, then failed to report":
- *
- *   gateway_error  an HTTP status, a timeout, or an Access/login page. The turn may have been
- *                  accepted before the error surfaced.
- *   no_reply       the gateway answered but produced no reply text. The turn most likely ran.
- *   threw          the call itself threw. Unknown whether it reached the gateway.
- *
- * Recording an ambiguous outcome as `failed` would assert a non-delivery we cannot prove and invite
- * a retry that duplicates real work, so those map to `unknown`. Both states stay retryable; the
- * difference is what the audit trail is allowed to claim.
- */
-export function classifyDispatchFailure(cause: "threw" | "gateway_error" | "no_reply" | "not_configured"): {
-  status: "failed" | "unknown";
-  verified: boolean;
-} {
-  if (cause === "not_configured") return { status: "failed", verified: true };
-  return { status: "unknown", verified: false };
-}
-
-/**
  * The status to record after a turn has been generated and its reply was (or was not) written.
  *
  * Extracted so it can be tested directly: an earlier version of this logic lived inline in two
@@ -191,4 +167,66 @@ export function statusAfterTurn(summary: { ok: boolean; attempted: number }): "d
  */
 export function statusAfterEmptyDispatch(attempted: boolean): "failed" | "unknown" {
   return attempted ? "unknown" : "failed";
+}
+
+/**
+ * What a duplicate claim means, decided once for all three dispatchers.
+ *
+ * This exists because the answer needs three facts to agree — is it a genuine prior success, may
+ * the client retry, and what do we tell it — and the three routes previously each decided with its
+ * own inline expression. When `legacy` was added to the schema, all three kept treating it as
+ * "still in flight, retryable", so every pre-migration message told the operator to wait for
+ * something that will never finish. A state that is terminal in SQL has to be terminal in the API
+ * too, and the only way to keep those in step is to have one function say it.
+ *
+ * Note on `legacy`: it is terminal by design. Rows were backfilled to `legacy` because the old
+ * system recorded that a dispatch had been taken, never what came of it. Freezing them avoids
+ * re-sending messages this host already sent; the cost is that a retry which used to be allowed is
+ * now refused, so the wording must give the operator a way forward (send a new message) instead of
+ * leaving them waiting.
+ */
+export type DuplicateDisposition = {
+  /** A genuine prior success: report the existing result rather than an error. */
+  alreadyDispatched: boolean;
+  /** Whether retrying this exact message id could ever succeed. */
+  retryable: boolean;
+  reason: "delivered" | "failed_permanent" | "legacy" | "in_flight";
+  detail: string;
+};
+
+export function describeDuplicate(status: string): DuplicateDisposition {
+  if (status === "delivered") {
+    return {
+      alreadyDispatched: true,
+      retryable: false,
+      reason: "delivered",
+      detail: "This message was already dispatched and its reply was recorded.",
+    };
+  }
+  if (status === "failed_permanent") {
+    return {
+      alreadyDispatched: false,
+      retryable: false,
+      reason: "failed_permanent",
+      detail: "A prior attempt for this message failed permanently and will not be retried.",
+    };
+  }
+  if (status === "legacy") {
+    return {
+      alreadyDispatched: false,
+      retryable: false,
+      reason: "legacy",
+      detail:
+        "This message was dispatched before delivery outcomes were recorded, so it will not be retried. Send a new message if you need a fresh answer.",
+    };
+  }
+  // 'claimed' is the only status that is genuinely in flight. 'failed' and 'unknown' are both
+  // immediately reclaimable, so a duplicate report of either means another caller claimed it in the
+  // same instant: transient, and worth retrying.
+  return {
+    alreadyDispatched: false,
+    retryable: true,
+    reason: "in_flight",
+    detail: "A prior attempt for this message is still in flight.",
+  };
 }

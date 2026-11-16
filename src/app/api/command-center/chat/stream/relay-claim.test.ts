@@ -113,6 +113,17 @@ describe("POST /api/command-center/chat/stream — relay claim", () => {
     expect(text).toContain("alreadyDispatched");
   });
 
+  it("does not offer a retry for a legacy row, and does not call it in flight", async () => {
+    // A regression an independent review caught: `retryable` was `status !== "failed_permanent"`,
+    // so a row frozen as legacy was advertised as retryable and as "still in flight". Neither is
+    // true, and a client that trusts it loops forever.
+    const { text } = await runWith({ data: [{ claimed: false, attempts: 1, status: "legacy" }], error: null });
+    expect(executeOpenClaw).not.toHaveBeenCalled();
+    expect(text).toContain("dispatch_in_progress_or_failed");
+    expect(text).toContain('"retryable":false');
+    expect(text).not.toContain("in flight");
+  });
+
   it("reports an in-flight attempt honestly instead of dispatching again", async () => {
     const { text } = await runWith({ data: [{ claimed: false, attempts: 1, status: "claimed" }], error: null });
     expect(executeOpenClaw).not.toHaveBeenCalled();

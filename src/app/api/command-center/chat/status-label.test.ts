@@ -88,14 +88,26 @@ describe("POST /api/command-center/chat — relay status labels", () => {
     }
   });
 
-  async function run(body: Record<string, unknown>, claimData = [{ claimed: true, attempts: 1, status: "claimed" }]) {
+  async function run(
+    body: Record<string, unknown>,
+    claimData = [{ claimed: true, attempts: 1, status: "claimed" }],
+    opts: { fromThrows?: boolean } = {},
+  ) {
     const rpc = vi.fn((...args: unknown[]) => {
       const fn = args[0];
       if (fn === "cc_claim_relay_dispatch") return Promise.resolve({ data: claimData, error: null });
       if (fn === "cc_mark_relay_status") return Promise.resolve({ data: true, error: null });
       return Promise.resolve({ data: null, error: null });
     });
-    createClient.mockReturnValue(makeSvc(rpc));
+    const svc = makeSvc(rpc);
+    if (opts.fromThrows) {
+      // Everything after the claim touches the database through from(); making that throw drives
+      // the route's outer catch, which is the only path that decides the status there.
+      (svc as unknown as { from: () => never }).from = () => {
+        throw new Error("connection reset");
+      };
+    }
+    createClient.mockReturnValue(svc);
     vi.resetModules();
     const { POST } = (await import("./route")) as { POST: (r: NextRequest) => Promise<Response> };
     const res = await POST(postReq(body));
@@ -121,7 +133,6 @@ describe("POST /api/command-center/chat — relay status labels", () => {
       channelId: "11111111-1111-1111-1111-111111111111",
       userMessageId: "22222222-2222-2222-2222-222222222222",
     });
-    // eslint-disable-next-line no-console
     expect(marks).toContain("delivered");
   });
 
@@ -134,6 +145,40 @@ describe("POST /api/command-center/chat — relay status labels", () => {
     });
     expect(marks).toContain("unknown");
     expect(marks).not.toContain("failed");
+  });
+
+  it("records unknown, not failed, when the request throws outside the dispatch loop", async () => {
+    // The outer catch is a different decision point from the per-target loop. An exception there
+    // can also have fired after the gateway accepted the turn, so 'failed' would assert a
+    // non-delivery we cannot prove. This pins the catch's label, which survived mutation before.
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { marks } = await run(
+      {
+        message: "hello",
+        channelId: "11111111-1111-1111-1111-111111111111",
+        userMessageId: "22222222-2222-2222-2222-222222222222",
+      },
+      [{ claimed: true, attempts: 1, status: "claimed" }],
+      { fromThrows: true },
+    );
+    expect(marks).toContain("unknown");
+    expect(marks).not.toContain("failed");
+    err.mockRestore();
+  });
+
+  it("refuses a legacy row with the truth: not in flight, not retryable", async () => {
+    const { res, body, marks } = await run(
+      { message: "hello", channelId: "11111111-1111-1111-1111-111111111111", userMessageId: "22222222-2222-2222-2222-222222222222" },
+      [{ claimed: false, attempts: 1, status: "legacy" }],
+    );
+    expect(executeOpenClaw).not.toHaveBeenCalled();
+    expect(marks).toEqual([]);
+    expect(res.status).toBe(409);
+    const b = body as { detail: string; retryable: boolean; relayStatus: string };
+    expect(b.relayStatus).toBe("legacy");
+    expect(b.retryable).toBe(false);
+    expect(b.detail).not.toMatch(/in flight/i);
+    expect(b.detail).toMatch(/new message/i);
   });
 
   it("does not dispatch, and reports the prior success, when the relay already delivered", async () => {

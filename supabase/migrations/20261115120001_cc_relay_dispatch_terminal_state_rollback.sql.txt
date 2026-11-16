@@ -2,8 +2,8 @@
 --
 -- Read this before running it. This does NOT restore a previous version of the dedup mechanism:
 -- the two functions exist only in the forward migration, so dropping them removes deduplication
--- entirely. The live database keeps the older `relay_claimed` column (from a migration that is not
--- in this repo), which is why that column is deliberately NOT dropped here.
+-- entirely. There is nothing to restore: no earlier function exists in this repo or on the live
+-- database.
 --
 -- Consequence of applying this file, stated plainly: both chat routes call cc_claim_relay_dispatch,
 -- get a PostgREST "function does not exist" error, and fail OPEN — the helper logs
@@ -21,5 +21,8 @@ alter table public.messages
   drop column if exists relay_claimed_at,
   drop column if exists relay_attempts;
 
--- relay_claimed is retained on purpose: the current route still reads it and dropping it would
--- break chat, not deduplication.
+-- relay_claimed is deliberately retained, and NOT because a route reads it: nothing does any more
+-- (verified by grep across src/). It is retained because this migration does not own the column.
+-- 20261112180000_messages_client_idempotency_key.sql added it, and a rollback of THIS file has no
+-- business dropping an artefact of another one. Dropping it here would also make the forward
+-- migration non-reappliable on a database that had never run the older one.

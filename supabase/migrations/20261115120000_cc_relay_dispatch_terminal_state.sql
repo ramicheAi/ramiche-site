@@ -1,9 +1,16 @@
 -- Relay dispatch: terminal-state-aware claiming.
 --
--- There is no predecessor migration in this repo for these columns; this file creates them itself.
--- (An earlier idempotency migration exists on the live database, which is why the claim used to be
--- "not claimed, or claimed longer than the lease". That predicate had two proven problems on
--- PostgreSQL 17:
+-- Precisely what predates this file, because an earlier draft of this comment got it wrong in both
+-- directions:
+--
+--   * the COLUMN relay_claimed HAS a predecessor: 20261112180000_messages_client_idempotency_key.sql
+--     adds it. This file therefore does not need to create it, but creates it defensively anyway so
+--     it can be applied to a database that never got that migration.
+--   * the two FUNCTIONS have no predecessor anywhere in this repo. They exist only here and in the
+--     rollback.
+--
+-- The predecessor's claim predicate was "not claimed, or claimed longer than the lease". That had
+-- two proven problems on PostgreSQL 17:
 --
 --   1. A slow dispatch that outlives the lease lets a second caller claim while the first is still
 --      running, so the agent can execute twice concurrently.

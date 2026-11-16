@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   claimRelayDispatch,
-  classifyDispatchFailure,
+  describeDuplicate,
   markRelayStatus,
   statusAfterEmptyDispatch,
   statusAfterTurn,
@@ -94,24 +94,6 @@ describe('markRelayStatus', () => {
   });
 });
 
-describe('classifyDispatchFailure', () => {
-  it('treats a thrown call as unknown delivery, not as a verified failure', () => {
-    expect(classifyDispatchFailure('threw')).toEqual({ status: 'unknown', verified: false });
-  });
-
-  it('treats a gateway error or a missing reply as unknown, because neither proves non-delivery', () => {
-    expect(classifyDispatchFailure('gateway_error')).toEqual({ status: 'unknown', verified: false });
-    expect(classifyDispatchFailure('no_reply')).toEqual({ status: 'unknown', verified: false });
-  });
-
-  it('treats a provider that was never configured as the one verified non-delivery', () => {
-    expect(classifyDispatchFailure('not_configured')).toEqual({ status: 'failed', verified: true });
-  });
-});
-
-// The relay's whole value is that its status labels are true. These are asserted directly, because
-// an earlier version of this suite passed with every status label mutated (a route that always
-// recorded 'delivered' was indistinguishable from a correct one).
 describe('statusAfterTurn', () => {
   it('records delivered when a reply was written', () => {
     expect(statusAfterTurn({ ok: true, attempted: 1 })).toBe('delivered');
@@ -138,5 +120,48 @@ describe('statusAfterEmptyDispatch', () => {
 
   it('records unknown when a provider was called, including one that answered and declined', () => {
     expect(statusAfterEmptyDispatch(true)).toBe('unknown');
+  });
+});
+
+// A state that is terminal in SQL must be terminal in the API. When `legacy` was added, all three
+// dispatchers still treated it as "in flight, retryable", so the whole pre-migration cohort was
+// told to wait for something that would never finish.
+describe('describeDuplicate', () => {
+  it('reports a genuine delivery as a prior success, with no error', () => {
+    const d = describeDuplicate('delivered');
+    expect(d.alreadyDispatched).toBe(true);
+    expect(d.retryable).toBe(false);
+  });
+
+  it('calls a still-held lease in flight and retryable', () => {
+    const d = describeDuplicate('claimed');
+    expect(d.alreadyDispatched).toBe(false);
+    expect(d.retryable).toBe(true);
+    expect(d.detail).toMatch(/in flight/i);
+  });
+
+  it('never tells the client to retry a legacy row, or to wait for it', () => {
+    const d = describeDuplicate('legacy');
+    expect(d.alreadyDispatched).toBe(false);
+    expect(d.retryable).toBe(false);
+    expect(d.detail).not.toMatch(/in flight|wait/i);
+    // The operator needs a way forward, not just a refusal.
+    expect(d.detail).toMatch(/new message/i);
+  });
+
+  it('treats failed_permanent as terminal and says so', () => {
+    const d = describeDuplicate('failed_permanent');
+    expect(d.retryable).toBe(false);
+    expect(d.detail).toMatch(/permanently/i);
+  });
+
+  it('keeps a transient re-claim race retryable for failed and unknown', () => {
+    // Both are immediately reclaimable, so a duplicate report of either is a same-instant race.
+    expect(describeDuplicate('failed').retryable).toBe(true);
+    expect(describeDuplicate('unknown').retryable).toBe(true);
+  });
+
+  it('defaults to retryable for an unrecognised status rather than blocking a retry', () => {
+    expect(describeDuplicate('something_new').retryable).toBe(true);
   });
 });

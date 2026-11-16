@@ -33,7 +33,7 @@ import {
   executeOpenClaw,
 } from "@/lib/provider-adapter";
 import { processImageMarkers } from "@/lib/image-gen/markers";
-import { claimRelayDispatch, markRelayStatus } from "@/lib/relay-dispatch";
+import { claimRelayDispatch, describeDuplicate, markRelayStatus } from "@/lib/relay-dispatch";
 
 export const TENANT_ID = "11111111-1111-1111-1111-111111111111";
 
@@ -818,7 +818,10 @@ export async function approveSynthesisMessageStreamed(
   let claimAttempt: number | null = null;
   const claim = await claimRelayDispatch(svc, row.id as string);
   if (claim.state === "duplicate") {
-    if (claim.status === "delivered") {
+    // Three terminal states and one in-flight state, decided in one place so this route cannot
+    // tell an operator to "wait for it to finish" when it will never finish.
+    const dup = describeDuplicate(claim.status);
+    if (dup.alreadyDispatched) {
       return {
         ok: false,
         error:
@@ -826,14 +829,7 @@ export async function approveSynthesisMessageStreamed(
         status: 409,
       };
     }
-    if (claim.status === "failed_permanent") {
-      return { ok: false, error: "this synthesis failed permanently and will not be retried", status: 409 };
-    }
-    return {
-      ok: false,
-      error: "an approval for this synthesis is already executing; wait for it to finish",
-      status: 409,
-    };
+    return { ok: false, error: dup.detail, status: 409 };
   }
   if (claim.state === "claimed") {
     claimAttempt = claim.attempt;
@@ -998,7 +994,9 @@ export async function approveSynthesisMessageStreamed(
   const blocked = results.filter((r) => r.status === "blocked").length;
   const approvedAt = new Date().toISOString();
 
-  const { error: approveWriteError } = await svc
+  // .select() so a write that matched no row is visible. Without it a 0-row update returns
+  // { data: null, error: null } and this would mark delivered for a record that was never written.
+  const { data: approveWriteRows, error: approveWriteError } = await svc
     .from("messages")
     .update({
       metadata: {
@@ -1008,11 +1006,16 @@ export async function approveSynthesisMessageStreamed(
         approved_execution_summary: { executed, blocked, total },
       },
     })
-    .eq("id", row.id);
+    .eq("id", row.id)
+    .select("id");
 
-  // 'delivered' is claimed only when the record of the run actually landed. If the metadata write
-  // failed, the plan ran but nothing says so: that is unknown, not a delivery.
-  if (approveWriteError) {
+  // 'delivered' is claimed only when the record of the run actually landed. A failed write, or one
+  // that matched no row, means the plan ran but nothing says so: that is unknown, not a delivery.
+  const approveWriteLanded = !approveWriteError && (approveWriteRows?.length ?? 0) > 0;
+  if (!approveWriteLanded) {
+    if (!approveWriteError) {
+      console.error("[approve] execution record matched no row; the row may have been deleted");
+    }
     console.error("[approve] execution record failed to persist:", approveWriteError);
     await markRelayStatus(svc, row.id as string, "unknown", claimAttempt);
   } else {
