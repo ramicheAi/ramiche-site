@@ -3324,6 +3324,19 @@ export default function CommandCenterChatPage() {
     if (!messageInput.trim() && effective.length === 0) return;
     if (!activeChannel && !(viewMode === "dm" && activeAgent)) return;
 
+    // Check sendability BEFORE clearing any composer state. sendUserMessageContent
+    // runs this same check and is the source of truth for whether a send actually
+    // goes out, but if we clear the draft text and attachment chips first, a
+    // blocked send has already destroyed the thing the operator needs to retry —
+    // the typed text and the Retry button both disappear with nothing sent.
+    if (!opts?.withoutAttachments) {
+      const verdict = attachmentSendability(effective);
+      if (!verdict.ok) {
+        setAttachmentNotice(verdict.message);
+        return;
+      }
+    }
+
     const displayContent = effective.length > 0
       ? `${messageInput}${messageInput ? "\n" : ""}${effective.map((a) => `[${a.type === "image" ? "Image" : "File"}: ${a.name}]`).join(" ")}`
       : messageInput;

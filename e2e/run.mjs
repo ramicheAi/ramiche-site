@@ -239,10 +239,17 @@ const journeys = [
       const failedShown = await waitFor(async () => (await page.locator('[data-attachment-state="failed"]').count()) > 0, 20_000);
       await shot(page, "B2-01-failed-chip");
       await page.locator('textarea[placeholder^="Message"]').first().fill(text);
-      await page.locator('button[aria-label="Send message"]').first().click({ force: true });
+      // No force: a forced click on a genuinely blocked send bypassed real actionability checks in
+      // an earlier version of this journey and made the composer's own state-wiping bug invisible —
+      // the click "worked" (handler ran), the chip and draft vanished, and nothing was sent, but the
+      // check below only looked at whether a message persisted. A real click proves the real path.
+      await page.locator('button[aria-label="Send message"]').first().click();
       await sleep(2500);
       const notice = await page.locator('[data-testid="attachment-notice"]').count();
       const blockedBody = await bodyText(page);
+      // The blocked send must not destroy what the operator typed or the chip they'd retry from.
+      const draftSurvived = (await page.locator('textarea[placeholder^="Message"]').first().inputValue()) === text;
+      const chipSurvived = (await page.locator('[data-attachment-state="failed"]').count()) > 0;
       await shot(page, "B2-02-blocked");
       const afterBlocked = (await msgs()).filter((m) => String(m.content ?? "").startsWith(text));
       // Retry with storage healthy.
@@ -286,6 +293,10 @@ const journeys = [
         failed_chip_is_visible: failedShown,
         dispatch_blocked_while_failed: afterBlocked.length === 0,
         operator_told_why: notice > 0 && /could not be stored/i.test(blockedBody),
+        // A blocked send must refuse, not destroy: the draft text and the failed chip must both
+        // still be there afterward so the operator can actually use the Retry button being offered.
+        draft_survives_blocked_send: draftSurvived,
+        chip_survives_blocked_send: chipSurvived,
         retry_available: hadRetry,
         retry_makes_it_stored: readyShown,
         send_works_after_retry: sent,
