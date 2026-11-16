@@ -1177,18 +1177,26 @@ async function POST_handler(req: NextRequest) {
           if (priorStatus === "delivered") {
             return NextResponse.json({ ok: true, alreadyDispatched: true });
           }
-          return NextResponse.json(
-            {
-              ok: false,
-              error: "dispatch_in_progress_or_failed",
-              detail:
-                priorStatus === "failed"
-                  ? "A prior attempt for this message failed and has not yet cleared its retry window."
-                  : "A prior attempt for this message is still in flight.",
-              relayStatus: priorStatus,
-            },
-            { status: 409 }
-          );
+          if (priorStatus === "not_found") {
+            // userMessageId doesn't match any row — not a real prior attempt to be honest
+            // about, so fail open the same way a missing claim column does: proceed with
+            // dispatch rather than returning a 409 "in flight" forever for an id that will
+            // never resolve.
+            console.warn("[chat] relay claim found no row for userMessageId, dispatching unclaimed:", userMessageId);
+          } else {
+            return NextResponse.json(
+              {
+                ok: false,
+                error: "dispatch_in_progress_or_failed",
+                detail:
+                  priorStatus === "failed"
+                    ? "A prior attempt for this message failed and has not yet cleared its retry window."
+                    : "A prior attempt for this message is still in flight.",
+                relayStatus: priorStatus,
+              },
+              { status: 409 }
+            );
+          }
         }
       } catch (e) {
         console.warn("[chat] relay claim threw, dispatch is not deduplicated:", e instanceof Error ? e.message : e);
@@ -1662,6 +1670,20 @@ async function POST_handler(req: NextRequest) {
       }
     }
 
+    // Record the dispatch outcome now, before the two writes below (marking the user's own
+    // message 'delivered'; the synthesis critique rewrite above already ran). Reviewed finding:
+    // recording it only after those non-essential writes meant a throw in either one left the
+    // outer catch to record 'failed' even though the reply/replies above were already safely
+    // persisted — so a lease-expiry retry re-ran the agent and duplicated the reply.
+    // persistenceAttempted/persistenceFailures are fully finalized at this point; nothing above
+    // or below this line mutates them.
+    //
+    // A reply that was generated but never written is not a delivered message — don't mark
+    // 'delivered' for a turn whose reply doesn't exist anywhere; mark 'failed' so it is
+    // immediately retryable (a fresh attempt can still generate and persist the reply).
+    const persistence = summarizePersistence(persistenceAttempted, persistenceFailures);
+    await markRelay(persistence.ok ? "delivered" : "failed");
+
     const combined =
       responses.length === 0
         ? ""
@@ -1680,7 +1702,6 @@ async function POST_handler(req: NextRequest) {
         .eq("id", userMessageId);
     }
 
-    const persistence = summarizePersistence(persistenceAttempted, persistenceFailures);
     const synthesisPayload = synthesisResult
       ? {
           text: synthesisResult.text,
@@ -1706,9 +1727,7 @@ async function POST_handler(req: NextRequest) {
     // the reply vanished on the next reload. Fail loudly instead, while still
     // handing back the generated text so the caller can show it as unsaved.
     if (!persistence.ok) {
-      // The agents already ran; mark the dispatch so a replay after the lease does not run the
-      // same turn again, even though the reply itself could not be persisted.
-      await markRelay("delivered");
+      // Outcome already recorded as 'failed' above, immediately retryable.
       return NextResponse.json(
         {
           ok: false,
@@ -1727,8 +1746,7 @@ async function POST_handler(req: NextRequest) {
       );
     }
 
-    await markRelay("delivered");
-
+    // Outcome already recorded as 'delivered' above.
     return NextResponse.json({
       ok: true,
       responses,
