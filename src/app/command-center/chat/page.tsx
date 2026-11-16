@@ -1915,6 +1915,16 @@ export default function CommandCenterChatPage() {
               total: (data.total as number) || 0,
             },
           }));
+          // A run whose output did not land is not an approval. The card must not settle into
+          // "Approved" and invite the operator to walk away from something that needs re-approving;
+          // the server leaves approved_at unset for exactly this case, so the next attempt works.
+          if (data.persisted === false) {
+            setApproveError({
+              id: messageId,
+              message:
+                "the plan ran but some of its output was not saved, so this does not count as approved. Nothing is lost: approve again to retry.",
+            });
+          }
           return;
         }
         if (eventName === "error") {

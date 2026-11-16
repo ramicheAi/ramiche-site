@@ -148,7 +148,7 @@ for i in $(seq 1 10); do
 done
 check "one winner in every round" "1" "$WINNERS_OK"
 
-echo "== unknown id fails open, it does not hold a phantom lease =="
+echo "== an unknown id is refused by the caller, with no phantom lease =="
 check "missing row is reported as not_found" "f||not_found" "$(val "select claimed||'|'||coalesce(attempts::text,'')||'|'||status from cc_claim_relay_dispatch('44444444-4444-4444-4444-444444444444'::uuid)")"
 
 echo "== grants =="

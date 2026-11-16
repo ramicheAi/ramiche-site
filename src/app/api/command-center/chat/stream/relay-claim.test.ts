@@ -143,6 +143,18 @@ describe("POST /api/command-center/chat/stream — relay claim", () => {
     err.mockRestore();
   });
 
+  it("blames the caller for a non-UUID id instead of the deduplication function", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { text } = await runWith({
+      data: null,
+      error: { code: "22P02", message: 'invalid input syntax for type uuid: "abc"' },
+    });
+    expect(executeOpenClaw).not.toHaveBeenCalled();
+    expect(text).toContain("invalid_message_id");
+    expect(text).not.toMatch(/deduplication function/i);
+    err.mockRestore();
+  });
+
   it("refuses when the claim returns a malformed row, rather than treating it as unclaimed", async () => {
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
     const { text } = await runWith({ data: [{ claimed: "true" }], error: null });

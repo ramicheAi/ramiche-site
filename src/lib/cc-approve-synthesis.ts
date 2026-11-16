@@ -464,6 +464,7 @@ type SynthesisRow = {
   id: string;
   metadata: Record<string, unknown> | null;
   writeFailures?: number;
+  outputWrites?: number;
 };
 
 /**
@@ -481,8 +482,17 @@ async function insertMessage(
 ): Promise<void> {
   const { error } = await svc.from("messages").insert(payload);
   const kind = (payload?.metadata as { kind?: string } | undefined)?.kind;
+  if (kind && OUTPUT_KINDS.has(kind)) {
+    if (error) {
+      synthesisRow.writeFailures = (synthesisRow.writeFailures ?? 0) + 1;
+    } else {
+      // The run's output is what makes it a delivery, not the count of actions marked done. A
+      // self-blocking action persists its deliverable and is correctly `blocked`; a run whose every
+      // backend was down persists nothing and is correctly not a delivery.
+      synthesisRow.outputWrites = (synthesisRow.outputWrites ?? 0) + 1;
+    }
+  }
   if (error && kind && OUTPUT_KINDS.has(kind)) {
-    synthesisRow.writeFailures = (synthesisRow.writeFailures ?? 0) + 1;
     console.error("[approve] message insert failed:", {
       kind,
       error: String((error as { message?: string })?.message ?? error).slice(0, 200),
@@ -1061,14 +1071,30 @@ export async function approveSynthesisMessageStreamed(
   const blocked = results.filter((r) => r.status === "blocked").length;
   const approvedAt = new Date().toISOString();
 
-  // .select() so a write that matched no row is visible. Without it a 0-row update returns
-  // { data: null, error: null } and this would mark delivered for a record that was never written.
+  // Is this run a delivery? Decided BEFORE anything is written, because the answer decides whether
+  // `approved_at` may be written at all. `approved_at` is the short-circuit at the top of this
+  // function: writing it on a run that produced nothing makes the run permanently un-approvable
+  // while its relay state says `unknown` — retryable in theory, unreachable in practice. An
+  // independent review caught exactly that: the fix for "delivered with no output" had relabelled
+  // the row and left the operator with an "Approved" card and no retry.
+  //
+  // The gate is the run's OUTPUT, not the count of actions marked done: a self-blocking action
+  // persists its deliverable and is legitimately `blocked`, while a run whose every backend was down
+  // persists nothing. Both produce executed === 0; only one produced anything.
+  const outputProduced = (synthesisRow.outputWrites ?? 0) > 0;
+  const writesClean = (synthesisRow.writeFailures ?? 0) === 0;
+  const runIsDelivery = outputProduced && writesClean;
+
+  // The record of the run is always written (so the channel shows what happened). `approved_at` is
+  // included only when the run is a delivery, which is what keeps a failed run re-approvable.
+  // .select() so a write that matched no row is visible: without it a 0-row update returns
+  // { data: null, error: null } and would look like success.
   const { data: approveWriteRows, error: approveWriteError } = await svc
     .from("messages")
     .update({
       metadata: {
         ...synthesisRow.metadata,
-        approved_at: approvedAt,
+        ...(runIsDelivery ? { approved_at: approvedAt } : {}),
         approved_execution_mode: mode,
         approved_execution_summary: { executed, blocked, total },
       },
@@ -1076,25 +1102,10 @@ export async function approveSynthesisMessageStreamed(
     .eq("id", row.id)
     .select("id");
 
-  // 'delivered' is claimed only when the record of the run actually landed, AND the run's own
-  // message writes did. A failed metadata write, a write that matched no row, or a deliverable that
-  // never persisted all mean the same thing: the plan ran and the record of it is incomplete. That
-  // is `unknown` (retryable), never `delivered` (terminal), because `delivered` would refuse the
-  // retry that is the only way to recover the missing output.
-  // Four ways this run is not a delivery, and each was reachable:
-  //   - the metadata write failed, or matched no row     (no record of the run)
-  //   - a deliverable insert failed                      (output exists nowhere)
-  //   - executed === 0                                   (every action blocked, e.g. all backends
-  //                                                        down: the plan ran and produced nothing)
-  // `executed > 0` is the one an independent review caught second: with every backend down,
-  // executeAction marks the action blocked and writes no message, so writeFailures stayed 0 and this
-  // recorded a terminal `delivered` for a plan that produced nothing at all. An infrastructure
-  // outage is the likeliest failure there is, and `delivered` is terminal, so it burned the plan.
-  const approveWriteLanded =
-    !approveWriteError &&
-    (approveWriteRows?.length ?? 0) > 0 &&
-    (synthesisRow.writeFailures ?? 0) === 0 &&
-    executed > 0;
+  // `delivered` is claimed only when the run produced output AND the record of it landed. The four
+  // ways a run is not a delivery: no output, a failed output write, a failed metadata write, or a
+  // metadata write that matched no row. Each has been reproduced at some point in this round.
+  const approveWriteLanded = !approveWriteError && (approveWriteRows?.length ?? 0) > 0 && runIsDelivery;
   if (!approveWriteLanded) {
     if (!approveWriteError && (approveWriteRows?.length ?? 0) === 0) {
       console.error("[approve] execution record matched no row; the row may have been deleted");
@@ -1110,12 +1121,15 @@ export async function approveSynthesisMessageStreamed(
       "[approve] execution record failed to persist:",
       approveWriteError ?? { reason: "no row matched the update" },
     );
+    // No `approved_at` was written above, so the card stays approvable and the next approval
+    // re-claims this (now `unknown`) row and runs the plan again. That is what makes `unknown` here
+    // more than a label.
     await markRelayStatus(svc, row.id as string, "unknown", claimAttempt);
   } else {
     await markRelayStatus(svc, row.id as string, "delivered", claimAttempt);
   }
 
-  const persistedCleanly = (synthesisRow.writeFailures ?? 0) === 0;
+  const persistedCleanly = writesClean;
   onEvent({
     type: "complete",
     executed,

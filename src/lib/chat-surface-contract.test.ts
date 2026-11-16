@@ -47,6 +47,14 @@ describe("chat surfaces without a runtime harness", () => {
     expect(fallback).not.toMatch(/runRelay\(\s*\)/);
   });
 
+  it("the approval card does not settle into Approved when output was lost", () => {
+    const src = source("app/command-center/chat/page.tsx");
+    // The server now emits persisted:false for a run whose deliverables did not land, and leaves
+    // approved_at unset so a retry is possible. If the page ignores the flag the operator sees
+    // "Approved" for a run that produced nothing durable, which is the whole defect.
+    expect(src).toContain("data.persisted === false");
+  });
+
   it("the chat page shows the relay's sentence through the shared helper", () => {
     const src = source("app/command-center/chat/page.tsx");
     expect(src).toContain("relayErrorMessage(parsed, r.status)");

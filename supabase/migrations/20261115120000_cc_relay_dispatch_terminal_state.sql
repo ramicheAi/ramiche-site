@@ -145,8 +145,8 @@ begin
      where m.id = p_message_id;
     if not coalesce(v_found, false) then
       -- No row at all: distinct from "claimed by someone else" so the caller can refuse with a
-      -- truthful "no such message" instead of holding a 409 forever. The caller fails CLOSED on
-      -- this, as on every unavailable claim. instead of returning a false-forever 409.
+      -- truthful "no such message" instead of holding a false-forever 409. The caller fails CLOSED
+      -- on this, as on every unavailable claim.
       return query select false, null::int, 'not_found'::text;
       return;
     end if;

@@ -42,6 +42,9 @@ function row(metadata: Record<string, unknown>) {
   };
 }
 
+/** Set by makeSvc so a test can read what was actually written. */
+const svcState: { updates?: Array<Record<string, unknown>> } = {};
+
 function makeSvc(
   rpc: ReturnType<typeof vi.fn>,
   metadata: Record<string, unknown>,
@@ -55,6 +58,12 @@ function makeSvc(
     chain[m] = vi.fn(() => chain);
   }
   // The five message inserts are awaited directly, so insert() must resolve on its own.
+  const updates: Array<Record<string, unknown>> = [];
+  (svcState as { updates?: Array<Record<string, unknown>> }).updates = updates;
+  chain.update = vi.fn((payload: Record<string, unknown>) => {
+    updates.push(payload);
+    return chain;
+  });
   chain.insert = vi.fn(async (payload: { metadata?: { kind?: string } }) => {
     const kind = payload?.metadata?.kind;
     const fails = insertError && (!insertFailKinds || (kind && insertFailKinds.includes(kind)));
@@ -89,6 +98,14 @@ const PLAN = {
   },
 };
 
+/** Did ANY metadata write in this test carry approved_at? */
+function wroteApprovedAt(): boolean {
+  return (svcState.updates ?? []).some((u) => {
+    const meta = u?.metadata as Record<string, unknown> | undefined;
+    return !!meta && Object.prototype.hasOwnProperty.call(meta, "approved_at");
+  });
+}
+
 describe("approveSynthesisMessage — relay claim closes the concurrent-approval hole", () => {
   beforeEach(() => {
     for (const k of ENV_KEYS) originalEnv[k] = process.env[k];
@@ -122,6 +139,7 @@ describe("approveSynthesisMessage — relay claim closes the concurrent-approval
       insertError?: unknown;
       insertFailKinds?: string[];
       blockAll?: boolean;
+      dispatchText?: string;
     } = {},
   ) {
     // The call order is the whole point of the claim: a claim taken after the dispatch leaves the
@@ -165,6 +183,10 @@ describe("approveSynthesisMessage — relay claim closes the concurrent-approval
       const blocked = async () => ({ ok: false, text: "", error: "no chat backend responded" });
       executeOpenClaw.mockImplementation(blocked);
       executeCompletion.mockImplementation(blocked);
+    } else if (opts.dispatchText) {
+      const withText = async () => ({ ok: true, text: opts.dispatchText });
+      executeOpenClaw.mockImplementation(withText);
+      executeCompletion.mockImplementation(withText);
     } else {
       executeOpenClaw.mockImplementation(dispatchMock);
       executeCompletion.mockImplementation(dispatchMock);
@@ -239,6 +261,8 @@ describe("approveSynthesisMessage — relay claim closes the concurrent-approval
     });
     expect(order).toContain("mark:unknown");
     expect(order).not.toContain("mark:delivered");
+    // Nothing persisted: the update matched no row, so the approved_at in its payload never reached
+    // the database and the run stays re-approvable. The mark, not the payload, is what matters here.
     err.mockRestore();
   });
 
@@ -312,12 +336,15 @@ describe("approveSynthesisMessage — relay claim closes the concurrent-approval
     // row. So a run whose every output failed to persist was recorded as a terminal delivery, and a
     // retry was then refused with "already executed" while the output existed nowhere.
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
-    const { order } = await run([{ claimed: true, attempts: 1, status: "claimed" }], {
+    const { order, result } = await run([{ claimed: true, attempts: 1, status: "claimed" }], {
       insertError: { code: "23502", message: "null value in column \"content\" violates not-null" },
     });
     expect(order).toContain("dispatch");
     expect(order).toContain("mark:unknown");
     expect(order).not.toContain("mark:delivered");
+    const r = result as { persisted?: boolean; writeFailures?: number };
+    expect(r.persisted).toBe(false);
+    expect(r.writeFailures).toBeGreaterThan(0);
     err.mockRestore();
   });
 
@@ -333,7 +360,48 @@ describe("approveSynthesisMessage — relay claim closes the concurrent-approval
     expect(order).toContain("mark:unknown");
     expect(order).not.toContain("mark:delivered");
     expect((result as { executed?: number }).executed).toBe(0);
+    // The mechanism that makes `unknown` more than a label: no approved_at, so the card stays
+    // approvable and the next approval re-claims the row and runs the plan again.
+    expect(wroteApprovedAt()).toBe(false);
     err.mockRestore();
+  });
+
+  it("the complete event carries the same truth as the response", async () => {
+    // The operator sees events, not the return value, so the event must carry it too.
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const events: Array<Record<string, unknown>> = [];
+    const rpc = vi.fn((...args: unknown[]) => {
+      if (args[0] === "cc_claim_relay_dispatch") {
+        return Promise.resolve({ data: [{ claimed: true, attempts: 1, status: "claimed" }], error: null });
+      }
+      return Promise.resolve({ data: true, error: null });
+    });
+    createClient.mockReturnValue(makeSvc(rpc, PLAN, null, true, { code: "23502", message: "null value" }));
+    executeOpenClaw.mockImplementation(async () => ({ ok: true, text: "done" }));
+    executeCompletion.mockImplementation(async () => ({ ok: true, text: "done" }));
+    vi.resetModules();
+    const { approveSynthesisMessageStreamed } = await import("./cc-approve-synthesis");
+    await approveSynthesisMessageStreamed(SYNTHESIS_ID, (e) => events.push(e as unknown as Record<string, unknown>));
+    const complete = events.find((e) => e.type === "complete");
+    expect(complete).toBeTruthy();
+    expect(complete?.persisted).toBe(false);
+    expect(complete?.writeFailures).toBeGreaterThan(0);
+    err.mockRestore();
+  });
+
+  it("writes approved_at only for a run that actually delivered", async () => {
+    await run([{ claimed: true, attempts: 1, status: "claimed" }]);
+    expect(wroteApprovedAt()).toBe(true);
+  });
+
+  it("records delivered when an action persisted output and then self-blocked", async () => {
+    // The reason the gate counts OUTPUT, not successes: a self-blocking action writes its
+    // deliverable and returns blocked. `executed` is 0, but the run produced something, so it is a
+    // delivery. Gating on executed instead would call this unknown and re-run the whole plan.
+    const { order } = await run([{ claimed: true, attempts: 1, status: "claimed" }], {
+      dispatchText: "[BLOCKED: needs the owner's decision]",
+    });
+    expect(order).toContain("mark:delivered");
   });
 
   it("a failed status pill does not turn a persisted deliverable into unknown", async () => {

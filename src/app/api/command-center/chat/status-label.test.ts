@@ -222,6 +222,26 @@ describe("POST /api/command-center/chat — relay status labels", () => {
     expect(marks).not.toContain("delivered");
   });
 
+  it("blames the caller for a non-UUID message id, at the route level", async () => {
+    // The classifier is unit-tested, but a route that hardcoded 503 would still pass that. This goes
+    // through the handler: 400, a caller-facing code, no dispatch, and no wording that sends an
+    // operator to debug a healthy deduplication function.
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { res, body } = await run(
+      { message: "hello", channelId: "11111111-1111-1111-1111-111111111111", userMessageId: "abc" },
+      [{ claimed: true, attempts: 1, status: "claimed" }],
+      { claimResult: { data: null, error: { code: "22P02", message: 'invalid input syntax for type uuid: "abc"' } } },
+    );
+    const b = body as { error?: string; detail?: string; retryable?: boolean };
+    expect(res.status).toBe(400);
+    expect(b.error).toBe("invalid_message_id");
+    expect(b.retryable).toBe(false);
+    expect(b.detail).toMatch(/not a UUID/i);
+    expect(b.detail).not.toMatch(/deduplication function/i);
+    expect(executeOpenClaw).not.toHaveBeenCalled();
+    err.mockRestore();
+  });
+
   it("refuses a legacy row with the truth: not in flight, not retryable", async () => {
     const { res, body, marks } = await run(
       { message: "hello", channelId: "11111111-1111-1111-1111-111111111111", userMessageId: "22222222-2222-2222-2222-222222222222" },

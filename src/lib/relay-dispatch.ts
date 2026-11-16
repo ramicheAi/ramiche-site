@@ -15,10 +15,11 @@
  *
  *   - a turn the gateway accepted but never acknowledged, or a turn outliving its lease, can run
  *     twice; the honest record for that is `unknown`, never `delivered`;
- *   - `scripts/chat-bridge-poll.mjs` and `scripts/bridge-sync.mjs` dispatch agent turns for message
- *     rows from OUTSIDE these routes and never touch the claim. If either daemon is running against
- *     the same table, a send produces two agent turns and nothing here can prevent it. Verified by
- *     reading those files; whether they run in production is not knowable from this repo;
+ *   - `scripts/chat-bridge-poll.mjs` polls the messages table and dispatches an agent turn per user
+ *     message without touching the claim. If it is running, a send produces two agent turns and
+ *     nothing here can prevent it. (`scripts/bridge-sync.mjs` does the same for Firestore chat docs,
+ *     a different source table, so it is outside this contract rather than in conflict with it.)
+ *     Both were read, not run; whether either is live in production is not knowable from this repo;
  *   - `voice/atlas`, `wellness/verse`, `lib/jobs.ts` and `lib/lead-gen.ts` call providers with no
  *     claim at all; they are outside this contract by design, not protected by it.
  */
