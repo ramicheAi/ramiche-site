@@ -3260,13 +3260,19 @@ export default function CommandCenterChatPage() {
       // the top of that route's POST_handler.
       runRelay(realId);
     } else {
+      // No browser database client, so the message was never persisted and there is no id to
+      // claim. Dispatching anyway used to work by skipping the claim entirely; since CC-RECOVERY-14
+      // the route fails closed and returns 400, so firing the request would just be a doomed round
+      // trip. Refuse here, with the same sentence the route would have given.
       lastPendingUserMessageIdRef.current = null;
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === tempId ? { ...m, deliveryStatus: "sent" } : m
-        )
-      );
-      runRelay();
+      setWaitingForResponse(false);
+      setTypingUsers([]);
+      setRelayError({
+        id: tempId,
+        message:
+          "This browser has no database connection, so the message could not be saved or claimed. Nothing was sent. Reload, and if it persists the app is misconfigured.",
+      });
+      onVoiceRelayError?.();
     }
     } finally {
       sendingRef.current = false;
