@@ -22,11 +22,19 @@ function source(relPath: string): string {
 
 describe("chat surfaces without a runtime harness", () => {
   it("the legacy console renders the relay's sentence, not its code", () => {
-    const src = source("app/command-center/legacy/page.tsx");
+    // CC-RECOVERY-17 moved the legacy console's one dispatch call out of the page component and
+    // into sendCommanderChat (removing a second, unclaimed dispatch to /api/bridge/chat in the
+    // process), so this call now lives in the lib file, not the page. See
+    // legacy-console-chat.test.ts for the behavioral version of this same assertion.
+    const src = source("lib/legacy-console-chat.ts");
     // It dispatches with no persisted message id, so the route refuses by design; the page must
     // explain that rather than show "relay_not_deployed".
     expect(src).toContain("relayErrorMessage(data, res.status)");
     expect(src).not.toMatch(/message:\s*data\.error\s*\|\|/);
+    // The duplicate-dispatch removal itself: the legacy page must not independently POST to the
+    // Firestore bridge chat endpoint any more.
+    const pageSrc = source("app/command-center/legacy/page.tsx");
+    expect(pageSrc).not.toMatch(/fetch\(\s*["']\/api\/bridge\/chat["']\s*,\s*\{\s*\n?\s*method:\s*["']POST["']/);
   });
 
   it("the main chat page does not dispatch when there is no id to claim", () => {
