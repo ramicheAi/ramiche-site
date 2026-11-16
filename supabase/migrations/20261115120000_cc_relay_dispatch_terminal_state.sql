@@ -75,50 +75,59 @@ create index if not exists messages_relay_status_idx
 -- was taken, not what came of it. Mark them 'legacy', which is terminal (never reclaimed) but
 -- claims no outcome. Marking them 'delivered' would have asserted a delivery nobody observed;
 -- leaving them claimable would re-dispatch messages this host already sent.
--- The lease guard matters on RE-apply, not just on first apply. The still-deployed old route claims
--- by setting relay_claimed = true and leaves relay_status at its default, so a row claimed seconds
--- ago by the running old code looks identical to a row claimed weeks ago by the same code. Without
--- the age condition, re-running this migration during a deploy freezes an attempt that is still in
--- flight, permanently, as `legacy`. A row claimed inside the lease window is left alone: it is
--- either a live dispatch or one whose outcome is still unknown, and neither should be frozen by a
--- migration.
 --
--- The age falls back to created_at, never updated_at: every pre-migration row has relay_claimed_at
--- NULL, and updated_at moves for reasons unrelated to a claim, so using it would skip (and then
--- re-dispatch) a row whose record was merely touched recently.
+-- CC-RECOVERY-20/21 found, on the real production database, that the `relay_claimed = true`
+-- condition this backfill originally shipped with matches zero rows there (that column has never
+-- existed in production before this migration), so it backfilled nothing and left all 432
+-- historical rows `pending` -- reclaimable as if fresh. CC-RECOVERY-21 widened the condition to
+-- catch every pending row, gated by a 300-second age guard so a re-apply during a deploy wouldn't
+-- freeze a message still legitimately in flight. Independent review of THAT fix then found the
+-- guard itself was unsafe in the other direction: a re-apply more than 5 minutes after a genuinely
+-- new message was saved but before it was claimed would sweep that real, live message into
+-- `legacy` too, permanently. Any time-based threshold has this shape: too short risks freezing a
+-- live attempt, too long risks never catching one, and "safe" shifts with real traffic volume and
+-- latency in ways a fixed number can't track.
 --
--- CC-RECOVERY-21: the `relay_claimed = true` condition this backfill shipped with assumed the
--- still-deployed old route HAD been successfully recording claims that way. Verified directly
--- against this database's actual production schema: it has not. relay_claimed never existed
--- there before this migration, so every historical send's claim attempt has always errored and
--- fallen through that route's own "fail OPEN" branch, leaving no trace. The original condition
--- therefore backfills zero rows on real data — provably: a migration rehearsal against a
--- reproduction of the live 432-row table left all 432 rows `pending`, not `legacy`, which is
--- exactly the historical-row re-dispatch risk this file exists to close. Dropped the condition
--- entirely: ANY row still at the just-added default ('pending') and older than the lease is
--- history, full stop, independent of whatever relay_claimed holds (which this migration adds in
--- the same transaction, so nothing outside it can have written true to it yet regardless). The
--- age guard is kept for exactly the reason in the comment above it: a future re-apply (e.g.
--- during a deploy) must not freeze a message a NEW, already-deployed claim path inserted and is
--- still legitimately working on.
+-- CC-RECOVERY-22: replaced the age guard with a durable, explicit marker instead of inferring
+-- intent from a clock. `cc_relay_backfill_done` is a singleton table (the boolean primary key
+-- with a CHECK forcing it to `true` makes a second row physically impossible) that records
+-- whether the one-time historical sweep below has already run, ever, on this database. The sweep
+-- only executes the first time this migration is applied to a given database; every later
+-- application -- intentional re-run, a redeploy re-applying the same migration file, anything --
+-- is a complete no-op for this block, regardless of how much time has passed or how many new rows
+-- now sit at `pending`. There is no window where a live, new message can be caught by this logic,
+-- because after the first application there is no logic left to catch it with.
 --
--- OPERATIONAL CAVEAT (independent review, CC-RECOVERY-21): the 300s guard only protects a row
--- that is still 'pending'. A re-apply will still sweep any OTHER pending-at-the-time row older
--- than the lease into 'legacy' -- including a genuinely new, real, not-yet-dispatched message if
--- this migration runs again more than 5 minutes after it was saved but before it was claimed.
--- That is a narrow window (the claim normally happens within the same request), but it means this
--- file is not safe to re-run casually once real traffic depends on it. Apply it exactly once,
--- before the code that calls cc_claim_relay_dispatch is deployed -- see
--- ops-handoff/CC-RECOVERY-21-MIGRATION-DEPLOYMENT-SEQUENCE.md for the full sequence. A
--- rollback-then-reapply cycle is lossier still: the rollback drops relay_status entirely, so a
--- later forward re-apply backfills EVERY aged row to 'legacy' again, including ones that had
--- reached a real 'failed' or 'delivered' outcome in between -- that outcome history does not
--- survive a rollback.
-update public.messages
-   set relay_status = 'legacy',
-       relay_claimed_at = coalesce(relay_claimed_at, created_at, now())
- where relay_status = 'pending'
-   and coalesce(relay_claimed_at, created_at, now()) < now() - interval '300 seconds';
+-- Two caveats independent review raised, worth stating rather than leaving implicit:
+--   * The FIRST application still sweeps every `pending` row that exists at that moment,
+--     including a message saved moments earlier -- there is no narrower "only rows older than
+--     this migration" concept once the age guard is gone. This is safe under this repo's actual
+--     rollout order (apply the migration BEFORE deploying code that calls
+--     cc_claim_relay_dispatch -- see ops-handoff/CC-RECOVERY-21-MIGRATION-DEPLOYMENT-SEQUENCE.md),
+--     because nothing live can hold a real in-progress claim until that deploy happens. Reversing
+--     that order would reintroduce exactly the risk this file exists to close.
+--   * A database that already ran an EARLIER version of this same migration (the CC-RECOVERY-21
+--     age-guard version, which never created this marker) has no marker row, so applying this
+--     version there runs a full fresh sweep over whatever is `pending` at that moment, live rows
+--     included. Production has run neither version yet, so this does not apply to it -- it would
+--     only matter for a database that already has the superseded migration applied, e.g. a stale
+--     staging environment.
+create table if not exists public.cc_relay_backfill_done (
+  id boolean primary key default true,
+  constraint cc_relay_backfill_done_singleton check (id),
+  completed_at timestamptz not null default now()
+);
+
+do $$
+begin
+  if not exists (select 1 from public.cc_relay_backfill_done) then
+    update public.messages
+       set relay_status = 'legacy',
+           relay_claimed_at = coalesce(relay_claimed_at, created_at, now())
+     where relay_status = 'pending';
+    insert into public.cc_relay_backfill_done default values;
+  end if;
+end $$;
 
 comment on column public.messages.relay_status is
   'pending | claimed | delivered | failed | unknown | failed_permanent | legacy. delivered, failed_permanent and legacy are terminal and are never reclaimed. failed means nothing was sent (or the gateway refused before running); unknown means the dispatch may have run and its outcome was not recorded; legacy means the dispatch was taken before outcomes were recorded, so nothing is known and it is never retried.';

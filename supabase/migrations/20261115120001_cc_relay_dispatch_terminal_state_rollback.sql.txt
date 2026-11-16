@@ -23,6 +23,13 @@
 drop function if exists public.cc_mark_relay_status(uuid, text, int);
 drop function if exists public.cc_claim_relay_dispatch(uuid, int);
 drop index if exists public.messages_relay_status_idx;
+-- CC-RECOVERY-22: this migration owns cc_relay_backfill_done outright (nothing else created it),
+-- so the rollback drops it cleanly, same as the functions above. A later forward re-apply then
+-- correctly runs the one-time historical sweep again from scratch -- this is the same
+-- rollback-then-reapply data loss already true of relay_status itself (any real 'failed' or
+-- 'delivered' outcome recorded in between does not survive the rollback either), not a new risk
+-- this table introduces.
+drop table if exists public.cc_relay_backfill_done;
 alter table public.messages
   drop column if exists relay_status,
   drop column if exists relay_claimed_at,

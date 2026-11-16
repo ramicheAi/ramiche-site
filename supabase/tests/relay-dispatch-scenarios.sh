@@ -98,37 +98,30 @@ check "a legacy row is never reclaimed, even long after any lease" "f|legacy" "$
 check "a late mark cannot turn legacy into a delivery" "f" "$(val "select cc_mark_relay_status('$L'::uuid,'delivered',1)")"
 check "legacy was not silently rewritten" "legacy" "$(val "select relay_status from messages where id='$L'")"
 
-echo "== the backfill only freezes rows older than the lease =="
-# The still-deployed old route leaves relay_claimed=true with relay_status at its default, so a row
-# claimed seconds ago looks exactly like a row claimed weeks ago. Re-applying the migration during a
-# deploy must not freeze the one that is in flight.
+echo "== CC-RECOVERY-22: re-apply backfills nothing, ever, once the marker is set -- no age dependency =="
+# CC-RECOVERY-21 used a lease-age guard here (freeze a row only once it's older than the lease).
+# Independent review proved that guard unsafe in the other direction: it would freeze a genuinely
+# live, new message too, if the migration happened to be re-applied more than 5 minutes after that
+# message was saved but before it was claimed. CC-RECOVERY-22 replaced the guard with a durable
+# one-time marker (cc_relay_backfill_done): the backfill runs exactly once, ever, so a re-apply
+# cannot touch ANY row, at any age, in ANY relay_claimed/relay_status combination. The three checks
+# below all insert a row shaped like something the OLD guard would have frozen on re-apply (claimed
+# seconds ago, claimed hours ago, claimed with a fresh updated_at) and confirm NONE of them move.
 LA=88888888-8888-8888-8888-888888888888
 psqlq -c "insert into messages(id, relay_claimed, relay_status, relay_claimed_at) values ('$LA', true, 'pending', now() - interval '10 seconds');"
 psqlq -f "$MIGRATION" >/dev/null 2>&1
-check "a claim inside the lease is left alone by re-apply" "pending" "$(val "select relay_status from messages where id='$LA'")"
+check "a claim seconds old is left alone by re-apply (marker already set)" "pending" "$(val "select relay_status from messages where id='$LA'")"
 psqlq -c "update messages set relay_claimed_at = now() - interval '2 hours' where id='$LA';"
 psqlq -f "$MIGRATION" >/dev/null 2>&1
-check "the same row is frozen once it is older than the lease" "legacy" "$(val "select relay_status from messages where id='$LA'")"
-
-echo "== the age bound does not depend on updated_at =="
-# Every pre-migration row has relay_claimed_at NULL, so the age check falls back to a timestamp.
-# updated_at moves for reasons unrelated to a claim; using it would skip a genuinely old row, leave it
-# pending, and let the new code re-dispatch a message the old code already sent.
+check "the same row, now 2 hours old, is STILL left alone by re-apply (no age guard any more)" "pending" "$(val "select relay_status from messages where id='$LA'")"
 UB=99999999-9999-9999-9999-999999999999
 psqlq -c "insert into messages(id, relay_claimed, relay_status, relay_claimed_at, created_at, updated_at) values ('$UB', true, 'pending', null, now() - interval '30 days', now() - interval '10 seconds');" 2>/dev/null || true
 if [ "$(val "select count(*) from messages where id='$UB'")" = "1" ]; then
   psqlq -f "$MIGRATION" >/dev/null 2>&1
-  check "an old claim with a fresh updated_at is still frozen" "legacy" "$(val "select relay_status from messages where id='$UB'")"
+  check "a 30-day-old row with a fresh updated_at is also left alone by re-apply" "pending" "$(val "select relay_status from messages where id='$UB'")"
 else
   check "messages has created_at/updated_at to test with" "present" "absent"
 fi
-
-echo "== a pre-migration claimed row is backfilled to legacy, not to delivered =="
-B=66666666-6666-6666-6666-666666666666
-psqlq -c "insert into messages(id, relay_claimed, relay_status, relay_claimed_at) values ('$B', true, 'pending', now() - interval '20 days');"
-psqlq -f "$MIGRATION" >/dev/null 2>&1
-check "backfill chose legacy" "legacy" "$(val "select relay_status from messages where id='$B'")"
-check "the backfilled row is not reclaimable" "f|legacy" "$(val "select claimed||'|'||status from cc_claim_relay_dispatch('$B'::uuid)")"
 R=77777777-7777-7777-7777-777777777777
 psqlq -c "insert into messages(id) values ('$R');"
 val "select claimed from cc_claim_relay_dispatch('$R'::uuid)" >/dev/null
@@ -163,7 +156,7 @@ check "service_role can execute" "t" "$(val "select has_function_privilege('serv
 check "security invoker" "f" "$(val "select prosecdef from pg_proc where proname='cc_claim_relay_dispatch'")"
 check "search_path pinned" "search_path=pg_catalog, pg_temp" "$(val "select proconfig[1] from pg_proc where proname='cc_claim_relay_dispatch'")"
 
-echo "== CC-RECOVERY-21: a real first-ever apply, against a table that never had relay columns =="
+echo "== CC-RECOVERY-21/22: a real first-ever apply, against a table that never had relay columns =="
 # Every other scenario above runs against a `messages` table that was created WITH the relay
 # columns already present (see the CREATE TABLE at the top of this script), so the migration's
 # own "column already exists, skipping" path is all they ever exercise. That is not what happens
@@ -174,21 +167,38 @@ echo "== CC-RECOVERY-21: a real first-ever apply, against a table that never had
 # here: a fresh table with NO relay columns at all, old rows, then the real first apply.
 psqlq -c "alter table messages rename to messages_backup;"
 psqlq -c "create table messages (id uuid primary key default gen_random_uuid(), channel_id uuid not null, content text not null, created_at timestamptz default now());"
+# The backfill marker (cc_relay_backfill_done) is database-scoped, not tied to the messages
+# table's own lifecycle -- correct for real production (nothing renames that table out from under
+# the migration), but it means THIS test harness's rename-swap trick needs to drop the marker too,
+# or it would see the marker the top-of-script apply already set and wrongly skip the backfill,
+# reporting a "first apply" that never actually ran. Simulating a genuinely fresh database for
+# this one section.
+psqlq -c "drop table if exists cc_relay_backfill_done;" >/dev/null 2>&1
 OLD1=11111111-aaaa-aaaa-aaaa-111111111111
 OLD2=11111111-bbbb-bbbb-bbbb-111111111111
-NEWLIVE=11111111-cccc-cccc-cccc-111111111111
 psqlq -c "insert into messages (id, channel_id, content, created_at) values
   ('$OLD1', '00000000-0000-0000-0000-000000000001', 'historical message one', now() - interval '30 days'),
   ('$OLD2', '00000000-0000-0000-0000-000000000001', 'historical message two', now() - interval '1 day');"
-# A genuinely concurrent send, racing the migration's own transaction, inside the lease window --
-# this one must survive as reclaimable, not be swept into legacy with the real history.
-psqlq -c "insert into messages (id, channel_id, content, created_at) values ('$NEWLIVE', '00000000-0000-0000-0000-000000000001', 'a live send racing the migration', now());"
 psqlq -f "$MIGRATION" >/dev/null 2>&1 && echo "  PASS  first-ever apply against real historical data succeeded"
 check "old historical row 1 becomes legacy, not pending" "legacy" "$(val "select relay_status from messages where id='$OLD1'")"
 check "old historical row 2 becomes legacy, not pending" "legacy" "$(val "select relay_status from messages where id='$OLD2'")"
 check "a legacy historical row cannot be re-claimed and re-dispatched" "f||legacy" "$(val "select claimed||'|'||coalesce(attempts::text,'')||'|'||status from cc_claim_relay_dispatch('$OLD1'::uuid)")"
-check "the concurrent live send inside the lease stays pending, not swept into legacy" "pending" "$(val "select relay_status from messages where id='$NEWLIVE'")"
-check "the concurrent live send still claims normally" "t|1|claimed" "$(val "select claimed||'|'||attempts||'|'||status from cc_claim_relay_dispatch('$NEWLIVE'::uuid)")"
+
+echo "== CC-RECOVERY-22: re-applying the migration after real live traffic never touches a live row, at any age =="
+# CC-RECOVERY-21's fix (a 300s age guard, dropped above) was independently proven unsafe in the
+# OTHER direction: re-running the migration more than 5 minutes after a genuinely new message was
+# saved but before it was claimed would sweep that real, live message into 'legacy' too,
+# permanently. The durable marker (cc_relay_backfill_done) replaces the guard entirely: the
+# historical sweep runs exactly once, ever, on a given database, so there is no age at which a
+# re-apply can mistake a live message for history -- prove that at an age far past the old 300s
+# window.
+LIVEOLD=11111111-dddd-dddd-dddd-111111111111
+psqlq -c "insert into messages (id, channel_id, content, created_at) values ('$LIVEOLD', '00000000-0000-0000-0000-000000000001', 'an hour-old live send, never claimed', now() - interval '1 hour');"
+check "the backfill marker exists after the first apply" "t" "$(val "select exists (select 1 from cc_relay_backfill_done)")"
+psqlq -f "$MIGRATION" >/dev/null 2>&1
+check "re-apply is a true no-op: already-legacy history is untouched" "legacy" "$(val "select relay_status from messages where id='$OLD1'")"
+check "re-apply never touches a live row, even one an hour old" "pending" "$(val "select relay_status from messages where id='$LIVEOLD'")"
+check "that live row still claims normally after the re-apply" "t|1|claimed" "$(val "select claimed||'|'||attempts||'|'||status from cc_claim_relay_dispatch('$LIVEOLD'::uuid)")"
 # Restore the shared table for anything after this that might assume it exists by this name.
 psqlq -c "drop table messages; alter table messages_backup rename to messages;" >/dev/null 2>&1
 
