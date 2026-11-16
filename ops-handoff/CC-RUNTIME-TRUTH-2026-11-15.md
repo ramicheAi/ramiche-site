@@ -908,3 +908,67 @@ Protect list: active release, rollback release, `41d183a0/.env.local` and `~/coc
 | Teardown | manual user and files | destroy the VM |
 
 **Recommendation:** a short-lived cloud VM with its own Tailscale node, sized small, holding local Postgres, a Firebase Auth emulator and the preview build. It satisfies every isolation requirement without touching the cockpit host, and teardown is one destroy. The MacBook user is the zero-cost fallback if spend is refused, but it cannot match credential or kernel isolation. Neither is provisioned.
+
+
+## 21. CC-RECOVERY-10 delta review and fixes
+
+### 21.1 Independent review status — honest
+
+Both exact-head reviews ran and both returned REQUEST CHANGES:
+
+| PR | Reviewed head | Verdict | Blocking findings |
+|---|---|---|---|
+| #101 | `19031fde` | REQUEST CHANGES | P0: success line renders "is now ." (nested envelope read flat). P1: options with a slash in the model id are offered then refused. |
+| #100 | `bd702f48` | REQUEST CHANGES | P1: both RPCs fail silently, so the mechanism can be inert with chat healthy. P1: migration not self-sufficient (`relay_claimed` from an unapplied predecessor). |
+
+The delta re-reviews at the fixed heads (`8f63ba64`, `29ed0793`) **did not run**: the subagent provider returned "Insufficient balance". No approval exists at those heads. What follows is my own verification, which is not a substitute for an independent review, and I am recording it as such.
+
+### 21.2 #101 at `8f63ba64`
+
+Fixed by a parallel commit (`06890311`) plus my follow-up:
+
+- envelope unwrapped (`settings-view.ts:159`); `ok:true` with no `after` returns `unconfirmed`, never `saved`
+- the rendered-UI test now posts the **real** nested `{ ok, source, write: {...} }` and asserts the model text appears and `undefined` does not (`FleetModelSettings.render.test.tsx:108-111`)
+- selection splits on the first slash (`settings-view.ts:96`), so `lmstudio/google/gemma-4-e4b` validates
+- a save re-reads the registry and reports `readback_mismatch` if the refreshed primary differs (`FleetModelSettings.tsx:80-88`)
+- guard denials map to `unauthorized` for both GET and POST
+
+Verified: `tsc` clean, 57 fleet tests, full suite 1111 passed / 2 expected fail / 4 skipped, build clean, CI green at `8f63ba64`.
+
+Residual, non-blocking: `readback_mismatch` has no test; a slow re-read can still show a transient mismatch (it fails safe, toward not claiming success); the lock is per row, so two agents can be saved concurrently; `detail` can still carry an absolute config path into an owner-only screen.
+
+### 21.3 #100 at `29ed0793`
+
+Fixed:
+
+- migration creates `relay_claimed` itself and backfills `relay_claimed_at` for pre-migration rows
+- claim error is logged with its PostgREST code; the mark reads its `error`
+- mark is fenced by attempt: a stale attempt cannot write the terminal state
+- lease is 300 s, above the 120 s `maxDuration`
+- the persistence-failure 503 marks delivered **before** returning (`route.ts:1670` then `:1685`)
+- functions are security invoker; the unused index is gone
+
+Verified on a fresh PostgreSQL 17 cluster, migration applied **alone** with no predecessor:
+
+```
+applied clean
+claim1=true,1          in_lease_reclaim=f      after_lease_claim=true,2
+stale_attempt1_mark=f  current_attempt2_mark=t delivered_reclaim=f
+acl={postgres=X,service_role=X}; anon_exec=f; authenticated_exec=f; service_role_exec=t
+prosecdef=false, search_path=pg_catalog, pg_temp
+rollback clean; one column retained (relay_claimed, which the current route needs)
+```
+
+Full suite 1080 passed / 2 expected fail / 4 skipped, build clean, CI green at `29ed0793`.
+
+### 21.4 What #100 still does not buy
+
+- **Not exactly-once, not at-most-once.** At most one live claim per message per 300 s lease, with at-least-once execution.
+- A row that was dispatched before the migration and has `relay_claimed_at NULL` is claimable forever unless the backfill covers it; a row inserted later with `relay_claimed` true and no timestamp is claimable immediately. Verified: `legacy_untouched_claimable=t`.
+- A claim that errors (migration absent, grant revoked, transient fault) means the dispatch proceeds undeduplicated and now logs a warning, but nothing alerts on it.
+- `/api/command-center/chat/stream` still dispatches via `sessions_send` with no claim, and nothing in the UI calls it. Duplicate execution is reachable there until it adopts the claim or is retired.
+- `failed` and `failed_permanent` remain unwritten by the route.
+
+### 21.5 State
+
+Main `c6241701`. Vercel production `dpl_BxVfLSoZzLLB2Sto6SmxHZGEHT21`, untouched. Canonical cockpit `41d183a0`, untouched. Nothing merged, no migration applied, no deployment, no fleet write. #99 remains the superseded duplicate and should be closed, not merged.
