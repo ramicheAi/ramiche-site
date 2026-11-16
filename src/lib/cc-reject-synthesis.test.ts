@@ -273,9 +273,14 @@ describe("rejectSynthesisMessage", () => {
     const { APPROVE_LEASE_SECONDS } = await import("./cc-approve-synthesis");
     expect(REJECT_LEASE_SECONDS).toBeGreaterThanOrEqual(APPROVE_LEASE_SECONDS);
 
+    // An assertion thrown from inside the rpc mock would be swallowed by claimRelayDispatch's own
+    // try/catch (it turns any throw into state: "unavailable") and never surface as a test
+    // failure, which made an earlier version of this test pass even against a hardcoded literal
+    // at the call site. Record the real argument and assert on it OUTSIDE the mock instead.
+    let seenLeaseSeconds: unknown;
     const rpc = vi.fn((name: string, args: Record<string, unknown>) => {
       if (name === "cc_claim_relay_dispatch") {
-        expect(args.p_lease_seconds).toBeGreaterThanOrEqual(APPROVE_LEASE_SECONDS);
+        seenLeaseSeconds = args.p_lease_seconds;
         return Promise.resolve({ data: [{ claimed: true, attempts: 1 }], error: null });
       }
       return Promise.resolve({ data: true, error: null });
@@ -284,10 +289,7 @@ describe("rejectSynthesisMessage", () => {
     vi.resetModules();
     const { rejectSynthesisMessage: reject2 } = await import("./cc-reject-synthesis");
     await reject2(SYNTHESIS_ID);
-    expect(rpc).toHaveBeenCalledWith(
-      "cc_claim_relay_dispatch",
-      expect.objectContaining({ p_lease_seconds: expect.any(Number) }),
-    );
+    expect(seenLeaseSeconds).toBe(APPROVE_LEASE_SECONDS);
   });
 
   it("releases the claim immediately (marks failed) when the metadata write fails, instead of holding it for the full lease", async () => {
