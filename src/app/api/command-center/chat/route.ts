@@ -1694,8 +1694,10 @@ async function POST_handler(req: NextRequest) {
     // summarizePersistence reports ok:true for the second case, because "nothing attempted" is a
     // configuration choice rather than a failure. For the relay it is not a delivery: marking it
     // delivered would be terminal, so a retry would be refused with alreadyDispatched:true and the
-    // reply would be lost with the relay claiming success. Both cases are 'unknown': the turn ran,
-    // the outcome was not recorded, and a retry is safe.
+    // reply would be lost with the relay claiming success. Both cases are 'unknown': the turn ran
+    // and the outcome was not recorded. CC-RECOVERY-16: that is NOT automatically safe to retry —
+    // the claim now gates 'unknown' behind the lease rather than reclaiming it on the spot, and the
+    // caller is told to check before resending (see describeDuplicate).
     const persistence = summarizePersistence(persistenceAttempted, persistenceFailures);
     await markRelay(statusAfterTurn(persistence));
 
@@ -1707,7 +1709,10 @@ async function POST_handler(req: NextRequest) {
           : responses.map((x) => `**${x.agent}:** ${x.response}`).join("\n\n");
     const first = responses[0];
 
-    if (userMessageId && svc) {
+    // Tick the user's own message 'delivered' only when the reply actually persisted. Writing this
+    // unconditionally — as a prior review found — told the client its message was delivered even
+    // on the exact persistence-failure path this relay status exists to catch.
+    if (userMessageId && svc && persistence.ok) {
       await svc
         .from("messages")
         .update({
@@ -1742,7 +1747,7 @@ async function POST_handler(req: NextRequest) {
     // the reply vanished on the next reload. Fail loudly instead, while still
     // handing back the generated text so the caller can show it as unsaved.
     if (!persistence.ok) {
-      // Outcome already recorded as 'failed' above, immediately retryable.
+      // Outcome already recorded as 'unknown' above (the turn ran; the reply write failed), lease-gated before a retry can reclaim it.
       return NextResponse.json(
         {
           ok: false,

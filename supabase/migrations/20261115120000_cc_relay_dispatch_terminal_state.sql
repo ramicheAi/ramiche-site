@@ -29,8 +29,10 @@
 --   unknown          the turn may have run and its outcome was not recorded (retryable)
 --   failed_permanent never retry (terminal)
 --
--- delivered and failed_permanent are never reclaimable; claimed is reclaimable only after the
--- lease expires; failed and unknown are reclaimable immediately.
+-- delivered and failed_permanent are never reclaimable; claimed and unknown are reclaimable only
+-- after the lease expires (unknown means the turn may already have run, so it gets the same
+-- cooling-off window as a live attempt); failed is reclaimable immediately, since it means
+-- nothing was ever sent.
 --
 -- This is NOT exactly-once execution, and this file does not pretend otherwise. A turn that
 -- outlives its lease can still run the agent twice. A dispatch taken while these functions are
@@ -120,11 +122,21 @@ begin
   -- 'unknown' state remains, written by the routes when a request learns its outcome was
   -- ambiguous.
 
-  -- 'claimed' is the only status actually in flight, so it is the only one the lease protects —
-  -- a dispatch that errored out and was marked 'failed' is definitely not running any more and
-  -- must be reclaimable immediately, not after the same 300s lease as a possibly-still-running
-  -- attempt. Gating 'failed' on the lease too meant a backend that came back up seconds after a
-  -- 502 still refused every retry for up to 5 minutes.
+  -- 'failed' is definitely not running any more (nothing was ever sent, or the gateway refused
+  -- before running), so it is reclaimable immediately, not after the same 300s lease as a
+  -- possibly-still-running attempt. Gating 'failed' on the lease too meant a backend that came
+  -- back up seconds after a 502 still refused every retry for up to 5 minutes.
+  --
+  -- 'unknown' is different from 'failed' in exactly the way that matters here: the turn MAY have
+  -- already run (a provider call went out and the outcome just was not recorded). CC-RECOVERY-16
+  -- found that treating it as immediately reclaimable, same as 'failed', let a retry re-run an
+  -- already-executed turn the instant it was marked 'unknown' — the row never even reached the
+  -- caller as a refused "duplicate" claim, so the application layer had no chance to warn anyone.
+  -- 'unknown' is therefore lease-gated, same as 'claimed': if the first attempt really is still
+  -- running, the lease protects it exactly as before; if it already finished, the lease is a
+  -- deliberate cooling-off window before any retry is possible, not a guess this file will remove
+  -- later. (`cc_mark_relay_status` still lets a route convert 'unknown' into 'delivered' or
+  -- 'failed' sooner, if it genuinely learns the outcome.)
   update public.messages m
      set relay_claimed = true,
          relay_claimed_at = now(),
@@ -133,7 +145,7 @@ begin
    where m.id = p_message_id
      and coalesce(m.relay_status, 'pending') not in ('delivered', 'failed_permanent', 'legacy')
      and (
-       coalesce(m.relay_status, 'pending') in ('pending', 'failed', 'unknown')
+       coalesce(m.relay_status, 'pending') in ('pending', 'failed')
        or m.relay_claimed_at is null
        or m.relay_claimed_at < now() - make_interval(secs => greatest(p_lease_seconds, 1))
      )

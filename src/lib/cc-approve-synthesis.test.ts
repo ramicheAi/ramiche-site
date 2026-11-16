@@ -243,26 +243,34 @@ describe("approveSynthesisMessage — relay claim closes the concurrent-approval
   });
 
   it("records unknown, never delivered, when the execution record fails to persist", async () => {
-    const { order } = await run([{ claimed: true, attempts: 1, status: "claimed" }], {
+    const { order, result } = await run([{ claimed: true, attempts: 1, status: "claimed" }], {
       updateError: { code: "57014", message: "canceling statement due to statement timeout" },
     });
     // The plan ran (the dispatch happened) but nothing recorded it: that is unknown, not delivered.
     expect(order).toContain("dispatch");
     expect(order).toContain("mark:unknown");
     expect(order).not.toContain("mark:delivered");
+    // CC-RECOVERY-16: `persistedCleanly` used to look only at the output-message writes, so this
+    // exact case — outputs fine, approval record itself failed to persist — returned ok:true with
+    // no `persisted:false`, and the Telegram/web callers reported an unconditional success for a
+    // run that will re-execute the whole plan on the next approval tap.
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.persisted).toBe(false);
   });
 
   it("records unknown when the execution record matched no row at all", async () => {
     // A 0-row update returns no error. Without .select() this looked like success and was recorded
     // as delivered, which is the same false-delivery class the relay exists to prevent.
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
-    const { order } = await run([{ claimed: true, attempts: 1, status: "claimed" }], {
+    const { order, result } = await run([{ claimed: true, attempts: 1, status: "claimed" }], {
       updateMatched: false,
     });
     expect(order).toContain("mark:unknown");
     expect(order).not.toContain("mark:delivered");
     // Nothing persisted: the update matched no row, so the approved_at in its payload never reached
     // the database and the run stays re-approvable. The mark, not the payload, is what matters here.
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.persisted).toBe(false);
     err.mockRestore();
   });
 

@@ -100,6 +100,11 @@ export type ApproveResult =
       blocked?: number;
       total?: number;
       mode?: "parallel" | "sequential";
+      // False when the run's own approval record (or an output write) did not persist, even though
+      // `ok` is true and work may have actually happened. Callers must not present this as an
+      // unconditional success; see persistedCleanly in approveSynthesisMessageStreamed.
+      persisted?: boolean;
+      writeFailures?: number;
       results?: Array<{
         owner: string;
         task: string;
@@ -1129,7 +1134,12 @@ export async function approveSynthesisMessageStreamed(
     await markRelayStatus(svc, row.id as string, "delivered", claimAttempt);
   }
 
-  const persistedCleanly = writesClean;
+  // `writesClean` only covers the output-message writes. A run whose outputs all landed but whose
+  // own approval record (approveWriteLanded, checked above) failed to persist is not clean either:
+  // the card stays approvable with `unknown`, and an operator who sees an unconditional "done" has
+  // no reason to know a re-approval will re-run the whole plan. This was the gap a prior review
+  // missed because `persistedCleanly` never looked at `approveWriteLanded`.
+  const persistedCleanly = writesClean && approveWriteLanded;
   onEvent({
     type: "complete",
     executed,

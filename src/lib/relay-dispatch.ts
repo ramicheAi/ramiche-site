@@ -371,7 +371,7 @@ export type DuplicateDisposition = {
   alreadyDispatched: boolean;
   /** Whether retrying this exact message id could ever succeed. */
   retryable: boolean;
-  reason: "delivered" | "failed_permanent" | "legacy" | "in_flight";
+  reason: "delivered" | "failed_permanent" | "legacy" | "unknown" | "in_flight";
   detail: string;
 };
 
@@ -401,9 +401,21 @@ export function describeDuplicate(status: string): DuplicateDisposition {
         "This message was dispatched before delivery outcomes were recorded, so it will not be retried. Send a new message if you need a fresh answer.",
     };
   }
-  // 'claimed' is the only status that is genuinely in flight. 'failed' and 'unknown' are both
-  // immediately reclaimable, so a duplicate report of either means another caller claimed it in the
-  // same instant: transient, and worth retrying.
+  if (status === "unknown") {
+    // CC-RECOVERY-16: the turn may already have run — a provider call went out and only the
+    // outcome's recording failed. Calling this "transient, worth retrying" (the old 'in_flight'
+    // branch below) meant a retry could re-run a turn that already produced output, with nothing
+    // in the response to say so. It is lease-gated now (see the migration), so a caller only
+    // reaches this branch while that cooling-off window is still open.
+    return {
+      alreadyDispatched: false,
+      retryable: false,
+      reason: "unknown",
+      detail:
+        "A prior attempt for this message may already have run; its outcome was not recorded. Check whether it completed before sending it again.",
+    };
+  }
+  // 'claimed' is the only status left that is genuinely in flight.
   return {
     alreadyDispatched: false,
     retryable: true,

@@ -252,10 +252,14 @@ describe('describeDuplicate', () => {
     expect(d.detail).toMatch(/permanently/i);
   });
 
-  it('keeps a transient re-claim race retryable for failed and unknown', () => {
-    // Both are immediately reclaimable, so a duplicate report of either is a same-instant race.
+  it('keeps a transient re-claim race retryable for failed, but not for unknown', () => {
+    // 'failed' is immediately reclaimable, so a duplicate report of it is a same-instant race.
     expect(describeDuplicate('failed').retryable).toBe(true);
-    expect(describeDuplicate('unknown').retryable).toBe(true);
+    // CC-RECOVERY-16: 'unknown' means the turn may already have run, so it is no longer treated as
+    // a transient re-claim race — it is lease-gated in the SQL (see the migration) and this reports
+    // retryable:false until an operator (or a later update that learns the real outcome) resolves
+    // it. See the 'unknown' branch in describeDuplicate.
+    expect(describeDuplicate('unknown').retryable).toBe(false);
   });
 
   it('defaults to retryable for an unrecognised status rather than blocking a retry', () => {

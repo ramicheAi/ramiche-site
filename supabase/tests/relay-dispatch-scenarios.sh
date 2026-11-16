@@ -6,7 +6,8 @@
 #   - an expired lease is recorded as 'unknown', not silently forgotten or reported as a delivery
 #   - a stale attempt cannot write the outcome of the attempt that replaced it
 #   - delivered and failed_permanent are terminal under every retry
-#   - 'unknown' and 'failed' are retryable, and they are distinguishable in the audit trail
+#   - 'failed' is retryable immediately; 'unknown' is retryable only after its lease expires
+#     (CC-RECOVERY-16: the turn may already have run); both are distinguishable in the audit trail
 #   - anon/authenticated cannot execute the functions
 #
 # Usage: supabase/tests/relay-dispatch-scenarios.sh
@@ -76,13 +77,17 @@ psqlq -c "update messages set relay_claimed_at = now() - interval '1 hour' where
 check "delivered row is never reclaimed" "f|delivered" "$(val "select claimed||'|'||status from cc_claim_relay_dispatch('$M'::uuid)")"
 check "a late mark cannot rewrite delivered" "f" "$(val "select cc_mark_relay_status('$M'::uuid,'failed',2)")"
 
-echo "== unknown is distinguishable from failed, and both are retryable =="
+echo "== unknown is distinguishable from failed; failed is retryable immediately, unknown is lease-gated (CC-RECOVERY-16) =="
 U=22222222-2222-2222-2222-222222222222
 psqlq -c "insert into messages(id) values ('$U');"
 val "select claimed from cc_claim_relay_dispatch('$U'::uuid)" >/dev/null
 check "unknown mark lands" "t" "$(val "select cc_mark_relay_status('$U'::uuid,'unknown',1)")"
 check "recorded state is unknown" "unknown" "$(val "select relay_status from messages where id='$U'")"
-check "an unknown outcome is retryable immediately" "t|2" "$(val "select claimed||'|'||attempts from cc_claim_relay_dispatch('$U'::uuid)")"
+# 'unknown' means the turn may already have run — an immediate reclaim here let a retry re-run an
+# already-executed turn (CC-RECOVERY-16 finding). It now gets the same lease protection as 'claimed'.
+check "an unknown outcome is NOT retryable within the lease" "f||unknown" "$(val "select claimed||'|'||coalesce(attempts::text,'')||'|'||status from cc_claim_relay_dispatch('$U'::uuid)")"
+psqlq -c "update messages set relay_claimed_at = now() - interval '10 minutes' where id = '$U';"
+check "an unknown outcome is retryable once its lease has expired" "t|2" "$(val "select claimed||'|'||attempts from cc_claim_relay_dispatch('$U'::uuid)")"
 check "a verified failure is recorded as failed" "t" "$(val "select cc_mark_relay_status('$U'::uuid,'failed',2)")"
 check "a failed outcome is retryable immediately" "t|3" "$(val "select claimed||'|'||attempts from cc_claim_relay_dispatch('$U'::uuid)")"
 
