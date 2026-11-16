@@ -1244,3 +1244,69 @@ distinguish it. Documented as a P2, not a blocker.
   text" is inferred from the client code, not observed.
 - **Deployment ordering.** Migration-before-code and code-before-migration against the live database
   have not been rehearsed. Rehearsing them needs a host, and no preview host exists (see 22.7).
+
+### 22.10 Review coverage at the final head: incomplete, and why
+
+The requirement for CC-RECOVERY-13 was a fresh independent adversarial review at each final exact
+head. **That was not achieved, and this is the honest record of it.**
+
+- The fresh-context review at `5870c7e7` (different model, no sight of prior reports) ran and then
+  died on a model quota limit before returning a verdict.
+- The delta review at `4239078a` and a retry of it both failed at launch for the same reason.
+- No further subagent could be started.
+
+So the final head `7dc2caac` carries **my own mechanical evidence only**: the suite, the PostgreSQL
+17 scenario matrix, and a mutation sweep. That is not a substitute for an independent review, and it
+is not presented as one. The last independent verdict on this branch is **REQUEST CHANGES at
+`5870c7e7`**, whose P1s are all fixed at this head; nothing has independently reviewed the fixes
+themselves.
+
+### 22.11 Mutation sweep at `7dc2caac`, and two errors I made running it
+
+The rule applied: **a mutation must compile before its test result counts.** Two of my earlier
+numbers failed that rule and are corrected here.
+
+| # | Mutation | Result |
+|---|---|---|
+| M4 | stream: always record `delivered` on the persist path | caught (2 failed) |
+| M6 | JSON: always record `delivered` after a turn | caught (1) |
+| M8 | JSON outer catch: `unknown` → `failed` | caught (1) |
+| N1 | swap `statusAfterTurn` branches | caught (9) |
+| N2 / N3 | `statusAfterEmptyDispatch` pinned to one value | caught (2 each) |
+| N4 | `statusAfterTurn` ignores `attempted` | caught (2) |
+| N5 | `statusAfterTurn` ignores `ok` | caught (2) |
+| N7 | JSON 409 → 200 `alreadyDispatched` | caught (1) |
+| N8 | approve: claim removed entirely | caught (4) |
+| N9 | approve: claim moved to after every dispatch | caught (4) |
+| N10 | approve: always mark `delivered` | caught (2) |
+| N12 / N13 | stream: `attempted` pinned true / never true | caught (1 each) |
+| D1 | `describeDuplicate` reports `legacy` as retryable | caught (3) |
+| D2 | `describeDuplicate` loses its `legacy` branch | caught (4) |
+| Z1 | zero-row approve write treated as success | caught (1) |
+| Z2 | `delivered` marked before the metadata write | caught (2) |
+
+**Error 1.** I first reported N9 as failing "6 tests". It did not: the mutation declared
+`claimAttempt` twice, so vitest failed on a compile error and I counted a broken mutation as caught
+tests. The corrected figure, from a mutation that compiles, is 4. I published the wrong number in a
+commit message and a PR comment before catching it.
+
+**Error 2.** The duplicate-refusal tests asserted `executeOpenClaw` was not called, while plan
+actions actually dispatch through `executeCompletion`. A duplicate check that ran *after* the
+actions could still pass them — in the test written to guard the bypass. All three assertions now
+count both primitives, which is why N9 fails 4 tests instead of 1.
+
+Both errors are the same shape as the defects this branch set out to fix: a test or a number that
+looks like proof and is not. Recording them costs more than hiding them.
+
+### 22.12 Final state of CC-RECOVERY-13
+
+| Item | State |
+|---|---|
+| #100 `fix/cc-relay-terminal-state` | `7dc2caac`, draft, CI green, migration prepared and not applied |
+| #101 `feat/cc-fleet-settings` | `becb0e37`, unchanged; 2 × P1 reported, awaiting its owner |
+| Bypass disposition | `/chat/stream` brought under the claim; a second bypass (`/chat/approve`) found and closed |
+| Production VACUUM | not Postgres; a bulk VACUUM of 22 live SQLite stores, inferred, no log survives |
+| Host safeguards | written and tested, **not installed** |
+| Physical iPhone acceptance | still outstanding |
+| Independent review at final head | **not obtained** (quota), recorded above |
+| Merges, deploys, migrations, fleet writes, deletions | none |
