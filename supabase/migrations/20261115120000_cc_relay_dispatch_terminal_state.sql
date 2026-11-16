@@ -3,9 +3,12 @@
 -- Precisely what predates this file, because an earlier draft of this comment got it wrong in both
 -- directions:
 --
---   * the COLUMN relay_claimed HAS a predecessor: 20261112180000_messages_client_idempotency_key.sql
---     adds it. This file therefore does not need to create it, but creates it defensively anyway so
---     it can be applied to a database that never got that migration.
+--   * the COLUMN relay_claimed is DECLARED in a predecessor migration file
+--     (20261112180000_messages_client_idempotency_key.sql), but CC-RECOVERY-20 confirmed directly
+--     against production that neither migration has ever actually been applied there (the live
+--     messages table has none of these columns). This file's own `add column if not exists`
+--     below is therefore not defensive boilerplate for a hypothetical gap -- on the one real
+--     database this has been checked against, it is the thing that actually creates the column.
 --   * the two FUNCTIONS have no predecessor anywhere in this repo. They exist only here and in the
 --     rollback.
 --
@@ -83,11 +86,38 @@ create index if not exists messages_relay_status_idx
 -- The age falls back to created_at, never updated_at: every pre-migration row has relay_claimed_at
 -- NULL, and updated_at moves for reasons unrelated to a claim, so using it would skip (and then
 -- re-dispatch) a row whose record was merely touched recently.
+--
+-- CC-RECOVERY-21: the `relay_claimed = true` condition this backfill shipped with assumed the
+-- still-deployed old route HAD been successfully recording claims that way. Verified directly
+-- against this database's actual production schema: it has not. relay_claimed never existed
+-- there before this migration, so every historical send's claim attempt has always errored and
+-- fallen through that route's own "fail OPEN" branch, leaving no trace. The original condition
+-- therefore backfills zero rows on real data — provably: a migration rehearsal against a
+-- reproduction of the live 432-row table left all 432 rows `pending`, not `legacy`, which is
+-- exactly the historical-row re-dispatch risk this file exists to close. Dropped the condition
+-- entirely: ANY row still at the just-added default ('pending') and older than the lease is
+-- history, full stop, independent of whatever relay_claimed holds (which this migration adds in
+-- the same transaction, so nothing outside it can have written true to it yet regardless). The
+-- age guard is kept for exactly the reason in the comment above it: a future re-apply (e.g.
+-- during a deploy) must not freeze a message a NEW, already-deployed claim path inserted and is
+-- still legitimately working on.
+--
+-- OPERATIONAL CAVEAT (independent review, CC-RECOVERY-21): the 300s guard only protects a row
+-- that is still 'pending'. A re-apply will still sweep any OTHER pending-at-the-time row older
+-- than the lease into 'legacy' -- including a genuinely new, real, not-yet-dispatched message if
+-- this migration runs again more than 5 minutes after it was saved but before it was claimed.
+-- That is a narrow window (the claim normally happens within the same request), but it means this
+-- file is not safe to re-run casually once real traffic depends on it. Apply it exactly once,
+-- before the code that calls cc_claim_relay_dispatch is deployed -- see
+-- ops-handoff/CC-RECOVERY-21-MIGRATION-DEPLOYMENT-SEQUENCE.md for the full sequence. A
+-- rollback-then-reapply cycle is lossier still: the rollback drops relay_status entirely, so a
+-- later forward re-apply backfills EVERY aged row to 'legacy' again, including ones that had
+-- reached a real 'failed' or 'delivered' outcome in between -- that outcome history does not
+-- survive a rollback.
 update public.messages
    set relay_status = 'legacy',
        relay_claimed_at = coalesce(relay_claimed_at, created_at, now())
- where relay_claimed = true
-   and relay_status = 'pending'
+ where relay_status = 'pending'
    and coalesce(relay_claimed_at, created_at, now()) < now() - interval '300 seconds';
 
 comment on column public.messages.relay_status is
