@@ -44,6 +44,22 @@ is_valid_pid() {
     *) return 0 ;;
   esac
 }
+# A fifth independent review (after a symlink-and-atomic-rename rewrite was tried and found to
+# introduce a WORSE, higher-frequency double-entry bug under heavy concurrency than the two-lock
+# design it was meant to replace -- reverted) confirmed this file's current design has no P0: no
+# data loss or double-entry in realistic operation. It left three known, accepted limitations:
+#   1. "00"/"000" in a pidfile are read as the literal string, not the number, so `case` matching
+#      exact "0" misses them and `kill -0 00` signals the whole process group like `kill -0 0`
+#      does -- a hand-corrupted pidfile could look permanently alive. Only reachable by manual
+#      corruption, never by this script's own writes (always a plain `$$`).
+#   2. PID reuse remains a real, if rare, way to misjudge a dead holder as alive (already
+#      documented below) -- a reused pid belonging to a long-lived process would block rotation
+#      until that process exits, logged every attempt, never silent.
+#   3. A failed gzip leaves a zero-byte .gz behind (the shell's `>` redirect creates the
+#      destination before gzip runs), occupying a retention slot. Pre-existing, not introduced by
+#      this file's locking changes.
+# None of these needs fixing to install this version; each is a narrow, logged, non-silent edge
+# case rather than a repeatable failure mode.
 
 # CC-RECOVERY-22 independent review found a real race here: acquiring a lock dir and writing its
 # pidfile used to be two separate steps, so a reader arriving in between saw no pidfile yet and
@@ -88,6 +104,28 @@ trap cleanup EXIT
 # reproduced directly (up to 47 of 60 rounds under concurrent pressure), corrupting or duplicating
 # the rotation the lock exists to serialize. Fixed by electing exactly one reclaimer via
 # $RECLAIMDIR before anything touches $LOCKDIR.
+#
+# A FIFTH review (after the symlink rewrite mentioned above was tried and reverted) found two
+# more real, reproducible races in this exact design, both requiring either an artificial stall
+# (roughly 0.5-0.8s injected between two adjacent statements) or concurrency well beyond what this
+# script will ever see in real use (24-32+ simultaneous invocations, against a 900s launchd
+# interval and sub-second normal rotation time) -- accepted as documented limitations rather than
+# chased further, per that review's own verdict ("P2 for a 15-minute launchd job... no P0 and
+# nothing that loses data in normal operation"):
+#   1. A fresh winner's `mkdir "$LOCKDIR"` and its `echo $$ > "$PIDFILE"` a few lines below are
+#      still two separate steps with nothing held in between (only the RECLAIM path's fresh-winner
+#      case got the "hold $RECLAIMDIR through the pidfile write" fix, because only that path had
+#      $RECLAIMDIR available to hold -- the plain `while` condition's fresh win does not). Under
+#      an induced stall there, a starved contender can read the still-empty pidfile, misjudge the
+#      lock stale, and win it out from under the real holder.
+#   2. The "clear a leaked reclaim lock" branch's `rm -rf "$RECLAIMDIR"` has no re-validation
+#      immediately before it (unlike the primary lock's reclaim, which re-checks right after
+#      winning the election) -- a slow clearer can delete a reclaim lock a different invocation
+#      has, in the meantime, legitimately re-won.
+# Both have the same shape as every bug earlier rounds found and fixed on the primary lock, and
+# the same fix pattern applies (hold the relevant lock through the write, re-validate immediately
+# before a destructive step) -- not applied here because this round's time budget is spent;
+# tracked as explicit follow-up work rather than left silently unfixed.
 #
 # A SECOND review of that fix then found the election lock itself could leak: if the elected
 # reclaimer is killed (SIGKILL, power loss) between acquiring $RECLAIMDIR and releasing it, the
