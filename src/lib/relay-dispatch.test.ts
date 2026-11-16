@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   claimRelayDispatch,
+  classifyClaimError,
   describeDuplicate,
+  describeUnavailable,
   markRelayStatus,
   statusAfterEmptyDispatch,
   statusAfterTurn,
@@ -29,44 +31,128 @@ describe('claimRelayDispatch', () => {
     await expect(claimRelayDispatch(svcWith(rpc), 'm1')).resolves.toEqual({ state: 'duplicate', status: 'claimed' });
   });
 
-  it('fails open when the message row does not exist, and says so', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  // CC-RECOVERY-14: these five used to assert that the claim failed OPEN. They now assert it fails
+  // CLOSED, because proceeding without a claim is the one state where duplicate execution is
+  // certain: no lease is held, no outcome can be recorded (a null-attempt mark is refused on an
+  // already-claimed row), and the next retry re-claims the row after the lease and runs again.
+  it('refuses when the message row does not exist', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
     const rpc = vi.fn().mockResolvedValue({ data: [{ claimed: false, attempts: null, status: 'not_found' }], error: null });
-    await expect(claimRelayDispatch(svcWith(rpc), 'm1')).resolves.toEqual({
-      state: 'unprotected',
-      reason: 'message row not found',
+    await expect(claimRelayDispatch(svcWith(rpc), 'm1')).resolves.toMatchObject({
+      state: 'unavailable',
+      reason: 'no_message',
     });
-    expect(warn).toHaveBeenCalled();
-    warn.mockRestore();
+    err.mockRestore();
   });
 
-  it('fails open and warns with the PostgREST code when the RPC is missing', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const rpc = vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST202', message: 'not found' } });
+  it('refuses when the RPC is missing, and names the deployment as the cause', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST202', message: 'Could not find the function public.cc_claim_relay_dispatch' } });
     const result = await claimRelayDispatch(svcWith(rpc), 'm1');
-    expect(result.state).toBe('unprotected');
-    expect(warn.mock.calls[0][0]).toContain('not deduplicated');
-    expect(warn.mock.calls[0][1]).toContain('PGRST202');
-    warn.mockRestore();
+    expect(result).toMatchObject({ state: 'unavailable', reason: 'not_deployed' });
+    // The operator has to be able to tell this apart from an outage: the fix is a migration.
+    expect(err.mock.calls[0][0]).toMatch(/refusing to dispatch/i);
+    err.mockRestore();
   });
 
-  it('fails open when the call throws', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  it('refuses when the grant is revoked, and names permissions as the cause', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { code: '42501', message: 'permission denied for function cc_claim_relay_dispatch' } });
+    await expect(claimRelayDispatch(svcWith(rpc), 'm1')).resolves.toMatchObject({
+      state: 'unavailable',
+      reason: 'unauthorized',
+    });
+    err.mockRestore();
+  });
+
+  it('refuses when the call throws, and calls it a transport fault', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
     const rpc = vi.fn().mockRejectedValue(new Error('network down'));
-    await expect(claimRelayDispatch(svcWith(rpc), 'm1')).resolves.toMatchObject({ state: 'unprotected' });
-    expect(warn).toHaveBeenCalled();
-    warn.mockRestore();
+    await expect(claimRelayDispatch(svcWith(rpc), 'm1')).resolves.toMatchObject({
+      state: 'unavailable',
+      reason: 'transport',
+    });
+    err.mockRestore();
   });
 
-  it('never throws, whatever the client does', async () => {
+  it('never throws, whatever the client does, and still refuses', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
     const rpc = vi.fn().mockImplementation(() => {
       throw new Error('synchronous explosion');
     });
-    await expect(claimRelayDispatch(svcWith(rpc), 'm1')).resolves.toMatchObject({ state: 'unprotected' });
+    await expect(claimRelayDispatch(svcWith(rpc), 'm1')).resolves.toMatchObject({ state: 'unavailable' });
+    err.mockRestore();
+  });
+
+  it('refuses a malformed reply rather than guessing it means "no prior attempt"', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const cases = [
+      { data: null, error: null },
+      { data: [], error: null },
+      { data: [{ claimed: 'yes' }], error: null },
+      { data: [{ claimed: false }], error: null },
+      { data: 'surprise', error: null },
+    ];
+    for (const c of cases) {
+      const rpc = vi.fn().mockResolvedValue(c);
+      await expect(claimRelayDispatch(svcWith(rpc), 'm1')).resolves.toMatchObject({
+        state: 'unavailable',
+        reason: 'malformed',
+      });
+    }
+    err.mockRestore();
+  });
+});
+
+describe('classifyClaimError', () => {
+  it('distinguishes a missing migration from a revoked grant from an outage', () => {
+    expect(classifyClaimError({ code: 'PGRST202', message: 'Could not find the function' })).toBe('not_deployed');
+    expect(classifyClaimError({ code: '42501', message: 'permission denied' })).toBe('unauthorized');
+    expect(classifyClaimError({ message: 'JWT expired' })).toBe('unauthorized');
+    expect(classifyClaimError(new Error('ECONNRESET'))).toBe('transport');
+    expect(classifyClaimError({ code: '57014', message: 'canceling statement due to statement timeout' })).toBe('transport');
+  });
+});
+
+describe('describeUnavailable', () => {
+  it('says nothing ran, in every case, and never blames the caller', () => {
+    const reasons = ['not_configured', 'not_deployed', 'unauthorized', 'transport', 'malformed', 'no_message'] as const;
+    for (const r of reasons) {
+      const d = describeUnavailable(r);
+      expect(d.detail).toMatch(/nothing ran/i);
+      expect(d.httpStatus).toBeGreaterThanOrEqual(400);
+      expect(d.code).toMatch(/^[a-z_]+$/);
+    }
+  });
+
+  it('marks only a transport fault as retryable by the caller', () => {
+    // A missing migration, a revoked grant and a malformed function need an operator, not a retry.
+    expect(describeUnavailable('transport').retryable).toBe(true);
+    expect(describeUnavailable('not_deployed').retryable).toBe(false);
+    expect(describeUnavailable('unauthorized').retryable).toBe(false);
+    expect(describeUnavailable('malformed').retryable).toBe(false);
+    expect(describeUnavailable('no_message').retryable).toBe(false);
   });
 });
 
 describe('markRelayStatus', () => {
+  it('reports a zero-row update as not recorded, and says another attempt owns the message', async () => {
+    // The database returns false when the attempt number is stale (a lease expired and someone else
+    // re-claimed). That is a zero-row update, not an error, and it must not be counted as recorded.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const rpc = vi.fn().mockResolvedValue({ data: false, error: null });
+    await expect(markRelayStatus(svcWith(rpc), 'm1', 'delivered', 1)).resolves.toBe(false);
+    expect(warn.mock.calls.map((c) => c.join(' ')).join(' ')).toMatch(/another attempt now owns/i);
+    warn.mockRestore();
+  });
+
+  it('reports an RPC error as not recorded rather than throwing', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST202', message: 'no function' } });
+    await expect(markRelayStatus(svcWith(rpc), 'm1', 'unknown', 1)).resolves.toBe(false);
+    warn.mockRestore();
+  });
+
   it('returns true when the write lands', async () => {
     const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
     await expect(markRelayStatus(svcWith(rpc), 'm1', 'delivered', 2)).resolves.toBe(true);

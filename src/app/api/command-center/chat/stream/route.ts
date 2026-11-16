@@ -11,6 +11,7 @@ import { ownerOnly } from "@/lib/server/command-center-guard";
 import {
   claimRelayDispatch,
   describeDuplicate,
+  describeUnavailable,
   markRelayStatus,
   statusAfterEmptyDispatch,
   statusAfterTurn,
@@ -196,8 +197,41 @@ async function POST_handler(req: NextRequest) {
       try {
         send("meta", { agent: target, displayName, threadParentId: threadUuid ?? null });
 
-        if (svc && userMessageId) {
+        // Fail closed, before any provider is touched (CC-RECOVERY-14). See the JSON route: an
+        // absent message id and an unavailable claim are both refusals, not degraded modes.
+        if (!userMessageId) {
+          send("error", {
+            error: "user_message_id_required",
+            detail:
+              "This route dispatches an agent turn for one persisted message and needs its id to do so safely. Nothing ran.",
+            retryable: false,
+          });
+          controller.close();
+          return;
+        }
+        if (!svc) {
+          const u = describeUnavailable("not_configured");
+          send("error", {
+            error: u.code,
+            detail: u.detail,
+            retryable: u.retryable,
+          });
+          controller.close();
+          return;
+        }
+        {
           const claim = await claimRelayDispatch(svc, userMessageId);
+          if (claim.state === "unavailable") {
+            const u = describeUnavailable(claim.reason);
+            send("error", {
+              error: u.code,
+              detail: u.detail,
+              relayUnavailable: claim.reason,
+              retryable: u.retryable,
+            });
+            controller.close();
+            return;
+          }
           if (claim.state === "claimed") {
             claimAttempt = claim.attempt;
           } else if (claim.state === "duplicate") {

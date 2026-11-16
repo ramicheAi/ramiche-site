@@ -113,19 +113,28 @@ describe("POST /api/command-center/chat — relay dispatch claim", () => {
     expect(body.alreadyDispatched).toBeUndefined();
   });
 
-  it("fails open when the claim function is missing, and says so", async () => {
-    // A silent fail-open is how this mechanism can be completely inert while chat looks healthy.
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const { body } = await runWithClaim({
+  it("refuses to dispatch when the claim function is missing, and names the cause", async () => {
+    // CC-RECOVERY-14. This used to fail open and dispatch anyway. That was the one state where the
+    // duplicate-dispatch guarantee was provably absent, so it is now a refusal: 503, a code that
+    // tells the operator it is a deployment problem, and no provider touched.
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { res, body, rpc } = await runWithClaim({
       data: null,
       error: { code: "PGRST202", message: "Could not find the function public.cc_claim_relay_dispatch" },
     });
+    expect(res.status).toBe(503);
+    expect(body.ok).toBe(false);
+    expect(body.error).toBe("relay_not_deployed");
+    expect(body.relayUnavailable).toBe("not_deployed");
+    expect(body.retryable).toBe(false);
+    expect(body.detail).toMatch(/nothing ran/i);
     expect(body.alreadyDispatched).toBeUndefined();
-    // Shared helper contract: the warning names the failure and carries the PostgREST code, so a
-    // silently dead claim is visible instead of inferred from a user complaining about duplicates.
-    const logged = warn.mock.calls.map((c) => c.join(" ")).join("\n");
-    expect(logged).toContain("not deduplicated");
-    expect(logged).toContain("PGRST202");
-    warn.mockRestore();
+    // The claim was consulted, and nothing beyond it happened.
+    expect(rpc).toHaveBeenCalledWith("cc_claim_relay_dispatch", expect.objectContaining({
+      p_message_id: "22222222-2222-2222-2222-222222222222",
+    }));
+    const logged = err.mock.calls.map((c) => c.join(" ")).join("\n");
+    expect(logged).toMatch(/refusing to dispatch/i);
+    err.mockRestore();
   });
 });

@@ -116,6 +116,15 @@ describe("approveSynthesisMessage — relay claim closes the concurrent-approval
     const rpc = vi.fn((...args: unknown[]) => {
       if (args[0] === "cc_claim_relay_dispatch") {
         order.push("claim");
+        // A raw {data,error} may be passed to simulate a failed or malformed claim.
+        if (
+          claimData &&
+          typeof claimData === "object" &&
+          ("error" in (claimData as object) || "data" in (claimData as object)) &&
+          !Array.isArray(claimData)
+        ) {
+          return Promise.resolve(claimData as { data: unknown; error: unknown });
+        }
         return Promise.resolve({ data: claimData, error: null });
       }
       if (args[0] === "cc_mark_relay_status") {
@@ -202,6 +211,70 @@ describe("approveSynthesisMessage — relay claim closes the concurrent-approval
     expect(order).toContain("mark:unknown");
     expect(order).not.toContain("mark:delivered");
     err.mockRestore();
+  });
+
+  it("refuses to run the plan when the claim is unavailable, and dispatches nothing", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { result, order } = await run({ data: null, error: { code: "PGRST202", message: "no function" } });
+    expect(result.ok).toBe(false);
+    expect((result as { status?: number }).status).toBe(503);
+    expect(String((result as { error?: string }).error)).toMatch(/nothing ran/i);
+    expect(order).not.toContain("dispatch");
+    err.mockRestore();
+  });
+
+  it("refuses when the claim returns a malformed row", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { result, order } = await run({ data: [{ claimed: "yes" }], error: null });
+    expect(result.ok).toBe(false);
+    expect((result as { status?: number }).status).toBe(503);
+    expect(order).not.toContain("dispatch");
+    err.mockRestore();
+  });
+
+  it("two simultaneous approvals run the plan once", async () => {
+    // The metadata guard is a read and is written only after every action finishes, so it cannot
+    // stop this. The atomic claim is the only thing that can.
+    //
+    // "Once" is measured against a single approval rather than a hardcoded count: one approval
+    // dispatches more than once internally (execute then verify), so only the comparison is
+    // meaningful.
+    async function runApprovals(n: number) {
+      const calls = { claims: 0 };
+      const order: string[] = [];
+      const rpc = vi.fn((...args: unknown[]) => {
+        if (args[0] === "cc_claim_relay_dispatch") {
+          calls.claims += 1;
+          return Promise.resolve({
+            data: [{ claimed: calls.claims === 1, attempts: 1, status: "claimed" }],
+            error: null,
+          });
+        }
+        return Promise.resolve({ data: true, error: null });
+      });
+      createClient.mockReturnValue(makeSvc(rpc, PLAN, null, true));
+      executeCompletion.mockImplementation(async () => {
+        order.push("dispatch");
+        return { ok: true, text: "done" };
+      });
+      vi.resetModules();
+      const { approveSynthesisMessage } = await import("./cc-approve-synthesis");
+      const results = await Promise.all(
+        Array.from({ length: n }, () => approveSynthesisMessage(SYNTHESIS_ID)),
+      );
+      return { results, dispatches: order.filter((x) => x === "dispatch").length };
+    }
+
+    const baseline = await runApprovals(1);
+    const concurrent = await runApprovals(2);
+
+    expect(baseline.dispatches).toBeGreaterThan(0);
+    expect(concurrent.results.filter((r) => r.ok)).toHaveLength(1);
+    expect(concurrent.results.filter((r) => !r.ok)).toHaveLength(1);
+    expect((concurrent.results.find((r) => !r.ok) as { status?: number }).status).toBe(409);
+    // The second approval added no dispatch of its own.
+    expect(concurrent.dispatches).toBe(baseline.dispatches);
+    expect(concurrent.dispatches).toBeLessThan(baseline.dispatches * 2);
   });
 
   it("refuses a legacy synthesis with the truth rather than asking the operator to wait", async () => {

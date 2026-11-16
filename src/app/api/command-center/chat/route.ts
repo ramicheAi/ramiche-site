@@ -22,6 +22,7 @@ import { ownerOnly } from "@/lib/server/command-center-guard";
 import {
   claimRelayDispatch,
   describeDuplicate,
+  describeUnavailable,
   markRelayStatus,
   statusAfterEmptyDispatch,
   statusAfterTurn,
@@ -1136,27 +1137,56 @@ async function POST_handler(req: NextRequest) {
     // unrelated channel chatter.
     const svc = getSupabaseService();
 
-    // Relay-dispatch idempotency (CC-RECOVERY-DELIVERY-CONVERGENCE-01): this
-    // route is a SEPARATE client-initiated call from the message-persistence
-    // write in .../conversations/[id]/messages/route.ts, so de-duplicating
-    // the persisted ROW there does not by itself de-duplicate the AGENT
-    // DISPATCH — a lost-ack retry of the send correctly reuses the original
-    // message id, but each client attempt that reaches this far would
-    // otherwise still trigger its own agent turn. Claim the right to
-    // dispatch atomically, server-side, via a conditional UPDATE keyed by
-    // the persisted message id (stable across retries) — never by any
-    // client-side "was this a replay" guess, which can't tell whether an
-    // EARLIER attempt's dispatch actually happened or was itself lost.
-    // Fails OPEN (proceeds with dispatch) if the column doesn't exist yet
-    // (prepared migration not applied) or on any lookup error — this must
-    // never be the reason a legitimate, first-ever send gets no reply.
+    // Relay-dispatch idempotency (CC-RECOVERY-DELIVERY-CONVERGENCE-01): this route is a SEPARATE
+    // client-initiated call from the message-persistence write in
+    // .../conversations/[id]/messages/route.ts, so de-duplicating the persisted ROW there does not
+    // by itself de-duplicate the AGENT DISPATCH.
+    //
+    // This route FAILS CLOSED (CC-RECOVERY-14). Without a persisted message id there is nothing to
+    // claim, and with the claim unavailable there is no way to know whether another attempt owns
+    // this message. In both cases the route refuses and dispatches nothing. The previous version
+    // proceeded in both cases, which meant "omitting userMessageId" was a complete bypass of the
+    // claim, and an unavailable claim was the one situation where duplicate execution was certain.
+    if (!userMessageId) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "user_message_id_required",
+          detail:
+            "This route dispatches an agent turn for one persisted message and needs its id to do so safely. Nothing ran. Save the message, then send its id as userMessageId.",
+        },
+        { status: 400 }
+      );
+    }
+
     let claimAttempt: number | null = null;
     relayFailureTracker.svc = svc;
     relayFailureTracker.userMessageId = userMessageId;
-    if (svc && userMessageId) {
+    {
+      if (!svc) {
+        const u = describeUnavailable("not_configured");
+        return NextResponse.json(
+          { ok: false, error: u.code, detail: u.detail, retryable: u.retryable },
+          { status: u.httpStatus }
+        );
+      }
       // One claim implementation, shared with the streaming route. If either route grew its own
       // copy, the other would be a callable bypass for duplicate dispatch.
       const claim = await claimRelayDispatch(svc, userMessageId);
+      if (claim.state === "unavailable") {
+        // Refuse. No provider has been touched at this point, and none will be.
+        const u = describeUnavailable(claim.reason);
+        return NextResponse.json(
+          {
+            ok: false,
+            error: u.code,
+            detail: u.detail,
+            relayUnavailable: claim.reason,
+            retryable: u.retryable,
+          },
+          { status: u.httpStatus }
+        );
+      }
       if (claim.state === "claimed") {
         claimAttempt = claim.attempt;
         relayFailureTracker.attempt = claimAttempt;
@@ -1178,10 +1208,6 @@ async function POST_handler(req: NextRequest) {
           },
           { status: 409 }
         );
-      } else {
-        // Unprotected: the claim could not be consulted. The warning is logged inside the helper;
-        // dispatch proceeds so a schema problem is not a chat outage.
-        relayFailureTracker.attempt = null;
       }
     }
 

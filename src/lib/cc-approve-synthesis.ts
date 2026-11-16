@@ -33,7 +33,12 @@ import {
   executeOpenClaw,
 } from "@/lib/provider-adapter";
 import { processImageMarkers } from "@/lib/image-gen/markers";
-import { claimRelayDispatch, describeDuplicate, markRelayStatus } from "@/lib/relay-dispatch";
+import {
+  claimRelayDispatch,
+  describeDuplicate,
+  describeUnavailable,
+  markRelayStatus,
+} from "@/lib/relay-dispatch";
 
 export const TENANT_ID = "11111111-1111-1111-1111-111111111111";
 
@@ -831,12 +836,20 @@ export async function approveSynthesisMessageStreamed(
     }
     return { ok: false, error: dup.detail, status: 409 };
   }
+  if (claim.state === "unavailable") {
+    // Fail closed (CC-RECOVERY-14). Nothing has been dispatched at this point: the claim is taken
+    // before the first action. An unavailable claim means we cannot know whether another approval
+    // is already running the plan, and a plan dispatched twice runs every action twice.
+    const u = describeUnavailable(claim.reason);
+    return {
+      ok: false,
+      error: u.detail,
+      status: u.httpStatus,
+    };
+  }
   if (claim.state === "claimed") {
     claimAttempt = claim.attempt;
   }
-  // 'unprotected' means the claim could not be consulted (migration not applied, grant revoked,
-  // transport fault). The helper logs it. Proceed: a schema problem must not block approving, and
-  // the caller can see in the logs that deduplication is off.
 
   const channelId = row.channel_id as string;
   const tenantId = (row.tenant_id as string) || TENANT_ID;

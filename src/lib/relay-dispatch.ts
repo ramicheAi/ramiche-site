@@ -36,32 +36,150 @@ export type RelayStatus =
   | "failed_permanent"
   | "legacy";
 
+/**
+ * Why a claim could not be obtained. Every one of these is a failure to confirm that this message
+ * is safe to dispatch, and none of them permits dispatch.
+ */
+export type RelayUnavailableReason =
+  | "not_configured"
+  | "not_deployed"
+  | "unauthorized"
+  | "transport"
+  | "malformed"
+  | "no_message";
+
 export type RelayClaim =
   /** We hold the lease. `attempt` fences the eventual mark. */
   | { state: "claimed"; attempt: number | null }
   /** Someone else holds the lease, or the turn is already terminal. */
   | { state: "duplicate"; status: string }
   /**
-   * The claim could not be consulted at all (migration not applied, grant revoked, transport
-   * failure, row missing). The caller proceeds — refusing every send while the mechanism is
-   * unavailable would turn a schema problem into a chat outage — but the caller must log, because
-   * this is the state in which deduplication is silently absent.
+   * The claim could not be consulted, so we do not know whether another attempt owns this message.
+   * The caller MUST NOT dispatch. Proceeding here was the previous behaviour and it was wrong: it
+   * turned "deduplication is unavailable" into "dispatch anyway, twice if someone retries", which
+   * is precisely the failure the claim exists to prevent. A missing function, a revoked grant, a
+   * PostgREST outage and a malformed reply are all the same answer to the caller: not confirmed,
+   * nothing sent.
    */
-  | { state: "unprotected"; reason: string };
+  | { state: "unavailable"; reason: RelayUnavailableReason; detail: string };
 
 function describe(error: unknown): string {
   if (error && typeof error === "object") {
-    const e = error as { code?: string; message?: string };
-    return [e.code, e.message].filter(Boolean).join(" ") || "unknown error";
+    const e = error as { code?: string; message?: string; details?: string; hint?: string };
+    return [e.code, e.message, e.details, e.hint].filter(Boolean).join(" ") || "unknown error";
   }
-  return typeof error === "string" ? error : "unknown error";
+  return typeof error === "string" && error ? error : "unknown error";
+}
+
+/**
+ * Map a PostgREST/transport failure onto a reason an operator can act on.
+ *
+ * The distinction matters because the three core causes need three different fixes: deploy the
+ * migration, restore the grant, or wait out the outage. Collapsing them into one "relay error"
+ * would tell the operator nothing.
+ */
+export function classifyClaimError(error: unknown): RelayUnavailableReason {
+  const text = describe(error);
+  const code = (error && typeof error === "object" ? (error as { code?: unknown }).code : undefined) ?? "";
+  const codeStr = typeof code === "string" ? code : "";
+
+  // PostgREST's "function not in the schema cache": the migration has not been applied.
+  if (codeStr === "PGRST202" || /could not find the function|schema cache/i.test(text)) {
+    return "not_deployed";
+  }
+  // Postgres insufficient_privilege, or PostgREST rejecting the key before it reaches the database.
+  if (
+    codeStr === "42501" ||
+    /permission denied|insufficient privilege|jwt|invalid api key|no api key/i.test(text)
+  ) {
+    return "unauthorized";
+  }
+  // Everything else is a transport or server fault: a timeout, a reset, a 5xx.
+  return "transport";
+}
+
+/**
+ * The truthful, client-facing description of a refusal to dispatch.
+ *
+ * Written once so the four dispatchers cannot describe the same condition differently. Every
+ * message states the one fact the caller needs and cannot otherwise know: nothing ran.
+ *
+ * `retryable` means "retrying this exact request, unchanged, may succeed". A missing migration and
+ * a missing grant are not retryable by the caller because no retry will change them; they need an
+ * operator. A transport fault is.
+ */
+export function describeUnavailable(reason: RelayUnavailableReason): {
+  httpStatus: number;
+  code: string;
+  retryable: boolean;
+  detail: string;
+} {
+  switch (reason) {
+    case "not_configured":
+      return {
+        httpStatus: 503,
+        code: "relay_not_configured",
+        retryable: false,
+        detail:
+          "The server has no database configured, so it cannot record who is allowed to dispatch this message. No agent turn was dispatched. Nothing ran.",
+      };
+    case "not_deployed":
+      return {
+        httpStatus: 503,
+        code: "relay_not_deployed",
+        retryable: false,
+        detail:
+          "The relay's deduplication function is not installed on this database, so no agent turn was dispatched. Nothing ran. This needs a deployment fix, not a retry.",
+      };
+    case "unauthorized":
+      return {
+        httpStatus: 503,
+        code: "relay_unauthorized",
+        retryable: false,
+        detail:
+          "The relay's deduplication function rejected this server's credentials, so no agent turn was dispatched. Nothing ran. This is a server permissions problem, not a problem with your message.",
+      };
+    case "malformed":
+      return {
+        httpStatus: 503,
+        code: "relay_malformed",
+        retryable: false,
+        detail:
+          "The relay's deduplication function returned a result this server cannot interpret, so no agent turn was dispatched. Nothing ran. Retrying will not help until that function is fixed.",
+      };
+    case "no_message":
+      return {
+        httpStatus: 404,
+        code: "message_not_found",
+        retryable: false,
+        detail:
+          "No persisted message matches that id, so no agent turn was dispatched. Nothing ran. Save the message first, then dispatch against its id.",
+      };
+    case "transport":
+    default:
+      return {
+        httpStatus: 503,
+        code: "relay_unavailable",
+        retryable: true,
+        detail:
+          "The relay could not confirm that this message is safe to dispatch, so no agent turn was sent. Nothing ran. Retry shortly.",
+      };
+  }
 }
 
 /**
  * Claim the right to dispatch one agent turn for a persisted message.
  *
- * Never throws. A missing RPC, a revoked grant and a network fault all become `unprotected` with a
- * warning, so the chat keeps working and the operator can see that dedup is off.
+ * Never throws: every failure mode becomes `unavailable` with a typed reason, and the caller must
+ * refuse to dispatch. This is the whole point of the function. It used to return `unprotected` and
+ * the callers proceeded, which meant the mechanism's own failures were the one situation where
+ * duplicate dispatch was guaranteed to be possible: no claim was held, no outcome could be
+ * recorded (a mark with a null attempt is refused on an already-claimed row), and the next retry
+ * re-claimed the row after the lease and ran the agent again.
+ *
+ * A malformed reply is treated as "cannot confirm", not as "no prior attempt". The difference
+ * matters: a function that returns something unexpected is a function we do not understand well
+ * enough to trust with a dispatch decision.
  */
 export async function claimRelayDispatch(
   svc: SupabaseClient,
@@ -74,33 +192,67 @@ export async function claimRelayDispatch(
       p_lease_seconds: leaseSeconds,
     });
     if (error) {
-      const reason = describe(error);
-      console.warn("[relay] claim unavailable, dispatch is not deduplicated:", reason);
-      return { state: "unprotected", reason };
+      const reason = classifyClaimError(error);
+      // Error level, not warn: this is now a refusal to serve a dispatch, not a degraded mode.
+      console.error(
+        "[relay] claim failed, refusing to dispatch:",
+        reason,
+        describe(error),
+      );
+      return { state: "unavailable", reason, detail: describe(error) };
     }
+
     const row = Array.isArray(data) ? data[0] : data;
-    if (!row) {
-      console.warn("[relay] claim returned no row, dispatch is not deduplicated");
-      return { state: "unprotected", reason: "claim returned no row" };
-    }
-    if (row.claimed === true) {
+    if (!row || typeof row !== "object") {
+      console.error("[relay] claim returned no usable row, refusing to dispatch");
       return {
-        state: "claimed",
-        attempt: typeof row.attempts === "number" ? row.attempts : null,
+        state: "unavailable",
+        reason: "malformed",
+        detail: `expected one row, got ${Array.isArray(data) ? "empty array" : typeof data}`,
       };
     }
-    const status = typeof row.status === "string" ? row.status : "unknown";
-    if (status === "not_found") {
-      // The id does not match a row. There is no prior attempt to be honest about, so proceed
-      // rather than holding a 409 forever for an id that will never resolve.
-      console.warn("[relay] claim found no message row, dispatching unclaimed");
-      return { state: "unprotected", reason: "message row not found" };
+
+    const record = row as { claimed?: unknown; attempts?: unknown; status?: unknown };
+    if (typeof record.claimed !== "boolean") {
+      console.error("[relay] claim row has no usable 'claimed' flag, refusing to dispatch");
+      return {
+        state: "unavailable",
+        reason: "malformed",
+        detail: `claimed is ${typeof record.claimed}, expected boolean`,
+      };
     }
-    return { state: "duplicate", status };
+
+    if (record.claimed) {
+      return {
+        state: "claimed",
+        attempt: typeof record.attempts === "number" ? record.attempts : null,
+      };
+    }
+
+    if (typeof record.status !== "string" || record.status === "") {
+      console.error("[relay] claim refused without a status, refusing to dispatch");
+      return {
+        state: "unavailable",
+        reason: "malformed",
+        detail: "claimed was false but no status was returned",
+      };
+    }
+    if (record.status === "not_found") {
+      // There is no row to attach a reply to and no attempt to be honest about. Dispatching would
+      // produce a turn whose result cannot be recorded anywhere, so refuse and say why.
+      console.error("[relay] claim found no message row, refusing to dispatch");
+      return {
+        state: "unavailable",
+        reason: "no_message",
+        detail: "cc_claim_relay_dispatch returned status not_found",
+      };
+    }
+
+    return { state: "duplicate", status: record.status };
   } catch (error) {
-    const reason = describe(error);
-    console.warn("[relay] claim threw, dispatch is not deduplicated:", reason);
-    return { state: "unprotected", reason };
+    const reason = classifyClaimError(error);
+    console.error("[relay] claim threw, refusing to dispatch:", reason, describe(error));
+    return { state: "unavailable", reason, detail: describe(error) };
   }
 }
 

@@ -131,13 +131,35 @@ describe("POST /api/command-center/chat/stream — relay claim", () => {
     expect(text).not.toContain("alreadyDispatched");
   });
 
-  it("fails open when the claim RPC is missing, and still dispatches once", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  it("refuses to dispatch when the claim RPC is missing, and says nothing ran", async () => {
+    // CC-RECOVERY-14. This used to dispatch anyway and still report "done", which is the worst
+    // combination: an agent turn ran with no lease and no recordable outcome.
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
     const { text } = await runWith({ data: null, error: { code: "PGRST202", message: "not found" } });
-    expect(executeOpenClaw).toHaveBeenCalledTimes(1);
-    expect(text).toContain("done");
-    expect(warn.mock.calls.some((c) => String(c[0]).includes("not deduplicated"))).toBe(true);
-    warn.mockRestore();
+    expect(executeOpenClaw).not.toHaveBeenCalled();
+    expect(text).toContain("relay_not_deployed");
+    expect(text).toContain('"retryable":false');
+    expect(text).not.toContain('"done"');
+    err.mockRestore();
+  });
+
+  it("refuses when the claim returns a malformed row, rather than treating it as unclaimed", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { text } = await runWith({ data: [{ claimed: "true" }], error: null });
+    expect(executeOpenClaw).not.toHaveBeenCalled();
+    expect(text).toContain("relay_malformed");
+    err.mockRestore();
+  });
+
+  it("refuses to dispatch when the request omits the message id", async () => {
+    // Without an id there is nothing to claim, so this is a bypass, not a degraded mode.
+    const { text, rpc } = await runWith(
+      { data: [{ claimed: true, attempts: 1, status: "claimed" }], error: null },
+      { body: { message: "hello", channelId: "11111111-1111-1111-1111-111111111111" } },
+    );
+    expect(executeOpenClaw).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalledWith("cc_claim_relay_dispatch", expect.anything());
+    expect(text).toContain("user_message_id_required");
   });
 
   it("records a thrown gateway call as unknown, never delivered", async () => {
