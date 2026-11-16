@@ -28,31 +28,15 @@ KEEP_GENERATIONS=10             # bounded retention -- old archives beyond this 
 # works as a lock without depending on `flock`, which macOS does not ship by default.
 LOCKDIR="$LOGDIR/.rotate.lock"
 PIDFILE="$LOCKDIR/pid"
-# CC-RECOVERY-22: a PURE time-based staleness check (the CC-RECOVERY-21 version of this file) is
-# wrong, and was proven wrong by testing it directly: a legitimate rotation that happens to run
-# longer than the staleness threshold (a stalled gzip under real disk pressure -- the exact
-# condition this script exists for) would have its OWN lock "reclaimed" out from under it by a
-# second invocation, defeating the lock entirely for the one case it most needs to hold. Liveness,
-# not age, is the right test: the lock holder writes its PID into the lock dir, and a second
-# invocation checks whether that PID is still alive, however long the lock has existed. A lock is
-# stale only when its holder is provably gone (the pidfile is missing/unreadable, or `kill -0`
-# says that pid does not exist) -- never merely old. The EXIT trap below releases the lock on a
-# normal exit, an error exit (set -e) and most signals, but not SIGKILL or a hard crash; this is
-# what makes a lock left behind by one of those recoverable without a time guess.
-#
-# Known, accepted limitation: PID reuse. If the holder's PID is later reassigned to an unrelated
-# process before this check runs, `kill -0` would report "alive" for the wrong process and this
-# invocation would skip needlessly (safe direction: a missed rotation, not a lost lock) -- on a
-# quiet single host with launchd's own short-lived children, this is not worth the complexity of
-# a start-time comparison (`ps -o lstart=`) to close completely.
-# CC-RECOVERY-22 independent review found a real race here: `mkdir` and the pidfile write used to
-# be two separate steps, so a second invocation arriving in between saw a lock dir with no pidfile
-# yet, read an empty holder_pid, and declared a perfectly live holder's lock "stale" -- reproduced
-# directly (1 occurrence in a 300-round x 8-way concurrency stress test). Two changes close it:
-# the trap is set IMMEDIATELY after acquiring the lock, before anything else can fail partway and
-# leak it; and a loser that reads an EMPTY pidfile retries once after a brief pause rather than
-# treating "no pidfile yet" the same as "no pidfile ever" -- a live holder writes its own pid
-# within milliseconds of acquiring the lock, so one retry is enough to tell the two apart.
+# CC-RECOVERY-23: a second, independent mkdir-based lock, used ONLY to elect a single reclaimer
+# when the primary lock looks stale (see the acquisition loop below). It gets the exact same
+# liveness treatment as the primary lock, for the same reason: CC-RECOVERY-22's PID-liveness check
+# replaced a pure age check on $LOCKDIR because age cannot tell a slow-but-alive holder from a
+# dead one; this lock needs the identical property, or it would just relocate the same class of
+# bug one level down (see the "leaked reclaim lock" note below).
+RECLAIMDIR="$LOGDIR/.rotate.lock.reclaiming"
+RECLAIM_PIDFILE="$RECLAIMDIR/pid"
+
 is_valid_pid() {
   case "$1" in
     ''|*[!0-9]*) return 1 ;;  # empty, or contains a non-digit (rejects '-1', '0' is caught below)
@@ -61,10 +45,14 @@ is_valid_pid() {
   esac
 }
 
-read_holder_pid() {
-  local attempt pid
+# CC-RECOVERY-22 independent review found a real race here: acquiring a lock dir and writing its
+# pidfile used to be two separate steps, so a reader arriving in between saw no pidfile yet and
+# could misdiagnose a live holder as stale. One retry after a brief pause is enough: a live holder
+# writes its own pid within milliseconds of acquiring its lock dir.
+read_pid_file() {
+  local file="$1" attempt pid
   for attempt in 1 2; do
-    pid="$(cat "$PIDFILE" 2>/dev/null || true)"
+    pid="$(cat "$file" 2>/dev/null || true)"
     if [ -n "$pid" ]; then
       printf '%s' "$pid"
       return 0
@@ -74,18 +62,40 @@ read_holder_pid() {
   return 0
 }
 
-# CC-RECOVERY-23 independent review found a second, more serious race in the reclaim path above
-# (now replaced by the loop below): `rm -rf` then `mkdir` are two separate steps with no
-# protection between them, so TWO OR MORE invocations that each diagnose the same stale lock can
-# each run both steps, each believing it alone won the fresh `mkdir` -- reproduced directly (up to
-# 47 of 60 rounds under concurrent pressure), corrupting or duplicating the rotation the lock
-# exists to serialize. The fix elects exactly one reclaimer among any number of invocations that
-# all see the same stale lock, using a SECOND mkdir-based lock (atomic, same mechanism as the
-# primary one) purely to guard the reclaim itself: only the process that wins `$RECLAIMDIR` may
-# run `rm -rf` + `mkdir` on the real lock; every other invocation backs off and re-checks the
-# primary lock fresh on its next loop iteration, so it sees the winner's new pidfile and correctly
-# treats it as "held, alive" rather than racing to reclaim a second time.
-RECLAIMDIR="$LOGDIR/.rotate.lock.reclaiming"
+is_holder_alive() {
+  local pid
+  pid="$(read_pid_file "$1")"
+  is_valid_pid "$pid" && kill -0 "$pid" 2>/dev/null
+}
+
+# A single cleanup path for both locks, driven by flags rather than two separate traps (bash only
+# ever has one EXIT trap active; the second `trap` call would silently replace the first). Runs on
+# normal exit, an error exit (set -e) and most signals -- not SIGKILL or a hard crash, which is
+# exactly why BOTH locks also get the liveness treatment above rather than relying on this trap
+# alone to guarantee they are ever released.
+holding_lock=0
+holding_reclaim=0
+cleanup() {
+  [ "$holding_reclaim" -eq 1 ] && rm -rf "$RECLAIMDIR" 2>/dev/null
+  [ "$holding_lock" -eq 1 ] && rm -rf "$LOCKDIR" 2>/dev/null
+  return 0
+}
+trap cleanup EXIT
+
+# CC-RECOVERY-23 independent review found a serious race in an earlier version of this reclaim
+# path: `rm -rf` then `mkdir` on $LOCKDIR were two separate, unguarded steps, so multiple
+# invocations that each independently diagnosed the same stale lock could each run both steps --
+# reproduced directly (up to 47 of 60 rounds under concurrent pressure), corrupting or duplicating
+# the rotation the lock exists to serialize. Fixed by electing exactly one reclaimer via
+# $RECLAIMDIR before anything touches $LOCKDIR.
+#
+# A SECOND review of that fix then found the election lock itself could leak: if the elected
+# reclaimer is killed (SIGKILL, power loss) between acquiring $RECLAIMDIR and releasing it, the
+# directory is left behind with nothing to ever clear it -- every future invocation would see it
+# held, retry up to the attempt cap, and give up silently, forever, which is the exact disk-fill
+# failure this script exists to prevent. Fixed by giving $RECLAIMDIR the identical liveness check
+# as $LOCKDIR: a loser who can't acquire it reads ITS pidfile and checks whether that holder is
+# still alive before deciding whether to wait or to clear a leaked election lock immediately.
 attempt=0
 while ! mkdir "$LOCKDIR" 2>/dev/null; do
   attempt=$((attempt + 1))
@@ -93,40 +103,64 @@ while ! mkdir "$LOCKDIR" 2>/dev/null; do
     echo "$(date -Iseconds) could not acquire the lock after $attempt attempts, giving up this invocation" >> "$LOGDIR/bridge-sync-log-rotate.log"
     exit 0
   fi
-  holder_pid="$(read_holder_pid)"
-  if is_valid_pid "$holder_pid" && kill -0 "$holder_pid" 2>/dev/null; then
-    echo "$(date -Iseconds) another rotation is still running (pid $holder_pid), skipping this invocation" >> "$LOGDIR/bridge-sync-log-rotate.log"
+  if is_holder_alive "$PIDFILE"; then
+    echo "$(date -Iseconds) another rotation is still running, skipping this invocation" >> "$LOGDIR/bridge-sync-log-rotate.log"
     exit 0
   fi
   if mkdir "$RECLAIMDIR" 2>/dev/null; then
-    # Elected: we alone may reclaim. Re-validate immediately before touching anything, in case the
-    # holder's own pidfile write landed while we were on our way to winning this election.
-    holder_pid="$(read_holder_pid)"
-    if is_valid_pid "$holder_pid" && kill -0 "$holder_pid" 2>/dev/null; then
-      rmdir "$RECLAIMDIR" 2>/dev/null || true
-      echo "$(date -Iseconds) lock holder (pid $holder_pid) became live again during reclaim election, skipping" >> "$LOGDIR/bridge-sync-log-rotate.log"
+    holding_reclaim=1
+    echo $$ > "$RECLAIM_PIDFILE"
+    # Re-validate the PRIMARY holder immediately after winning the election, in case its own
+    # pidfile write landed while we were on our way to winning: the staleness verdict above is
+    # now stale itself.
+    if is_holder_alive "$PIDFILE"; then
+      rm -rf "$RECLAIMDIR" 2>/dev/null || true
+      holding_reclaim=0
+      echo "$(date -Iseconds) lock holder became live again during reclaim election, skipping" >> "$LOGDIR/bridge-sync-log-rotate.log"
       exit 0
     fi
-    echo "$(date -Iseconds) clearing a stale lock (holder pid '${holder_pid:-unknown}' is not running)" >> "$LOGDIR/bridge-sync-log-rotate.log"
+    echo "$(date -Iseconds) clearing a stale lock" >> "$LOGDIR/bridge-sync-log-rotate.log"
     rm -rf "$LOCKDIR" 2>/dev/null || true
     reclaimed=0
     mkdir "$LOCKDIR" 2>/dev/null && reclaimed=1 || true
-    rmdir "$RECLAIMDIR" 2>/dev/null || true
+    if [ "$reclaimed" -eq 1 ]; then
+      # Found by stress-testing this exact fix: releasing $RECLAIMDIR BEFORE writing the new
+      # $LOCKDIR's pidfile left a window where a second invocation could win a fresh election,
+      # see our brand-new lock with no pidfile in it yet, misdiagnose it as stale (the same
+      # "no pidfile written yet" case read_pid_file's retry exists for), and delete it out from
+      # under us before we got to write to it -- our own `echo $$ > "$PIDFILE"` then failed with
+      # "No such file or directory", reproduced directly. Holding $RECLAIMDIR through the pidfile
+      # write closes it: nobody else can even attempt an election while we still hold it.
+      holding_lock=1
+      echo $$ > "$PIDFILE"
+      rm -rf "$RECLAIMDIR" 2>/dev/null || true
+      holding_reclaim=0
+      break
+    fi
     # As the sole elected reclaimer, nothing else should have been able to recreate $LOCKDIR
     # between our rm and our mkdir -- if it still somehow failed (disk full, a permissions
-    # problem), fall through to the loop's own top-of-iteration mkdir rather than assume we hold
-    # a lock we don't.
-    [ "$reclaimed" -eq 1 ] && break
+    # problem), release the election and fall through to the loop's own top-of-iteration mkdir
+    # rather than assume we hold a lock we don't.
+    rm -rf "$RECLAIMDIR" 2>/dev/null || true
+    holding_reclaim=0
+  elif is_holder_alive "$RECLAIM_PIDFILE"; then
+    # Someone else is actively reclaiming right now. Back off briefly and re-check everything
+    # fresh -- do NOT touch $LOCKDIR while another invocation might be mid-reclaim on it.
+    sleep 0.1
+  else
+    # The election lock itself is stale: its holder died mid-reclaim. Clear it immediately
+    # (no backoff needed -- there is nothing live to wait for) and retry this same iteration.
+    echo "$(date -Iseconds) clearing a leaked reclaim lock" >> "$LOGDIR/bridge-sync-log-rotate.log"
+    rm -rf "$RECLAIMDIR" 2>/dev/null || true
   fi
-  # Someone else is reclaiming right now. Back off briefly and re-check the primary lock fresh --
-  # do NOT touch $LOCKDIR ourselves while another invocation might be mid-reclaim on it.
-  sleep 0.1
 done
-# Trap set BEFORE the pid write (and before anything else): if this process dies between here and
-# writing its pid, the lock is still released on any signal the trap catches, and a loser in that
-# narrow window now retries once (above) instead of acting on the empty file immediately.
-trap 'rm -rf "$LOCKDIR" 2>/dev/null || true' EXIT
-echo $$ > "$PIDFILE"
+# Reached only via the plain `while` condition winning $LOCKDIR fresh (no reclaim involved) --
+# the reclaim path above sets holding_lock/writes the pidfile itself, while still holding
+# $RECLAIMDIR, and `break`s before falling out here.
+if [ "$holding_lock" -eq 0 ]; then
+  holding_lock=1
+  echo $$ > "$PIDFILE"
+fi
 
 rotate_one() {
   local f="$1"
