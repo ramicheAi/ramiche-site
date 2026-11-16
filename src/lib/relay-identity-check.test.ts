@@ -89,15 +89,58 @@ describe("verifyRelayIdentity", () => {
     expect(result).toEqual({ ok: true });
   });
 
-  it("checks content exactness even for an attachment-style message", () => {
-    // Attachment-only sends persist a placeholder-free descriptor string (e.g. "[Image: a.png]"),
-    // not an empty string — the real callers in this codebase always send the SAME text for both
-    // persistence and dispatch, so an exact match is the correct, safe default. A caller sending
-    // something else is exactly the condition this check exists to catch.
+  it("checks content exactness for a caller that sends the same text both times (legacy console)", () => {
     const result = verifyRelayIdentity(
       { channel_id: "chan-1", content: "[Image: photo.png]" },
       { channelId: "chan-1", message: "[Image: photo.png]" },
     );
     expect(result).toEqual({ ok: true });
+  });
+
+  it("accepts the main chat page's real attachment shape: persisted text + an appended attachments block", () => {
+    // Independent review found the first version of this check refused EVERY attachment send
+    // from the main chat page: it persists just the typed text but dispatches that text with
+    // "\n\n[Attachments]\n- name: url" appended, by design, so the model can see what was
+    // attached. A caller that does this is not substituting content — it's the one real,
+    // documented shape this check must not misclassify as an attack.
+    const result = verifyRelayIdentity(
+      { channel_id: "chan-1", content: "check this out" },
+      {
+        channelId: "chan-1",
+        message: "check this out\n\n[Attachments]\n- photo.png: https://example.com/photo.png",
+      },
+    );
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("accepts an attachment-only send where the server persisted the '(attachment)' placeholder", () => {
+    // When no text was typed, the persistence route stores the literal placeholder
+    // "(attachment)" (see conversations/[id]/messages/route.ts) while the dispatched text is
+    // just the attachments block with no textual relation to that placeholder at all.
+    const result = verifyRelayIdentity(
+      { channel_id: "chan-1", content: "(attachment)" },
+      { channelId: "chan-1", message: "[Attachments]\n- photo.png: https://example.com/photo.png" },
+    );
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("still refuses genuinely substituted content even when it superficially looks attachment-like", () => {
+    // The relaxation above must not become "anything goes once there's a bracketed marker
+    // somewhere" — it only tolerates the exact persisted-text-plus-attachments-block shape.
+    const result = verifyRelayIdentity(
+      { channel_id: "chan-1", content: "the real persisted text" },
+      { channelId: "chan-1", message: "completely different text\n\n[Attachments]\n- x: y" },
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("content_mismatch");
+  });
+
+  it("still refuses plain substituted text with no attachments marker at all", () => {
+    const result = verifyRelayIdentity(
+      { channel_id: "chan-1", content: "(attachment)" },
+      { channelId: "chan-1", message: "attacker-controlled text with no marker" },
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("content_mismatch");
   });
 });

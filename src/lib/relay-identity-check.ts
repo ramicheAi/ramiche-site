@@ -59,7 +59,7 @@ export function verifyRelayIdentity(
   if ("content" in claimedRow) {
     const persisted = (claimedRow.content ?? "").trim();
     const requested = request.message.trim();
-    if (persisted !== requested) {
+    if (!textsMatchForDispatch(persisted, requested)) {
       return {
         ok: false,
         reason: "content_mismatch",
@@ -69,4 +69,28 @@ export function verifyRelayIdentity(
     }
   }
   return { ok: true };
+}
+
+/**
+ * Independent review of the first version of this check found it refused EVERY attachment send
+ * from the main chat page: that caller persists just the typed text (`trimmed`, or the server's
+ * "(attachment)" placeholder when there is none) but dispatches `trimmed` followed by an appended
+ * "[Attachments]\n- name: url..." block — by design, so the model can see what was attached. A
+ * strict equality check made every such send a permanent, un-retryable 409 (the client always
+ * resends the identical dispatch text). Accounts for that one real, documented shape rather than
+ * loosening the check generally: exact match, OR the dispatched text is the persisted text with
+ * an attachments block appended, OR the persisted text is the attachment-only placeholder and the
+ * dispatched text carries an attachments block. Anything else — unrelated substituted text — is
+ * still refused exactly as before.
+ */
+function textsMatchForDispatch(persisted: string, requested: string): boolean {
+  if (persisted === requested) return true;
+  const ATTACHMENTS_MARKER = "[Attachments]\n";
+  if (persisted === "(attachment)") {
+    return requested.startsWith(ATTACHMENTS_MARKER);
+  }
+  if (persisted.length > 0) {
+    return requested.startsWith(`${persisted}\n\n${ATTACHMENTS_MARKER}`);
+  }
+  return false;
 }
