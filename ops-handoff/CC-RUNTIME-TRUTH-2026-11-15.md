@@ -1158,3 +1158,89 @@ Safeguards written and tested, **not installed** (see `host-maintenance/`):
 Main `00d68238`. Vercel production `dpl_BxVfLSoZzLLB2Sto6SmxHZGEHT21`, untouched. Canonical cockpit
 `41d183a0`, pid 1834, untouched. Both branches are drafts. Nothing merged, no migration applied, no
 deployment, no fleet write, no cron change, nothing deleted on the host.
+
+### 22.8 CC-RECOVERY-13 second round: what the delta reviews found
+
+Two independent reviews of `5870c7e7` returned REQUEST CHANGES. Between them they found three P1s,
+all now fixed at `4239078a`. Recording them because each one is a different class of failure, and
+two of them were mine.
+
+**1. A state that was terminal in SQL was not terminal in the API (P1, introduced by this branch).**
+
+`legacy` was added so pre-migration rows would never be re-dispatched. Both SQL functions treated it
+as terminal. All three duplicate handlers did not:
+
+| Route | What a `legacy` duplicate told the client |
+|---|---|
+| `chat/route.ts` | HTTP 409, `"A prior attempt for this message is still in flight."` |
+| `chat/stream/route.ts` | `retryable: true` |
+| `cc-approve-synthesis.ts` | `"an approval for this synthesis is already executing; wait for it to finish"` |
+
+Every one of those is false for a row that is frozen forever, and a client that believes the stream
+route loops on retries that can never succeed. Under the base code the same retry returned a clean
+terminating `{ok:true, alreadyDispatched:true}`, so this was a regression, not an inherited defect.
+
+The cause is worth naming: three routes each decided the meaning of a status with its own inline
+expression, so adding a state to the schema updated SQL and nothing else. The fix is
+`describeDuplicate(status)` in `src/lib/relay-dispatch.ts` returning `{alreadyDispatched, retryable,
+reason, detail}`, used by all three. One decision, one place.
+
+**2. The blast radius of that regression was zero, and that is a measurement, not a reassurance.**
+
+Read-only against production (`command-center-hq`, ref `qkbkfsjkysdsfmhgfdoc`):
+
+```
+public.messages                              432 rows
+columns matching relay%                      0 (none)
+20261112180000_messages_client_idempotency…  absent from supabase_migrations.schema_migrations
+```
+
+The `relay_claimed` column does not exist on the live database, because the migration that adds it
+was never applied. The backfill in the new migration is `where relay_claimed = true`, and the column
+is created with `default false` — so on this database it will match **nothing**. The frozen cohort
+is empty today.
+
+That does not make the defect harmless: it is a wrong statement to a client, and it would have
+started being wrong the moment the cohort stopped being empty. But it does mean nobody is currently
+stuck, and it is the difference between a bug and an incident.
+
+**3. The approve path's two load-bearing invariants had no test that could fail (P1, residual).**
+
+Moving the claim from before the dispatch to after it — which reopens exactly the bypass this branch
+exists to close — passed all 1116 tests. So did always marking `delivered`. The existing test
+asserted that `cc_claim_relay_dispatch` *was called*, never that it was called **before**
+`executeOpenClaw`. The tests now record the call order and assert `claim` precedes `dispatch`, and
+that `delivered` comes after it. Both mutations now fail (N9 fails six tests).
+
+**4. A smaller false-delivery in the same path (P2, fixed anyway).** The approve metadata write had
+no `.select()`, so a 0-row update returns `{data:null,error:null}` and was recorded as `delivered`.
+It now requires a returned row, and the zero-row case is tested.
+
+**5. My own comments were wrong in both directions, twice.** The migration header first said the
+`relay_claimed` column had a predecessor (true), then — after I accepted a reviewer's incorrect
+claim that nothing preceded it — said neither the column nor the functions had one (false). The
+accurate statement, now in the file: the **column** has a predecessor
+(`20261112180000_messages_client_idempotency_key.sql`); the two **functions** have none. The
+rollback comment also said a route still reads `relay_claimed`; none does (verified by grep), and it
+is retained only because this migration does not own that column.
+
+Mutation coverage at `4239078a`, for the record: N9 (claim after dispatch) caught, N10 (always
+delivered) caught, zero-row approve write caught, outer-catch `unknown`→`failed` caught,
+`legacy`-as-retryable caught. 1126 tests (from 1116), tsc clean, eslint clean, 35 PostgreSQL 17
+scenarios.
+
+Still true and still not fixed: the JSON body returns `200 ok:true` with `persistence.attempted:0`
+for a reply that was never written. The relay records `unknown`; the HTTP body does not yet
+distinguish it. Documented as a P2, not a blocker.
+
+### 22.9 What is still unverified
+
+- **Physical device acceptance.** The cockpit's iPhone behaviour was never exercised on hardware.
+  Everything in this record is server-side, database, or a render simulation.
+- **The external ATLAS Mac bridge.** It consumes `messages` rows written by `/api/atlas/chat` and
+  dispatches outside this repo. Whether it honours `relay_status` cannot be checked from here, and it
+  is the one message-scoped dispatch path left unclaimed.
+- **Live gateway behaviour on `sessions_send`.** Whether it runs a turn before returning "no reply
+  text" is inferred from the client code, not observed.
+- **Deployment ordering.** Migration-before-code and code-before-migration against the live database
+  have not been rehearsed. Rehearsing them needs a host, and no preview host exists (see 22.7).
