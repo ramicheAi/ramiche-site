@@ -1,0 +1,120 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
+
+/**
+ * The streaming route dispatches the same persisted message as /api/command-center/chat. It used
+ * to do so with no relay claim at all, which made it a callable bypass around the dedup mechanism:
+ * two sends of one message id through this route ran the agent twice. These tests pin that the
+ * route now takes the shared claim and honours its answer.
+ */
+
+const { createClient } = vi.hoisted(() => ({ createClient: vi.fn() }));
+vi.mock("@supabase/supabase-js", () => ({ createClient }));
+
+const { verifySessionCookie } = vi.hoisted(() => ({ verifySessionCookie: vi.fn() }));
+vi.mock("@/lib/firebase-admin", () => ({ verifySessionCookie }));
+process.env.PARALLAX_OWNER_UID = "the-real-owner-uid";
+
+const { executeOpenClaw } = vi.hoisted(() => ({ executeOpenClaw: vi.fn() }));
+vi.mock("@/lib/provider-adapter", () => ({
+  executeOpenClaw,
+  streamCompletion: vi.fn(() => ({ deltas: (async function* () {})(), outcome: Promise.resolve(null) })),
+}));
+vi.mock("@/lib/openclaw-gateway", () => ({
+  isOpenClawGatewayConfigured: () => true,
+  resolveChatSessionKey: (agent: string) => `agent:${agent}:main`,
+  gatewaySessionsSend: vi.fn(),
+}));
+
+const ENV_KEYS = ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const;
+const originalEnv: Record<string, string | undefined> = {};
+
+function postReq() {
+  return new NextRequest("http://localhost/api/command-center/chat/stream", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      cookie: "__session=owner-session",
+      "sec-fetch-site": "same-origin",
+    },
+    body: JSON.stringify({ message: "hello", channelId: "11111111-1111-1111-1111-111111111111", userMessageId: "22222222-2222-2222-2222-222222222222" }),
+  });
+}
+
+function makeSvc(rpc: ReturnType<typeof vi.fn>) {
+  const chain = {
+    insert: vi.fn(() => chain),
+    update: vi.fn(() => chain),
+    eq: vi.fn(() => chain),
+    select: vi.fn(() => chain),
+    single: vi.fn().mockResolvedValue({ data: { id: "agent-message-id" }, error: null }),
+    then: (resolve: (v: unknown) => unknown) => Promise.resolve({ data: null, error: null }).then(resolve),
+  };
+  return { rpc, from: vi.fn(() => chain) };
+}
+
+describe("POST /api/command-center/chat/stream — relay claim", () => {
+  beforeEach(() => {
+    for (const k of ENV_KEYS) originalEnv[k] = process.env[k];
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-test-key";
+    createClient.mockReset();
+    executeOpenClaw.mockReset();
+    executeOpenClaw.mockResolvedValue({ ok: true, provider: "openclaw", model: "unknown", executionId: "e1", text: "hi there", latencyMs: 5 });
+    verifySessionCookie.mockResolvedValue({ uid: "the-real-owner-uid", signInProvider: "password" });
+  });
+  afterEach(() => {
+    for (const k of ENV_KEYS) {
+      if (originalEnv[k] === undefined) delete process.env[k];
+      else process.env[k] = originalEnv[k];
+    }
+  });
+
+  async function runWith(rpcResult: { data: unknown; error: unknown }) {
+    const rpc = vi.fn().mockResolvedValue(rpcResult);
+    createClient.mockReturnValue(makeSvc(rpc));
+    vi.resetModules();
+    const { POST } = (await import("./route")) as { POST: (r: NextRequest) => Promise<Response> };
+    const res = await POST(postReq());
+    const text = await res.text();
+    return { res, text, rpc, svc: createClient.mock.results.at(-1)?.value as ReturnType<typeof makeSvc> };
+  }
+
+  it("claims before dispatching, and records delivery after the turn", async () => {
+    const { text, rpc } = await runWith({ data: [{ claimed: true, attempts: 1, status: "claimed" }], error: null });
+    expect(rpc).toHaveBeenCalledWith("cc_claim_relay_dispatch", expect.objectContaining({ p_message_id: "22222222-2222-2222-2222-222222222222" }));
+    expect(executeOpenClaw).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith("cc_mark_relay_status", expect.objectContaining({ p_status: "delivered", p_attempt: 1 }));
+    // The dispatched reply actually reached the stream, so this is a real turn, not an early exit.
+    expect(text).toContain("hi there");
+    expect(text).toContain("done");
+  });
+
+  it("does not dispatch a message the relay already delivered", async () => {
+    const { text } = await runWith({ data: [{ claimed: false, attempts: 1, status: "delivered" }], error: null });
+    expect(executeOpenClaw).not.toHaveBeenCalled();
+    expect(text).toContain("alreadyDispatched");
+  });
+
+  it("reports an in-flight attempt honestly instead of dispatching again", async () => {
+    const { text } = await runWith({ data: [{ claimed: false, attempts: 1, status: "claimed" }], error: null });
+    expect(executeOpenClaw).not.toHaveBeenCalled();
+    expect(text).toContain("dispatch_in_progress_or_failed");
+    expect(text).not.toContain("alreadyDispatched");
+  });
+
+  it("fails open when the claim RPC is missing, and still dispatches once", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { text } = await runWith({ data: null, error: { code: "PGRST202", message: "not found" } });
+    expect(executeOpenClaw).toHaveBeenCalledTimes(1);
+    expect(text).toContain("done");
+    expect(warn.mock.calls.some((c) => String(c[0]).includes("not deduplicated"))).toBe(true);
+    warn.mockRestore();
+  });
+
+  it("records a thrown gateway call as unknown, never delivered", async () => {
+    executeOpenClaw.mockRejectedValue(new Error("gateway timeout"));
+    const { rpc } = await runWith({ data: [{ claimed: true, attempts: 2, status: "claimed" }], error: null });
+    expect(rpc).toHaveBeenCalledWith("cc_mark_relay_status", expect.objectContaining({ p_status: "unknown", p_attempt: 2 }));
+  });
+});

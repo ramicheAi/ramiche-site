@@ -19,6 +19,7 @@ import {
   type PersistenceFailure,
 } from "@/lib/chat-persistence";
 import { ownerOnly } from "@/lib/server/command-center-guard";
+import { claimRelayDispatch, markRelayStatus } from "@/lib/relay-dispatch";
 
 export const dynamic = "force-dynamic";
 // Pro-tier ceiling. Group-chat fan-out with synthesis + Phase E critic can
@@ -1147,76 +1148,42 @@ async function POST_handler(req: NextRequest) {
     relayFailureTracker.svc = svc;
     relayFailureTracker.userMessageId = userMessageId;
     if (svc && userMessageId) {
-      try {
-        // Atomic claim with an explicit terminal state. delivered and failed_permanent are never
-        // reclaimable; claimed and failed rows are reclaimable only after the lease expires. This
-        // is mutual exclusion per lease, not exactly-once execution: a dispatch the gateway
-        // accepted but never acknowledged can still run twice after recovery.
-        const { data: claimRows, error: claimError } = await svc.rpc("cc_claim_relay_dispatch", {
-          p_message_id: userMessageId,
-          // Must exceed maxDuration (120 s); a shorter lease lets a slow turn be claimed twice.
-          p_lease_seconds: 300,
-        });
-        const row = Array.isArray(claimRows) ? claimRows[0] : claimRows;
-        claimAttempt = typeof row?.attempts === "number" ? row.attempts : null;
+      // One claim implementation, shared with the streaming route. If either route grew its own
+      // copy, the other would be a callable bypass for duplicate dispatch.
+      const claim = await claimRelayDispatch(svc, userMessageId);
+      if (claim.state === "claimed") {
+        claimAttempt = claim.attempt;
         relayFailureTracker.attempt = claimAttempt;
-        if (claimError) {
-          // The claim failing must be visible. Without this line the whole mechanism can be inert
-          // (missing migration, revoked EXECUTE) while chat looks perfectly healthy.
-          console.warn("[chat] relay claim unavailable, dispatch is not deduplicated:", {
-            code: (claimError as { code?: string }).code,
-            message: (claimError as { message?: string }).message,
-          });
-        } else if (row && row.claimed === false) {
-          // Truthful by status, not a blanket "already dispatched". 'delivered' is a genuine
-          // prior success — safe to short-circuit as such. 'claimed' or 'failed' means the prior
-          // attempt is still in flight or errored and has not yet cleared its lease: reporting
-          // alreadyDispatched:true here is exactly the masquerade this fix exists to remove, so
-          // this caller gets an honest "not ready" instead of a false success.
-          const priorStatus = typeof row.status === "string" ? row.status : "claimed";
-          if (priorStatus === "delivered") {
-            return NextResponse.json({ ok: true, alreadyDispatched: true });
-          }
-          if (priorStatus === "not_found") {
-            // userMessageId doesn't match any row — not a real prior attempt to be honest
-            // about, so fail open the same way a missing claim column does: proceed with
-            // dispatch rather than returning a 409 "in flight" forever for an id that will
-            // never resolve.
-            console.warn("[chat] relay claim found no row for userMessageId, dispatching unclaimed:", userMessageId);
-          } else {
-            return NextResponse.json(
-              {
-                ok: false,
-                error: "dispatch_in_progress_or_failed",
-                detail:
-                  priorStatus === "failed"
-                    ? "A prior attempt for this message failed and has not yet cleared its retry window."
-                    : "A prior attempt for this message is still in flight.",
-                relayStatus: priorStatus,
-              },
-              { status: 409 }
-            );
-          }
+      } else if (claim.state === "duplicate") {
+        // Truthful by status, not a blanket "already dispatched". 'delivered' is a genuine prior
+        // success. 'claimed' or 'failed' means the prior attempt is in flight or errored and has
+        // not cleared its retry window: reporting alreadyDispatched:true would be the masquerade
+        // this mechanism exists to prevent.
+        if (claim.status === "delivered") {
+          return NextResponse.json({ ok: true, alreadyDispatched: true });
         }
-      } catch (e) {
-        console.warn("[chat] relay claim threw, dispatch is not deduplicated:", e instanceof Error ? e.message : e);
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "dispatch_in_progress_or_failed",
+            detail:
+              claim.status === "failed"
+                ? "A prior attempt for this message failed and has not yet cleared its retry window."
+                : "A prior attempt for this message is still in flight.",
+            relayStatus: claim.status,
+          },
+          { status: 409 }
+        );
+      } else {
+        // Unprotected: the claim could not be consulted. The warning is logged inside the helper;
+        // dispatch proceeds so a schema problem is not a chat outage.
+        relayFailureTracker.attempt = null;
       }
     }
 
-    const markRelay = async (status: "delivered" | "failed" | "failed_permanent") => {
+    const markRelay = async (status: "delivered" | "failed" | "unknown" | "failed_permanent") => {
       if (!svc || !userMessageId) return;
-      try {
-        const { error } = await svc.rpc("cc_mark_relay_status", {
-          p_message_id: userMessageId,
-          p_status: status,
-          p_attempt: claimAttempt,
-        });
-        if (error) {
-          console.warn("[chat] relay status not recorded:", { code: (error as { code?: string }).code, message: (error as { message?: string }).message });
-        }
-      } catch (e) {
-        console.warn("[chat] relay status threw:", e instanceof Error ? e.message : e);
-      }
+      await markRelayStatus(svc, userMessageId, status, claimAttempt);
     };
 
     const history = threadUuid
@@ -1304,11 +1271,11 @@ async function POST_handler(req: NextRequest) {
       const r = settled.value;
       allAttempts[target] = r.attempts;
       if (r.openClawError && singleTargetStrict) {
-        // This response never reaches the caller as a delivery, so the relay row must not stay
-        // 'claimed' with no record anything went wrong (the gap the second independent review
-        // found: only the outer catch marked 'failed', not this or the "no backend responded"
-        // 502 below — both leave the lease fully occupied with no outcome recorded otherwise).
-        await markRelay("failed");
+        // The gateway answered with an error, but an error string cannot distinguish "rejected
+        // before execution" from "executed, then failed to report". Recording 'failed' would
+        // assert a non-delivery we cannot prove, so the ambiguous case is recorded as unknown.
+        // Both are retryable; only one is honest.
+        await markRelay("unknown");
         return NextResponse.json(
           {
             ok: false,
@@ -1759,16 +1726,16 @@ async function POST_handler(req: NextRequest) {
     });
   } catch (e) {
     console.error("Chat API error:", e);
-    // Mark the dispatch 'failed' so the row no longer sits at a plain 'claimed' with no record
-    // that anything went wrong. It is still lease-gated like 'claimed' (not immediately
-    // reclaimable) — mutual exclusion still holds — but the claim RPC above now reports this
-    // status back to a retrying caller instead of a blanket alreadyDispatched:true, so a crash
-    // here can no longer be read by the caller as a successful delivery.
+    // An exception here is ambiguous: it may have fired before the gateway was called, or after
+    // the gateway accepted the turn. Recording 'failed' would assert a non-delivery we cannot
+    // prove, and would invite a retry that duplicates real work. 'unknown' is the honest state;
+    // it is immediately reclaimable, so a retry still works, and nothing is reported as delivered
+    // that was not.
     if (relayFailureTracker.svc && relayFailureTracker.userMessageId) {
       try {
         const { error: markErr } = await relayFailureTracker.svc.rpc("cc_mark_relay_status", {
           p_message_id: relayFailureTracker.userMessageId,
-          p_status: "failed",
+          p_status: "unknown",
           p_attempt: relayFailureTracker.attempt,
         });
         if (markErr) {

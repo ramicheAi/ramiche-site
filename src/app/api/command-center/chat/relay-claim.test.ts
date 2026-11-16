@@ -121,10 +121,11 @@ describe("POST /api/command-center/chat — relay dispatch claim", () => {
       error: { code: "PGRST202", message: "Could not find the function public.cc_claim_relay_dispatch" },
     });
     expect(body.alreadyDispatched).toBeUndefined();
-    expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining("relay claim unavailable"),
-      expect.objectContaining({ code: "PGRST202" }),
-    );
+    // Shared helper contract: the warning names the failure and carries the PostgREST code, so a
+    // silently dead claim is visible instead of inferred from a user complaining about duplicates.
+    const logged = warn.mock.calls.map((c) => c.join(" ")).join("\n");
+    expect(logged).toContain("not deduplicated");
+    expect(logged).toContain("PGRST202");
     warn.mockRestore();
   });
 });

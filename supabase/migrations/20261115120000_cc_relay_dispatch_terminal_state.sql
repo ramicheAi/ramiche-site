@@ -14,11 +14,12 @@
 -- This migration adds an explicit terminal state and moves the claim into one atomic statement:
 -- delivered and failed_permanent are never reclaimable; 'claimed' is reclaimable only after the
 -- lease expires (it may still be running); 'failed' is reclaimable immediately (it definitely is
--- not running). It still does not provide exactly-once execution: if the gateway accepted a turn
--- and the acknowledgement was lost (including a client-side timeout that can't tell "rejected"
--- from "accepted, ack lost"), the retry can dispatch again — there is no 'unknown'/'timed_out'
--- state yet, so that case is recorded as 'failed' and is immediately retryable like a genuine
--- rejection. (CC-RECOVERY-13 independent review: a revoke-exploit PoC, 1600-attempt concurrency
+-- not running). It still does not provide exactly-once execution. What it does provide is an honest
+-- record: 'failed' means the dispatch definitely did not run (an explicit rejection), while
+-- 'unknown' means it may or may not have run (timeout, transport loss, lost acknowledgement, or a
+-- lease that expired with no outcome recorded). Both are retryable; only 'unknown' is ambiguous.
+-- A lease that expires is demoted to 'unknown' before the next attempt claims, so the audit trail
+-- never claims a delivery that was never recorded. (CC-RECOVERY-13 independent review: a revoke-exploit PoC, 1600-attempt concurrency
 -- proof, and the false-delivered/duplicate-dispatch repros below all passed against real
 -- PostgreSQL 17 with a Supabase-faithful anon/authenticated default-privilege bootstrap.)
 
@@ -45,7 +46,7 @@ update public.messages
    and relay_status = 'pending';
 
 comment on column public.messages.relay_status is
-  'pending | claimed | delivered | failed | failed_permanent. delivered and failed_permanent are terminal and are never reclaimed.';
+  'pending | claimed | delivered | failed | unknown | failed_permanent. delivered and failed_permanent are terminal and are never reclaimed. failed is a verified non-delivery; unknown means the dispatch may have run (timeout, lost ack, expired lease).';
 
 -- Claim the right to dispatch one agent turn for a persisted message.
 --
@@ -68,6 +69,17 @@ declare
   v_status text;
   v_found boolean;
 begin
+  -- An expired 'claimed' row has no recorded outcome. The lease is longer than the route budget,
+  -- so the process that held it is gone: the turn may have completed, or never started. Record
+  -- that ambiguity honestly before this attempt overwrites the state, so an operator can tell
+  -- "we retried an unknown" from "we retried something we know failed".
+  update public.messages m
+     set relay_status = 'unknown'
+   where m.id = p_message_id
+     and m.relay_status = 'claimed'
+     and m.relay_claimed_at is not null
+     and m.relay_claimed_at < now() - make_interval(secs => greatest(p_lease_seconds, 1));
+
   -- 'claimed' is the only status actually in flight, so it is the only one the lease protects —
   -- a dispatch that errored out and was marked 'failed' is definitely not running any more and
   -- must be reclaimable immediately, not after the same 300s lease as a possibly-still-running
@@ -81,7 +93,7 @@ begin
    where m.id = p_message_id
      and coalesce(m.relay_status, 'pending') not in ('delivered', 'failed_permanent')
      and (
-       coalesce(m.relay_status, 'pending') in ('pending', 'failed')
+       coalesce(m.relay_status, 'pending') in ('pending', 'failed', 'unknown')
        or m.relay_claimed_at is null
        or m.relay_claimed_at < now() - make_interval(secs => greatest(p_lease_seconds, 1))
      )
@@ -116,7 +128,7 @@ security invoker
 set search_path = pg_catalog, pg_temp
 as $$
 begin
-  if p_status not in ('delivered', 'failed', 'failed_permanent') then
+  if p_status not in ('delivered', 'failed', 'unknown', 'failed_permanent') then
     return false;
   end if;
   update public.messages

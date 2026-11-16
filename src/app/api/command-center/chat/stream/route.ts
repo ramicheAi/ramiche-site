@@ -8,6 +8,7 @@ import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
 import { personaMap } from "@/lib/agent-registry";
 import { sanitizeDbError } from "@/lib/chat-persistence";
 import { ownerOnly } from "@/lib/server/command-center-guard";
+import { claimRelayDispatch, classifyDispatchFailure, markRelayStatus } from "@/lib/relay-dispatch";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -114,6 +115,17 @@ async function POST_handler(req: NextRequest) {
       const send = (name: string, data: unknown) =>
         controller.enqueue(enc.encode(sseEvent(name, data)));
 
+      // This route dispatches the same persisted message as /api/command-center/chat, so it must
+      // take the same claim. Without it, this endpoint was a callable bypass around the relay:
+      // the same message id could be dispatched twice with no dedup at all.
+      let claimAttempt: number | null = null;
+      let relaySettled = false;
+      const settleRelay = async (status: "delivered" | "failed" | "unknown") => {
+        if (relaySettled || !svc || !userMessageId) return;
+        relaySettled = true;
+        await markRelayStatus(svc, userMessageId, status, claimAttempt);
+      };
+
       const finalize = async (text: string, source: ReplySource) => {
         let agentMessageId: string | null = null;
         let persisted = false;
@@ -156,6 +168,10 @@ async function POST_handler(req: NextRequest) {
             })
             .eq("id", userMessageId);
         }
+        // The turn ran, so the relay must not stay 'claimed'. If the reply could not be saved,
+        // the outcome is a failed delivery of a completed turn: record it as failed so a retry is
+        // allowed (the user has nothing on disk), not delivered.
+        await settleRelay(persisted ? "delivered" : "failed");
         // Surfaced BEFORE done so a client cannot mistake an unsaved reply for a
         // persisted one. The text is still sent as chunks above; it just has to
         // be shown as unsaved until a reload confirms otherwise.
@@ -168,6 +184,27 @@ async function POST_handler(req: NextRequest) {
 
       try {
         send("meta", { agent: target, displayName, threadParentId: threadUuid ?? null });
+
+        if (svc && userMessageId) {
+          const claim = await claimRelayDispatch(svc, userMessageId);
+          if (claim.state === "claimed") {
+            claimAttempt = claim.attempt;
+          } else if (claim.state === "duplicate") {
+            // Same contract as the JSON route: only a genuine prior delivery is reported as
+            // already dispatched. Anything else is an honest "not ready", never a false success.
+            if (claim.status === "delivered") {
+              send("done", { agent: target, source: "relay", alreadyDispatched: true, persisted: true });
+            } else {
+              send("error", {
+                error: "dispatch_in_progress_or_failed",
+                relayStatus: claim.status,
+                retryable: claim.status !== "failed_permanent",
+              });
+            }
+            controller.close();
+            return;
+          }
+        }
 
         // 1) OpenClaw — preferred. Gateway HTTP doesn't currently emit a
         //    streaming sessions_send response, so we await once and replay
@@ -189,6 +226,7 @@ async function POST_handler(req: NextRequest) {
             return;
           }
           if (openclawStrict) {
+            await settleRelay(classifyDispatchFailure("gateway_error").status);
             send("error", {
               error: gw.error,
               source: "openclaw",
@@ -273,7 +311,9 @@ async function POST_handler(req: NextRequest) {
           }
         }
 
-        // Nothing worked.
+        // Nothing worked. Every provider answered with an explicit failure, so this is a
+        // verified non-delivery, not an unknown.
+        await settleRelay("failed");
         send("error", {
           error:
             "All chat providers failed or are not configured (OpenClaw, Gemini, DeepSeek, OpenRouter).",
@@ -282,6 +322,9 @@ async function POST_handler(req: NextRequest) {
         controller.close();
       } catch (err) {
         console.error("[chat/stream] fatal:", err);
+        // Ambiguous: the gateway may already have run the turn before this threw. Recording
+        // 'failed' here would assert a non-delivery we cannot prove.
+        await settleRelay("unknown");
         send("error", { error: String(err) });
         controller.close();
       }
