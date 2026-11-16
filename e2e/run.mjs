@@ -410,27 +410,92 @@ const journeys = [
     name: "Reject a synthesis request",
     kind: "integrated",
     async run(browser) {
-      // There is no rejection contract in the backend: the only terminal state is `approved_at`,
-      // and no route writes a rejected/declined state. Rather than fake it by hiding the card, this
-      // journey proves the absence and reports the minimum contract that would be required.
+      // CC-RELEASE-CONSOLIDATION-01 Phase 2: seed a real synthesis row, click the real Reject
+      // control, and verify the full contract through the real route and the fake backend's state —
+      // not just that a button exists.
       await reset();
+      const channelId = "aa000001-0000-0000-0000-000000000000";
+      const id = "44444444-4444-4444-8444-444444444444";
+      await fetch(`${SB}/rest/v1/messages`, {
+        method: "POST",
+        headers: { "content-type": "application/json", prefer: "return=representation" },
+        body: JSON.stringify({
+          id,
+          channel_id: channelId,
+          sender_type: "agent",
+          sender_agent_id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          content: "Synthesis: one action proposed.",
+          status: "sent",
+          metadata: {
+            kind: "synthesis",
+            plan: {
+              decision: "proceed",
+              execution_mode: "sequential",
+              actions: [{ owner: "atlas", task: "e2e rejection task", kind: "task", deliverable: "a short note" }],
+            },
+            action_statuses: ["pending"],
+            channel_name: "DM: Atlas",
+          },
+        }),
+      });
       const page = await newPage(browser);
       await openDm(page);
-      await sleep(1500);
-      const reject = page.getByRole("button", { name: /reject|decline|deny|dismiss/i });
-      const count = await reject.count();
+      await sleep(3000);
+      await resetGwCalls();
+      await shot(page, "D2-01-synthesis-card");
+      const reject = page.getByRole("button", { name: "Reject synthesis" }).first();
+      const hasReject = (await reject.count()) > 0;
+      let rejectedAt = null;
+      let cancelledAll = false;
+      let noDispatch = false;
+      let approveNowRefused = false;
+      if (hasReject) {
+        await reject.click();
+        await sleep(2000);
+        await shot(page, "D2-02-after-reject");
+        const st1 = await sbState();
+        const row1 = st1.tables.messages.find((m) => m.id === id);
+        rejectedAt = row1?.metadata?.rejected_at ?? null;
+        cancelledAll =
+          Array.isArray(row1?.metadata?.action_statuses) &&
+          row1.metadata.action_statuses.every((s) => s === "cancelled");
+        noDispatch = (await dispatches()).length === 0;
+
+        // The real exclusivity proof: approving the same message afterward must be refused by the
+        // real route, not merely absent from the UI (the Approve button is hidden once rejected,
+        // which would make a UI-only check vacuous). Call it from the page itself so the browser's
+        // own session cookie and origin headers are used, exactly as a real retry would send them.
+        const approveOutcome = await page.evaluate(async (messageId) => {
+          const res = await fetch("/api/command-center/chat/approve", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ messageId }),
+          });
+          const body = await res.json().catch(() => ({}));
+          return { status: res.status, ok: body?.ok, error: body?.error };
+        }, id);
+        // Pin the CAUSE, not just the status code: a 409 could in principle come from a different
+        // refusal path, which would make this check pass for the wrong reason.
+        approveNowRefused =
+          approveOutcome.status === 409 &&
+          approveOutcome.ok === false &&
+          /rejected/i.test(String(approveOutcome.error ?? ""));
+      }
       await page.__context.close();
+      const checks = {
+        reject_control_present: hasReject,
+        rejected_at_written: typeof rejectedAt === "string" && rejectedAt.length > 0,
+        all_actions_cancelled: cancelledAll,
+        nothing_dispatched: noDispatch,
+        approve_now_refused: approveNowRefused,
+      };
+      const failed = Object.entries(checks).filter(([, v]) => !v).map(([k]) => k);
       return {
-        status: count > 0 ? "PASS" : "BLOCKED",
-        detail:
-          count > 0
-            ? "a reject affordance exists"
-            : "no rejection contract exists: the only terminal state is metadata.approved_at, and no route records a rejection. Minimum change: POST {messageId, decision:'reject'} writing rejected_at + resolution:'rejected', owner-gated and idempotent, plus a card control.",
-        checks: { reject_control_present: count > 0 },
-        findings:
-          count > 0
-            ? []
-            : ["rejection is unsupported end to end; approving is the only way to resolve a synthesis card"],
+        status: failed.length ? "FAIL" : "PASS",
+        detail: failed.length
+          ? `failed: ${failed.join(", ")}`
+          : "reject writes rejected_at, cancels every action, dispatches nothing, and a subsequent approve is refused",
+        checks,
       };
     },
   },

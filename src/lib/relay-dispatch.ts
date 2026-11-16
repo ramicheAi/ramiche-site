@@ -7,6 +7,12 @@
  * so a route cannot accidentally implement a weaker version, and so the claim's failure modes are
  * identical wherever it is used.
  *
+ * A fifth caller, cc-reject-synthesis.ts, holds this same claim on a synthesis message's row for a
+ * different reason: not to dispatch, but to make Reject mutually exclusive with chat/approve's own
+ * claim on the identical row, so a Reject can never land underneath (or get overwritten by) an
+ * Approve that is already mid-flight on the same message. It marks its claim `failed_permanent` on
+ * success — a value that, on a synthesis row specifically, only this one caller ever writes.
+ *
  * Guarantee, stated precisely, and with its edges named: among the four message-scoped HTTP
  * dispatchers (chat, chat/stream, chat/approve, chat/approve/stream) at most one holds a live claim
  * per message per lease, terminal states (delivered, failed_permanent, legacy) are never reclaimed,

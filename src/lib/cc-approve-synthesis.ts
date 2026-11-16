@@ -869,6 +869,16 @@ export async function approveSynthesisMessageStreamed(
     onEvent({ type: "already_approved", approvedAt });
     return { ok: true, alreadyApproved: true, approvedAt };
   }
+  // Defense in depth, not the safety boundary (the claim below is): cc-reject-synthesis.ts marks
+  // its claim failed_permanent AFTER writing metadata.rejected_at, so the two should always agree.
+  // But if that second write (the mark) ever fails to land — a real, if rare, path reject's own
+  // code logs and tolerates rather than un-write the rejection for — relay_status could still read
+  // something other than failed_permanent while metadata.rejected_at is already true. Checking the
+  // field directly here means approve still refuses even in that gap, instead of relying solely on
+  // relay_status to have been updated correctly.
+  if (meta.rejected_at) {
+    return { ok: false, error: "this synthesis was rejected and cannot be approved", status: 409 };
+  }
 
   // This function dispatches agent turns for ONE persisted message (the synthesis row), exactly like
   // the chat routes, so it needs the same claim. The metadata check above is not a substitute: it is
@@ -900,6 +910,18 @@ export async function approveSynthesisMessageStreamed(
         ok: false,
         error:
           "this synthesis was already executed (the relay recorded a delivery); reload to see its result",
+        status: 409,
+      };
+    }
+    // cc-reject-synthesis.ts reuses this SAME claim on a synthesis row for its own exclusivity,
+    // and marks it failed_permanent as its terminal state on success. On a synthesis row that
+    // value has exactly one cause (a rejection — nothing else ever writes it here), so this
+    // refusal can and should say so, rather than the generic relay-failure wording describeDuplicate
+    // gives every other caller of this shared claim.
+    if (claim.status === "failed_permanent") {
+      return {
+        ok: false,
+        error: "this synthesis was rejected and cannot be approved",
         status: 409,
       };
     }

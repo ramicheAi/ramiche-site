@@ -1975,6 +1975,61 @@ export default function CommandCenterChatPage() {
     }
   };
 
+  /* ── Reject a synthesis plan (CC-RELEASE-CONSOLIDATION-01 Phase 2). No streaming: rejecting
+        never dispatches anything, so there is no multi-step progress to show, unlike Approve. ── */
+  const [rejectingSynthId, setRejectingSynthId] = useState<string | null>(null);
+  const [rejectError, setRejectError] = useState<{ id: string; message: string } | null>(null);
+  const handleRejectSynthesis = async (messageId: string) => {
+    setRejectError(null);
+    setRejectingSynthId(messageId);
+    try {
+      const res = await fetch("/api/command-center/chat/reject", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId }),
+      });
+      const data = (await res.json().catch(() => null)) as
+        | { ok: true; rejectedAt: string; alreadyRejected?: boolean }
+        | { ok: false; error?: string }
+        | null;
+      if (!res.ok || !data?.ok) {
+        setRejectError({
+          id: messageId,
+          message: (data && !data.ok && data.error) || `Reject failed (HTTP ${res.status})`,
+        });
+        return;
+      }
+      // Reflect the rejection on the in-memory message immediately, same pattern as
+      // handleSetActionStatus — don't wait on Supabase realtime for the card to update.
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== messageId) return m;
+          const prevMeta = (m.metadata as Record<string, unknown> | null) || {};
+          const totalActions = Array.isArray(
+            (prevMeta.plan as { actions?: unknown[] } | undefined)?.actions
+          )
+            ? ((prevMeta.plan as { actions: unknown[] }).actions.length)
+            : 0;
+          return {
+            ...m,
+            metadata: {
+              ...prevMeta,
+              rejected_at: data.rejectedAt,
+              action_statuses: new Array(totalActions).fill("cancelled"),
+            },
+          };
+        })
+      );
+    } catch (e) {
+      setRejectError({
+        id: messageId,
+        message: e instanceof Error ? e.message : "Reject request failed",
+      });
+    } finally {
+      setRejectingSynthId(null);
+    }
+  };
+
   /* ── Phase D — action status (mark done / blocked / in-progress) on a
         single action inside a synthesis plan. ── */
   const [actionStatusPending, setActionStatusPending] = useState<string | null>(null);
@@ -5253,12 +5308,17 @@ export default function CommandCenterChatPage() {
                         const meta = (message.metadata as Record<string, unknown> | null) || {};
                         const approvedAt =
                           typeof meta.approved_at === "string" ? (meta.approved_at as string) : null;
+                        const rejectedAt =
+                          typeof meta.rejected_at === "string" ? (meta.rejected_at as string) : null;
                         const statuses = Array.isArray(meta.action_statuses)
                           ? (meta.action_statuses as string[])
                           : [];
                         const ackByOwner = acksBySynthesisId.get(message.id) ?? new Map<string, Message>();
                         const isApproving = approvingSynthId === message.id;
+                        const isRejecting = rejectingSynthId === message.id;
                         const errForThis = approveError?.id === message.id ? approveError.message : null;
+                        const rejectErrForThis =
+                          rejectError?.id === message.id ? rejectError.message : null;
                         // Progress count: how many actions are "done"
                         const doneCount = plan.actions.reduce(
                           (n, _, i) => (statuses[i] === "done" ? n + 1 : n),
@@ -5588,24 +5648,58 @@ export default function CommandCenterChatPage() {
                                   Decisions ›
                                 </a>
                               </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleApproveSynthesis(message.id)}
-                                disabled={isApproving}
+                            ) : rejectedAt ? (
+                              <div
                                 style={{
-                                  padding: "6px 14px",
-                                  borderRadius: 6,
-                                  fontSize: 12,
+                                  fontSize: 11,
+                                  color: "#f87171",
                                   fontWeight: 600,
-                                  background: isApproving ? "rgba(124,58,237,0.4)" : "#7c3aed",
-                                  color: "#fff",
-                                  border: "none",
-                                  cursor: isApproving ? "wait" : "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 8,
                                 }}
                               >
-                                {isApproving ? "Executing…" : "Approve & dispatch"}
-                              </button>
+                                ✗ Rejected — this plan will not be executed
+                              </div>
+                            ) : (
+                              <div style={{ display: "flex", gap: 8 }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleApproveSynthesis(message.id)}
+                                  disabled={isApproving || isRejecting}
+                                  style={{
+                                    padding: "6px 14px",
+                                    borderRadius: 6,
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    background: isApproving ? "rgba(124,58,237,0.4)" : "#7c3aed",
+                                    color: "#fff",
+                                    border: "none",
+                                    cursor: isApproving || isRejecting ? "wait" : "pointer",
+                                  }}
+                                >
+                                  {isApproving ? "Executing…" : "Approve & dispatch"}
+                                </button>
+                                <button
+                                  type="button"
+                                  aria-label="Reject synthesis"
+                                  onClick={() => handleRejectSynthesis(message.id)}
+                                  disabled={isApproving || isRejecting}
+                                  style={{
+                                    padding: "6px 14px",
+                                    borderRadius: 6,
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    background: "transparent",
+                                    color: isRejecting ? "rgba(248,113,113,0.5)" : "#f87171",
+                                    border: "1px solid",
+                                    borderColor: isRejecting ? "rgba(248,113,113,0.3)" : "#f87171",
+                                    cursor: isApproving || isRejecting ? "wait" : "pointer",
+                                  }}
+                                >
+                                  {isRejecting ? "Rejecting…" : "Reject"}
+                                </button>
+                              </div>
                             )}
                             {errForThis && (
                               <div
@@ -5617,6 +5711,18 @@ export default function CommandCenterChatPage() {
                                 }}
                               >
                                 {errForThis}
+                              </div>
+                            )}
+                            {rejectErrForThis && (
+                              <div
+                                role="alert"
+                                style={{
+                                  marginTop: 8,
+                                  fontSize: 11,
+                                  color: "#fca5a5",
+                                }}
+                              >
+                                {rejectErrForThis}
                               </div>
                             )}
                             {/* Final tally once the stream's `complete` event fires.
