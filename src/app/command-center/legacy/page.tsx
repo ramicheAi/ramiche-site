@@ -1512,14 +1512,26 @@ export default function CommandCenter() {
               <div className="h-px flex-1" style={{ background: 'linear-gradient(to left, rgba(52,211,153,0.2), transparent)' }} />
             </div>
             <div style={{ background: '#111111', border: '1px solid #1e1e1e', borderRadius: 12, padding: 20 }}>
-              <div className="flex gap-2 mb-4">
-                <select value={chatAgent} onChange={e => setChatAgent(e.target.value)} className="px-3 py-2 text-sm rounded-md flex-shrink-0" style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', color: '#e5e5e5', outline: 'none' }}>
-                  {['atlas','shuri','vee','mercury','echo','simons','widow','proximon','aetherion','michael','prophets','selah','haven','ink','nova','kiyosaki','triage','themaestro','dr. strange'].map(a => (
-                    <option key={a} value={a}>{a.charAt(0).toUpperCase() + a.slice(1)}</option>
-                  ))}
-                </select>
-                <input value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !chatSending) handleSendChat(); }} placeholder="Message an agent..." disabled={chatSending} className="flex-1 px-3 py-2 text-sm rounded-md disabled:opacity-50" style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', color: '#e5e5e5', outline: 'none' }} />
-                <button type="button" onClick={handleSendChat} disabled={chatSending || !chatInput.trim()} className="px-4 py-2 text-[10px] font-mono uppercase tracking-wider flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed" style={{ background: 'rgba(52,211,153,0.12)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 6, cursor: chatSending || !chatInput.trim() ? 'not-allowed' : 'pointer' }}>{chatSending ? "…" : "Send"}</button>
+              {/*
+                This composer was not connected to anything. The input accepted text, the Send
+                button did nothing, and no request was ever issued: the element is inside a section
+                that is not in the rendered page, so an operator could type a message and watch it
+                silently disappear. CC-ACCEPTANCE-02 removed it rather than rebuilding the legacy
+                console (which needs founder authorization), and points at the surface that works.
+                The historical message list below is kept read-only.
+              */}
+              <div
+                role="note"
+                data-testid="legacy-composer-retired"
+                className="mb-4 p-3 text-sm"
+                style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 8, color: '#e5e5e5' }}
+              >
+                Messaging is not connected on this legacy screen. Send from the Command Center chat,
+                which records what was delivered.
+                {' '}
+                <a href="/command-center/chat" style={{ color: '#34d399', textDecoration: 'underline' }}>
+                  Open Command Center chat →
+                </a>
               </div>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {chatMessages.length === 0 && <div className="text-sm text-[#888888] text-center py-4">No messages yet — send one above</div>}

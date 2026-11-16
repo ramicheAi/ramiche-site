@@ -25,7 +25,17 @@ export interface BriefingEvent {
 }
 
 export interface BriefingInput {
-  now?: Date;
+  /**
+   * The moment the briefing describes.
+   *
+   * Accepts an ISO string as well as a Date because the client sends this over JSON, where a Date
+   * becomes a string. Typing it as Date only was a lie the compiler could not catch at the boundary:
+   * `/api/command-center/briefing/compose` passed the request body straight through, so every page
+   * load threw `now.getHours is not a function` and returned 500. Found by the acceptance harness
+   * (e2e/run.mjs), which caught the 500 on load rather than assuming the panel's fallback text
+   * meant the route worked.
+   */
+  now?: Date | string;
   agents: BriefingAgentInput;
   revenue: BriefingRevenueInput;
   events: BriefingEvent[];
@@ -35,6 +45,16 @@ export interface ComposedBriefing {
   greeting: string;
   spoken: string;
   bullets: string[];
+}
+
+/** A Date from a Date, an ISO string, or anything else that parses; null when it does not. */
+function toValidDate(value: Date | string | undefined | null): Date | null {
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (typeof value === "string") {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  return null;
 }
 
 function greetingForHour(h: number): string {
@@ -106,7 +126,7 @@ function ucFirst(s: string): string {
 }
 
 export function composeBriefing(input: BriefingInput): ComposedBriefing {
-  const now = input.now ?? new Date();
+  const now = toValidDate(input.now) ?? new Date();
   const greeting = `${greetingForHour(now.getHours())}, Ramon.`;
   const dateLine = `Today is ${dayOfWeek(now)}, ${monthName(now)} ${ordinal(now.getDate())}.`;
 
