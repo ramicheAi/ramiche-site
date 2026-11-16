@@ -12,9 +12,12 @@
 #
 # Two rewrite methods, and the difference matters:
 #
-#   in place (default)  sqlite VACUUM in a transaction. Correct while the gateway has the file open:
-#                       SQLite takes the write lock, other connections wait. The cost is
-#                       availability, not data. This is the method for a live fleet.
+#   in place (default)  sqlite VACUUM. Refused while a -journal/-wal sidecar exists, because that
+#                       sidecar means a write transaction is open right now. Otherwise it takes
+#                       the write lock and waits up to SQLITE_WAIT_MS (default 30 s) for a writer
+#                       to finish; if it cannot get the lock it fails and the database is
+#                       unchanged. The CLI's default busy timeout is zero, so without that wait
+#                       it fails the instant any writer is active.
 #   --swap              VACUUM INTO a new file, verify it, then replace the original. Keeps the old
 #                       file if anything fails, but it is UNSAFE while any process holds the database
 #                       open: that process keeps writing to the replaced inode and its writes are
@@ -24,8 +27,8 @@
 #   ./maintenance-guard.sh --db ~/.openclaw/memory/main.sqlite                    # dry run
 #   OPENCLAW_MAINTENANCE_APPROVAL=CC-2026-11-16-01 \
 #     ./maintenance-guard.sh --apply --db ~/.openclaw/memory/*.sqlite             # in window
-#   ./maintenance-guard.sh --apply --swap --db ~/.openclaw/memory/main.sqlite    # copy+swap, needs
-#                                                                               # no live writer
+#   OPENCLAW_MAINTENANCE_APPROVAL=CC-2026-11-16-01 \
+#     ./maintenance-guard.sh --apply --swap --db ~/.openclaw/memory/main.sqlite   # no live writer
 #
 # Exit codes: 0 ok/dry-run-clean, 2 refused (policy), 3 error.
 set -euo pipefail
@@ -34,7 +37,16 @@ APPLY=0
 SWAP=0
 WINDOW_START="03:30"
 WINDOW_END="05:30"
-FREE_SPACE_FACTOR="2.5"
+# In-place VACUUM needs temp space on the order of the database. Copy-and-swap needs the copy, a
+# preserved backup copy, and the original all at once, so it needs materially more. Using one factor
+# for both under-provisioned the swap path, which is the path that can fill a disk.
+FREE_SPACE_FACTOR_INPLACE="2.5"
+FREE_SPACE_FACTOR_SWAP="3.5"
+# SQLite's CLI has a zero busy timeout by default, so an in-place VACUUM fails the instant the
+# gateway writes (verified: "database is locked" in under a second). Waiting a bounded time is the
+# difference between a maintenance run that works on a live fleet and one that always fails and
+# tempts an operator to stop the gateway instead.
+SQLITE_WAIT_MS="${SQLITE_WAIT_MS:-30000}"
 LOG_DIR="${HOME}/Library/Logs/parallax-maintenance"
 LOCK="${TMPDIR:-/tmp}/parallax-maintenance.lock"
 DBS=()
@@ -83,6 +95,13 @@ say "targets: ${#DBS[@]}"
 
 if [ "$APPLY" = 1 ]; then
   [ -n "${OPENCLAW_MAINTENANCE_APPROVAL:-}" ] || refuse "OPENCLAW_MAINTENANCE_APPROVAL is not set. A rewrite of live data needs a named approval id."
+  # Not security (a local user can set anything), but an accident guard: a stray `export
+  # OPENCLAW_MAINTENANCE_APPROVAL=1` in a shell profile must not authorize a rewrite. The id has to
+  # be deliberately issued in the documented form.
+  case "$OPENCLAW_MAINTENANCE_APPROVAL" in
+    CC-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;;
+    *) refuse "OPENCLAW_MAINTENANCE_APPROVAL must be an issued id of the form CC-YYYY-MM-DD-NN (got a value of another shape)." ;;
+  esac
 fi
 
 # Window check compares HH:MM strings lexicographically, which is valid for zero-padded 24h times.
@@ -134,12 +153,13 @@ for db in "${DBS[@]}"; do
   pages=$(sqlite3 "$db" 'pragma page_count;' 2>/dev/null || echo "?")
   auto=$(sqlite3 "$db" 'pragma auto_vacuum;' 2>/dev/null || echo "?")
   avail=$(free_bytes "$db")
-  need=$(awk -v s="$size" -v f="$FREE_SPACE_FACTOR" 'BEGIN{printf "%d", s*f}')
+  if [ "$SWAP" = 1 ]; then factor="$FREE_SPACE_FACTOR_SWAP"; else factor="$FREE_SPACE_FACTOR_INPLACE"; fi
+  need=$(awk -v s="$size" -v f="$factor" 'BEGIN{printf "%d", s*f}')
   TOTAL_BYTES=$((TOTAL_BYTES + size))
   say "----"
   say "db:          $db"
   say "size:        $(hbytes "$size")  (pages=$pages freelist=$freelist auto_vacuum=$auto)"
-  say "free space:  $(hbytes "$avail")  need $(hbytes "$need") (${FREE_SPACE_FACTOR}x target)"
+  say "free space:  $(hbytes "$avail")  need $(hbytes "$need") (${factor}x target)"
 
   if [ "$freelist" = "0" ]; then
     say "decision:    skip, nothing to reclaim (freelist 0)"
@@ -190,7 +210,7 @@ for db in "${OK_DBS[@]}"; do
     tmp="$db.vacuum-$$"
     backup="$db.pre-vacuum-$STAMP"
     say "   VACUUM INTO $tmp"
-    if ! sqlite3 "$db" "VACUUM INTO '$tmp';" 2>&1 | sed 's/^/   /'; then
+    if ! sqlite3 -cmd ".timeout ${SQLITE_WAIT_MS}" "$db" "VACUUM INTO '$tmp';" 2>&1 | sed 's/^/   /'; then
       rm -f "$tmp"; say "   FAILED: vacuum into copy; original untouched"; continue
     fi
     check=$(integrity "$tmp")
@@ -210,7 +230,7 @@ for db in "${OK_DBS[@]}"; do
     fi
     say "   swapped and verified; backup kept at $backup"
   else
-    if ! sqlite3 "$db" 'VACUUM;' 2>&1 | sed 's/^/   /'; then
+    if ! sqlite3 -cmd ".timeout ${SQLITE_WAIT_MS}" "$db" 'VACUUM;' 2>&1 | sed 's/^/   /'; then
       say "   FAILED: vacuum; database left as it was (sqlite vacuums transactionally)"; continue
     fi
     check=$(integrity "$db")

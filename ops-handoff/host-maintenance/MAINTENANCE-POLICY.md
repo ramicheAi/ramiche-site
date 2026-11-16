@@ -57,22 +57,37 @@ the process or the operator from evidence.
    16:25. A manual run goes through the guard, which logs a timestamped record.
 4. **Space first, and say the number.** A vacuum needs free space comparable to the largest target.
    Refuse below 2.5x the target size.
-5. **Method depends on who has the file open.**
-   - Gateway live (the normal case): **in-place** `VACUUM`. SQLite takes the write lock, other
-     connections wait. The cost is availability, not data.
+5. **Method depends on who has the file open**, and on whether a write is in flight.
+   - Gateway live (the normal case): **in-place** `VACUUM`. Refused outright while a `-journal` or
+     `-wal` sidecar exists, because that sidecar means a write transaction is open right now. When no
+     transaction is open, the VACUUM takes the write lock; a writer that grabs it first makes the
+     VACUUM wait up to `SQLITE_WAIT_MS` (default 30 s) and then fail with the database unchanged.
+     30 s is not arbitrary: the SQLite CLI's default busy timeout is zero, so without this the
+     VACUUM fails the instant any writer is active (verified: "database is locked" in under a
+     second), which is a maintenance run that can never succeed on a live fleet.
    - Nobody holds the file: **copy-and-swap** (`VACUUM INTO`, verify, replace). Keeps the original if
      anything fails.
    - Copy-and-swap while any process holds the database open is **forbidden**: that process keeps
      writing to the replaced inode and its writes are silently lost. This is the one failure mode
-     that loses data rather than merely stalling, and it is easy to get wrong.
+     that loses data rather than merely stalling, and it is easy to get wrong. The guard checks open
+     handles with `lsof` and refuses.
+   - Free-space requirement differs by method, because the two write different volumes: **2.5x** the
+     target for in-place, **3.5x** for copy-and-swap (copy + preserved backup + original coexist).
+     One factor for both would under-provision the path that can actually fill the disk.
 6. **Every run leaves a record.** Approval id, operator, start and end, before/after size and free
    space, integrity result. Silence is not success.
+7. **An approval id is a deliberate act, not a variable.** `--apply` requires
+   `OPENCLAW_MAINTENANCE_APPROVAL` in the form `CC-YYYY-MM-DD-NN`. This is not a security control (a
+   local user can set anything); it is an accident control, so a stray `export
+   OPENCLAW_MAINTENANCE_APPROVAL=1` in a shell profile cannot authorize a rewrite of live data.
 
 ## Guarded runner
 
 `maintenance-guard.sh` (this directory) refuses to run unless:
 
-- `OPENCLAW_MAINTENANCE_APPROVAL` is a non-empty approval id (for any `--apply`)
+- `OPENCLAW_MAINTENANCE_APPROVAL` is an approval id of the form `CC-YYYY-MM-DD-NN` (for any
+  `--apply`); a value of another shape is refused, so an accidental variable does not authorize a
+  rewrite
 - the local time is inside the window (default 03:30 to 05:30), unless `--swap` is used, which skips
   the window precisely because it requires that no writer is live
 - free space is at least 2.5x the target database
@@ -93,6 +108,10 @@ Verified paths on real SQLite files (not on the host):
 | `--apply` with no approval | refused, exit 2 |
 | `--apply` outside the window | refused, exit 2 |
 | `--apply --swap` with the file held open | refused, in-place named as the correct method |
+| `--apply` while a `-journal` sidecar exists | refused (a write transaction is open), unchanged |
+| `--apply` in-place with a writer that releases | waits for the lock, then rewrites; rows intact |
+| `--apply` in-place with a writer that never releases | fails after `SQLITE_WAIT_MS`, unchanged |
+| approval id of the wrong shape (`=1`) | refused, nothing written |
 | `--apply` in-place with the file held open | runs, logs the pids that will wait |
 | `--apply --swap`, nothing open | copy, integrity ok, swap, backup kept |
 | in-place `--apply` inside the window | 13.1 MB to 8.0 kB, integrity ok, data intact |
