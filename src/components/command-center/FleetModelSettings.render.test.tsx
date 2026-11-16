@@ -93,6 +93,45 @@ describe('the three runtime states are visibly different', () => {
     expect(screen.queryByText(/Runtime unavailable/i)).toBeNull();
   });
 
+  // The two P1s, asserted on the text a person sees rather than on the view object.
+  it('does not say "session expired" to an operator who is signed in as someone else', async () => {
+    stubFetch({ ok: false, error: 'denied', reason: 'not_owner' });
+    render(<FleetModelSettings />);
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+    const text = (screen.getByRole('alert').textContent ?? '').toLowerCase();
+    expect(text).not.toContain('session expired');
+    expect(text).toContain('signed in');
+    expect(text).not.toContain('runtime unavailable');
+  });
+
+  it('does not say "session expired" when no owner is configured at all', async () => {
+    stubFetch({ ok: false, error: 'denied', reason: 'owner_not_configured' });
+    render(<FleetModelSettings />);
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+    const text = (screen.getByRole('alert').textContent ?? '').toLowerCase();
+    expect(text).not.toContain('session expired');
+    expect(text).toContain('no owner');
+  });
+
+  it('does not say "session expired" for a cross-site block', async () => {
+    stubFetch({ ok: false, error: 'denied', reason: 'cross_site' });
+    render(<FleetModelSettings />);
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+    const text = (screen.getByRole('alert').textContent ?? '').toLowerCase();
+    expect(text).not.toContain('session expired');
+    expect(text).toContain('security');
+  });
+
+  it('does not blame the runtime when a revoked device is refused', async () => {
+    stubFetch({ ok: false, error: 'denied', reason: 'device_revoked' });
+    render(<FleetModelSettings />);
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+    const text = (screen.getByRole('alert').textContent ?? '').toLowerCase();
+    expect(text).not.toContain('runtime unavailable');
+    expect(text).not.toContain('session expired');
+    expect(text).toContain('revoked');
+  });
+
   it('says the catalogue is empty without implying an outage', async () => {
     stubFetch({ ok: true, source: 'live', registry: { agents: [], providers: [], warnings: [], observedAt: '' } });
     render(<FleetModelSettings />);

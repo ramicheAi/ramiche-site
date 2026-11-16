@@ -120,7 +120,10 @@ export default function FleetModelSettings() {
 
       {view.state === 'denied' && (
         <p role="alert" style={{ color: 'var(--c-gold)' }}>
-          <strong>Your session expired.</strong> {view.reason}
+          {/* Heading and detail must agree. This used to hardcode "Your session expired." above a
+              detail that said, correctly, "this session is signed in, but not as this runtime's
+              configured owner" — two diagnoses in one sentence, one of them false. */}
+          <strong>{view.heading}</strong> {view.reason}
         </p>
       )}
 

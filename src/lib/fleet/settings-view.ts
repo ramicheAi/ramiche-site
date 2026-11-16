@@ -35,17 +35,63 @@ export type RegistryResponse =
 
 export type RegistryView =
   | { state: 'loading' }
-  | { state: 'denied'; reason: string }
+  // `heading` is rendered above `reason`. They are separate fields because a single sentence cannot
+  // both name the category and give the advice without contradicting itself for at least one reason.
+  | { state: 'denied'; reason: string; code: string; heading: string }
   | { state: 'unavailable'; reason: string; detail?: string }
   | { state: 'malformed'; reason: string }
   | { state: 'empty'; registry: RegistrySnapshot }
   | { state: 'ready'; registry: RegistrySnapshot };
 
-// requireCommandCenterOwner() can refuse for any of these (command-center-guard.ts); every one of
-// them is wrapped identically by ownerDenialResponse as {ok:false, error:"denied", reason}. "sign
-// in again" is the right advice for a session problem but wrong for not_owner (you ARE signed in,
-// just not the configured owner) and for owner_not_configured (there is no owner to sign in as).
+// requireCommandCenterOwner() can refuse for these reasons (command-center-guard.ts), and every one
+// is wrapped identically by ownerDenialResponse as {ok:false, error:"denied", reason}.
+//
+// The inventory, read from the source rather than guessed, because the previous version of this
+// file listed ten codes and called the list complete while the guard was minting templated reasons
+// it did not contain:
+//
+//   session   missing_session, invalid_session, session_expired, not_owner, owner_not_configured
+//   origin    cross_site, origin_mismatch, missing_origin
+//   unlock_   missing, malformed, not_configured, bad_signature, expired      (command-center-guard.ts:85)
+//   device_   not_configured, malformed, not_found, secret_mismatch, revoked,
+//             expired, owner_mismatch                                        (command-center-guard.ts:93)
+//   plus      device_mismatch (the device cookie and the unlock cookie name different devices)
+//
+// That is why the write path below gates on the envelope (`error === 'denied'`) instead of on a
+// list. A list cannot stay complete: `unlock_${reason}` and `device_${reason}` are built from the
+// verifier's own reason union, so any new reason the guard mints would silently fall through to
+// "the runtime rejected the change" — an auth refusal blamed on the runtime, on the one credential
+// that is most likely to be revoked in normal use.
 const UNAUTHORIZED_ORIGIN_REASONS = new Set(['cross_site', 'origin_mismatch', 'missing_origin']);
+const SESSION_REASONS = new Set([
+  'missing_session',
+  'invalid_session',
+  'session_expired',
+  'missing_unlock',
+  'device_mismatch',
+]);
+
+/**
+ * True when a refusal came from the authorization guard rather than from the runtime's own logic.
+ * Prefers the envelope; falls back to the reason shape so a caller that passes only the reason (or
+ * a future response that drops `error`) still classifies correctly.
+ */
+function isAuthDenial(response: unknown, reason: string | undefined): boolean {
+  if (response && typeof response === 'object' && (response as { error?: unknown }).error === 'denied') {
+    return true;
+  }
+  if (!reason) return false;
+  if (SESSION_REASONS.has(reason)) return true;
+  if (UNAUTHORIZED_ORIGIN_REASONS.has(reason)) return true;
+  if (reason === 'not_owner' || reason === 'owner_not_configured') return true;
+  // The guard's templated reasons. This is a shape check, not a list, so it cannot go stale.
+  return reason.startsWith('unlock_') || reason.startsWith('device_');
+}
+
+const DEVICE_NOT_RECOGNIZED =
+  'this device is not recognized by the runtime; sign in with the owner account, or enroll this device again';
+const DEVICE_UNLOCK_STALE =
+  'this device’s unlock has expired or is invalid; enter your PIN again, or sign in with the owner account';
 
 /** The one denial message shown for both the GET (registry) and POST (write) auth failures. */
 function authDenialMessage(reason: string | undefined): string {
@@ -54,8 +100,58 @@ function authDenialMessage(reason: string | undefined): string {
   }
   if (reason === 'not_owner') return 'this session is signed in, but not as this runtime’s configured owner';
   if (reason === 'owner_not_configured') return 'no owner is configured for this runtime yet';
-  // missing_session / invalid_session / session_expired / missing_unlock / device_mismatch
-  return 'your session expired; sign in again';
+
+  // Device-trust reasons. These are a primary credential on the iMac, so a revoked or expired
+  // device is an ordinary daily state, and the advice has to be "re-authenticate or re-enroll",
+  // never "the runtime rejected the change".
+  if (reason === 'device_revoked') {
+    return 'this device’s access was revoked, so it can no longer act as the owner; sign in with the owner account, or enroll this device again';
+  }
+  if (reason === 'device_expired') {
+    return 'this device’s access expired; sign in with the owner account, or enroll this device again';
+  }
+  if (reason === 'unlock_expired' || reason === 'unlock_bad_signature' || reason === 'unlock_malformed' || reason === 'unlock_missing') {
+    return DEVICE_UNLOCK_STALE;
+  }
+  if (reason === 'unlock_not_configured' || reason === 'device_not_configured') {
+    return 'device unlock is not configured on this runtime; sign in with the owner account';
+  }
+  if (
+    reason === 'device_not_found' ||
+    reason === 'device_secret_mismatch' ||
+    reason === 'device_owner_mismatch' ||
+    reason === 'device_malformed' ||
+    reason === 'device_mismatch'
+  ) {
+    return DEVICE_NOT_RECOGNIZED;
+  }
+
+  // A future device-trust reason: still a device-credential problem, so give device advice rather
+  // than a generic sentence. This is the branch that keeps the message correct without a list.
+  if (reason && (reason.startsWith('device_') || reason.startsWith('unlock_'))) return DEVICE_NOT_RECOGNIZED;
+
+  // missing_session / invalid_session / session_expired
+  if (!reason || SESSION_REASONS.has(reason)) return 'your session expired; sign in again';
+  // An unrecognised denial is still an authorization refusal, so it must not be described as
+  // something the runtime did to the change.
+  return 'this request was not authorized; sign in again';
+}
+
+/**
+ * The heading above the denial detail. Carried separately from the detail because the detail is a
+ * full sentence: putting "Your session expired." above "this session is signed in, but not as this
+ * runtime's configured owner" says two different things in one breath, which is still a lie to the
+ * operator even when the detail is right.
+ */
+export function denialHeading(reason: string | undefined): string {
+  if (reason && UNAUTHORIZED_ORIGIN_REASONS.has(reason)) return 'Request blocked.';
+  if (reason === 'not_owner') return 'Not the owner.';
+  if (reason === 'owner_not_configured') return 'No owner configured.';
+  if (reason && (reason.startsWith('unlock_') || reason.startsWith('device_'))) {
+    return 'This device is not authorized.';
+  }
+  if (!reason || SESSION_REASONS.has(reason)) return 'Your session expired.';
+  return 'Not authorized.';
 }
 
 /** Turn a GET response into exactly one truth state. "No data" and "no answer" are different. */
@@ -69,7 +165,12 @@ export function describeRegistry(response: RegistryResponse | null | undefined):
     // the specific reason value) so every guard refusal lands here, then pick the message by the
     // actual reason instead of defaulting all of them to "session expired".
     if ((response as { error?: string }).error === 'denied') {
-      return { state: 'denied', reason: authDenialMessage(reason) };
+      return {
+        state: 'denied',
+        code: reason ?? 'denied',
+        heading: denialHeading(reason),
+        reason: authDenialMessage(reason),
+      };
     }
     if (response.source === 'malformed') {
       return { state: 'malformed', reason: response.reason ?? 'the registry could not be parsed' };
@@ -140,7 +241,9 @@ export function checkSelection(snapshot: RegistrySnapshot, agentId: string, ref:
 
 export type WriteResponse =
   | { ok: true; agentId: string; before: string | null; after: string; backupPath: string; observedAt: string }
-  | { ok: false; reason: string; detail?: string };
+  // The guard's denial body is { ok:false, error:"denied", reason } and reaches this function
+  // unchanged, so the envelope is part of the shape even though the route's own failures omit it.
+  | { ok: false; reason: string; detail?: string; error?: string };
 
 export type WriteView =
   | { state: 'saved'; agentId: string; persisted: string; before: string | null; backupPath: string }
@@ -188,24 +291,12 @@ export function describeWrite(
     };
   }
   const code = flat.reason;
-  // Same reason codes as describeRegistry's guard denial, listed in full so a code the guard adds
-  // later doesn't silently fall through to the generic "the runtime rejected the change" below,
-  // which blames the runtime for what is actually an auth/origin refusal and hides the sign-in
-  // cue. See UNAUTHORIZED_ORIGIN_REASONS / authDenialMessage above for the per-reason wording.
-  const UNAUTHORIZED_CODES = new Set([
-    'missing_session',
-    'invalid_session',
-    'session_expired',
-    'not_owner',
-    'owner_not_configured',
-    'missing_unlock',
-    'device_mismatch',
-    'cross_site',
-    'origin_mismatch',
-    'missing_origin',
-  ]);
-  if (UNAUTHORIZED_CODES.has(code)) {
-    return { state: 'unauthorized', code, message: authDenialMessage(code) };
+  // Gate on the authorization envelope, not on an enumerated list of reason codes. The guard mints
+  // `unlock_${reason}` and `device_${reason}` from verifier unions this file cannot see, so a list
+  // is guaranteed to fall behind, and every code it misses is reported as the runtime rejecting the
+  // change. See the inventory comment above authDenialMessage.
+  if (isAuthDenial(flat, code)) {
+    return { state: 'unauthorized', code: code ?? 'denied', message: authDenialMessage(code) };
   }
   if (code === 'locked') return { state: 'busy', code, message: 'another change is in progress; nothing was written' };
   if (code === 'source_unavailable' || code === 'lock_failed' || code === 'write_failed') {

@@ -177,7 +177,12 @@ describe('the route envelope is not the write result', () => {
 describe('an expired session is not an outage', () => {
   it('reports denied rather than runtime unavailable', () => {
     const view = describeRegistry({ ok: false, error: 'denied', reason: 'missing_session' } as never);
-    expect(view).toEqual({ state: 'denied', reason: 'your session expired; sign in again' });
+    expect(view).toEqual({
+      state: 'denied',
+      code: 'missing_session',
+      heading: 'Your session expired.',
+      reason: 'your session expired; sign in again',
+    });
   });
 
   it('does not describe every denial reason as a session problem', () => {
@@ -196,6 +201,8 @@ describe('an expired session is not an outage', () => {
     const view = describeRegistry({ ok: false, error: 'denied', reason: 'origin_mismatch' } as never);
     expect(view).toEqual({
       state: 'denied',
+      code: 'origin_mismatch',
+      heading: 'Request blocked.',
       reason: 'the request was blocked for security reasons; reload the page and try again',
     });
   });
@@ -282,5 +289,112 @@ describe('selection refs with slashes and guard denials', () => {
   it('never renders a blank rejection', () => {
     const view = describeWrite({ ok: false, reason: 'something_new' });
     if (view.state === 'rejected') expect(view.message.length).toBeGreaterThan(10);
+  });
+});
+
+describe('the denial heading agrees with the denial detail', () => {
+  // The defect this replaces: the component hardcoded "Your session expired." above every detail,
+  // so `not_owner` rendered "Your session expired. this session is signed in, but not as this
+  // runtime's configured owner" — two diagnoses, one of them false. The heading is now derived from
+  // the same reason as the detail, and these assertions are on the words the operator actually sees.
+  const cases: Array<[string, string, RegExp]> = [
+    ['not_owner', 'Not the owner.', /expired/i],
+    ['owner_not_configured', 'No owner configured.', /expired/i],
+    ['cross_site', 'Request blocked.', /expired/i],
+    ['origin_mismatch', 'Request blocked.', /expired/i],
+    ['missing_origin', 'Request blocked.', /expired/i],
+    ['device_revoked', 'This device is not authorized.', /expired/i],
+    ['device_expired', 'This device is not authorized.', /expired/i],
+    ['unlock_bad_signature', 'This device is not authorized.', /expired/i],
+    ['missing_session', 'Your session expired.', /not the owner/i],
+    ['session_expired', 'Your session expired.', /not the owner/i],
+  ];
+
+  for (const [reason, heading, forbiddenInHeading] of cases) {
+    it(`${reason} gets a heading that is true for it`, () => {
+      const view = describeRegistry({ ok: false, error: 'denied', reason } as never);
+      expect(view.state).toBe('denied');
+      if (view.state !== 'denied') return;
+      expect(view.code).toBe(reason);
+      expect(view.heading).toBe(heading);
+      expect(view.heading).not.toMatch(forbiddenInHeading);
+    });
+  }
+
+  it('never puts "session expired" above a signed-in-but-not-owner detail', () => {
+    const view = describeRegistry({ ok: false, error: 'denied', reason: 'not_owner' } as never);
+    if (view.state !== 'denied') throw new Error('expected denied');
+    // The whole rendered line, as one string.
+    const rendered = `${view.heading} ${view.reason}`;
+    expect(rendered.toLowerCase()).not.toContain('session expired');
+    expect(rendered.toLowerCase()).toContain('signed in');
+  });
+});
+
+describe('device-trust denials are not blamed on the runtime', () => {
+  // A revoked or expired device is an ordinary daily state on the iMac, where the PIN unlock is a
+  // primary credential. Every one of these used to render "the runtime rejected the change".
+  const reasons = [
+    'unlock_missing',
+    'unlock_malformed',
+    'unlock_bad_signature',
+    'unlock_expired',
+    'unlock_not_configured',
+    'device_not_found',
+    'device_secret_mismatch',
+    'device_revoked',
+    'device_expired',
+    'device_owner_mismatch',
+    'device_malformed',
+    'device_not_configured',
+    'device_mismatch',
+  ];
+
+  for (const reason of reasons) {
+    it(`${reason} is an authorization refusal with re-auth advice`, () => {
+      // The route returns the guard's envelope unchanged: {ok:false, error:"denied", reason}.
+      const view = describeWrite({ ok: false, error: 'denied', reason } as never);
+      expect(view.state).toBe('unauthorized');
+      if (view.state !== 'unauthorized') return;
+      expect(view.code).toBe(reason);
+      expect(view.message.toLowerCase()).not.toContain('runtime rejected');
+      expect(view.message.toLowerCase()).toMatch(/sign in|pin|enroll/);
+    });
+  }
+
+  it('still classifies a templated reason the guard adds later', () => {
+    // The point of gating on the envelope: a reason that does not exist yet must not fall through
+    // to "the runtime rejected the change".
+    const view = describeWrite({ ok: false, error: 'denied', reason: 'device_some_future_state' } as never);
+    expect(view.state).toBe('unauthorized');
+    if (view.state === 'unauthorized') {
+      expect(view.message.toLowerCase()).not.toContain('runtime rejected');
+      expect(view.message.toLowerCase()).toContain('not recognized');
+    }
+  });
+
+  it('a denied write with no reason at all is still not a runtime rejection', () => {
+    const view = describeWrite({ ok: false, error: 'denied' } as never);
+    expect(view.state).toBe('unauthorized');
+    if (view.state === 'unauthorized') expect(view.message.toLowerCase()).not.toContain('runtime rejected');
+  });
+
+  it('classifies a denial even when the envelope is absent', () => {
+    // The route's denial body carries error:"denied", and that is the primary check. This covers
+    // the fallback: a body that reaches us as {ok:false, reason} only (an older caller, or a layer
+    // that strips the envelope) must still be read as an auth refusal, not as a runtime rejection.
+    for (const reason of ['device_revoked', 'unlock_expired', 'not_owner', 'cross_site', 'missing_session']) {
+      const view = describeWrite({ ok: false, reason } as never);
+      expect(view.state).toBe('unauthorized');
+      if (view.state === 'unauthorized') {
+        expect(view.message.toLowerCase()).not.toContain('runtime rejected');
+      }
+    }
+  });
+
+  it('a genuine runtime rejection is still reported as one', () => {
+    // The gate must not swallow real runtime refusals into "not authorized".
+    const view = describeWrite({ ok: false, reason: 'unknown_agent' } as never);
+    expect(view.state).toBe('rejected');
   });
 });
