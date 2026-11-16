@@ -1419,3 +1419,40 @@ items, and the two that this round changed:
    re-auth advice, not "session expired" and not "the runtime rejected the change". These strings are
    new and longer, so readability on a small screen has to be looked at.
 6. Safe-area and keyboard behaviour for the composer, which has its own history of defects.
+
+### 23.6 Independent verdicts
+
+**#101 `feat/cc-fleet-settings` at `7f38d87a`: APPROVE. None of the findings block.**
+
+A separate agent with its own context rendered the component for all 23 reasons the guard can mint
+and read the alert text, rather than trusting the view object. `not_owner` renders "Not the owner."
+above "this session is signed in, but not as this runtime's configured owner"; `cross_site` renders
+"Request blocked."; every `unlock_*` and `device_*` reason renders "This device is not authorized."
+plus re-auth advice; an unknown future reason renders "Not authorized."; "session expired" appears for
+no reason where it is false, and "undefined" appears nowhere.
+
+For the write path the reviewer imported the guard's own `ownerDenialResponse` and round-tripped every
+reason, then rendered real saves for 15 auth reasons: none render "the runtime rejected the change".
+The reverse direction is clean too, `locked` stays busy, `readback_mismatch` is not called an auth
+problem, and no filesystem path reaches the DOM.
+
+Mutation testing by the reviewer, each mutation compiled before counting: 9 of 11 caught. Two
+survive, both test gaps in a feature outside this change: the post-save re-read comparison has no
+test, and the success-line assertion is satisfied by the refreshed table row so it cannot tell the
+server's read-back from the previous value. The code is correct; the coverage is thin. Recorded, not
+fixed, so the approved SHA does not move.
+
+Non-blocking findings, all pre-existing and none introduced by this branch:
+
+- The half-empty catalogue announces "No agents or providers are configured… not an outage" and then
+  renders a table with Save buttons that cannot succeed. A claim that cannot be true beside a control
+  that cannot work.
+- The read path has no envelope-less fallback, so a denial body without `error:"denied"` would render
+  "Runtime unavailable" plus a raw code. Unreachable today, since both the guard and middleware send
+  the envelope.
+- "Not saved:" is the wrong label when the write landed and only the confirmation re-read disagreed.
+- "Saved and read back" survives a failed confirmation re-read without saying the second check was
+  skipped.
+- `invalid_session` collapses several causes (non-human provider, revoked cookie, transient verifier
+  failure) into "session expired".
+- `agents/manage` still has a model picker that mutates local state only.
