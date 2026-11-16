@@ -34,7 +34,11 @@ vi.mock("@supabase/supabase-js", () => {
     chain[m] = () => chain;
   }
   chain.single = async () => ({ data: null, error: null });
-  chain.maybeSingle = async () => ({ data: null, error: null });
+  // An empty object, not null: a real PostgREST row always carries every selected key (null
+  // values included), so `{}` signals "this test doesn't model this lookup's columns" without
+  // looking like "no row exists," which the CC-RECOVERY-22 identity check (relay-identity-check.ts)
+  // would otherwise read as a reason to refuse every dispatch in this provider-order-focused file.
+  chain.maybeSingle = async () => ({ data: {}, error: null });
   chain.then = (resolve: (v: unknown) => unknown) =>
     Promise.resolve({ data: null, error: null }).then(resolve);
   return { createClient: () => ({ from: () => chain, rpc: async () => ({ data: null, error: null }) }) };

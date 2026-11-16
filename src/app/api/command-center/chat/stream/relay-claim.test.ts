@@ -61,6 +61,9 @@ function makeSvc(rpc: ReturnType<typeof vi.fn>, insertResult: { data: unknown; e
     eq: vi.fn(() => chain),
     select: vi.fn(() => chain),
     single: vi.fn().mockResolvedValue(insertResult),
+    // Empty object, not null: a real row always carries every selected key, so this signals "not
+    // modeled here" to the CC-RECOVERY-22 identity check without looking like "no row exists."
+    maybeSingle: vi.fn().mockResolvedValue({ data: {}, error: null }),
     then: (resolve: (v: unknown) => unknown) => Promise.resolve({ data: null, error: null }).then(resolve),
   };
   return { rpc, from: vi.fn(() => chain) };
