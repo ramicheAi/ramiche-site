@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback, useRef, type CSSProperties } from "react";
 import Link from "next/link";
 import { relayErrorMessage } from "@/lib/relay-error-message";
+import { sendCommanderChat } from "@/lib/legacy-console-chat";
 import ParticleField from "@/components/ParticleField";
 import {
   AGENT_ORBIT_IDS,
@@ -460,67 +461,40 @@ export default function CommandCenter() {
     ]);
     setChatInput("");
     setChatSending(true);
-    void fetch("/api/bridge/chat", {
-      method: "POST",
-      headers: bridgeHeaders,
-      body: JSON.stringify({ targetAgent: chatAgent, message: text, sender: "commander" }),
-    }).catch(() => {});
-    try {
-      const res = await fetch("/api/command-center/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: text,
-          agentName,
-          channelName: "Command Center",
-          channelId: "cc-dashboard",
-        }),
-      });
-      const data = (await res.json()) as {
-        ok?: boolean;
-        response?: string;
-        error?: string;
-        source?: string;
-      };
-      if (data.ok && data.response) {
-        setChatMessages((prev) => [
-          {
-            sender: "agent",
-            targetAgent: chatAgent,
-            message: data.response,
-            timestamp: new Date().toISOString(),
-            relaySource: data.source,
-          },
-          ...prev,
-        ]);
-      } else {
-        // This page dispatches without a persisted message id, so since CC-RECOVERY-14 the route
-        // refuses it: an agent turn cannot be claimed, and an unclaimed dispatch is exactly the
-        // duplicate-execution hole the claim exists to close. Show the route's own sentence rather
-        // than its machine code, so the operator sees why nothing ran instead of a mystery.
-        setChatMessages((prev) => [
-          {
-            sender: "system",
-            targetAgent: chatAgent,
-            message: relayErrorMessage(data, res.status),
-            timestamp: new Date().toISOString(),
-          },
-          ...prev,
-        ]);
-      }
-    } catch {
+    // CC-RECOVERY-17: this used to also fire an unauthenticated write to Firestore
+    // (/api/bridge/chat) here, fire-and-forget, for bridge-sync.mjs to eventually relay — a
+    // second, unclaimed dispatch path for the exact same send with no coordination with the
+    // Postgres claim at all. It only ever did nothing because Firestore access currently 403s,
+    // not because anything stopped it from dispatching twice. It is gone: sendCommanderChat below
+    // is the one authoritative dispatch request this page makes per send. See
+    // src/lib/legacy-console-chat.ts.
+    const result = await sendCommanderChat(
+      { message: text, agentName, channelName: "Command Center", channelId: "cc-dashboard" },
+      { fetchImpl: fetch, relayErrorMessage },
+    );
+    if (result.kind === "delivered") {
+      setChatMessages((prev) => [
+        {
+          sender: "agent",
+          targetAgent: chatAgent,
+          message: result.response,
+          timestamp: new Date().toISOString(),
+          relaySource: result.source,
+        },
+        ...prev,
+      ]);
+    } else {
       setChatMessages((prev) => [
         {
           sender: "system",
           targetAgent: chatAgent,
-          message: "Network error — could not reach /api/command-center/chat",
+          message: result.message,
           timestamp: new Date().toISOString(),
         },
         ...prev,
       ]);
-    } finally {
-      setChatSending(false);
     }
+    setChatSending(false);
   };
 
 
