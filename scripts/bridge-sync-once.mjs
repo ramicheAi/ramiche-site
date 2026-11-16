@@ -5,6 +5,7 @@
 import { execSync, execFileSync } from "child_process";
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from "fs";
 import { dirname, join } from "path";
+import { resolveSecret } from "./lib/resolve-secret.mjs";
 
 function resolveOpenclawCronDir() {
   const explicit = process.env.OPENCLAW_CRON_DIR?.trim();
@@ -17,7 +18,9 @@ function resolveOpenclawCronDir() {
 }
 
 const BRIDGE_URL = process.env.BRIDGE_URL || "https://ramiche-site.vercel.app/api/bridge";
-const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET || "";
+// CC-RECOVERY-20: same file-backed resolution as bridge-sync.mjs (see that file's comment) --
+// one of three host-side scripts that need this treatment together, not in isolation.
+const BRIDGE_SECRET = resolveSecret(process.env, { existsSync, readFileSync }, "BRIDGE_API_SECRET_FILE", "BRIDGE_API_SECRET");
 const WORKSPACE = process.env.OPENCLAW_WORKSPACE || "/Users/admin/.openclaw/workspace";
 
 function run(cmd) {
