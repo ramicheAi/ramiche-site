@@ -869,6 +869,16 @@ export async function approveSynthesisMessageStreamed(
     onEvent({ type: "already_approved", approvedAt });
     return { ok: true, alreadyApproved: true, approvedAt };
   }
+  // Defense in depth, not the safety boundary (the claim below is): cc-reject-synthesis.ts marks
+  // its claim failed_permanent AFTER writing metadata.rejected_at, so the two should always agree.
+  // But if that second write (the mark) ever fails to land — a real, if rare, path reject's own
+  // code logs and tolerates rather than un-write the rejection for — relay_status could still read
+  // something other than failed_permanent while metadata.rejected_at is already true. Checking the
+  // field directly here means approve still refuses even in that gap, instead of relying solely on
+  // relay_status to have been updated correctly.
+  if (meta.rejected_at) {
+    return { ok: false, error: "this synthesis was rejected and cannot be approved", status: 409 };
+  }
 
   // This function dispatches agent turns for ONE persisted message (the synthesis row), exactly like
   // the chat routes, so it needs the same claim. The metadata check above is not a substitute: it is

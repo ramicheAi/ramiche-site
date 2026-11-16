@@ -121,6 +121,7 @@ async function GET_handler(req: NextRequest) {
     const meta = row.metadata as Record<string, unknown>;
     const plan = meta.plan as Record<string, unknown> | undefined;
     const approvedAt = typeof meta.approved_at === "string" ? meta.approved_at : null;
+    const rejectedAt = typeof meta.rejected_at === "string" ? meta.rejected_at : null;
     const statuses = Array.isArray(meta.action_statuses) ? (meta.action_statuses as string[]) : [];
     const sid = row.id as string;
     const ackMap = acksBy.get(sid) ?? new Map<string, (typeof linked)[number]>();
@@ -152,6 +153,7 @@ async function GET_handler(req: NextRequest) {
       content: row.content as string,
       createdAt: row.created_at as string,
       approvedAt,
+      rejectedAt,
       plan: plan
         ? {
             decision: String(plan.decision || ""),

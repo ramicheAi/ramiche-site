@@ -40,10 +40,22 @@
 
 import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
 import { claimRelayDispatch, describeDuplicate, describeUnavailable, markRelayStatus } from "@/lib/relay-dispatch";
-import { getSupabaseServiceForApprove, TENANT_ID } from "@/lib/cc-approve-synthesis";
+import { APPROVE_LEASE_SECONDS, getSupabaseServiceForApprove, TENANT_ID } from "@/lib/cc-approve-synthesis";
 
-/** Reject only ever writes two small fields and posts one channel message — a short lease is correct. */
-export const REJECT_LEASE_SECONDS = 60;
+/**
+ * NOT a "how long does reject's own work take" number — reject's own work is two fast writes.
+ * This is the staleness threshold `cc_claim_relay_dispatch` uses to decide whether an EXISTING
+ * `claimed` row (held by someone else) is still legitimately in flight, and that predicate reads
+ * the CALLING claim's own `p_lease_seconds` argument, not whatever lease the original holder used
+ * (see supabase/migrations/20261115120000_cc_relay_dispatch_terminal_state.sql). An independent
+ * review caught this: with a 60s lease here, Reject could reclaim a row 61 seconds into a
+ * legitimately-running Approve (which claims with APPROVE_LEASE_SECONDS = 600, since a sequential
+ * plan can run for minutes) — stealing the claim out from under a dispatch that is still actually
+ * executing, with no fence protecting the metadata each side then writes. Matching the approve
+ * lease exactly is what makes "is a claimed row stale" agree between the two callers that share
+ * it.
+ */
+export const REJECT_LEASE_SECONDS = APPROVE_LEASE_SECONDS;
 
 export type RejectResult =
   | { ok: true; alreadyRejected?: boolean; rejectedAt: string; cancelled?: number }
@@ -144,20 +156,23 @@ export async function rejectSynthesisMessage(
 
   const { error: updErr } = await svc.from("messages").update({ metadata: updatedMeta }).eq("id", row.id);
   if (updErr) {
-    // The claim is held but the write failed: log loudly. The row stays `claimed` until the short
-    // lease above expires, after which a retry can claim and write it properly — the same
-    // retry-after-lease-expiry behavior approve relies on for its own write failures.
+    // The claim is held but the write failed: log loudly, and release the claim NOW rather than
+    // leaving the row claimed for the full REJECT_LEASE_SECONDS (600s, matching the approve lease
+    // per the comment above it) — `failed` means "nothing was ever sent", which is exactly true
+    // here, and is immediately reclaimable, unlike `claimed`/`unknown`.
     console.error("[reject] metadata update failed:", updErr.message);
+    await markRelayStatus(svc, row.id as string, "failed", claim.attempt);
     return { ok: false, error: `rejection failed to persist: ${updErr.message}`, status: 500 };
   }
 
   // Terminal: never reclaimed by a future approve or reject call on this message.
   const marked = await markRelayStatus(svc, row.id as string, "failed_permanent", claim.attempt);
   if (!marked) {
-    // metadata.rejected_at already landed (the fact the operator and the UI care about), but the
-    // enforcement lock did not convert to its permanent form. Log it; the lease above still blocks
-    // a concurrent approve for REJECT_LEASE_SECONDS, and a retry of THIS reject is idempotent via
-    // the meta.rejected_at fast path above.
+    // metadata.rejected_at already landed (the fact the operator and the UI care about, and what
+    // approve's own direct `meta.rejected_at` check now refuses on regardless of relay_status), but
+    // the enforcement lock did not convert to its permanent form. Log it; the claim still blocks a
+    // concurrent approve for up to REJECT_LEASE_SECONDS, and a retry of THIS reject is idempotent
+    // via the meta.rejected_at fast path above.
     console.error("[reject] markRelayStatus(failed_permanent) did not land for", row.id);
   }
 

@@ -262,4 +262,62 @@ describe("rejectSynthesisMessage", () => {
     const updates = (svc as unknown as { __updates: Array<Record<string, unknown>> }).__updates;
     expect(updates.length).toBe(0);
   });
+
+  it("claims with a lease at least as long as approve's, so it cannot steal an in-flight approve's claim", async () => {
+    // Independent review found the original 60s REJECT_LEASE_SECONDS let Reject reclaim a row
+    // still inside a legitimately-running 600s Approve: cc_claim_relay_dispatch's staleness check
+    // uses the CALLING claim's own lease argument, not whatever lease the current holder used, so
+    // a short reject lease would treat a 61-second-old in-flight approve as abandoned. Pinning this
+    // import-time equality is cheap insurance against that regression recurring silently.
+    const { REJECT_LEASE_SECONDS } = await import("./cc-reject-synthesis");
+    const { APPROVE_LEASE_SECONDS } = await import("./cc-approve-synthesis");
+    expect(REJECT_LEASE_SECONDS).toBeGreaterThanOrEqual(APPROVE_LEASE_SECONDS);
+
+    const rpc = vi.fn((name: string, args: Record<string, unknown>) => {
+      if (name === "cc_claim_relay_dispatch") {
+        expect(args.p_lease_seconds).toBeGreaterThanOrEqual(APPROVE_LEASE_SECONDS);
+        return Promise.resolve({ data: [{ claimed: true, attempts: 1 }], error: null });
+      }
+      return Promise.resolve({ data: true, error: null });
+    });
+    createClient.mockReturnValue(makeSvc(rpc, PLAN_METADATA));
+    vi.resetModules();
+    const { rejectSynthesisMessage: reject2 } = await import("./cc-reject-synthesis");
+    await reject2(SYNTHESIS_ID);
+    expect(rpc).toHaveBeenCalledWith(
+      "cc_claim_relay_dispatch",
+      expect.objectContaining({ p_lease_seconds: expect.any(Number) }),
+    );
+  });
+
+  it("releases the claim immediately (marks failed) when the metadata write fails, instead of holding it for the full lease", async () => {
+    const rpc = vi.fn((name: string, args: Record<string, unknown>) => {
+      if (name === "cc_claim_relay_dispatch") {
+        return Promise.resolve({ data: [{ claimed: true, attempts: 3 }], error: null });
+      }
+      if (name === "cc_mark_relay_status") {
+        expect(args.p_status).toBe("failed");
+        expect(args.p_attempt).toBe(3);
+        return Promise.resolve({ data: true, error: null });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
+    // Force the metadata update to fail.
+    const chain: Record<string, unknown> = {};
+    for (const m of ["eq", "select", "order", "limit"]) chain[m] = vi.fn(() => chain);
+    chain.single = vi.fn(async () => ({ data: row(PLAN_METADATA), error: null }));
+    chain.update = vi.fn(() => chain);
+    chain.insert = vi.fn(async () => ({ data: null, error: null }));
+    chain.then = (resolve: (v: unknown) => unknown) =>
+      Promise.resolve({ data: null, error: { message: "write failed" } }).then(resolve);
+    createClient.mockReturnValue({ rpc, from: vi.fn(() => chain) });
+    vi.resetModules();
+    const { rejectSynthesisMessage } = await import("./cc-reject-synthesis");
+    const result = await rejectSynthesisMessage(SYNTHESIS_ID);
+    expect(result.ok).toBe(false);
+    expect(rpc).toHaveBeenCalledWith(
+      "cc_mark_relay_status",
+      expect.objectContaining({ p_status: "failed", p_attempt: 3 }),
+    );
+  });
 });

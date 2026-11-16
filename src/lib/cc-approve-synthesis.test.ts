@@ -459,4 +459,23 @@ describe("approveSynthesisMessage — relay claim closes the concurrent-approval
     expect(String((result as { error?: string }).error)).not.toMatch(/failed permanently/i);
     expect(dispatchCalls()).toBe(0);
   });
+
+  it("refuses on metadata.rejected_at directly, without even attempting the claim", async () => {
+    // Defense in depth: if cc-reject-synthesis.ts's own markRelayStatus(failed_permanent) call
+    // ever failed to land (it logs and tolerates that), relay_status could read something other
+    // than failed_permanent while metadata.rejected_at is already true. Approve must still refuse
+    // in that gap instead of relying solely on the claim's relay_status to have caught up.
+    const rpc = vi.fn();
+    createClient.mockReturnValue(
+      makeSvc(rpc, { ...PLAN, rejected_at: "2026-11-16T00:00:00.000Z" }, null, true, null, null),
+    );
+    vi.resetModules();
+    const { approveSynthesisMessage } = await import("./cc-approve-synthesis");
+    const result = await approveSynthesisMessage(SYNTHESIS_ID);
+    expect(result.ok).toBe(false);
+    expect((result as { status?: number }).status).toBe(409);
+    expect(String((result as { error?: string }).error)).toMatch(/rejected/i);
+    expect(rpc).not.toHaveBeenCalled();
+    expect(dispatchCalls()).toBe(0);
+  });
 });

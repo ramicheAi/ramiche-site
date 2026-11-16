@@ -472,9 +472,14 @@ const journeys = [
             body: JSON.stringify({ messageId }),
           });
           const body = await res.json().catch(() => ({}));
-          return { status: res.status, ok: body?.ok };
+          return { status: res.status, ok: body?.ok, error: body?.error };
         }, id);
-        approveNowRefused = approveOutcome.status === 409 && approveOutcome.ok === false;
+        // Pin the CAUSE, not just the status code: a 409 could in principle come from a different
+        // refusal path, which would make this check pass for the wrong reason.
+        approveNowRefused =
+          approveOutcome.status === 409 &&
+          approveOutcome.ok === false &&
+          /rejected/i.test(String(approveOutcome.error ?? ""));
       }
       await page.__context.close();
       const checks = {
