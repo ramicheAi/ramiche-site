@@ -972,3 +972,189 @@ Full suite 1080 passed / 2 expected fail / 4 skipped, build clean, CI green at `
 ### 21.5 State
 
 Main `c6241701`. Vercel production `dpl_BxVfLSoZzLLB2Sto6SmxHZGEHT21`, untouched. Canonical cockpit `41d183a0`, untouched. Nothing merged, no migration applied, no deployment, no fleet write. #99 remains the superseded duplicate and should be closed, not merged.
+
+## 22. CC-RECOVERY-13
+
+Production freeze held throughout. Nothing merged, no migration applied to any database, no
+deployment, no cron or launchd change, no file changed on the iMac, no deletion anywhere. The only
+writes were git commits to two non-production branches and comments on two pull requests.
+
+### 22.1 Ownership
+
+One implementation owner per branch, declared on the PR and dated:
+
+| Branch | Head at freeze | Owner |
+|---|---|---|
+| `fix/cc-relay-terminal-state` (#100) | `768d6251`, now `5870c7e7` | this session |
+| `feat/cc-fleet-settings` (#101) | `becb0e37` | the session that produced `3f2aa639` |
+
+Independent read-only reviews were run against both, by agents that did not write the code, in
+separate worktrees, with no commits and no pushes. The reviewer for #101 reported that the branch
+moved from `3f2aa639` to `becb0e37` after the freeze comment was posted (committed 00:28Z, before
+the comment landed); verification was re-run at the new head rather than assumed.
+
+### 22.2 The bypass: what was found, and the disposition
+
+`/api/command-center/chat/stream` dispatched with no claim. The question was whether to bring it
+under the claim or retire it.
+
+**Disposition: bring it under the claim.** Reasoning, with the evidence on both sides:
+
+- No in-repo caller exists (`git grep` across all files), and 14 days of Vercel production logs show
+  zero hits. Absence of logs is supporting, not conclusive: the CLI returns about 50 sampled
+  entries per fetch.
+- But `public/projects/voice-loop/IMPLEMENTATION-SPEC.md` is a published specification that plans to
+  use this endpoint, and an external caller cannot be enumerated from here. Retiring it would break
+  a documented interface to close a hole that a claim closes with no loss of function.
+- So: claim it. A duplicate now gets an honest answer instead of a second agent turn.
+
+Searching for the same class of hole found a **second message-scoped dispatcher the report did not
+name**: `POST /api/command-center/chat/approve` (and `/approve/stream`) executes one agent turn per
+plan action for the synthesis message. Its own guard, `metadata.approved_at`, is a read, and it is
+written only *after* every action finishes, so two concurrent approvals both read it as absent and
+both execute the whole plan. That is now on the claim too.
+
+Full dispatcher inventory at the final head, classified:
+
+| Dispatcher | Message-scoped | Claim |
+|---|---|---|
+| `POST /api/command-center/chat` | yes | yes, before dispatch, every provider path |
+| `POST /api/command-center/chat/stream` | yes | yes, before dispatch, every provider path |
+| `POST /api/command-center/chat/approve` + `/approve/stream` | yes | yes, before the first action |
+| `POST /api/command-center/settings` | no (gateway actions: `agents_list`, `gateway status/restart/doctor`, `cron`, `sessions_list`) | none needed |
+| `POST /api/command-center/briefing/compose` | no (composes a new prompt; no persisted message id) | none needed |
+| `POST /api/atlas/chat` | writes a message for an external Mac bridge to consume over Realtime | outside this repo, unverified |
+
+### 22.3 Delivery status: the model, and what changed
+
+```
+pending          never dispatched
+claimed          a caller holds the lease and is dispatching
+delivered        the turn ran AND its result was recorded          (terminal)
+failed           nothing was sent, or the gateway refused before running
+unknown          the turn may have run and its outcome was not recorded
+failed_permanent never retry                                        (terminal)
+legacy           dispatched before outcomes were recorded; never retried (terminal)
+```
+
+The first implementation of this collapsed too much. An independent review of `9d6f015c` proved
+three defects by reproduction, all now fixed at `5870c7e7`:
+
+1. **A reply that exists nowhere could be marked `delivered`.** With no `channelId`,
+   `summarizePersistence` returns `ok: true` (\"nothing attempted is a configuration choice\"), so a
+   turn that generated text but had nowhere to write it was recorded as delivered — terminal — and
+   the next retry was refused with `alreadyDispatched:true`. The probe: HTTP 200, `ok:true`,
+   `persistence.attempted: 0`, zero insert calls, and `cc_mark_relay_status(delivered)`.
+2. **`failed` was written for ambiguous outcomes.** The stream route recorded `failed` for a gateway
+   error, while the JSON route recorded `unknown` for the same condition — the exact divergence the
+   shared module exists to prevent. A gateway that accepts `sessions_send` and returns no reply text
+   (`openclaw-gateway.ts:223`) was therefore recorded as a verified non-delivery.
+3. **No test pinned any status label.** Mutation testing at `9d6f015c`: forcing `settleRelay` to
+   always write `delivered`, forcing `markRelay` to always write `delivered`, turning the catch's
+   `unknown` into `failed`, and flipping a gateway error to `unknown` **all passed the full 1098-test
+   suite**. The bypass closure was genuinely pinned; the honesty was not.
+
+At `5870c7e7` the decision lives in two named functions (`statusAfterTurn`,
+`statusAfterEmptyDispatch`) used by both routes, and the tests assert `cc_mark_relay_status` per path.
+Each was mutation-verified after the fact: forcing `delivered` on the persist path fails 2 tests,
+recording `failed` for an ambiguous gateway error fails 1, removing the approval claim fails 3.
+
+Two further corrections came from the same review:
+
+- The **expired-lease demotion to `unknown` was unobservable** and was removed. It happened inside
+  the claim's own transaction, so no reader could ever see it, and the row left behind was identical
+  to one reclaimed straight from `claimed`. A state nobody can observe is not an audit trail. The
+  observable signal is `relay_attempts > 1`, which means the message was dispatched more than once.
+  The scenario script had asserted the demotion through a trigger it installed itself — production
+  has no such trigger — which was a test proving the test's own apparatus.
+- The **pre-migration backfill wrote `delivered`** for rows the old system had only recorded as
+  \"claimed\", asserting a delivery nobody observed. Those rows are now `legacy`: terminal, never
+  retried, claiming no outcome.
+
+### 22.4 Scenario matrix (PostgreSQL 17, throwaway cluster)
+
+`supabase/tests/relay-dispatch-scenarios.sh`, 35 checks, all pass. It covers: applying the migration
+with no predecessor; re-applying it without disturbing an in-flight claim; one winner across ten
+rounds of concurrent claimers; an expired lease reclaimed with the attempt counter showing it; a live
+lease refused; a stale attempt unable to write the outcome of the attempt that replaced it;
+`delivered` and `failed_permanent` terminal under every retry; `unknown` and `failed` retryable and
+distinguishable; `legacy` terminal, unmarkable, and not silently rewritten; a pre-migration row
+backfilled to `legacy` and not reclaimable; `not_found` failing open without a phantom lease; grants
+(anon and authenticated cannot execute, including under Supabase's default-privilege bootstrap);
+`security invoker`; a pinned `search_path`; the partial index; and a clean rollback that keeps
+`relay_claimed`.
+
+### 22.5 #101 verification at `becb0e37` (read-only)
+
+Verified at the exact head by rendering the real component against the real route envelopes:
+
+- Nested envelope unwrapped: the panel shows the persisted value instead of `undefined is now
+  undefined`.
+- Re-read after save is compared, not just displayed: when the registry still shows the old model the
+  panel refuses to say \"Saved and read back\".
+- Shared models work; a model id containing a space is offered and saved without the old client-only
+  rejection.
+- No absolute path renders on `source_unavailable`.
+- `cross_site` is not labeled a runtime outage.
+
+1117 tests pass, tsc clean. Two P1 findings were reported to the owner and not fixed by me:
+
+- **P1-1** the denied-state heading hardcodes \"Your session expired.\" for every reason, so
+  `not_owner`, `owner_not_configured` and `cross_site` each render a heading that contradicts the
+  correct detail beneath it.
+- **P1-2** `unlock_*` and `device_*` guard reasons are not in `UNAUTHORIZED_CODES`, so a revoked or
+  expired device renders \"the runtime rejected the change\" on every save — an auth refusal blamed
+  on the runtime, on the iMac's primary credential.
+
+### 22.6 The production VACUUM: what actually happened
+
+The report said a production VACUUM ran accidentally. **Production Postgres was not vacuumed.**
+
+```
+pg_stat_user_tables   last_vacuum NULL on every user table, all schemas
+pg_stat_progress_vacuum 0 running
+messages              9 rows, 0 dead tuples, last_vacuum NULL, last_autovacuum NULL
+pg_stat_database      stats_reset NULL (never reset, so this is the full history)
+```
+
+What did happen is on the **host**, in the agent memory stores:
+
+| Evidence | Value |
+|---|---|
+| `~/.openclaw/memory/*.sqlite` `freelist_count` | 0 on all 22 |
+| `auto_vacuum` | 0 (off) — so freelist 0 is not automatic, only a VACUUM produces it |
+| mtimes | clustered 16:25 to 16:29, all 22, in name order |
+| `main.sqlite` | 3.1 GB, rebuilt in that window |
+| free space | 5.5 GB to 9.2 GB (`/System/Volumes/Data`) |
+| `/tmp/disk-cleanup.log` | mtime 05:03, the 05:00 cron — so it was not the scheduled job |
+| gateway | pid 639, up since Nov 14 15:00, live during the rewrite |
+| record | nothing in the work journal, no script log for that window, no shell history |
+
+**Honest limit:** no log of the command survives. This is inference from a fingerprint, not a
+recorded command. It is reproducible and uncontradicted, and I cannot name the process or the
+operator. The 3.7 GB gain is what the sweep actually returned; the 21 GB figure elsewhere in this
+record is the *projected* reclaim from deleting ten unreferenced release directories, which was not
+done and is not evidence about this incident.
+
+Safeguards written and tested, **not installed** (see `host-maintenance/`):
+
+- `MAINTENANCE-POLICY.md` — the rules, the evidence, and the two rewrite methods with the reason
+  each is safe in its own situation: in-place VACUUM while the gateway is live (correct, costs
+  availability), copy-and-swap only when no process holds the file (replacing a file another process
+  has open silently discards its writes — the one failure mode here that loses data).
+- `maintenance-guard.sh` — refuses without an approval id, refuses outside the window unless
+  `--swap`, refuses below 2.5x free space, refuses a file with a `-wal`/`-journal` sidecar, refuses
+  `--swap` when anything has the file open, skips when `freelist_count` is 0, logs every decision.
+  Eleven paths were executed against real SQLite files, including the in-place rewrite (13.1 MB to
+  8.0 kB, integrity ok, data intact) and the swap with backup. One real bug was found and fixed in
+  the guard itself while testing it: `set -o pipefail` made the no-holder `lsof` case abort silently.
+- `DISK-CLEANUP-STEP6-PATCH.md` — the exact replacement for the cron's `sqlite3 "$db" "VACUUM;"`
+  loop, which has no approval, no space check, no freelist check and swallows every error
+  (`2>/dev/null || true`). On 2026-11-15 all 22 databases had `freelist_count = 0`, so that step
+  reclaims nothing and only risks stalling the gateway. The proposed version reports by default.
+
+### 22.7 State
+
+Main `00d68238`. Vercel production `dpl_BxVfLSoZzLLB2Sto6SmxHZGEHT21`, untouched. Canonical cockpit
+`41d183a0`, pid 1834, untouched. Both branches are drafts. Nothing merged, no migration applied, no
+deployment, no fleet write, no cron change, nothing deleted on the host.
