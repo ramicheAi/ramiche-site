@@ -83,11 +83,25 @@ create index if not exists messages_relay_status_idx
 -- The age falls back to created_at, never updated_at: every pre-migration row has relay_claimed_at
 -- NULL, and updated_at moves for reasons unrelated to a claim, so using it would skip (and then
 -- re-dispatch) a row whose record was merely touched recently.
+--
+-- CC-RECOVERY-21: the `relay_claimed = true` condition this backfill shipped with assumed the
+-- still-deployed old route HAD been successfully recording claims that way. Verified directly
+-- against this database's actual production schema: it has not. relay_claimed never existed
+-- there before this migration, so every historical send's claim attempt has always errored and
+-- fallen through that route's own "fail OPEN" branch, leaving no trace. The original condition
+-- therefore backfills zero rows on real data — provably: a migration rehearsal against a
+-- reproduction of the live 432-row table left all 432 rows `pending`, not `legacy`, which is
+-- exactly the historical-row re-dispatch risk this file exists to close. Dropped the condition
+-- entirely: ANY row still at the just-added default ('pending') and older than the lease is
+-- history, full stop, independent of whatever relay_claimed holds (which this migration adds in
+-- the same transaction, so nothing outside it can have written true to it yet regardless). The
+-- age guard is kept for exactly the reason in the comment above it: a future re-apply (e.g.
+-- during a deploy) must not freeze a message a NEW, already-deployed claim path inserted and is
+-- still legitimately working on.
 update public.messages
    set relay_status = 'legacy',
        relay_claimed_at = coalesce(relay_claimed_at, created_at, now())
- where relay_claimed = true
-   and relay_status = 'pending'
+ where relay_status = 'pending'
    and coalesce(relay_claimed_at, created_at, now()) < now() - interval '300 seconds';
 
 comment on column public.messages.relay_status is

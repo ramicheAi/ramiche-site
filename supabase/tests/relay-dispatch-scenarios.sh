@@ -163,6 +163,35 @@ check "service_role can execute" "t" "$(val "select has_function_privilege('serv
 check "security invoker" "f" "$(val "select prosecdef from pg_proc where proname='cc_claim_relay_dispatch'")"
 check "search_path pinned" "search_path=pg_catalog, pg_temp" "$(val "select proconfig[1] from pg_proc where proname='cc_claim_relay_dispatch'")"
 
+echo "== CC-RECOVERY-21: a real first-ever apply, against a table that never had relay columns =="
+# Every other scenario above runs against a `messages` table that was created WITH the relay
+# columns already present (see the CREATE TABLE at the top of this script), so the migration's
+# own "column already exists, skipping" path is all they ever exercise. That is not what happens
+# in production: a migration rehearsal against a reproduction of the live 432-row table (created
+# with none of these columns, exactly like the real schema) found the ORIGINAL backfill condition
+# (`relay_claimed = true`) backfills ZERO rows there, leaving all 432 historical messages
+# `pending` -- reclaimable by the new runtime as if freshly unsent. Reproduce that exact shape
+# here: a fresh table with NO relay columns at all, old rows, then the real first apply.
+psqlq -c "alter table messages rename to messages_backup;"
+psqlq -c "create table messages (id uuid primary key default gen_random_uuid(), channel_id uuid not null, content text not null, created_at timestamptz default now());"
+OLD1=11111111-aaaa-aaaa-aaaa-111111111111
+OLD2=11111111-bbbb-bbbb-bbbb-111111111111
+NEWLIVE=11111111-cccc-cccc-cccc-111111111111
+psqlq -c "insert into messages (id, channel_id, content, created_at) values
+  ('$OLD1', '00000000-0000-0000-0000-000000000001', 'historical message one', now() - interval '30 days'),
+  ('$OLD2', '00000000-0000-0000-0000-000000000001', 'historical message two', now() - interval '1 day');"
+# A genuinely concurrent send, racing the migration's own transaction, inside the lease window --
+# this one must survive as reclaimable, not be swept into legacy with the real history.
+psqlq -c "insert into messages (id, channel_id, content, created_at) values ('$NEWLIVE', '00000000-0000-0000-0000-000000000001', 'a live send racing the migration', now());"
+psqlq -f "$MIGRATION" >/dev/null 2>&1 && echo "  PASS  first-ever apply against real historical data succeeded"
+check "old historical row 1 becomes legacy, not pending" "legacy" "$(val "select relay_status from messages where id='$OLD1'")"
+check "old historical row 2 becomes legacy, not pending" "legacy" "$(val "select relay_status from messages where id='$OLD2'")"
+check "a legacy historical row cannot be re-claimed and re-dispatched" "f||legacy" "$(val "select claimed||'|'||coalesce(attempts::text,'')||'|'||status from cc_claim_relay_dispatch('$OLD1'::uuid)")"
+check "the concurrent live send inside the lease stays pending, not swept into legacy" "pending" "$(val "select relay_status from messages where id='$NEWLIVE'")"
+check "the concurrent live send still claims normally" "t|1|claimed" "$(val "select claimed||'|'||attempts||'|'||status from cc_claim_relay_dispatch('$NEWLIVE'::uuid)")"
+# Restore the shared table for anything after this that might assume it exists by this name.
+psqlq -c "drop table messages; alter table messages_backup rename to messages;" >/dev/null 2>&1
+
 echo "== rollback executes and keeps the column the older route needs =="
 psqlq -f "$ROLLBACK" >/dev/null 2>&1 && echo "  PASS  rollback clean"
 check "relay_claimed retained" "t" "$(val "select exists (select 1 from information_schema.columns where table_name='messages' and column_name='relay_claimed')")"
