@@ -22,6 +22,24 @@ interface BriefingDockProps {
   briefingState: UseBriefingResult;
 }
 
+/** "3m ago" / "2h ago" — never a bare number, so it can't be mistaken for a count of anything else. */
+function ageLabel(epochMs: number): string {
+  const diffMs = Date.now() - epochMs;
+  if (diffMs < 60_000) return "just now";
+  const m = Math.floor(diffMs / 60_000);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  return `${h}h ago`;
+}
+
+/**
+ * Fallback reasons that are an expected, by-design state — no Atlas gateway is configured at all,
+ * which is normal outside a fully wired deployment — rather than a live degradation. Anything else
+ * (an empty or too-short reply, a transport error, the compose request itself failing) is worth
+ * naming rather than silently looking identical to "Atlas was never going to run here".
+ */
+const BORING_FALLBACK_REASONS = new Set(["gateway_not_configured"]);
+
 export function BriefingDock({ briefingState }: BriefingDockProps) {
   const {
     open,
@@ -29,6 +47,9 @@ export function BriefingDock({ briefingState }: BriefingDockProps) {
     status,
     briefing,
     source,
+    provenance,
+    composedAt,
+    fallbackReason,
     autoEnabled,
     setAutoEnabled,
     speak,
@@ -52,6 +73,21 @@ export function BriefingDock({ briefingState }: BriefingDockProps) {
 
   const speaking = status === "speaking";
   const loading = status === "loading";
+
+  // The honest provenance of what's ON SCREEN right now — never what's merely plausible. A
+  // 12h-old cached Atlas script and one that just came back are NOT the same claim to make.
+  const isFresh = source === "atlas" && provenance === "fresh";
+  const isCachedAtlas = source === "atlas" && provenance === "cached";
+  const badgeLabel = isFresh ? "Atlas · Live" : isCachedAtlas ? `Atlas · ${composedAt ? ageLabel(composedAt) : "cached"}` : "Deterministic";
+  const badgeAriaLabel = isFresh
+    ? "Atlas-personalised brief, composed just now"
+    : isCachedAtlas
+      ? `Atlas-personalised brief, cached ${composedAt ? ageLabel(composedAt) : "earlier"}`
+      : "Deterministic brief (no live Atlas rewrite)";
+  const notableFallback =
+    source === "deterministic" && fallbackReason && !BORING_FALLBACK_REASONS.has(fallbackReason)
+      ? fallbackReason
+      : null;
 
   return (
     <aside
@@ -126,7 +162,8 @@ export function BriefingDock({ briefingState }: BriefingDockProps) {
           }}
         >
           <span
-            aria-label={source === "atlas" ? "Atlas-personalised brief" : "Deterministic brief"}
+            aria-label={badgeAriaLabel}
+            title={badgeAriaLabel}
             style={{
               padding: "2px 6px",
               borderRadius: 4,
@@ -139,7 +176,7 @@ export function BriefingDock({ briefingState }: BriefingDockProps) {
               fontWeight: 700,
             }}
           >
-            {source === "atlas" ? "Atlas" : "Auto"}
+            {badgeLabel}
           </span>
           {speaking ? "SPEAKING" : loading ? "SYNCING" : status === "error" ? "ERROR" : "READY"}
         </span>
@@ -179,6 +216,23 @@ export function BriefingDock({ briefingState }: BriefingDockProps) {
       >
         {briefing ? (
           <>
+            {notableFallback && (
+              <div
+                role="status"
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 6,
+                  border: `1px solid ${TOKENS.red}33`,
+                  background: "rgba(239,68,68,0.06)",
+                  color: TOKENS.textDim,
+                  fontSize: 11,
+                  lineHeight: 1.4,
+                }}
+              >
+                Atlas did not rewrite this brief ({notableFallback}) — showing the deterministic
+                version instead.
+              </div>
+            )}
             <section>
               <div
                 style={{
@@ -403,7 +457,20 @@ export function BriefingDock({ briefingState }: BriefingDockProps) {
           />
           <span style={{ textTransform: "uppercase" as const }}>Auto-brief once per day</span>
         </label>
-        <span>{lastUpdated ? new Date(lastUpdated).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--:--"}</span>
+        {/* Two clocks, both labeled, because they are not the same clock: `lastUpdated` is when
+            the raw agents/revenue/calendar facts were last pulled; `composedAt` is when THIS
+            spoken script was produced (which, for a cached Atlas reply, can be hours earlier
+            than the facts below it — see BriefingProvenance in useBriefing.ts). Showing one
+            unlabeled number next to cached text previously implied a freshness neither clock
+            actually claims on its own. */}
+        <span style={{ display: "flex", gap: 10 }}>
+          <span title="When the underlying agents/revenue/calendar facts were last pulled">
+            Facts {lastUpdated ? new Date(lastUpdated).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--:--"}
+          </span>
+          <span title="When this spoken script was produced (fresh, or a cached Atlas reply)">
+            Brief {composedAt ? new Date(composedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--:--"}
+          </span>
+        </span>
       </div>
 
       <style>{`

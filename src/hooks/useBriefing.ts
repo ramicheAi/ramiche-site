@@ -13,12 +13,46 @@ const COMPOSE_TTL_MS = 12 * 60 * 60 * 1000;
 export type BriefingStatus = "idle" | "loading" | "ready" | "speaking" | "error";
 export type BriefingSource = "deterministic" | "atlas";
 
+/**
+ * Where the CURRENTLY DISPLAYED spoken/greeting text actually came from, this render — not
+ * where the underlying facts came from (that's `lastUpdated`). Before this field existed, a
+ * 12-hour-old cached Atlas script and a script composed one second ago were both just "atlas",
+ * shown next to `lastUpdated` as if that timestamp described the spoken text too. It never did:
+ * `lastUpdated` is set by `refresh()` when the raw facts (agents/revenue/calendar) were last
+ * pulled, which is unrelated to when `compose/route.ts` last asked Atlas to rewrite them — a
+ * cache hit skips that round trip entirely and reuses whatever Atlas said up to 12h ago.
+ *
+ *   "fresh"  this render's text came from a compose call that just returned (or the always-live
+ *            deterministic composer, which recomputes from `raw` on every change — there is no
+ *            such thing as a stale deterministic result, since it's a pure function of `raw`).
+ *   "cached" this render's text is a localStorage-cached Atlas reply from a PRIOR compose call,
+ *            up to COMPOSE_TTL_MS old. Only ever paired with source === "atlas" — the
+ *            deterministic path is never cached (see saveComposeCache below).
+ */
+export type BriefingProvenance = "fresh" | "cached";
+
 export interface UseBriefingResult {
   status: BriefingStatus;
   open: boolean;
   setOpen: (open: boolean) => void;
   briefing: ComposedBriefing | null;
   source: BriefingSource;
+  /** See BriefingProvenance. Always "fresh" when source is "deterministic". */
+  provenance: BriefingProvenance;
+  /**
+   * Epoch ms this exact spoken/greeting text was produced: either when the live compose call
+   * returned, or the cache entry's own `cachedAt` for a cache hit. Null only before the first
+   * compose attempt resolves. Never the same clock as `lastUpdated` unless they happen to
+   * coincide — do not assume one stands in for the other.
+   */
+  composedAt: number | null;
+  /**
+   * Why the server fell back to the deterministic composer, verbatim from
+   * compose/route.ts's own `reason` field (e.g. "gateway_not_configured", "empty_reply", a
+   * transport error) — never fabricated here. Null when source is "atlas", or before any
+   * compose attempt has resolved.
+   */
+  fallbackReason: string | null;
   raw: BriefingInput | null;
   autoEnabled: boolean;
   setAutoEnabled: (v: boolean) => void;
@@ -129,6 +163,8 @@ function clearComposeCache(): void {
 interface ComposeResponse {
   ok?: boolean;
   source?: BriefingSource;
+  /** compose/route.ts's own account of why it fell back to deterministic — never fabricated here. */
+  reason?: string;
   greeting?: string;
   spoken?: string;
   bullets?: string[];
@@ -143,6 +179,9 @@ export function useBriefing(): UseBriefingResult {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [override, setOverride] = useState<ComposedBriefing | null>(null);
   const [source, setSource] = useState<BriefingSource>("deterministic");
+  const [provenance, setProvenance] = useState<BriefingProvenance>("fresh");
+  const [composedAt, setComposedAt] = useState<number | null>(null);
+  const [fallbackReason, setFallbackReason] = useState<string | null>(null);
   const playbackRef = useRef<VoicePlaybackHandle | null>(null);
   const autoFiredRef = useRef(false);
   const composeInflightRef = useRef<Promise<void> | null>(null);
@@ -154,6 +193,10 @@ export function useBriefing(): UseBriefingResult {
     if (cached) {
       setOverride({ greeting: cached.greeting, spoken: cached.spoken, bullets: cached.bullets });
       setSource(cached.source);
+      // A cache entry is only ever written for source === "atlas" (see saveComposeCache below),
+      // so this is always the "Atlas, up to 12h old" case, never a stale deterministic result.
+      setProvenance("cached");
+      setComposedAt(cached.cachedAt);
     }
   }, []);
 
@@ -227,6 +270,9 @@ export function useBriefing(): UseBriefingResult {
         if (cached) {
           setOverride({ greeting: cached.greeting, spoken: cached.spoken, bullets: cached.bullets });
           setSource(cached.source);
+          setProvenance("cached");
+          setComposedAt(cached.cachedAt);
+          setFallbackReason(null);
           return;
         }
       }
@@ -247,6 +293,11 @@ export function useBriefing(): UseBriefingResult {
           };
           setOverride(next);
           setSource(data.source ?? "deterministic");
+          // This call just returned: whatever it produced is fresh by definition, never cached —
+          // a cache HIT short-circuits above and never reaches this branch at all.
+          setProvenance("fresh");
+          setComposedAt(Date.now());
+          setFallbackReason(data.source === "deterministic" ? data.reason ?? "unknown" : null);
           if (data.source === "atlas") {
             saveComposeCache({
               date: todayKey(),
@@ -258,7 +309,14 @@ export function useBriefing(): UseBriefingResult {
             });
           }
         } catch {
-          /* keep deterministic fallback */
+          // The compose call itself failed (network, parse, etc.) — the deterministic `baseline`
+          // (computed live from `raw` via useMemo below) is what's actually on screen, and it is
+          // always fresh by construction. Don't leave a stale "cached"/"atlas" provenance from a
+          // PRIOR successful call attached to what's now showing.
+          setSource("deterministic");
+          setProvenance("fresh");
+          setComposedAt(Date.now());
+          setFallbackReason("compose_request_failed");
         }
       })();
       composeInflightRef.current = task;
@@ -282,6 +340,9 @@ export function useBriefing(): UseBriefingResult {
     clearComposeCache();
     setOverride(null);
     setSource("deterministic");
+    setProvenance("fresh");
+    setComposedAt(Date.now());
+    setFallbackReason(null);
     await runCompose(true);
   }, [runCompose]);
 
@@ -342,6 +403,9 @@ export function useBriefing(): UseBriefingResult {
     setOpen,
     briefing: composed,
     source,
+    provenance,
+    composedAt,
+    fallbackReason,
     raw,
     autoEnabled,
     setAutoEnabled,
