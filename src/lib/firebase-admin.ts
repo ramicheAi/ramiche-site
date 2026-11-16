@@ -43,12 +43,12 @@ function getAdminApp(): App | null {
 // ── Verify ID Token ──────────────────────────────────────────
 export async function verifyIdToken(
   idToken: string
-): Promise<{ uid: string; email?: string } | null> {
+): Promise<{ uid: string; email?: string; emailVerified?: boolean } | null> {
   getAdminApp();
   if (!adminAuth) return null;
   try {
     const decoded = await adminAuth.verifyIdToken(idToken);
-    return { uid: decoded.uid, email: decoded.email };
+    return { uid: decoded.uid, email: decoded.email, emailVerified: decoded.email_verified === true };
   } catch {
     return null;
   }

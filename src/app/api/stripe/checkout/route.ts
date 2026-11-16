@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { rateLimit, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
 import { parseBody, isOneOf, sanitize, badRequest } from "@/lib/api-security";
 import { withAudit } from "@/lib/api-audit";
+import { verifyIdToken } from "@/lib/firebase-admin";
 
 /* ══════════════════════════════════════════════════════════════
    STRIPE CHECKOUT SESSION — API Route (Stripe Connect)
@@ -45,6 +46,15 @@ export const POST = withAudit("/api/stripe/checkout", async function POST(req: R
     const planId = body.planId ? sanitize(body.planId, 50) : undefined;
     const connectedAccountId = body.connectedAccountId ? sanitize(body.connectedAccountId, 100) : undefined;
 
+    // Optional, backward-compatible: when the caller is signed in and sends their own
+    // Firebase ID token, bind the resulting Stripe customer to that uid (webhook below).
+    // An anonymous checkout (today's only real caller) still works exactly as before —
+    // the resulting customer simply has no uid mapping, so /api/stripe/portal (which
+    // PREFERS the uid mapping over email) falls back to its weaker email check for it.
+    const authHeader = req.headers.get("authorization");
+    const idToken = authHeader?.replace(/^Bearer\s+/i, "");
+    const firebaseUid = idToken ? (await verifyIdToken(idToken))?.uid : undefined;
+
     if (!isOneOf(priceId, Object.keys(VALID_PRICES))) {
       return badRequest("Invalid price ID");
     }
@@ -73,6 +83,7 @@ export const POST = withAudit("/api/stripe/checkout", async function POST(req: R
       cancel_url: `${origin}/apex-athlete/billing?canceled=true`,
       metadata: {
         planId: resolvedPlanId,
+        ...(firebaseUid ? { firebaseUid } : {}),
       },
     };
 
