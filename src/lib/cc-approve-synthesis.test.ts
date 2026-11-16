@@ -67,6 +67,11 @@ function makeSvc(
   return { rpc, from: vi.fn(() => chain) };
 }
 
+/** Any call to either dispatch primitive counts as a dispatch. */
+function dispatchCalls(): number {
+  return executeOpenClaw.mock.calls.length + executeCompletion.mock.calls.length;
+}
+
 const PLAN = {
   kind: "synthesis",
   plan: {
@@ -149,14 +154,14 @@ describe("approveSynthesisMessage — relay claim closes the concurrent-approval
     // Wording is shared with the chat routes now (describeDuplicate), so assert the meaning:
     // an in-flight attempt, and nothing was dispatched.
     expect(String((result as { error?: string }).error)).toMatch(/still in flight/i);
-    expect(executeOpenClaw).not.toHaveBeenCalled();
+    expect(dispatchCalls()).toBe(0);
   });
 
   it("refuses a plan the relay already delivered instead of running it twice", async () => {
     const { result } = await run([{ claimed: false, attempts: 1, status: "delivered" }]);
     expect(result.ok).toBe(false);
     expect((result as { status?: number }).status).toBe(409);
-    expect(executeOpenClaw).not.toHaveBeenCalled();
+    expect(dispatchCalls()).toBe(0);
   });
 
   it("claims BEFORE the first dispatch, not merely at some point", async () => {
@@ -205,6 +210,6 @@ describe("approveSynthesisMessage — relay claim closes the concurrent-approval
     expect((result as { status?: number }).status).toBe(409);
     expect(String((result as { error?: string }).error)).not.toMatch(/wait for it to finish/i);
     expect(String((result as { error?: string }).error)).toMatch(/new message/i);
-    expect(executeOpenClaw).not.toHaveBeenCalled();
+    expect(dispatchCalls()).toBe(0);
   });
 });
