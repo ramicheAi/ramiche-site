@@ -446,4 +446,17 @@ describe("approveSynthesisMessage — relay claim closes the concurrent-approval
     expect(String((result as { error?: string }).error)).toMatch(/new message/i);
     expect(dispatchCalls()).toBe(0);
   });
+
+  it("refuses a rejected synthesis by name, not with the generic relay-failure wording", async () => {
+    // cc-reject-synthesis.ts marks its claim failed_permanent on success. On a synthesis row that
+    // value has exactly one cause (CC-RELEASE-CONSOLIDATION-01 Phase 2), so approve must say
+    // "rejected", not describeDuplicate's generic "failed permanently and will not be retried" —
+    // which would read, to the owner, like something crashed rather than something they decided.
+    const { result } = await run([{ claimed: false, attempts: 1, status: "failed_permanent" }]);
+    expect(result.ok).toBe(false);
+    expect((result as { status?: number }).status).toBe(409);
+    expect(String((result as { error?: string }).error)).toMatch(/rejected/i);
+    expect(String((result as { error?: string }).error)).not.toMatch(/failed permanently/i);
+    expect(dispatchCalls()).toBe(0);
+  });
 });

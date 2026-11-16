@@ -903,6 +903,18 @@ export async function approveSynthesisMessageStreamed(
         status: 409,
       };
     }
+    // cc-reject-synthesis.ts reuses this SAME claim on a synthesis row for its own exclusivity,
+    // and marks it failed_permanent as its terminal state on success. On a synthesis row that
+    // value has exactly one cause (a rejection — nothing else ever writes it here), so this
+    // refusal can and should say so, rather than the generic relay-failure wording describeDuplicate
+    // gives every other caller of this shared claim.
+    if (claim.status === "failed_permanent") {
+      return {
+        ok: false,
+        error: "this synthesis was rejected and cannot be approved",
+        status: 409,
+      };
+    }
     return { ok: false, error: dup.detail, status: 409 };
   }
   if (claim.state === "unavailable") {
