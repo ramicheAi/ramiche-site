@@ -68,11 +68,19 @@ create index if not exists messages_relay_status_idx
 -- was taken, not what came of it. Mark them 'legacy', which is terminal (never reclaimed) but
 -- claims no outcome. Marking them 'delivered' would have asserted a delivery nobody observed;
 -- leaving them claimable would re-dispatch messages this host already sent.
+-- The lease guard matters on RE-apply, not just on first apply. The still-deployed old route claims
+-- by setting relay_claimed = true and leaves relay_status at its default, so a row claimed seconds
+-- ago by the running old code looks identical to a row claimed weeks ago by the same code. Without
+-- the age condition, re-running this migration during a deploy freezes an attempt that is still in
+-- flight, permanently, as `legacy`. A row claimed inside the lease window is left alone: it is
+-- either a live dispatch or one whose outcome is still unknown, and neither should be frozen by a
+-- migration.
 update public.messages
    set relay_status = 'legacy',
        relay_claimed_at = coalesce(relay_claimed_at, updated_at, created_at, now())
  where relay_claimed = true
-   and relay_status = 'pending';
+   and relay_status = 'pending'
+   and coalesce(relay_claimed_at, updated_at, created_at, now()) < now() - interval '300 seconds';
 
 comment on column public.messages.relay_status is
   'pending | claimed | delivered | failed | unknown | failed_permanent | legacy. delivered, failed_permanent and legacy are terminal and are never reclaimed. failed means nothing was sent (or the gateway refused before running); unknown means the dispatch may have run and its outcome was not recorded; legacy means the dispatch was taken before outcomes were recorded, so nothing is known and it is never retried.';
@@ -130,7 +138,9 @@ begin
       from public.messages m
      where m.id = p_message_id;
     if not coalesce(v_found, false) then
-      -- No row at all: distinct from "claimed by someone else" so the caller can fail open
+      -- No row at all: distinct from "claimed by someone else" so the caller can refuse with a
+      -- truthful "no such message" instead of holding a 409 forever. (The caller fails CLOSED on
+      -- this, as on every unavailable claim.)
       -- (treat it as a first dispatch) instead of returning a false-forever 409.
       return query select false, null::int, 'not_found'::text;
       return;

@@ -5,11 +5,17 @@
 -- entirely. There is nothing to restore: no earlier function exists in this repo or on the live
 -- database.
 --
--- Consequence of applying this file, stated plainly: both chat routes call cc_claim_relay_dispatch,
--- get a PostgREST "function does not exist" error, and fail OPEN — the helper logs
--- "dispatch is not deduplicated" and proceeds. Chat keeps working; duplicate dispatch becomes
--- possible again for every message. That is the intended rollback path only if a route bug makes
--- deduplication itself harmful.
+-- Consequence of applying this file, stated plainly, and it CHANGED in CC-RECOVERY-14: every
+-- message-scoped dispatcher (chat, chat/stream, chat/approve, approve/stream) calls
+-- cc_claim_relay_dispatch, gets a PostgREST "function does not exist" error, and now FAILS CLOSED.
+-- The caller gets 503 relay_not_deployed with "Nothing ran" and NO agent turn is dispatched. Chat
+-- STOPS WORKING.
+--
+-- That is the correct behaviour for an unavailable claim, and it means this file is not a safe
+-- "restore the old behaviour" button any more: rolling back the schema while the new code is
+-- deployed is a chat outage, by design. Roll back the CODE first, or accept the outage knowingly.
+-- An earlier version of this comment said the routes failed open and chat kept working; that was
+-- true before CC-RECOVERY-14 and is now wrong, which is worse than saying nothing.
 --
 -- The index is dropped with the columns it indexes; it is created by the forward migration.
 -- Safe only when no dispatch is in flight.

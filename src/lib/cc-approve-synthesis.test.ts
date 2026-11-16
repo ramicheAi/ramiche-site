@@ -47,11 +47,14 @@ function makeSvc(
   metadata: Record<string, unknown>,
   updateError: unknown = null,
   updateMatched = true,
+  insertError: unknown = null,
 ) {
   const chain: Record<string, unknown> = {};
   for (const m of ["insert", "update", "upsert", "eq", "select", "in", "is", "order", "limit"]) {
     chain[m] = vi.fn(() => chain);
   }
+  // The five message inserts are awaited directly, so insert() must resolve on its own.
+  chain.insert = vi.fn(async () => ({ data: null, error: insertError }));
   chain.single = vi.fn().mockResolvedValue({ data: row(metadata), error: null });
   chain.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
   // Only the awaited writes (the metadata update and the action bookkeeping) reach `then`; the
@@ -108,7 +111,7 @@ describe("approveSynthesisMessage — relay claim closes the concurrent-approval
 
   async function run(
     claimData: unknown,
-    opts: { updateError?: unknown; updateMatched?: boolean } = {},
+    opts: { updateError?: unknown; updateMatched?: boolean; insertError?: unknown } = {},
   ) {
     // The call order is the whole point of the claim: a claim taken after the dispatch leaves the
     // bypass open even though every "was the RPC called" assertion still passes.
@@ -148,7 +151,7 @@ describe("approveSynthesisMessage — relay claim closes the concurrent-approval
     executeOpenClaw.mockImplementation(dispatchMock);
     executeCompletion.mockImplementation(dispatchMock);
     createClient.mockReturnValue(
-      makeSvc(rpc, PLAN, opts.updateError, opts.updateMatched ?? true),
+      makeSvc(rpc, PLAN, opts.updateError, opts.updateMatched ?? true, opts.insertError),
     );
     vi.resetModules();
     const { approveSynthesisMessage } = await import("./cc-approve-synthesis");
@@ -275,6 +278,35 @@ describe("approveSynthesisMessage — relay claim closes the concurrent-approval
     // The second approval added no dispatch of its own.
     expect(concurrent.dispatches).toBe(baseline.dispatches);
     expect(concurrent.dispatches).toBeLessThan(baseline.dispatches * 2);
+  });
+
+  it("records unknown, never delivered, when the plan ran but its messages never persisted", async () => {
+    // The P1 an independent review found in the fifth dispatcher: every deliverable insert had its
+    // error discarded, and `delivered` was decided only by whether the metadata update matched a
+    // row. So a run whose every output failed to persist was recorded as a terminal delivery, and a
+    // retry was then refused with "already executed" while the output existed nowhere.
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { order } = await run([{ claimed: true, attempts: 1, status: "claimed" }], {
+      insertError: { code: "23502", message: "null value in column \"content\" violates not-null" },
+    });
+    expect(order).toContain("dispatch");
+    expect(order).toContain("mark:unknown");
+    expect(order).not.toContain("mark:delivered");
+    err.mockRestore();
+  });
+
+  it("still records delivered when every write lands", async () => {
+    // The gate must not make delivered unreachable.
+    const { order } = await run([{ claimed: true, attempts: 1, status: "claimed" }]);
+    expect(order).toContain("mark:delivered");
+  });
+
+  it("claims with a lease longer than the approval stream's own duration", async () => {
+    // approve/stream has maxDuration 300 s; a lease equal to it lets a slow plan be reclaimed while
+    // it is still running, which runs the whole plan twice.
+    const { rpc } = await run([{ claimed: true, attempts: 1, status: "claimed" }]);
+    const claimCall = rpc.mock.calls.find((c) => c[0] === "cc_claim_relay_dispatch");
+    expect(claimCall?.[1]).toMatchObject({ p_lease_seconds: 600 });
   });
 
   it("refuses a legacy synthesis with the truth rather than asking the operator to wait", async () => {

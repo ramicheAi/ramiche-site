@@ -42,6 +42,12 @@ import {
 
 export const TENANT_ID = "11111111-1111-1111-1111-111111111111";
 
+/**
+ * Strictly longer than `approve/stream`'s maxDuration (300 s), which is the rule the migration
+ * states and this path previously broke by inheriting the 300 s default.
+ */
+export const APPROVE_LEASE_SECONDS = 600;
+
 /** How many execute→verify attempts per action before flagging blocked. */
 const MAX_ATTEMPTS = 2;
 /** Wall-clock cap per single LLM dispatch. */
@@ -444,10 +450,42 @@ async function runVerifier(
   }
 }
 
+/**
+ * A run's row, plus a count of message writes that did not land.
+ *
+ * The count is carried on the object because it is passed by reference into every action, and it is
+ * what decides whether the run can honestly be called delivered. Before CC-RECOVERY-14 the five
+ * inserts below discarded their errors, so a run whose every deliverable failed to persist still
+ * recorded a terminal `delivered` for a reply that existed nowhere, and a retry was then refused
+ * with "already executed". That is the same false-delivery the chat routes were fixed for, one path
+ * over.
+ */
+type SynthesisRow = {
+  id: string;
+  metadata: Record<string, unknown> | null;
+  writeFailures?: number;
+};
+
+/** Insert one message, counting a failure instead of discarding it. */
+async function insertMessage(
+  svc: SupabaseClient,
+  synthesisRow: SynthesisRow,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  const { error } = await svc.from("messages").insert(payload);
+  if (error) {
+    synthesisRow.writeFailures = (synthesisRow.writeFailures ?? 0) + 1;
+    console.error("[approve] message insert failed:", {
+      kind: (payload?.metadata as { kind?: string } | undefined)?.kind,
+      error: String((error as { message?: string })?.message ?? error).slice(0, 200),
+    });
+  }
+}
+
 /** Update the `action_statuses` array on the synthesis row. */
 async function persistStatus(
   svc: SupabaseClient,
-  synthesisRow: { id: string; metadata: Record<string, unknown> | null },
+  synthesisRow: SynthesisRow,
   totalActions: number,
   actionIndex: number,
   status: ActionStatus
@@ -484,7 +522,7 @@ async function executeAction(
   svc: SupabaseClient,
   channelId: string,
   tenantId: string,
-  synthesisRow: { id: string; metadata: Record<string, unknown> | null },
+  synthesisRow: SynthesisRow,
   totalActions: number,
   actionIndex: number,
   action: ActionItem,
@@ -557,7 +595,7 @@ async function executeAction(
 
     // Persist this attempt as a message so the channel shows the full work,
     // not just the final accepted version. Tag attempts > 1 as revisions.
-    await svc.from("messages").insert({
+    await insertMessage(svc, synthesisRow, {
       channel_id: channelId,
       sender_agent_id: ownerUUID,
       sender_type: "agent",
@@ -583,7 +621,7 @@ async function executeAction(
     const blocked = isOwnerBlocked(lastText);
     if (blocked.blocked) {
       await persistStatus(svc, synthesisRow, totalActions, actionIndex, "blocked");
-      await svc.from("messages").insert({
+      await insertMessage(svc, synthesisRow, {
         channel_id: channelId,
         sender_agent_id: ownerUUID,
         sender_type: "agent",
@@ -644,7 +682,7 @@ async function executeAction(
       // Verifier couldn't run (timeout / no backend). Accept the deliverable
       // optimistically — don't punish the owner for our infra failure.
       await persistStatus(svc, synthesisRow, totalActions, actionIndex, "done");
-      await svc.from("messages").insert({
+      await insertMessage(svc, synthesisRow, {
         channel_id: channelId,
         sender_agent_id: ownerUUID,
         sender_type: "agent",
@@ -681,7 +719,7 @@ async function executeAction(
 
     if (verdict.meets_definition) {
       await persistStatus(svc, synthesisRow, totalActions, actionIndex, "done");
-      await svc.from("messages").insert({
+      await insertMessage(svc, synthesisRow, {
         channel_id: channelId,
         sender_agent_id: ownerUUID,
         sender_type: "agent",
@@ -726,7 +764,7 @@ async function executeAction(
     lastVerdict && lastVerdict.gaps.length > 0
       ? ` — gaps: ${lastVerdict.gaps.slice(0, 3).join("; ")}`
       : "";
-  await svc.from("messages").insert({
+  await insertMessage(svc, synthesisRow, {
     channel_id: channelId,
     sender_agent_id: ownerUUID,
     sender_type: "agent",
@@ -821,7 +859,10 @@ export async function approveSynthesisMessageStreamed(
   // durable signal that this message was dispatched more than once. A partial run is therefore
   // retryable, at the documented cost of at-least-once execution.
   let claimAttempt: number | null = null;
-  const claim = await claimRelayDispatch(svc, row.id as string);
+  // approve/stream has maxDuration 300, and a sequential plan can legitimately run for minutes. A
+  // lease equal to the route's own limit means a slow plan is reclaimed while it is still running
+  // and the whole plan executes a second time. 600 s keeps the lease strictly longer than the route.
+  const claim = await claimRelayDispatch(svc, row.id as string, APPROVE_LEASE_SECONDS);
   if (claim.state === "duplicate") {
     // Three terminal states and one in-flight state, decided in one place so this route cannot
     // tell an operator to "wait for it to finish" when it will never finish.
@@ -862,7 +903,7 @@ export async function approveSynthesisMessageStreamed(
 
   // The synthesisRow object is passed-by-reference into executeAction so the
   // .metadata field carries the latest persisted statuses across iterations.
-  const synthesisRow = { id: row.id as string, metadata: meta };
+  const synthesisRow: SynthesisRow = { id: row.id as string, metadata: meta, writeFailures: 0 };
 
   // Backfill priorDeliverables from RECENT channel history so a brand-new
   // synthesis run doesn't dispatch downstream owners blind to artifacts that
@@ -1022,12 +1063,23 @@ export async function approveSynthesisMessageStreamed(
     .eq("id", row.id)
     .select("id");
 
-  // 'delivered' is claimed only when the record of the run actually landed. A failed write, or one
-  // that matched no row, means the plan ran but nothing says so: that is unknown, not a delivery.
-  const approveWriteLanded = !approveWriteError && (approveWriteRows?.length ?? 0) > 0;
+  // 'delivered' is claimed only when the record of the run actually landed, AND the run's own
+  // message writes did. A failed metadata write, a write that matched no row, or a deliverable that
+  // never persisted all mean the same thing: the plan ran and the record of it is incomplete. That
+  // is `unknown` (retryable), never `delivered` (terminal), because `delivered` would refuse the
+  // retry that is the only way to recover the missing output.
+  const approveWriteLanded =
+    !approveWriteError && (approveWriteRows?.length ?? 0) > 0 && (synthesisRow.writeFailures ?? 0) === 0;
   if (!approveWriteLanded) {
-    if (!approveWriteError) {
+    if (!approveWriteError && (approveWriteRows?.length ?? 0) === 0) {
       console.error("[approve] execution record matched no row; the row may have been deleted");
+    }
+    if ((synthesisRow.writeFailures ?? 0) > 0) {
+      console.error(
+        "[approve] refusing to record delivered:",
+        synthesisRow.writeFailures,
+        "message write(s) did not land",
+      );
     }
     console.error("[approve] execution record failed to persist:", approveWriteError);
     await markRelayStatus(svc, row.id as string, "unknown", claimAttempt);

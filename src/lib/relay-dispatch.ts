@@ -87,6 +87,11 @@ export function classifyClaimError(error: unknown): RelayUnavailableReason {
   if (codeStr === "PGRST202" || /could not find the function|schema cache/i.test(text)) {
     return "not_deployed";
   }
+  // Postgres invalid_text_representation: the id is not a UUID, so this can never succeed however
+  // many times it is retried. Reporting it as a transport fault invited an infinite retry loop.
+  if (codeStr === "22P02" || /invalid input syntax for type uuid/i.test(text)) {
+    return "malformed";
+  }
   // Postgres insufficient_privilege, or PostgREST rejecting the key before it reaches the database.
   if (
     codeStr === "42501" ||

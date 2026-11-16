@@ -1776,7 +1776,8 @@ async function POST_handler(req: NextRequest) {
     console.error("Chat API error:", e);
     // An exception here is ambiguous: it may have fired before the gateway was called, or after
     // the gateway accepted the turn. Recording 'failed' would assert a non-delivery we cannot
-    // prove, and would invite a retry that duplicates real work. 'unknown' is the honest state;
+    // prove, and would invite a retry that duplicates real work. 'unknown' is the honest state and
+    // is what the code below writes;
     // it is immediately reclaimable, so a retry still works, and nothing is reported as delivered
     // that was not.
     if (relayFailureTracker.svc && relayFailureTracker.userMessageId) {

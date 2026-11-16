@@ -93,6 +93,18 @@ check "a legacy row is never reclaimed, even long after any lease" "f|legacy" "$
 check "a late mark cannot turn legacy into a delivery" "f" "$(val "select cc_mark_relay_status('$L'::uuid,'delivered',1)")"
 check "legacy was not silently rewritten" "legacy" "$(val "select relay_status from messages where id='$L'")"
 
+echo "== the backfill only freezes rows older than the lease =="
+# The still-deployed old route leaves relay_claimed=true with relay_status at its default, so a row
+# claimed seconds ago looks exactly like a row claimed weeks ago. Re-applying the migration during a
+# deploy must not freeze the one that is in flight.
+LA=88888888-8888-8888-8888-888888888888
+psqlq -c "insert into messages(id, relay_claimed, relay_status, relay_claimed_at) values ('$LA', true, 'pending', now() - interval '10 seconds');"
+psqlq -f "$MIGRATION" >/dev/null 2>&1
+check "a claim inside the lease is left alone by re-apply" "pending" "$(val "select relay_status from messages where id='$LA'")"
+psqlq -c "update messages set relay_claimed_at = now() - interval '2 hours' where id='$LA';"
+psqlq -f "$MIGRATION" >/dev/null 2>&1
+check "the same row is frozen once it is older than the lease" "legacy" "$(val "select relay_status from messages where id='$LA'")"
+
 echo "== a pre-migration claimed row is backfilled to legacy, not to delivered =="
 B=66666666-6666-6666-6666-666666666666
 psqlq -c "insert into messages(id, relay_claimed, relay_status, relay_claimed_at) values ('$B', true, 'pending', now() - interval '20 days');"

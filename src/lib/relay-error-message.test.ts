@@ -27,6 +27,25 @@ describe("relayErrorMessage", () => {
     expect(relayErrorMessage({ error: "relay_unavailable", detail: "   " }, 503)).toBe("relay_unavailable");
   });
 
+  it("names the reason when the guard only sent a category", () => {
+    // ownerOnly() answers { error: "denied", reason: "session_expired" }. Rendering "denied" would
+    // be the code-and-nothing-else failure on the most common refusal there is.
+    const msg = relayErrorMessage({ ok: false, error: "denied", reason: "session_expired" }, 401);
+    expect(msg).toMatch(/session expired/i);
+    expect(msg).not.toBe("denied");
+  });
+
+  it("still says something for a denial reason it does not know", () => {
+    const msg = relayErrorMessage({ error: "denied", reason: "some_future_reason" }, 403);
+    expect(msg).toContain("some_future_reason");
+    expect(msg).not.toBe("denied");
+  });
+
+  it("does not let a reason override a real detail", () => {
+    const msg = relayErrorMessage({ error: "denied", reason: "not_owner", detail: "the exact sentence" }, 403);
+    expect(msg).toBe("the exact sentence");
+  });
+
   it("still says something useful for a 502 with a gateway message", () => {
     // The uncertain-acceptance path: the gateway's own error string is the only detail there is.
     const msg = relayErrorMessage(

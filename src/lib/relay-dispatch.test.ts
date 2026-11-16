@@ -112,6 +112,13 @@ describe('classifyClaimError', () => {
     expect(classifyClaimError(new Error('ECONNRESET'))).toBe('transport');
     expect(classifyClaimError({ code: '57014', message: 'canceling statement due to statement timeout' })).toBe('transport');
   });
+
+  it('calls a malformed id malformed, not a retryable transport fault', () => {
+    // 22P02 means the id is not a UUID. It will never succeed, so telling the caller to retry is
+    // an invitation to loop.
+    expect(classifyClaimError({ code: '22P02', message: 'invalid input syntax for type uuid: "abc"' })).toBe('malformed');
+    expect(describeUnavailable('malformed').retryable).toBe(false);
+  });
 });
 
 describe('describeUnavailable', () => {
