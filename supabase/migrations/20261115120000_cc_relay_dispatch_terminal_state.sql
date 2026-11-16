@@ -97,6 +97,21 @@ create index if not exists messages_relay_status_idx
 -- is a complete no-op for this block, regardless of how much time has passed or how many new rows
 -- now sit at `pending`. There is no window where a live, new message can be caught by this logic,
 -- because after the first application there is no logic left to catch it with.
+--
+-- Two caveats independent review raised, worth stating rather than leaving implicit:
+--   * The FIRST application still sweeps every `pending` row that exists at that moment,
+--     including a message saved moments earlier -- there is no narrower "only rows older than
+--     this migration" concept once the age guard is gone. This is safe under this repo's actual
+--     rollout order (apply the migration BEFORE deploying code that calls
+--     cc_claim_relay_dispatch -- see ops-handoff/CC-RECOVERY-21-MIGRATION-DEPLOYMENT-SEQUENCE.md),
+--     because nothing live can hold a real in-progress claim until that deploy happens. Reversing
+--     that order would reintroduce exactly the risk this file exists to close.
+--   * A database that already ran an EARLIER version of this same migration (the CC-RECOVERY-21
+--     age-guard version, which never created this marker) has no marker row, so applying this
+--     version there runs a full fresh sweep over whatever is `pending` at that moment, live rows
+--     included. Production has run neither version yet, so this does not apply to it -- it would
+--     only matter for a database that already has the superseded migration applied, e.g. a stale
+--     staging environment.
 create table if not exists public.cc_relay_backfill_done (
   id boolean primary key default true,
   constraint cc_relay_backfill_done_singleton check (id),
