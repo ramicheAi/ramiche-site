@@ -8,6 +8,7 @@ import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
 import { personaMap } from "@/lib/agent-registry";
 import { sanitizeDbError } from "@/lib/chat-persistence";
 import { ownerOnly } from "@/lib/server/command-center-guard";
+import { verifyRelayIdentity } from "@/lib/relay-identity-check";
 import {
   claimRelayDispatch,
   describeDuplicate,
@@ -250,6 +251,35 @@ async function POST_handler(req: NextRequest) {
                 retryable: dup.retryable,
               });
             }
+            controller.close();
+            return;
+          }
+        }
+
+        // CC-RECOVERY-22 Phase 3: same identity check as the JSON route, same reason — the claim
+        // above only proves at most one caller owns this id right now, not that this request is
+        // actually about that row. See src/lib/relay-identity-check.ts.
+        if (svc && userMessageId) {
+          const { data: claimedRow, error: identityLookupError } = await svc
+            .from("messages")
+            .select("channel_id, content")
+            .eq("id", userMessageId)
+            .maybeSingle();
+          if (identityLookupError) {
+            await settleRelay("unknown");
+            send("error", {
+              error: "identity_check_failed",
+              detail: "Could not verify the claimed message before dispatching. Nothing ran.",
+              retryable: true,
+            });
+            controller.close();
+            return;
+          }
+          const identity = verifyRelayIdentity(claimedRow, { channelId, message });
+          if (!identity.ok) {
+            console.error("[relay] identity check refused dispatch:", identity.reason, userMessageId);
+            await settleRelay("failed");
+            send("error", { error: identity.reason, detail: identity.detail, retryable: false });
             controller.close();
             return;
           }

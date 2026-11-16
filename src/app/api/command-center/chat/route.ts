@@ -19,6 +19,7 @@ import {
   type PersistenceFailure,
 } from "@/lib/chat-persistence";
 import { ownerOnly } from "@/lib/server/command-center-guard";
+import { verifyRelayIdentity } from "@/lib/relay-identity-check";
 import {
   claimRelayDispatch,
   describeDuplicate,
@@ -1215,6 +1216,42 @@ async function POST_handler(req: NextRequest) {
       if (!svc || !userMessageId) return;
       await markRelayStatus(svc, userMessageId, status, claimAttempt);
     };
+
+    // CC-RECOVERY-22 Phase 3: the claim above only proves at most one caller is dispatching for
+    // this id right now — it says nothing about whether THIS request is actually about that row.
+    // Verify identity before any provider is ever called: the claimed row's channel must match
+    // what this request named, and the text about to be dispatched must be the text that was
+    // actually persisted at this id. Closes "substitute a different/foreign message id" and
+    // "dispatch content that differs from what's persisted" as live possibilities, not merely
+    // things the client is expected to get right.
+    if (svc && userMessageId) {
+      const { data: claimedRow, error: identityLookupError } = await svc
+        .from("messages")
+        .select("channel_id, content")
+        .eq("id", userMessageId)
+        .maybeSingle();
+      if (identityLookupError) {
+        await markRelay("unknown");
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "identity_check_failed",
+            detail: "Could not verify the claimed message before dispatching. Nothing ran.",
+            retryable: true,
+          },
+          { status: 503 }
+        );
+      }
+      const identity = verifyRelayIdentity(claimedRow, { channelId, message });
+      if (!identity.ok) {
+        console.error("[relay] identity check refused dispatch:", identity.reason, userMessageId);
+        await markRelay("failed");
+        return NextResponse.json(
+          { ok: false, error: identity.reason, detail: identity.detail, retryable: false },
+          { status: 409 }
+        );
+      }
+    }
 
     const history = threadUuid
       ? await loadThreadHistory(svc, threadUuid, userMessageId, 50)
