@@ -1456,3 +1456,73 @@ Non-blocking findings, all pre-existing and none introduced by this branch:
 - `invalid_session` collapses several causes (non-human provider, revoked cookie, transient verifier
   failure) into "session expired".
 - `agents/manage` still has a model picker that mutates local state only.
+
+### 23.7 Independent verdict: #100 `fix/cc-relay-terminal-state` at `cbc5cf3a` — APPROVE
+
+Four review rounds, each of which found a real defect in my own fix. That is the finding worth
+recording: the fail-closed design was right on the first pass, and the *delivery accounting* around it
+took four attempts to become true.
+
+| Round | What the reviewer reproduced |
+|---|---|
+| `463c4bcb` | P1: a run whose every deliverable insert failed silently was recorded as terminal `delivered` (all five insert errors discarded). |
+| `1f4a285b` | P1 again, reached from the other side: every backend down, no message written, so `writeFailures` was 0 and a plan that executed nothing was recorded `delivered`. Also: my "the two UI mutations are caught" claim was false, because the contract test sliced from `"} else {"` and cut at the first `}`, which is character 0. |
+| `f517ef70` | P1: `unknown` was written but unreachable. `approved_at` was written before the gate decided, and the short-circuit returns on `approved_at` before the claim is consulted, so the retry the state promised could never happen, the card rendered "Approved", and the Approve button was gone. |
+| `cbc5cf3a` | APPROVE. |
+
+**Three verification claims of mine did not survive this round**, all the same shape: a check that
+looked like proof and was not.
+
+1. A mutation that did not compile (duplicate `claimAttempt` declaration) was counted as "caught,
+   6 tests fail". It was a compile error. Corrected figure: 4, from a mutation that compiles.
+2. A source-level contract test whose slice began at `"} else {"` and ended at the first `}`, one
+   character later. `not.toContain("runRelay()")` was unconditionally true. The mutation it claimed to
+   catch passed.
+3. `persisted:false` was emitted on two channels and read by nobody. Deleting both spreads left the
+   suite green, so "every fix above is mutation-verified" was false for that item.
+
+The rule that now holds across this record: **a mutation must compile before its result counts, and a
+test must fail when the thing it names is broken.** Both were applied by re-running the mutation after
+each fix, which is how each of the three was caught.
+
+Final state, verified by the reviewer against the real functions rather than by reading:
+
+- Fail-closed on all four dispatchers: zero provider primitives and zero table reads on a missing
+  function, a revoked grant, a transport fault or a malformed row.
+- The claim precedes the first dispatch on every route, by mutation.
+- A run with no output marks `unknown`, leaves `approved_at` unset, and a second approval consumes a
+  fresh claim and re-runs the plan. A delivered run writes `approved_at` and a second approval is
+  refused.
+- A self-blocking action that persisted its deliverable counts as delivered; a run with no output does
+  not.
+- The lost-output flag reaches the operator, and both emitters are pinned by tests.
+
+**Remaining on #100, non-blocking, none a correctness or honesty defect in the delta:**
+
+- A run whose output landed but whose metadata write failed is `unknown` and re-approvable, but emits
+  no `persisted:false` (its output was fine), so the card shows a green `Executed N/N` with an active
+  Approve button. Re-approving re-runs the plan and duplicates what already landed. Proposed fix: a
+  distinct `recorded:false` plus a sentence saying re-approval re-runs.
+- Nothing pins the `writesClean` half of the delivery gate; a two-action test failing one output
+  insert would.
+- `approvedAt` is still returned on a run that was deliberately not approved. Nothing reads it.
+- The retry loop is human-driven and unbounded. Three approvals produced three executions and three
+  `unknown` marks; `relay_attempts` records it and nothing reads it.
+
+**One fact outside this repo, now stated in the guarantee rather than implied away:**
+`scripts/chat-bridge-poll.mjs` polls `messages` and dispatches an agent turn per user message without
+touching the claim. If that daemon runs in production, every send produces two agent turns and nothing
+in this branch prevents it. Whether it runs is not knowable from the repo. `scripts/bridge-sync.mjs`
+reads Firestore docs, not this table, so it is outside the contract rather than in conflict with it.
+
+### 23.8 What the physical device still has to answer
+
+Nothing in this round was tested on hardware. The two behaviours this mission changed that a person
+will actually feel:
+
+1. A send that cannot be claimed now **refuses with a sentence** instead of dispatching silently. On a
+   phone, confirm the sentence is visible, readable, and that the message is not shown as delivered.
+2. A run whose output was lost no longer renders "Approved". Confirm the card offers the approval
+   again, and that approving twice does not silently do nothing.
+
+Both are unverified on a real iPhone, and no render simulation substitutes for it.
