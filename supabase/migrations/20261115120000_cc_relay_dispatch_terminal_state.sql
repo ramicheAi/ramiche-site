@@ -33,8 +33,10 @@
 -- lease expires; failed and unknown are reclaimable immediately.
 --
 -- This is NOT exactly-once execution, and this file does not pretend otherwise. A turn that
--- outlives its lease, or any dispatch taken while these functions are unavailable (the routes fail
--- open), can still run the agent twice. What the states buy is an honest record: a run whose
+-- outlives its lease can still run the agent twice. A dispatch taken while these functions are
+-- unavailable does NOT run twice: since CC-RECOVERY-14 the routes fail CLOSED (503, nothing
+-- dispatched). An earlier version of this header said they failed open, which was true of the code
+-- at the time and is false now. What the states buy is an honest record: a run whose
 -- outcome is unknown is never written down as delivered, and is never written down as failed
 -- either. 'unknown' is written by the routes, in the transaction of the request that learned the
 -- outcome was ambiguous, so it is durable and visible in the row.
@@ -75,12 +77,16 @@ create index if not exists messages_relay_status_idx
 -- flight, permanently, as `legacy`. A row claimed inside the lease window is left alone: it is
 -- either a live dispatch or one whose outcome is still unknown, and neither should be frozen by a
 -- migration.
+--
+-- The age falls back to created_at, never updated_at: every pre-migration row has relay_claimed_at
+-- NULL, and updated_at moves for reasons unrelated to a claim, so using it would skip (and then
+-- re-dispatch) a row whose record was merely touched recently.
 update public.messages
    set relay_status = 'legacy',
-       relay_claimed_at = coalesce(relay_claimed_at, updated_at, created_at, now())
+       relay_claimed_at = coalesce(relay_claimed_at, created_at, now())
  where relay_claimed = true
    and relay_status = 'pending'
-   and coalesce(relay_claimed_at, updated_at, created_at, now()) < now() - interval '300 seconds';
+   and coalesce(relay_claimed_at, created_at, now()) < now() - interval '300 seconds';
 
 comment on column public.messages.relay_status is
   'pending | claimed | delivered | failed | unknown | failed_permanent | legacy. delivered, failed_permanent and legacy are terminal and are never reclaimed. failed means nothing was sent (or the gateway refused before running); unknown means the dispatch may have run and its outcome was not recorded; legacy means the dispatch was taken before outcomes were recorded, so nothing is known and it is never retried.';
@@ -139,9 +145,8 @@ begin
      where m.id = p_message_id;
     if not coalesce(v_found, false) then
       -- No row at all: distinct from "claimed by someone else" so the caller can refuse with a
-      -- truthful "no such message" instead of holding a 409 forever. (The caller fails CLOSED on
-      -- this, as on every unavailable claim.)
-      -- (treat it as a first dispatch) instead of returning a false-forever 409.
+      -- truthful "no such message" instead of holding a 409 forever. The caller fails CLOSED on
+      -- this, as on every unavailable claim. instead of returning a false-forever 409.
       return query select false, null::int, 'not_found'::text;
       return;
     end if;

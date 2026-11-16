@@ -48,13 +48,18 @@ function makeSvc(
   updateError: unknown = null,
   updateMatched = true,
   insertError: unknown = null,
+  insertFailKinds: string[] | null = null,
 ) {
   const chain: Record<string, unknown> = {};
   for (const m of ["insert", "update", "upsert", "eq", "select", "in", "is", "order", "limit"]) {
     chain[m] = vi.fn(() => chain);
   }
   // The five message inserts are awaited directly, so insert() must resolve on its own.
-  chain.insert = vi.fn(async () => ({ data: null, error: insertError }));
+  chain.insert = vi.fn(async (payload: { metadata?: { kind?: string } }) => {
+    const kind = payload?.metadata?.kind;
+    const fails = insertError && (!insertFailKinds || (kind && insertFailKinds.includes(kind)));
+    return { data: null, error: fails ? insertError : null };
+  });
   chain.single = vi.fn().mockResolvedValue({ data: row(metadata), error: null });
   chain.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
   // Only the awaited writes (the metadata update and the action bookkeeping) reach `then`; the
@@ -111,7 +116,13 @@ describe("approveSynthesisMessage — relay claim closes the concurrent-approval
 
   async function run(
     claimData: unknown,
-    opts: { updateError?: unknown; updateMatched?: boolean; insertError?: unknown } = {},
+    opts: {
+      updateError?: unknown;
+      updateMatched?: boolean;
+      insertError?: unknown;
+      insertFailKinds?: string[];
+      blockAll?: boolean;
+    } = {},
   ) {
     // The call order is the whole point of the claim: a claim taken after the dispatch leaves the
     // bypass open even though every "was the RPC called" assertion still passes.
@@ -148,10 +159,25 @@ describe("approveSynthesisMessage — relay claim closes the concurrent-approval
       };
     };
     // Whichever primitive the plan actions use, both are a dispatch for ordering purposes.
-    executeOpenClaw.mockImplementation(dispatchMock);
-    executeCompletion.mockImplementation(dispatchMock);
+    if (opts.blockAll) {
+      // Every backend down: the action is marked blocked and no message is written, which is the
+      // state that must not be recorded as a delivery.
+      const blocked = async () => ({ ok: false, text: "", error: "no chat backend responded" });
+      executeOpenClaw.mockImplementation(blocked);
+      executeCompletion.mockImplementation(blocked);
+    } else {
+      executeOpenClaw.mockImplementation(dispatchMock);
+      executeCompletion.mockImplementation(dispatchMock);
+    }
     createClient.mockReturnValue(
-      makeSvc(rpc, PLAN, opts.updateError, opts.updateMatched ?? true, opts.insertError),
+      makeSvc(
+        rpc,
+        PLAN,
+        opts.updateError,
+        opts.updateMatched ?? true,
+        opts.insertError,
+        opts.insertFailKinds ?? null,
+      ),
     );
     vi.resetModules();
     const { approveSynthesisMessage } = await import("./cc-approve-synthesis");
@@ -292,6 +318,33 @@ describe("approveSynthesisMessage — relay claim closes the concurrent-approval
     expect(order).toContain("dispatch");
     expect(order).toContain("mark:unknown");
     expect(order).not.toContain("mark:delivered");
+    err.mockRestore();
+  });
+
+  it("records unknown when every backend is down and the plan executed nothing", async () => {
+    // An independent review's second P1: with all backends down, executeAction marks the action
+    // blocked and writes no message, so writeFailures stayed 0 and this recorded a terminal
+    // `delivered` for a plan that produced nothing. `delivered` is terminal, so the outage burned
+    // the plan and every later approval was refused with "already executed".
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { order, result } = await run([{ claimed: true, attempts: 1, status: "claimed" }], {
+      blockAll: true,
+    });
+    expect(order).toContain("mark:unknown");
+    expect(order).not.toContain("mark:delivered");
+    expect((result as { executed?: number }).executed).toBe(0);
+    err.mockRestore();
+  });
+
+  it("a failed status pill does not turn a persisted deliverable into unknown", async () => {
+    // The bookkeeping insert is not the run's output. Counting it would re-run the whole plan and
+    // duplicate both the LLM spend and the deliverable.
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { order } = await run([{ claimed: true, attempts: 1, status: "claimed" }], {
+      insertError: { code: "23502", message: "null value" },
+      insertFailKinds: ["task_status"],
+    });
+    expect(order).toContain("mark:delivered");
     err.mockRestore();
   });
 

@@ -466,17 +466,25 @@ type SynthesisRow = {
   writeFailures?: number;
 };
 
-/** Insert one message, counting a failure instead of discarding it. */
+/**
+ * Message kinds that ARE the run's output. A failed status pill is bookkeeping: the deliverable is
+ * on disk, so counting it here would turn a recovered run into `unknown` and re-run the whole plan,
+ * duplicating LLM spend and the deliverables themselves.
+ */
+const OUTPUT_KINDS = new Set(["execution_deliverable", "execution_revision"]);
+
+/** Insert one message, counting a failed OUTPUT insert instead of discarding it. */
 async function insertMessage(
   svc: SupabaseClient,
   synthesisRow: SynthesisRow,
   payload: Record<string, unknown>,
 ): Promise<void> {
   const { error } = await svc.from("messages").insert(payload);
-  if (error) {
+  const kind = (payload?.metadata as { kind?: string } | undefined)?.kind;
+  if (error && kind && OUTPUT_KINDS.has(kind)) {
     synthesisRow.writeFailures = (synthesisRow.writeFailures ?? 0) + 1;
     console.error("[approve] message insert failed:", {
-      kind: (payload?.metadata as { kind?: string } | undefined)?.kind,
+      kind,
       error: String((error as { message?: string })?.message ?? error).slice(0, 200),
     });
   }
@@ -862,6 +870,11 @@ export async function approveSynthesisMessageStreamed(
   // approve/stream has maxDuration 300, and a sequential plan can legitimately run for minutes. A
   // lease equal to the route's own limit means a slow plan is reclaimed while it is still running
   // and the whole plan executes a second time. 600 s keeps the lease strictly longer than the route.
+  //
+  // The cost, stated rather than discovered: if an approval process dies without recording an
+  // outcome, re-approval is refused as "still in flight" for up to 10 minutes instead of 5. That is
+  // the right trade for a plan that can run for 5, and it is the only thing that stops a killed
+  // process from being re-run concurrently with itself.
   const claim = await claimRelayDispatch(svc, row.id as string, APPROVE_LEASE_SECONDS);
   if (claim.state === "duplicate") {
     // Three terminal states and one in-flight state, decided in one place so this route cannot
@@ -1068,8 +1081,20 @@ export async function approveSynthesisMessageStreamed(
   // never persisted all mean the same thing: the plan ran and the record of it is incomplete. That
   // is `unknown` (retryable), never `delivered` (terminal), because `delivered` would refuse the
   // retry that is the only way to recover the missing output.
+  // Four ways this run is not a delivery, and each was reachable:
+  //   - the metadata write failed, or matched no row     (no record of the run)
+  //   - a deliverable insert failed                      (output exists nowhere)
+  //   - executed === 0                                   (every action blocked, e.g. all backends
+  //                                                        down: the plan ran and produced nothing)
+  // `executed > 0` is the one an independent review caught second: with every backend down,
+  // executeAction marks the action blocked and writes no message, so writeFailures stayed 0 and this
+  // recorded a terminal `delivered` for a plan that produced nothing at all. An infrastructure
+  // outage is the likeliest failure there is, and `delivered` is terminal, so it burned the plan.
   const approveWriteLanded =
-    !approveWriteError && (approveWriteRows?.length ?? 0) > 0 && (synthesisRow.writeFailures ?? 0) === 0;
+    !approveWriteError &&
+    (approveWriteRows?.length ?? 0) > 0 &&
+    (synthesisRow.writeFailures ?? 0) === 0 &&
+    executed > 0;
   if (!approveWriteLanded) {
     if (!approveWriteError && (approveWriteRows?.length ?? 0) === 0) {
       console.error("[approve] execution record matched no row; the row may have been deleted");
@@ -1081,13 +1106,26 @@ export async function approveSynthesisMessageStreamed(
         "message write(s) did not land",
       );
     }
-    console.error("[approve] execution record failed to persist:", approveWriteError);
+    console.error(
+      "[approve] execution record failed to persist:",
+      approveWriteError ?? { reason: "no row matched the update" },
+    );
     await markRelayStatus(svc, row.id as string, "unknown", claimAttempt);
   } else {
     await markRelayStatus(svc, row.id as string, "delivered", claimAttempt);
   }
 
-  onEvent({ type: "complete", executed, blocked, total, mode });
+  const persistedCleanly = (synthesisRow.writeFailures ?? 0) === 0;
+  onEvent({
+    type: "complete",
+    executed,
+    blocked,
+    total,
+    mode,
+    // A clean "done" for a run whose output did not land invites the operator to walk away from
+    // something that needs re-approving.
+    ...(persistedCleanly ? {} : { persisted: false, writeFailures: synthesisRow.writeFailures ?? 0 }),
+  });
 
   return {
     ok: true,
@@ -1096,6 +1134,8 @@ export async function approveSynthesisMessageStreamed(
     blocked,
     total,
     mode,
+    // Same reason: truthful about a run whose deliverables did not all persist.
+    ...(persistedCleanly ? {} : { persisted: false, writeFailures: synthesisRow.writeFailures ?? 0 }),
     results: results.map((r) => ({
       owner: r.owner,
       task: r.task,

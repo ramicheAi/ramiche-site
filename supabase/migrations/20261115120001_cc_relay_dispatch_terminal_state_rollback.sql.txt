@@ -8,8 +8,9 @@
 -- Consequence of applying this file, stated plainly, and it CHANGED in CC-RECOVERY-14: every
 -- message-scoped dispatcher (chat, chat/stream, chat/approve, approve/stream) calls
 -- cc_claim_relay_dispatch, gets a PostgREST "function does not exist" error, and now FAILS CLOSED.
--- The caller gets 503 relay_not_deployed with "Nothing ran" and NO agent turn is dispatched. Chat
--- STOPS WORKING.
+-- chat and chat/approve answer 503 relay_not_deployed with "Nothing ran"; chat/stream and
+-- chat/approve/stream answer HTTP 200 carrying the same error in an SSE frame (SSE has no per-frame
+-- status). In every case NO agent turn is dispatched. Chat STOPS WORKING.
 --
 -- That is the correct behaviour for an unavailable claim, and it means this file is not a safe
 -- "restore the old behaviour" button any more: rolling back the schema while the new code is

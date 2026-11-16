@@ -33,11 +33,18 @@ describe("chat surfaces without a runtime harness", () => {
     const src = source("app/command-center/chat/page.tsx");
     // The no-database branch used to call runRelay() with no argument, which the route now refuses.
     // Firing that request is a wasted round trip and a misleading error shape.
-    const elseBranch = src.slice(src.indexOf("} else {\n      // No browser database client"));
-    expect(elseBranch.length).toBeGreaterThan(0);
-    const upToRelay = elseBranch.slice(0, elseBranch.indexOf("}"));
-    expect(upToRelay).not.toContain("runRelay()");
-    expect(src).toContain("could not be saved or claimed");
+    // Anchored on code, not on a brace: the previous version sliced from "} else {" and cut at the
+    // first "}", which is character 0, so the assertion was always true and a re-added runRelay()
+    // passed. Anchoring on the real call at the end of the send path makes the slice meaningful.
+    const start = src.indexOf("runRelay(realId);");
+    const end = src.indexOf("} finally {", start);
+    expect(start).toBeGreaterThan(0);
+    expect(end).toBeGreaterThan(start);
+    // Everything between the successful persist and the finally block is the fallback path when
+    // there was no id; it must not dispatch.
+    const fallback = src.slice(start, end);
+    expect(fallback).toContain("could not be saved or claimed");
+    expect(fallback).not.toMatch(/runRelay\(\s*\)/);
   });
 
   it("the chat page shows the relay's sentence through the shared helper", () => {

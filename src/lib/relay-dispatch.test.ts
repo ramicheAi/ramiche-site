@@ -113,11 +113,15 @@ describe('classifyClaimError', () => {
     expect(classifyClaimError({ code: '57014', message: 'canceling statement due to statement timeout' })).toBe('transport');
   });
 
-  it('calls a malformed id malformed, not a retryable transport fault', () => {
-    // 22P02 means the id is not a UUID. It will never succeed, so telling the caller to retry is
-    // an invitation to loop.
-    expect(classifyClaimError({ code: '22P02', message: 'invalid input syntax for type uuid: "abc"' })).toBe('malformed');
-    expect(describeUnavailable('malformed').retryable).toBe(false);
+  it('blames the caller for a malformed id, not the deduplication function', () => {
+    // 22P02 means the id is not a UUID. It will never succeed, so telling the caller to retry is an
+    // invitation to loop, and telling them the function is broken sends them to the wrong component.
+    expect(classifyClaimError({ code: '22P02', message: 'invalid input syntax for type uuid: "abc"' })).toBe('bad_id');
+    const d = describeUnavailable('bad_id');
+    expect(d.retryable).toBe(false);
+    expect(d.httpStatus).toBe(400);
+    expect(d.detail).toMatch(/not a UUID/i);
+    expect(d.detail).not.toMatch(/deduplication function/i);
   });
 });
 

@@ -105,6 +105,19 @@ psqlq -c "update messages set relay_claimed_at = now() - interval '2 hours' wher
 psqlq -f "$MIGRATION" >/dev/null 2>&1
 check "the same row is frozen once it is older than the lease" "legacy" "$(val "select relay_status from messages where id='$LA'")"
 
+echo "== the age bound does not depend on updated_at =="
+# Every pre-migration row has relay_claimed_at NULL, so the age check falls back to a timestamp.
+# updated_at moves for reasons unrelated to a claim; using it would skip a genuinely old row, leave it
+# pending, and let the new code re-dispatch a message the old code already sent.
+UB=99999999-9999-9999-9999-999999999999
+psqlq -c "insert into messages(id, relay_claimed, relay_status, relay_claimed_at, created_at, updated_at) values ('$UB', true, 'pending', null, now() - interval '30 days', now() - interval '10 seconds');" 2>/dev/null || true
+if [ "$(val "select count(*) from messages where id='$UB'")" = "1" ]; then
+  psqlq -f "$MIGRATION" >/dev/null 2>&1
+  check "an old claim with a fresh updated_at is still frozen" "legacy" "$(val "select relay_status from messages where id='$UB'")"
+else
+  check "messages has created_at/updated_at to test with" "present" "absent"
+fi
+
 echo "== a pre-migration claimed row is backfilled to legacy, not to delivered =="
 B=66666666-6666-6666-6666-666666666666
 psqlq -c "insert into messages(id, relay_claimed, relay_status, relay_claimed_at) values ('$B', true, 'pending', now() - interval '20 days');"

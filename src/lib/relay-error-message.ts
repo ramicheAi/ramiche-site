@@ -11,7 +11,8 @@
  */
 /** The denials a person actually hits, in words. Anything else is named, not hidden. */
 const DENIAL_TEXT: Record<string, string> = {
-  missing_session: "your session expired; sign in again",
+  // An anonymous first visit is not an expired session: there was never one to expire.
+  missing_session: "you are not signed in; sign in to continue",
   invalid_session: "your session expired; sign in again",
   session_expired: "your session expired; sign in again",
   not_owner: "this session is signed in, but not as this runtime's configured owner",

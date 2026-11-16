@@ -7,10 +7,20 @@
  * so a route cannot accidentally implement a weaker version, and so the claim's failure modes are
  * identical wherever it is used.
  *
- * Guarantee, stated precisely: at most one live claim per message per lease. Terminal states
- * (delivered, failed_permanent) are never reclaimed. This is not exactly-once execution. A turn
- * the gateway accepted but never acknowledged, or a turn outliving its lease, can run twice; the
- * honest record for that case is `unknown`, never `delivered`.
+ * Guarantee, stated precisely, and with its edges named: among the four message-scoped HTTP
+ * dispatchers (chat, chat/stream, chat/approve, chat/approve/stream) at most one holds a live claim
+ * per message per lease, terminal states (delivered, failed_permanent, legacy) are never reclaimed,
+ * and no provider is called without a successful claim. This is NOT exactly-once execution, and it
+ * does not cover the whole fleet:
+ *
+ *   - a turn the gateway accepted but never acknowledged, or a turn outliving its lease, can run
+ *     twice; the honest record for that is `unknown`, never `delivered`;
+ *   - `scripts/chat-bridge-poll.mjs` and `scripts/bridge-sync.mjs` dispatch agent turns for message
+ *     rows from OUTSIDE these routes and never touch the claim. If either daemon is running against
+ *     the same table, a send produces two agent turns and nothing here can prevent it. Verified by
+ *     reading those files; whether they run in production is not knowable from this repo;
+ *   - `voice/atlas`, `wellness/verse`, `lib/jobs.ts` and `lib/lead-gen.ts` call providers with no
+ *     claim at all; they are outside this contract by design, not protected by it.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -41,6 +51,7 @@ export type RelayStatus =
  * is safe to dispatch, and none of them permits dispatch.
  */
 export type RelayUnavailableReason =
+  | "bad_id"
   | "not_configured"
   | "not_deployed"
   | "unauthorized"
@@ -87,10 +98,11 @@ export function classifyClaimError(error: unknown): RelayUnavailableReason {
   if (codeStr === "PGRST202" || /could not find the function|schema cache/i.test(text)) {
     return "not_deployed";
   }
-  // Postgres invalid_text_representation: the id is not a UUID, so this can never succeed however
-  // many times it is retried. Reporting it as a transport fault invited an infinite retry loop.
+  // Postgres invalid_text_representation on the id parameter: the caller sent something that is not
+  // a UUID. It can never succeed however many times it is retried, and it is the caller's input, not
+  // a fault in the deduplication function, so say that instead of blaming the runtime.
   if (codeStr === "22P02" || /invalid input syntax for type uuid/i.test(text)) {
-    return "malformed";
+    return "bad_id";
   }
   // Postgres insufficient_privilege, or PostgREST rejecting the key before it reaches the database.
   if (
@@ -120,6 +132,17 @@ export function describeUnavailable(reason: RelayUnavailableReason): {
   detail: string;
 } {
   switch (reason) {
+    case "bad_id":
+      // The function is healthy; the caller sent something that is not a UUID. Saying "the
+      // deduplication function could not be interpreted" sent an operator to debug a healthy
+      // component.
+      return {
+        httpStatus: 400,
+        code: "invalid_message_id",
+        retryable: false,
+        detail:
+          "That message id is not a UUID, so it cannot identify a persisted message and no agent turn was dispatched. Nothing ran.",
+      };
     case "not_configured":
       return {
         httpStatus: 503,
