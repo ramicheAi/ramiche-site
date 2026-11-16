@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { supabase } from "@/lib/supabase";
 import { parseMentions } from "@/lib/chat-routing";
+import { relayErrorMessage } from "@/lib/relay-error-message";
 import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
 import {
   aggregateReactions,
@@ -1917,9 +1918,10 @@ export default function CommandCenterChatPage() {
           return;
         }
         if (eventName === "error") {
+          // Same rule as the chat send: the sentence beats the code.
           setApproveError({
             id: messageId,
-            message: typeof data.error === "string" ? data.error : "Approve stream error",
+            message: relayErrorMessage(data, 0, "Approve stream error"),
           });
           return;
         }
@@ -3031,7 +3033,10 @@ export default function CommandCenterChatPage() {
             /* non-JSON */
           }
           if (!r.ok) {
-            const msg = parsed.error || `Chat relay failed (${r.status})`;
+            // `error` is a stable machine code and `detail` is the sentence written for a person.
+            // Showing the code would tell the operator "relay_not_deployed" instead of "nothing
+            // ran". The choice lives in a pure function so it is tested.
+            const msg = relayErrorMessage(parsed, r.status);
             setWaitingForResponse(false);
             setTypingUsers([]);
             if (waitingTimeoutRef.current) {
