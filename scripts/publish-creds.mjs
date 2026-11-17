@@ -61,21 +61,17 @@ const present = (n) => Boolean(process.env[n]);
 const anyPublish = PUBLISHING_KEYS.some(present);
 const anyRead = READ_KEYS.some(present);
 
-/* Env first, then the committed file. A cloud container has no .env, so before
-   this file existed the safe path was simply unreachable there and sessions asked
-   for SERVICE_TOKEN instead. The file holds a SEPARATE, revocable, queue-only
-   token: it cannot publish, only propose, which is what makes committing it to a
-   private repo defensible where SERVICE_TOKEN never would be. */
-const tokenFromFile = () => {
-  try {
-    const raw = readFileSync(new URL("../.parallax-publish-token", import.meta.url), "utf8");
-    const line = raw.split("\n").map((l) => l.trim()).find((l) => l && !l.startsWith("#"));
-    return line || undefined;
-  } catch {
-    return undefined;
-  }
-};
-const queueTok = QUEUE_KEYS.map((k) => process.env[k]).find(Boolean) || tokenFromFile();
+/* ENV ONLY, since 2026-11-16. This script used to fall back to reading
+   `.parallax-publish-token` from the repo root, on the theory that a queue-only
+   token was safe to commit to a PRIVATE repo. That theory was correct and it
+   was also the bug: THIS repo is public. The file sat on `main` for eighty days
+   with the token readable by anyone, no authentication needed.
+
+   The queue token is still the right credential for a container - it cannot
+   publish, only propose. It is injected as PARALLAX_PUBLISH_TOKEN. If it is
+   absent, say so and stop; do not reintroduce a file that the tree can leak.
+   Never ask for SERVICE_TOKEN to work around this. */
+const queueTok = QUEUE_KEYS.map((k) => process.env[k]).find(Boolean);
 
 console.log("THIS CONTAINER");
 console.log(`  queue a post for approval : ${queueTok ? `YES, PARALLAX_PUBLISH_TOKEN present (${queueTok.slice(0, 12)}...)` : "no token, see below"}`);
@@ -99,7 +95,8 @@ if (queueTok) {
 } else {
   console.log("  No queue token here. Ask for PARALLAX_PUBLISH_TOKEN, NOT SERVICE_TOKEN.");
   console.log("  The queue token cannot publish, only propose, so it is safe to inject.");
-  console.log("  On a fleet host it is already in this repo's .env.");
+  console.log("  It is injected as an environment variable and never written into this");
+  console.log("  repo: this repository is public, and a committed token is a leaked token.");
 }
 console.log("");
 console.log("  Never ask for SERVICE_TOKEN. It publishes immediately to 22 accounts");

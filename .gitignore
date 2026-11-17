@@ -60,3 +60,7 @@ public/yolo-builds/
 
 # runtime logs (do not track)
 public/projects/semantic-cache/logs/
+
+# Publishing credentials never live in the tree. The repo is public; the queue
+# token is injected as PARALLAX_PUBLISH_TOKEN. See docs/PUBLISH-TOKEN-CONTAINMENT.md.
+.parallax-publish-token
