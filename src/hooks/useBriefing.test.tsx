@@ -162,4 +162,48 @@ describe("useBriefing provenance", () => {
     expect(result.current.fallbackReason).toBeNull();
     expect(result.current.provenance).toBe("fresh");
   });
+
+  it("reports the real reason — not silence — when compose answers with an HTTP error", async () => {
+    // Independent review found this exact path (res.ok === false) previously returned with no
+    // state change at all, which left whatever fallbackReason/source/provenance already existed
+    // in place — indistinguishable from the normal, by-design "no gateway configured" case.
+    global.fetch = mockFetch((url) => {
+      if (url.includes("/briefing/compose")) {
+        return Promise.resolve({ ok: false, status: 500, json: async () => ({}) } as Response);
+      }
+      return null;
+    });
+    const { result } = renderHook(() => useBriefing());
+    await waitFor(() => expect(result.current.fallbackReason).toBe("http_500"));
+    expect(result.current.source).toBe("deterministic");
+    expect(result.current.provenance).toBe("fresh");
+  });
+
+  it("clears a stale cached Atlas override when a later regenerate attempt fails, instead of leaving mismatched state", async () => {
+    // Independent review found that on failure, `source` flipped to "deterministic" but `override`
+    // (the actual text behind `composed = override ?? baseline`) was never cleared — so a prior
+    // successful Atlas override kept rendering while the badge claimed "Deterministic".
+    let composeCallCount = 0;
+    global.fetch = mockFetch((url) => {
+      if (url.includes("/briefing/compose")) {
+        composeCallCount += 1;
+        if (composeCallCount === 1) {
+          return Promise.resolve(
+            okJson({ ok: true, source: "atlas", greeting: "Hi", spoken: "First atlas reply.", bullets: ["x"] }),
+          );
+        }
+        return Promise.resolve({ ok: false, status: 500, json: async () => ({}) } as Response);
+      }
+      return null;
+    });
+    const { result } = renderHook(() => useBriefing());
+    await waitFor(() => expect(result.current.source).toBe("atlas"));
+    expect(result.current.briefing?.spoken).toBe("First atlas reply.");
+
+    await result.current.regenerate();
+    await waitFor(() => expect(result.current.source).toBe("deterministic"));
+    expect(result.current.fallbackReason).toBe("http_500");
+    // The stale Atlas text must be gone — what's on screen must match what `source` claims.
+    expect(result.current.briefing?.spoken).not.toBe("First atlas reply.");
+  });
 });

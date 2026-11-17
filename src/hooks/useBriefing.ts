@@ -22,9 +22,14 @@ export type BriefingSource = "deterministic" | "atlas";
  * pulled, which is unrelated to when `compose/route.ts` last asked Atlas to rewrite them — a
  * cache hit skips that round trip entirely and reuses whatever Atlas said up to 12h ago.
  *
- *   "fresh"  this render's text came from a compose call that just returned (or the always-live
- *            deterministic composer, which recomputes from `raw` on every change — there is no
- *            such thing as a stale deterministic result, since it's a pure function of `raw`).
+ *   "fresh"  this render's text came from the compose call (or failure-fallback transition) that
+ *            most recently resolved, or — only while no `override` has ever been set this
+ *            session — the always-live deterministic `baseline`, which recomputes from `raw` on
+ *            every change. "fresh" is NOT a promise that the text re-computes as `raw` keeps
+ *            changing: once `override` is set (by any compose attempt, success or failure), it is
+ *            a snapshot that stays on screen until the next compose/cache event, even if `refresh()`
+ *            pulls newer facts in the meantime — `composedAt` tells you exactly when that snapshot
+ *            was taken, which is the honest answer, not "it's always current".
  *   "cached" this render's text is a localStorage-cached Atlas reply from a PRIOR compose call,
  *            up to COMPOSE_TTL_MS old. Only ever paired with source === "atlas" — the
  *            deterministic path is never cached (see saveComposeCache below).
@@ -276,6 +281,22 @@ export function useBriefing(): UseBriefingResult {
           return;
         }
       }
+      // Every way this attempt can come up empty — an HTTP error, an unusable body, or a thrown
+      // exception — must land in the SAME honest state: the deterministic `baseline` (always
+      // live-computed from `raw`) is what's actually on screen, so source/provenance/composedAt
+      // must say so too, and any stale `override` from a PRIOR successful call must be cleared —
+      // otherwise `composed = override ?? baseline` keeps showing old (possibly cached-Atlas) text
+      // while the state claims "deterministic", which independent review flagged as exactly the
+      // kind of mismatch this whole feature exists to prevent. `reason` is never fabricated: it is
+      // either this function's own name for what went wrong, or the server's own account of why it
+      // fell back (passed through verbatim by the success path below).
+      const fallBackToDeterministic = (reason: string) => {
+        setOverride(null);
+        setSource("deterministic");
+        setProvenance("fresh");
+        setComposedAt(Date.now());
+        setFallbackReason(reason);
+      };
       const task = (async () => {
         try {
           const res = await fetch("/api/command-center/briefing/compose", {
@@ -283,9 +304,15 @@ export function useBriefing(): UseBriefingResult {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ facts: raw }),
           });
-          if (!res.ok) return;
+          if (!res.ok) {
+            fallBackToDeterministic(`http_${res.status}`);
+            return;
+          }
           const data = (await res.json()) as ComposeResponse;
-          if (!data.ok || !data.spoken || !data.greeting || !data.bullets) return;
+          if (!data.ok || !data.spoken || !data.greeting || !data.bullets) {
+            fallBackToDeterministic("bad_response");
+            return;
+          }
           const next: ComposedBriefing = {
             greeting: data.greeting,
             spoken: data.spoken,
@@ -309,14 +336,7 @@ export function useBriefing(): UseBriefingResult {
             });
           }
         } catch {
-          // The compose call itself failed (network, parse, etc.) — the deterministic `baseline`
-          // (computed live from `raw` via useMemo below) is what's actually on screen, and it is
-          // always fresh by construction. Don't leave a stale "cached"/"atlas" provenance from a
-          // PRIOR successful call attached to what's now showing.
-          setSource("deterministic");
-          setProvenance("fresh");
-          setComposedAt(Date.now());
-          setFallbackReason("compose_request_failed");
+          fallBackToDeterministic("compose_request_failed");
         }
       })();
       composeInflightRef.current = task;

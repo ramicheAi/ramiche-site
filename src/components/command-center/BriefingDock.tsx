@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { UseBriefingResult } from "@/hooks/useBriefing";
 
 const TOKENS = {
@@ -24,7 +24,10 @@ interface BriefingDockProps {
 
 /** "3m ago" / "2h ago" — never a bare number, so it can't be mistaken for a count of anything else. */
 function ageLabel(epochMs: number): string {
-  const diffMs = Date.now() - epochMs;
+  // Clamped at 0: `epochMs` in the future (a system clock change between when it was recorded and
+  // now, since both sides use the same client's Date.now()) must never read as "just now" — that
+  // would claim freshness for a timestamp this function can't actually vouch for either way.
+  const diffMs = Math.max(0, Date.now() - epochMs);
   if (diffMs < 60_000) return "just now";
   const m = Math.floor(diffMs / 60_000);
   if (m < 60) return `${m}m ago`;
@@ -74,16 +77,38 @@ export function BriefingDock({ briefingState }: BriefingDockProps) {
   const speaking = status === "speaking";
   const loading = status === "loading";
 
+  // A plain render-time read of Date.now() would never update while the dock sits open with
+  // nothing else re-rendering it — independent review caught exactly that: "Atlas · Live" and the
+  // aria-label "composed just now" never aged, so a tab left open for hours kept claiming a
+  // freshness it no longer had. Ticking every 30s is enough resolution for a label measured in
+  // minutes/hours; it does not need to be exact to the second.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowTick(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+  const ageMs = composedAt ? nowTick - composedAt : null;
+  /** Only count as "Live" for a short window after composing — after that, say how old it is, same as a cache hit. */
+  const LIVE_THRESHOLD_MS = 90_000;
+
   // The honest provenance of what's ON SCREEN right now — never what's merely plausible. A
-  // 12h-old cached Atlas script and one that just came back are NOT the same claim to make.
-  const isFresh = source === "atlas" && provenance === "fresh";
+  // 12h-old cached Atlas script and one that just came back are NOT the same claim to make, and
+  // neither is a live reply from 20 minutes ago still sitting there unlabeled as "Live".
+  const isFreshLive = source === "atlas" && provenance === "fresh" && (ageMs === null || ageMs < LIVE_THRESHOLD_MS);
+  const isFreshAged = source === "atlas" && provenance === "fresh" && ageMs !== null && ageMs >= LIVE_THRESHOLD_MS;
   const isCachedAtlas = source === "atlas" && provenance === "cached";
-  const badgeLabel = isFresh ? "Atlas · Live" : isCachedAtlas ? `Atlas · ${composedAt ? ageLabel(composedAt) : "cached"}` : "Deterministic";
-  const badgeAriaLabel = isFresh
+  const badgeLabel = isFreshLive
+    ? "Atlas · Live"
+    : isFreshAged || isCachedAtlas
+      ? `Atlas · ${composedAt ? ageLabel(composedAt) : "cached"}`
+      : "Deterministic";
+  const badgeAriaLabel = isFreshLive
     ? "Atlas-personalised brief, composed just now"
-    : isCachedAtlas
-      ? `Atlas-personalised brief, cached ${composedAt ? ageLabel(composedAt) : "earlier"}`
-      : "Deterministic brief (no live Atlas rewrite)";
+    : isFreshAged
+      ? `Atlas-personalised brief, composed ${composedAt ? ageLabel(composedAt) : "earlier"}`
+      : isCachedAtlas
+        ? `Atlas-personalised brief, cached ${composedAt ? ageLabel(composedAt) : "earlier"}`
+        : "Deterministic brief (no live Atlas rewrite)";
   const notableFallback =
     source === "deterministic" && fallbackReason && !BORING_FALLBACK_REASONS.has(fallbackReason)
       ? fallbackReason
@@ -150,6 +175,8 @@ export function BriefingDock({ briefingState }: BriefingDockProps) {
           Atlas Briefing
         </h2>
         <span
+          role="status"
+          aria-live="polite"
           style={{
             marginLeft: "auto",
             display: "inline-flex",
