@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import ParticleField from '../../../components/ParticleField';
 
 const C = { navy: '#1a237e', navyLight: '#283593', navyDark: '#0d1452', gold: '#ffd700', goldDim: '#c9a800', white: '#ffffff', bg: '#060818', cardBg: '#0c1230' };
@@ -23,21 +23,18 @@ interface Registration {
 
 export default function PowerChallengeAdminPage() {
   const [search, setSearch] = useState('');
-  const [pin, setPin] = useState('');
   const [authenticated, setAuthenticated] = useState(false);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const fetchData = async (adminPin: string) => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/power-challenge/admin', {
-        headers: { 'x-admin-pin': adminPin },
-      });
+      const res = await fetch('/api/power-challenge/admin');
       if (!res.ok) {
-        if (res.status === 401) { setError('Invalid PIN'); setAuthenticated(false); }
+        if (res.status === 401) { setError('Sign in as the owner to view this page'); setAuthenticated(false); }
         else { setError('Failed to load data'); }
         return;
       }
@@ -49,23 +46,20 @@ export default function PowerChallengeAdminPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchData(pin);
-  };
+  useEffect(() => { void fetchData(); }, [fetchData]);
 
   if (!authenticated) {
     return (
       <div style={{ minHeight: '100vh', background: C.bg, color: C.white, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui, sans-serif' }}>
         <ParticleField variant="gold" count={30} speed={0.2} opacity={0.3} />
-        <form onSubmit={handleLogin} style={{ position: 'relative', zIndex: 1, background: C.cardBg, border: `2px solid ${C.navyLight}`, borderRadius: 12, padding: 40, textAlign: 'center', minWidth: 320 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: C.gold, marginBottom: 24 }}>Admin Access</h1>
-          <input type="password" placeholder="Enter PIN" value={pin} onChange={(e) => setPin(e.target.value)} style={{ width: '100%', padding: '12px 16px', marginBottom: 16, background: C.bg, border: `1px solid ${C.navyLight}`, borderRadius: 8, color: C.white, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
+        <div style={{ position: 'relative', zIndex: 1, background: C.cardBg, border: `2px solid ${C.navyLight}`, borderRadius: 12, padding: 40, textAlign: 'center', minWidth: 320 }}>
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: C.gold, marginBottom: 16 }}>Admin Access</h1>
+          <div style={{ color: C.white, fontSize: 14, marginBottom: 16 }}>This page requires the site owner&apos;s signed-in session.</div>
           {error && <div style={{ color: '#ff5252', fontSize: 13, marginBottom: 12 }}>{error}</div>}
-          <button type="submit" disabled={loading} style={{ width: '100%', padding: '12px 16px', background: C.gold, color: C.navyDark, border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>{loading ? 'Loading...' : 'Enter'}</button>
-        </form>
+          <button onClick={() => void fetchData()} disabled={loading} style={{ width: '100%', padding: '12px 16px', background: C.gold, color: C.navyDark, border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>{loading ? 'Checking...' : 'Retry'}</button>
+        </div>
       </div>
     );
   }
@@ -100,7 +94,7 @@ export default function PowerChallengeAdminPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
           <h1 style={{ fontSize: 28, fontWeight: 700, color: C.gold, margin: 0 }}>Power Challenge Admin</h1>
           <button
-            onClick={() => window.open(`/api/power-challenge/export?pin=${encodeURIComponent(pin)}`, '_blank')}
+            onClick={() => window.open('/api/power-challenge/export', '_blank')}
             style={{ padding: '10px 24px', background: C.navy, color: C.gold, border: `1px solid ${C.gold}`, borderRadius: 6, fontWeight: 600, fontSize: 14, cursor: 'pointer' }}
           >
             Export CSV

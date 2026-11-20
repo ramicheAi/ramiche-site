@@ -31,16 +31,16 @@ const SURFACE: Record<string, Cls> = {
   "auth/session": "SESSION",
   "stripe/connect": "SESSION",
   "stripe/webhook": "PROVIDER_SIG",
-  "meet-results/cron": "OPEN_FINDING", // fail-open when CRON_SECRET unset, plain !== compare, ?secret= accepted
+  "meet-results/cron": "CC_MACHINE_EXT", // HOTFIX-SECURITY-001: bearer secret only, timing-safe, fails closed when unset
   "health": "PUBLIC",
   "free-audit": "PUBLIC",
   "studio-inquiry": "PUBLIC",
   "stripe/checkout": "PUBLIC",
   "stripe/agents-checkout": "PUBLIC",
-  "stripe/portal": "OPEN_FINDING", // IDOR: any customerId returns a billing-portal URL; return_url from Origin
+  "stripe/portal": "SESSION", // HOTFIX-SECURITY-001: verified Firebase ID token, uid mapping or verified-email ownership
   "power-challenge/checkout": "PUBLIC",
-  "power-challenge/admin": "SESSION", // x-admin-pin
-  "power-challenge/export": "SESSION", // admin credential
+  "power-challenge/admin": "CC_OWNER", // HOTFIX-SECURITY-001: ownerOnly; the published PIN is gone
+  "power-challenge/export": "CC_OWNER", // HOTFIX-SECURITY-001: ownerOnly; the published PIN is gone
   "sentry-smoke": "PUBLIC", // token-gated no-op
   // Known unauthenticated, other-product surfaces. NOT fixed here; see readiness doc.
   "bff/athlete": "OPEN_FINDING",

@@ -1,19 +1,14 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
+import { ownerOnly } from "@/lib/server/command-center-guard";
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_placeholder", {
   apiVersion: "2026-01-28.clover",
 });
 
-export async function GET(req: Request) {
+export const GET = ownerOnly(async () => {
   try {
-    const { searchParams } = new URL(req.url);
-    const pin = searchParams.get("pin");
-
-    if (pin !== "PIRANHAS2026") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const allSessions: Stripe.Checkout.Session[] = [];
     let hasMore = true;
     let startingAfter: string | undefined;
@@ -102,4 +97,4 @@ export async function GET(req: Request) {
       { status: 500 }
     );
   }
-}
+});
