@@ -17,6 +17,8 @@
  *   `src/lib/cloudflare-access.ts`.
  */
 
+import { randomUUID } from "node:crypto";
+
 import { openclawSessionKeyMap } from "@/lib/agent-registry";
 import {
   cloudflareAccessHeaders,
@@ -49,7 +51,10 @@ export async function gatewayToolsInvoke(body: {
   action?: string;
   args?: Record<string, unknown>;
   sessionKey?: string;
-}): Promise<{ ok: true; result: unknown } | { ok: false; error: string; status?: number }> {
+}): Promise<
+  | { ok: true; result: unknown }
+  | { ok: false; error: string; status?: number; reference?: string }
+> {
   const auth = bearer();
   if (!auth) {
     return { ok: false, error: "OPENCLAW_GATEWAY_TOKEN or OPENCLAW_GATEWAY_PASSWORD not set" };
@@ -86,26 +91,37 @@ export async function gatewayToolsInvoke(body: {
     }
 
     const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    const reference = newReference();
 
     if (!res.ok) {
-      const err =
-        typeof data.error === "object" && data.error !== null && "message" in data.error
-          ? String((data.error as { message?: string }).message)
-          : JSON.stringify(data);
-      return { ok: false, error: err || res.statusText, status: res.status };
+      // The raw body is for the log, the sentence is for the operator.
+      console.error("[gateway] invoke failed", { reference, status: res.status, body: data });
+      return {
+        ok: false,
+        error: describeGatewayFailure(data, res.status, res.statusText, reference),
+        status: res.status,
+        reference,
+      };
     }
 
     if (data.ok === false) {
-      const err =
-        typeof data.error === "object" && data.error !== null && "message" in data.error
-          ? String((data.error as { message?: string }).message)
-          : JSON.stringify(data.error ?? data);
-      return { ok: false, error: err };
+      console.error("[gateway] invoke reported failure", { reference, body: data });
+      return {
+        ok: false,
+        error: describeGatewayFailure(data, res.status, res.statusText, reference),
+        reference,
+      };
     }
 
     return { ok: true, result: data.result };
   } catch (e) {
-    return { ok: false, error: String(e) };
+    const reference = newReference();
+    console.error("[gateway] invoke threw", { reference, error: e instanceof Error ? e.message : String(e) });
+    return {
+      ok: false,
+      error: `The agent gateway could not be reached. Reference ${reference}. Check that the gateway is running, then try again.`,
+      reference,
+    };
   }
 }
 
@@ -155,6 +171,71 @@ export function resolveChatSessionKey(agentId: string): string {
  *   5. `result.message`                   — last-resort wrapper
  *   6. plain string                       — straight reply
  */
+/**
+ * A short reference the operator can quote and the server can grep.
+ *
+ * The gateway's own response bodies can hold routing detail, tenant names and internal hints. None
+ * of that belongs on screen, but "something went wrong" is useless in a support thread, so every
+ * failure carries this id in the response AND in the server log line that holds the raw body.
+ */
+function newReference(): string {
+  return randomUUID().replace(/-/g, "").slice(0, 8);
+}
+
+/**
+ * Collapse an upstream message into one safe sentence.
+ *
+ * No newlines, no control characters, bounded length, and the three things that must never reach a
+ * screen even when the gateway puts them in its own error text: bearer credentials, key-shaped
+ * tokens, and filesystem paths (which reveal the host layout and the account name).
+ */
+function safeMessage(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  let clean = value.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!clean) return null;
+  clean = clean
+    .replace(/(bearer\s+)[A-Za-z0-9._~+/-]+=*/gi, "$1[redacted]")
+    .replace(/\b(sk|pk|rk|ghp|gho|xox[baprs])[-_][A-Za-z0-9_-]{8,}/gi, "[redacted]")
+    .replace(/\b[A-Fa-f0-9]{32,}\b/g, "[redacted]")
+    .replace(/\/(?:Users|home|var|private|opt)\/[^\s"']+/g, "[path]")
+    .replace(/[A-Za-z]:\\[^\s"']+/g, "[path]");
+  return clean.length > 200 ? `${clean.slice(0, 197)}...` : clean;
+}
+
+/**
+ * Turn whatever the gateway returned into something an operator can read.
+ *
+ * Before this, a non-2xx response whose body had no `error.message` was surfaced as
+ * `JSON.stringify(data)` — the operator was shown raw upstream JSON. The raw body is still logged
+ * (with the reference) because an engineer needs it; it is no longer shown to a person.
+ */
+function describeGatewayFailure(
+  data: Record<string, unknown>,
+  status: number,
+  statusText: string | undefined,
+  reference: string,
+): string {
+  const err = data.error;
+  const fromObject =
+    err && typeof err === "object" && err !== null && "message" in err
+      ? safeMessage((err as { message?: unknown }).message)
+      : null;
+  const fromString = typeof err === "string" ? safeMessage(err) : null;
+  const fromMessage = safeMessage(data.message);
+  const base =
+    fromObject ??
+    fromString ??
+    fromMessage ??
+    `The agent gateway answered HTTP ${status}${statusText ? ` ${statusText}` : ""}.`;
+  // Actionable next step, and an honest one: a 4xx is a policy/configuration refusal that a retry
+  // cannot fix, while a 5xx or an unknown status may succeed on a second attempt.
+  const guidance =
+    status >= 400 && status < 500
+      ? "This needs a configuration fix, not a retry."
+      : "Try again in a moment.";
+  return `${base} Reference ${reference}. ${guidance}`;
+}
+
 function extractSessionsSendReply(result: unknown): string | null {
   if (result == null) return null;
   if (typeof result === "string") return result;
@@ -220,7 +301,7 @@ export async function gatewaySessionsSend(
 
   return {
     ok: false,
-    error: "Gateway returned no reply text (check sessions_send policy / timeout)",
+    error: `The agent gateway accepted the turn but returned no reply text. Reference ${newReference()}. Try again in a moment.`,
   };
 }
 

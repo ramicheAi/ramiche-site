@@ -1,45 +1,92 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHash, timingSafeEqual } from "crypto";
-import { ownerOnly } from "@/lib/server/command-center-guard";
+import {
+  DEVICE_COOKIE,
+  UNLOCK_COOKIE,
+  UNLOCK_SESSION_SECONDS,
+  attemptPinUnlock,
+  verifyDeviceCookie,
+} from "@/lib/server/command-center-device-trust";
+import { pinMatches, pinVerificationAvailable } from "@/lib/server/command-center-pin";
+import { configuredOwnerUid } from "@/lib/server/command-center-auth";
+import { checkBrowserMutation } from "@/lib/server/command-center-csrf";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Command Center PIN gate.
+ * Command Center PIN unlock — founder Priority 1 decision
+ * (CC-RECOVERY-DELIVERY-CONVERGENCE-01).
  *
- * POST { pin: string } — verify PIN.
- * GET — preflight `{ ready, localDevDefaultPin? }` (no secrets); use so the UI can explain misconfiguration before the user types.
+ * NOT wrapped in ownerOnly(): that would be circular (you'd need to already
+ * be Firebase-authenticated to reach the one thing meant to let you skip
+ * Firebase on a device you've already enrolled — this was the actual state
+ * of the pre-existing PIN route after PR #82, which made it unreachable as
+ * a gate at all). Authorization here comes from a different, narrower
+ * credential: a valid, non-revoked, non-expired `cc_device` cookie, which
+ * can ONLY have been issued by a prior Firebase-authenticated enrollment
+ * (see src/app/api/command-center/auth/device/enroll/route.ts). The PIN
+ * never independently establishes ownership — see
+ * src/lib/server/command-center-device-trust.ts for the full design.
  *
- * Set `CC_PIN_HASH` to sha256 hex of the PIN (e.g. `echo -n '2451' | shasum -a 256`),
- * or `CC_PIN` for plaintext comparison on trusted hosts only.
- *
- * Dev-only fallback PIN `2451` runs only when neither env is set and either
- * `NODE_ENV === "development"` or `CC_PIN_ALLOW_DEV=1` (e.g. local `next start` testing).
- * Production / Vercel: configure `CC_PIN_HASH` or `CC_PIN`, or PIN checks return 503.
+ * GET — preflight `{ ready, deviceTrusted, localDevDefaultPin? }` (no secrets).
+ * POST { pin: string } — on a trusted device, verify PIN (rate-limited,
+ * server-side lockout) and mint the `cc_unlock` session cookie.
  */
-/** True when POST / pin verification can succeed (env or dev fallback). */
-function pinVerificationAvailable(): boolean {
-  const hashEnv = process.env.CC_PIN_HASH?.trim();
-  const plainEnv = process.env.CC_PIN?.trim();
-  const allowDevFallback =
-    process.env.NODE_ENV === "development" || process.env.CC_PIN_ALLOW_DEV === "1";
-  return !!(hashEnv || plainEnv || allowDevFallback);
+// Parses the raw `cookie` header rather than relying on NextRequest.cookies
+// (which assumes a real NextRequest instance) — this route's own test suite
+// and the shared authorization-inventory test both exercise it with plain
+// Request objects, same as every other guard in this codebase.
+function readCookie(req: NextRequest | Request, name: string): string | null {
+  const raw = req.headers.get("cookie");
+  if (!raw) return null;
+  for (const part of raw.split(";")) {
+    const i = part.indexOf("=");
+    if (i < 0) continue;
+    if (part.slice(0, i).trim() !== name) continue;
+    return part.slice(i + 1).trim();
+  }
+  return null;
 }
 
-/** Preflight for the UI — no secrets. */
-async function GET_handler() {
+/** Preflight for the UI — no secrets, no device-table lookups beyond a boolean. */
+export async function GET(req: NextRequest) {
   const ready = pinVerificationAvailable();
   const devOnly =
     process.env.NODE_ENV === "development" &&
     !process.env.CC_PIN_HASH?.trim() &&
     !process.env.CC_PIN?.trim();
+
+  const owner = configuredOwnerUid();
+  let deviceTrusted = false;
+  if (owner) {
+    const device = await verifyDeviceCookie(readCookie(req, DEVICE_COOKIE), owner);
+    deviceTrusted = device.ok;
+  }
+
   return NextResponse.json({
     ready,
+    deviceTrusted,
     ...(devOnly ? ({ localDevDefaultPin: true } as const) : {}),
   });
 }
 
-async function POST_handler(req: NextRequest) {
+export async function POST(req: NextRequest) {
+  // Mutating request: CSRF evidence required regardless of which credential
+  // path eventually succeeds — same discipline as requireCommandCenterOwner.
+  const csrf = checkBrowserMutation(req.method, req.headers);
+  if (!csrf.ok) return NextResponse.json({ ok: false, error: "denied", reason: csrf.reason }, { status: 403 });
+
+  const owner = configuredOwnerUid();
+  if (!owner) {
+    return NextResponse.json({ ok: false, error: "owner_not_configured" }, { status: 503 });
+  }
+
+  const device = await verifyDeviceCookie(readCookie(req, DEVICE_COOKIE), owner);
+  if (!device.ok) {
+    // No valid device trust: the PIN alone proves nothing. The caller must
+    // go through Firebase sign-in + enrollment first.
+    return NextResponse.json({ ok: false, error: "device_not_trusted", reason: device.reason }, { status: 401 });
+  }
+
   let pin = "";
   try {
     const body = (await req.json()) as { pin?: string };
@@ -48,46 +95,22 @@ async function POST_handler(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "invalid json" }, { status: 400 });
   }
 
-  const hashEnv = process.env.CC_PIN_HASH?.trim();
-  const plainEnv = process.env.CC_PIN?.trim();
-
-  if (hashEnv) {
-    const digest = createHash("sha256").update(pin, "utf8").digest("hex");
-    try {
-      const a = Buffer.from(digest, "hex");
-      const b = Buffer.from(hashEnv, "hex");
-      if (a.length === b.length && timingSafeEqual(a, b)) {
-        return NextResponse.json({ ok: true });
-      }
-    } catch {
-      /* length mismatch */
-    }
-    return NextResponse.json({ ok: false }, { status: 401 });
+  if (!pinVerificationAvailable()) {
+    return NextResponse.json({ ok: false, error: "CC_PIN_HASH or CC_PIN not configured" }, { status: 503 });
   }
 
-  if (plainEnv) {
-    const a = Buffer.from(pin, "utf8");
-    const b = Buffer.from(plainEnv, "utf8");
-    if (a.length === b.length && timingSafeEqual(a, b)) {
-      return NextResponse.json({ ok: true });
-    }
-    return NextResponse.json({ ok: false }, { status: 401 });
+  const result = await attemptPinUnlock(device.deviceId, pin, pinMatches);
+  if (!result.ok) {
+    return NextResponse.json({ ok: false, error: result.reason }, { status: result.status });
   }
 
-  const allowDevFallback =
-    process.env.NODE_ENV === "development" || process.env.CC_PIN_ALLOW_DEV === "1";
-
-  if (!allowDevFallback) {
-    return NextResponse.json(
-      { ok: false, error: "CC_PIN_HASH or CC_PIN not configured" },
-      { status: 503 }
-    );
-  }
-
-  const dev = pin === "2451";
-  return NextResponse.json(dev ? { ok: true } : { ok: false }, { status: dev ? 200 : 401 });
+  const res = NextResponse.json({ ok: true });
+  res.cookies.set(UNLOCK_COOKIE, result.cookieValue, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: UNLOCK_SESSION_SECONDS,
+    path: "/",
+  });
+  return res;
 }
-
-// Owner-only: enforced in the handler itself (CC-SECURITY-RECONCILIATION-02).
-export const GET = ownerOnly(GET_handler);
-export const POST = ownerOnly(POST_handler);

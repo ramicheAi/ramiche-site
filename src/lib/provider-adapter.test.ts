@@ -22,6 +22,40 @@ vi.mock("@/lib/openclaw-gateway", async () => {
   };
 });
 
+// This file tests provider selection and fallback ORDER through the routes. The relay claim is a
+// separate concern with its own dedicated coverage (relay-claim, status-label, relay-concurrency,
+// and the fail-closed cases in each). It is stubbed here so these tests exercise the adapter path
+// only, and it is stubbed as "claim granted", never as "skip the claim".
+// A benign database client. These tests are about provider order; persistence is not under test
+// here, and the real client would attempt network calls against a mocked fetch.
+vi.mock("@supabase/supabase-js", () => {
+  const chain: Record<string, unknown> = {};
+  for (const m of ["insert", "update", "upsert", "delete", "eq", "select", "in", "is", "order", "limit"]) {
+    chain[m] = () => chain;
+  }
+  chain.single = async () => ({ data: null, error: null });
+  // An empty object, not null: a real PostgREST row always carries every selected key (null
+  // values included), so `{}` signals "this test doesn't model this lookup's columns" without
+  // looking like "no row exists," which the CC-RECOVERY-22 identity check (relay-identity-check.ts)
+  // would otherwise read as a reason to refuse every dispatch in this provider-order-focused file.
+  chain.maybeSingle = async () => ({ data: {}, error: null });
+  chain.then = (resolve: (v: unknown) => unknown) =>
+    Promise.resolve({ data: null, error: null }).then(resolve);
+  return { createClient: () => ({ from: () => chain, rpc: async () => ({ data: null, error: null }) }) };
+});
+
+vi.mock("@/lib/relay-dispatch", () => ({
+  RELAY_LEASE_SECONDS: 300,
+  claimRelayDispatch: async () => ({ state: "claimed", attempt: 1 }),
+  markRelayStatus: async () => true,
+  statusAfterTurn: (s: { ok: boolean; attempted: number }) =>
+    s.ok && s.attempted > 0 ? "delivered" : "unknown",
+  statusAfterEmptyDispatch: (attempted: boolean) => (attempted ? "unknown" : "failed"),
+  describeDuplicate: () => ({ alreadyDispatched: false, retryable: true, reason: "in_flight", detail: "" }),
+  describeUnavailable: () => ({ httpStatus: 503, code: "relay_unavailable", retryable: true, detail: "Nothing ran." }),
+  classifyClaimError: () => "transport",
+}));
+
 import {
   cleanEnv,
   claudeModelForAgent,
@@ -486,8 +520,11 @@ describe("executeOpenClaw", () => {
 });
 
 /* ── 5, 6, 7, 9. route-level behavior through the adapter ─────────────── */
+const RELAY_MESSAGE_ID = "22222222-2222-2222-2222-222222222222";
+
 async function postChat(body: object, env: Record<string, string>, responder: Responder) {
-  resetEnv(env);
+  resetEnv({ NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "k", ...env });
+  body = { userMessageId: RELAY_MESSAGE_ID, ...body };
   mockFetch(responder);
   const errs: string[] = [];
   vi.spyOn(console, "error").mockImplementation((...a: unknown[]) => void errs.push(a.map(String).join(" ")));
@@ -593,7 +630,8 @@ describe("chat route (non-streaming) through the adapter", () => {
 });
 
 async function postStream(body: object, env: Record<string, string>, responder: Responder) {
-  resetEnv(env);
+  resetEnv({ NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "k", ...env });
+  body = { userMessageId: RELAY_MESSAGE_ID, ...body, channelId: "11111111-1111-1111-1111-111111111111" };
   mockFetch(responder);
   vi.spyOn(console, "error").mockImplementation(() => {});
   const res = await streamRoute.POST(new NextRequest("http://localhost/api/command-center/chat/stream", { method: "POST", body: JSON.stringify(body), headers: { "content-type": "application/json" } }));

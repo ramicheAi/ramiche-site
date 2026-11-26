@@ -1,0 +1,36 @@
+{
+  "runAt": "2026-11-16T23:19:34.800Z",
+  "base": "http://127.0.0.1:54331",
+  "results": [
+    {
+      "id": "D1",
+      "name": "Approve a synthesis request",
+      "kind": "integrated",
+      "status": "PASS",
+      "detail": "approve control present; approved_at written, dispatches=1, relay=delivered",
+      "checks": {
+        "approve_control_present": true,
+        "reject_control_present": true,
+        "card_rendered": true
+      },
+      "findings": []
+    },
+    {
+      "id": "D2",
+      "name": "Reject a synthesis request",
+      "kind": "integrated",
+      "status": "PASS",
+      "detail": "reject writes rejected_at, cancels every action, dispatches nothing, and a subsequent approve is refused",
+      "checks": {
+        "reject_control_present": true,
+        "rejected_at_written": true,
+        "all_actions_cancelled": true,
+        "nothing_dispatched": true,
+        "approve_now_refused": true
+      }
+    }
+  ],
+  "counts": {
+    "PASS": 2
+  }
+}

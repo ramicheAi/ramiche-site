@@ -133,7 +133,7 @@ export type Dm = { id: string; agentId: string; unread: number; last: string; t:
 export const DMS: Dm[] = [
   { id: "dm-atlas", agentId: "atlas", unread: 0, last: "On it — routing to Forge now.", t: "just now" },
   { id: "dm-proximon", agentId: "proximon", unread: 2, last: "412 leads scored, 18 hot. Want outreach?", t: "12m" },
-  { id: "dm-ledger", agentId: "ledger", unread: 0, last: "MRR closed the week at $48.2k, +6%.", t: "1h" },
+  { id: "dm-ledger", agentId: "ledger", unread: 0, last: "Reconciling the week. Revenue figures come from Finance HQ.", t: "1h" },
   { id: "dm-triage", agentId: "triage", unread: 0, last: "Retry storm at 03:14 auto-healed.", t: "3h" },
   { id: "dm-shuri", agentId: "shuri", unread: 0, last: "Build times down 40% after the compiler.", t: "5h" },
 ];
@@ -141,7 +141,9 @@ export const DMS: Dm[] = [
 export type Vital = { lab: string; num: string; sub: string; icon: string };
 export const VITALS: Vital[] = [
   { lab: "Agents online", num: "19", sub: "/20", icon: "agents" },
-  { lab: "MRR", num: "$48.2k", sub: "+6%", icon: "finance" },
+  // The number is a placeholder on purpose: CommandView replaces it with the measured value,
+  // and no surface may ship a plausible default here (see lib/finance-truth).
+  { lab: "MRR", num: "\u2014", sub: "unmeasured", icon: "finance" },
   { lab: "Jobs in motion", num: "7", sub: "live", icon: "bolt" },
   { lab: "Shipped today", num: "23", sub: "builds", icon: "builder" },
 ];

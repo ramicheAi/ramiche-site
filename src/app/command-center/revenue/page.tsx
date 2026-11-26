@@ -79,16 +79,21 @@ export default function RevenuePage() {
   }, []);
 
   const filtered = filter === "all" ? STREAMS : STREAMS.filter(s => s.status === filter);
+  // The API returns subscriptions {0,0,0} with source "unavailable" and HTTP 200. Printing those
+  // zeros would turn an outage into a measured $0, which is the opposite of the truth rule.
+  const isLive = stripe?.source === "live";
+  const usd = (n: number) =>
+    isLive ? `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "\u2014";
 
   return (
     <InstrumentPage id="finance" title="Revenue" section="Business" icon="finance" accent="var(--c-gold)">
       {stripe && (
-        <Panel title="Stripe (Live)" icon="finance" badge={<span className="mono" style={{ color: stripe.source === "live" ? "var(--c-green)" : "var(--t-mid)" }}>{stripe.source === "live" ? "CONNECTED" : "NO KEY / FALLBACK"}</span>}>
+        <Panel title="Stripe" icon="finance" badge={<span className="mono" style={{ color: stripe.source === "live" ? "var(--c-green)" : "var(--t-mid)" }}>{stripe.source === "live" ? "CONNECTED" : "NO KEY / FALLBACK"}</span>}>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "16px 24px", fontSize: "13px", color: "var(--t-hi)" }}>
-            <span><strong style={{ color: "var(--c-green)" }}>MRR</strong> ${stripe.mrr.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-            <span><strong>ARR</strong> ${stripe.arr.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-            <span><strong>30d volume</strong> ${stripe.last30.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-            <span><strong>Active subs</strong> {stripe.activeSubs}</span>
+            <span><strong style={{ color: isLive ? "var(--c-green)" : "var(--t-mid)" }}>MRR</strong> {usd(stripe.mrr)}</span>
+            <span><strong>ARR</strong> {usd(stripe.arr)}</span>
+            <span><strong>30d volume</strong> {usd(stripe.last30)}</span>
+            <span><strong>Active subs</strong> {isLive ? stripe.activeSubs : "\u2014"}</span>
           </div>
           {stripe.fetchedAt && (
             <div className="mono" style={{ fontSize: "10px", color: "var(--t-lo)", marginTop: "8px" }}>Updated {new Date(stripe.fetchedAt).toLocaleString()}</div>

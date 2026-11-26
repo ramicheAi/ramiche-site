@@ -307,11 +307,11 @@ export default function SystemHealthPage() {
             <Panel title={`Active Processes (${sessions.count})`} icon="pulse">
             <div style={{ borderRadius: "var(--r-md)", overflow: "hidden" }}>
               {sessions.processes.slice(0, 10).map((p, i) => (
-                <div key={i} style={{ display: "grid", gridTemplateColumns: "60px 50px 50px 1fr", gap: 12, padding: "10px 16px", borderBottom: i < Math.min(sessions.processes.length, 10) - 1 ? "1px solid var(--line)" : "none", fontSize: 11, fontFamily: "var(--f-mono)" }}>
+                <div key={i} className="health-process-row" style={{ display: "grid", gridTemplateColumns: "60px 50px 50px 1fr", gap: 12, padding: "10px 16px", borderBottom: i < Math.min(sessions.processes.length, 10) - 1 ? "1px solid var(--line)" : "none", fontSize: 11, fontFamily: "var(--f-mono)" }}>
                   <span style={{ color: "var(--c-purple)" }}>{p.pid}</span>
                   <span style={{ color: parseFloat(p.cpu) > 50 ? "var(--c-red)" : "var(--t-lo)" }}>{p.cpu}%</span>
                   <span style={{ color: parseFloat(p.mem) > 5 ? "var(--c-amber)" : "var(--t-lo)" }}>{p.mem}%</span>
-                  <span style={{ color: "var(--t-mid)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.cmd}</span>
+                  <span title={p.cmd} className="health-process-cmd" style={{ color: "var(--t-mid)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.cmd}</span>
                 </div>
               ))}
             </div>

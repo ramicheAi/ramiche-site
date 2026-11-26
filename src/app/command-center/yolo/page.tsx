@@ -5,6 +5,7 @@ import ParticleField from "@/components/ParticleField";
 import { db, hasConfig } from "@/lib/firebase";
 import { collection, getDocs, doc, setDoc, query, orderBy } from "firebase/firestore";
 import { InstrumentPage, Panel } from "@/components/command-center/po/Instrument";
+import { provenanceLabel, type BuildsProvenance } from "@/lib/builds-provenance";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    YOLO BUILDS — Multi-Agent Overnight Prototype Gallery
@@ -70,6 +71,21 @@ const YOLO_AGENTS = [
 
 export default function YoloBuildsPage() {
   const [builds, setBuilds] = useState<Build[]>([]);
+  // One explicit load state. Before this, the grid printed "waiting for the YOLO builds API" and
+  // "no builds yet for this agent" at the same time, which reads as a contradiction and hides a
+  // real failure behind an empty-looking page.
+  const [load, setLoad] = useState<{ state: "loading" | "ready" | "error"; reason?: string }>({
+    state: "loading",
+  });
+  // Provenance comes from the API headers: which source answered, when, and whether it is stale.
+  const [prov, setProv] = useState<null | {
+    source: string;
+    state: string;
+    observedAt: string;
+    freshness: string;
+    latest: string;
+    ageDays: string;
+  }>(null);
   const [filter, setFilter] = useState("all");
   const [toast, setToast] = useState<{ message: string; color: string } | null>(null);
 
@@ -77,9 +93,22 @@ export default function YoloBuildsPage() {
     async function loadBuilds() {
       // Step 1: Fetch live builds from disk API (source of truth)
       let diskBuilds: Build[] = [];
+      let loadFailure: string | null = null;
       try {
         const res = await fetch("/api/command-center/yolo-builds", { cache: "no-store" });
+        if (!res.ok) {
+          const reason = res.headers.get("X-CC-YOLO-Reason");
+          loadFailure = reason ? `builds source unavailable (${reason})` : `builds source returned ${res.status}`;
+        }
         if (res.ok) {
+          setProv({
+            source: res.headers.get("X-CC-YOLO-Source") || "unknown",
+            state: res.headers.get("X-CC-YOLO-State") || "unknown",
+            observedAt: res.headers.get("X-CC-YOLO-Observed-At") || "",
+            freshness: res.headers.get("X-CC-YOLO-Freshness") || "unknown",
+            latest: res.headers.get("X-CC-YOLO-Latest") || "",
+            ageDays: res.headers.get("X-CC-YOLO-Age-Days") || "",
+          });
           const data = await res.json();
           diskBuilds = Array.isArray(data) ? data.map((b: Record<string, unknown>) => ({
             date: (b.date as string) || "",
@@ -94,7 +123,9 @@ export default function YoloBuildsPage() {
             score: b.score as number | undefined,
           })) : [];
         }
-      } catch {}
+      } catch (err) {
+        loadFailure = err instanceof Error ? err.message : "builds source unreachable";
+      }
 
       // Step 2: Try Firestore for review status / tier / score metadata
       const fsData = new Map<string, { reviewStatus?: string; tier?: number; score?: number }>();
@@ -137,6 +168,7 @@ export default function YoloBuildsPage() {
         return bd.localeCompare(ad);
       });
       setBuilds(enriched);
+      setLoad(loadFailure ? { state: "error", reason: loadFailure } : { state: "ready" });
     }
     loadBuilds();
   }, []);
@@ -265,7 +297,21 @@ export default function YoloBuildsPage() {
       `}</style>
       <div className="relative z-10">
         <p className="text-xs mb-6" style={{ color: "var(--t-lo)", letterSpacing: "0.15em", fontFamily: "var(--f-mono)" }}>
-          {stats.agents} AGENTS // {stats.total} BUILDS // NIGHTLY 12:30 AM — 2:30 AM EST
+          {stats.agents} AGENTS WITH BUILDS // {stats.total} BUILDS // NIGHTLY 12:30 AM — 2:30 AM EST
+        </p>
+        <p className="text-[10px] mb-6" style={{ color: "var(--t-lo)", fontFamily: "var(--f-mono)", letterSpacing: "0.08em" }}>
+          {load.state === "error" || !prov
+            ? load.state === "error"
+              ? `source unavailable · ${load.reason ?? "no inventory read"}`
+              : "reading builds source…"
+            : provenanceLabel({
+                state: prov.state as BuildsProvenance["state"],
+                source: prov.source,
+                observedAt: prov.observedAt,
+                latestBuildDate: prov.latest || null,
+                ageDays: prov.ageDays ? Number(prov.ageDays) : null,
+                freshness: prov.freshness as BuildsProvenance["freshness"],
+              })}
         </p>
 
         {/* Agent filter chips */}
@@ -311,8 +357,13 @@ export default function YoloBuildsPage() {
 
         {/* Build Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {builds.length === 0 && (
-            <span style={{ fontSize: 13, color: 'var(--t-lo)', padding: '24px 0', gridColumn: '1 / -1' }}>No builds loaded — waiting for YOLO builds API</span>
+          {load.state === "loading" && (
+            <span style={{ fontSize: 13, color: 'var(--t-lo)', padding: '24px 0', gridColumn: '1 / -1' }}>Loading builds…</span>
+          )}
+          {load.state === "error" && (
+            <span role="status" style={{ fontSize: 13, color: 'var(--c-red)', padding: '24px 0', gridColumn: '1 / -1' }}>
+              Could not load builds: {load.reason}. Nothing is being hidden; the source did not answer.
+            </span>
           )}
           {filtered.map((build) => {
             const review = build.reviewStatus ?? "pending";
@@ -573,9 +624,15 @@ export default function YoloBuildsPage() {
         </div>
 
         {/* Empty state */}
-        {filtered.length === 0 && (
+        {load.state === "ready" && builds.length === 0 && (
           <div className="text-center py-20">
-            <p className="text-sm" style={{ color: "var(--t-mid)" }}>No builds yet for this agent.</p>
+            <p className="text-sm" style={{ color: "var(--t-mid)" }}>The builds source reports zero builds.</p>
+            <p className="text-xs mt-1" style={{ color: "var(--t-lo)" }}>Builds run nightly 12:30 AM — 2:30 AM EST</p>
+          </div>
+        )}
+        {load.state === "ready" && builds.length > 0 && filtered.length === 0 && (
+          <div className="text-center py-20">
+            <p className="text-sm" style={{ color: "var(--t-mid)" }}>No builds for this agent yet.</p>
             <p className="text-xs mt-1" style={{ color: "var(--t-lo)" }}>Builds run nightly 12:30 AM — 2:30 AM EST</p>
           </div>
         )}

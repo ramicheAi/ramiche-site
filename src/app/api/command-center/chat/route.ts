@@ -19,6 +19,15 @@ import {
   type PersistenceFailure,
 } from "@/lib/chat-persistence";
 import { ownerOnly } from "@/lib/server/command-center-guard";
+import { verifyRelayIdentity } from "@/lib/relay-identity-check";
+import {
+  claimRelayDispatch,
+  describeDuplicate,
+  describeUnavailable,
+  markRelayStatus,
+  statusAfterEmptyDispatch,
+  statusAfterTurn,
+} from "@/lib/relay-dispatch";
 
 export const dynamic = "force-dynamic";
 // Pro-tier ceiling. Group-chat fan-out with synthesis + Phase E critic can
@@ -1066,6 +1075,16 @@ async function POST_handler(req: NextRequest) {
   // Phase E budget guard: wall-clock anchor used to skip the critic pass if
   // synthesis already burned most of the route's 60s maxDuration window.
   const postStartedAt = Date.now();
+  // Hoisted OUTSIDE the try so the catch block below can still mark the dispatch 'failed'.
+  // svc/userMessageId/claimAttempt are normally computed inside the try; without this, an
+  // uncaught exception left relay_status='claimed' forever (until the lease ages it out), and a
+  // retry within the lease read that as {ok:true, alreadyDispatched:true} — a real crash
+  // reported to the retrying caller as a success.
+  const relayFailureTracker: {
+    svc: ReturnType<typeof getSupabaseService> | null;
+    userMessageId?: string;
+    attempt: number | null;
+  } = { svc: null, attempt: null };
   try {
     const body = await req.json();
     const {
@@ -1118,6 +1137,122 @@ async function POST_handler(req: NextRequest) {
     // should respond within the focused back-and-forth, not get distracted by
     // unrelated channel chatter.
     const svc = getSupabaseService();
+
+    // Relay-dispatch idempotency (CC-RECOVERY-DELIVERY-CONVERGENCE-01): this route is a SEPARATE
+    // client-initiated call from the message-persistence write in
+    // .../conversations/[id]/messages/route.ts, so de-duplicating the persisted ROW there does not
+    // by itself de-duplicate the AGENT DISPATCH.
+    //
+    // This route FAILS CLOSED (CC-RECOVERY-14). Without a persisted message id there is nothing to
+    // claim, and with the claim unavailable there is no way to know whether another attempt owns
+    // this message. In both cases the route refuses and dispatches nothing. The previous version
+    // proceeded in both cases, which meant "omitting userMessageId" was a complete bypass of the
+    // claim, and an unavailable claim was the one situation where duplicate execution was certain.
+    if (!userMessageId) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "user_message_id_required",
+          detail:
+            "This route dispatches an agent turn for one persisted message and needs its id to do so safely. Nothing ran. Save the message, then send its id as userMessageId.",
+        },
+        { status: 400 }
+      );
+    }
+
+    let claimAttempt: number | null = null;
+    relayFailureTracker.svc = svc;
+    relayFailureTracker.userMessageId = userMessageId;
+    {
+      if (!svc) {
+        const u = describeUnavailable("not_configured");
+        return NextResponse.json(
+          { ok: false, error: u.code, detail: u.detail, retryable: u.retryable },
+          { status: u.httpStatus }
+        );
+      }
+      // One claim implementation, shared with the streaming route. If either route grew its own
+      // copy, the other would be a callable bypass for duplicate dispatch.
+      const claim = await claimRelayDispatch(svc, userMessageId);
+      if (claim.state === "unavailable") {
+        // Refuse. No provider has been touched at this point, and none will be.
+        const u = describeUnavailable(claim.reason);
+        return NextResponse.json(
+          {
+            ok: false,
+            error: u.code,
+            detail: u.detail,
+            relayUnavailable: claim.reason,
+            retryable: u.retryable,
+          },
+          { status: u.httpStatus }
+        );
+      }
+      if (claim.state === "claimed") {
+        claimAttempt = claim.attempt;
+        relayFailureTracker.attempt = claimAttempt;
+      } else if (claim.state === "duplicate") {
+        // Truthful by status, not a blanket "already dispatched". The decision is shared with the
+        // other two dispatchers so a terminal state cannot be reported as "in flight" here and
+        // retryable there; see describeDuplicate.
+        const dup = describeDuplicate(claim.status);
+        if (dup.alreadyDispatched) {
+          return NextResponse.json({ ok: true, alreadyDispatched: true });
+        }
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "dispatch_in_progress_or_failed",
+            detail: dup.detail,
+            relayStatus: claim.status,
+            retryable: dup.retryable,
+          },
+          { status: 409 }
+        );
+      }
+    }
+
+    const markRelay = async (status: "delivered" | "failed" | "unknown" | "failed_permanent") => {
+      if (!svc || !userMessageId) return;
+      await markRelayStatus(svc, userMessageId, status, claimAttempt);
+    };
+
+    // CC-RECOVERY-22 Phase 3: the claim above only proves at most one caller is dispatching for
+    // this id right now — it says nothing about whether THIS request is actually about that row.
+    // Verify identity before any provider is ever called: the claimed row's channel must match
+    // what this request named, and the text about to be dispatched must be the text that was
+    // actually persisted at this id. Closes "substitute a different/foreign message id" and
+    // "dispatch content that differs from what's persisted" as live possibilities, not merely
+    // things the client is expected to get right.
+    if (svc && userMessageId) {
+      const { data: claimedRow, error: identityLookupError } = await svc
+        .from("messages")
+        .select("channel_id, content")
+        .eq("id", userMessageId)
+        .maybeSingle();
+      if (identityLookupError) {
+        await markRelay("unknown");
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "identity_check_failed",
+            detail: "Could not verify the claimed message before dispatching. Nothing ran.",
+            retryable: true,
+          },
+          { status: 503 }
+        );
+      }
+      const identity = verifyRelayIdentity(claimedRow, { channelId, message });
+      if (!identity.ok) {
+        console.error("[relay] identity check refused dispatch:", identity.reason, userMessageId);
+        await markRelay("failed");
+        return NextResponse.json(
+          { ok: false, error: identity.reason, detail: identity.detail, retryable: false },
+          { status: 409 }
+        );
+      }
+    }
+
     const history = threadUuid
       ? await loadThreadHistory(svc, threadUuid, userMessageId, 50)
       : await loadChannelHistory(svc, channelId, userMessageId, 30);
@@ -1203,6 +1338,11 @@ async function POST_handler(req: NextRequest) {
       const r = settled.value;
       allAttempts[target] = r.attempts;
       if (r.openClawError && singleTargetStrict) {
+        // The gateway answered with an error, but an error string cannot distinguish "rejected
+        // before execution" from "executed, then failed to report". Recording 'failed' would
+        // assert a non-delivery we cannot prove, so the ambiguous case is recorded as unknown.
+        // Both are retryable; only one is honest.
+        await markRelay("unknown");
         return NextResponse.json(
           {
             ok: false,
@@ -1300,6 +1440,20 @@ async function POST_handler(req: NextRequest) {
         fallbackOnlyTargets.length === 0 &&
         rejectedTargets.length === 0 &&
         targets.length > 0;
+      // Same reasoning as the openClawError 502 above: the row must not stay 'claimed' with no
+      // outcome recorded for the remainder of the lease. Which state is honest depends on whether
+      // anything was actually sent. If every provider was merely unconfigured ("skipped"), nothing
+      // ran and this is a verified non-delivery. If any provider was called, the result is
+      // ambiguous — including the silent-decline case, where the agent ran and returned
+      // [NO_RESPONSE]: the user got nothing, so the record must not claim a delivery, but a retry
+      // is safe and is exactly what the caller is being invited to do.
+      // A rejected target counts as attempted even though it recorded no provider attempts: the
+      // promise threw, and a throw can happen before OR after the agent ran. That is the definition
+      // of ambiguous, so it must not be recorded as a verified non-delivery.
+      const attempted =
+        rejectedTargets.length > 0 ||
+        Object.values(allAttempts).some((list) => list.some((a) => a.status !== "skipped"));
+      await markRelay(statusAfterEmptyDispatch(attempted));
       return NextResponse.json(
         {
           ok: false,
@@ -1561,6 +1715,29 @@ async function POST_handler(req: NextRequest) {
       }
     }
 
+    // Record the dispatch outcome now, before the two writes below (marking the user's own
+    // message 'delivered'; the synthesis critique rewrite above already ran). Reviewed finding:
+    // recording it only after those non-essential writes meant a throw in either one left the
+    // outer catch to record 'failed' even though the reply/replies above were already safely
+    // persisted — so a lease-expiry retry re-ran the agent and duplicated the reply.
+    // persistenceAttempted/persistenceFailures are fully finalized at this point; nothing above
+    // or below this line mutates them.
+    //
+    // 'delivered' requires a reply that exists on disk. Two distinct ways that fails, and neither
+    // is a delivery:
+    //   - a write was attempted and failed        -> the turn ran, the record did not land
+    //   - no write was ever attempted (no channelId, or no service client) -> the turn ran and
+    //     nothing could be recorded
+    // summarizePersistence reports ok:true for the second case, because "nothing attempted" is a
+    // configuration choice rather than a failure. For the relay it is not a delivery: marking it
+    // delivered would be terminal, so a retry would be refused with alreadyDispatched:true and the
+    // reply would be lost with the relay claiming success. Both cases are 'unknown': the turn ran
+    // and the outcome was not recorded. CC-RECOVERY-16: that is NOT automatically safe to retry —
+    // the claim now gates 'unknown' behind the lease rather than reclaiming it on the spot, and the
+    // caller is told to check before resending (see describeDuplicate).
+    const persistence = summarizePersistence(persistenceAttempted, persistenceFailures);
+    await markRelay(statusAfterTurn(persistence));
+
     const combined =
       responses.length === 0
         ? ""
@@ -1569,7 +1746,10 @@ async function POST_handler(req: NextRequest) {
           : responses.map((x) => `**${x.agent}:** ${x.response}`).join("\n\n");
     const first = responses[0];
 
-    if (userMessageId && svc) {
+    // Tick the user's own message 'delivered' only when the reply actually persisted. Writing this
+    // unconditionally — as a prior review found — told the client its message was delivered even
+    // on the exact persistence-failure path this relay status exists to catch.
+    if (userMessageId && svc && persistence.ok) {
       await svc
         .from("messages")
         .update({
@@ -1579,7 +1759,6 @@ async function POST_handler(req: NextRequest) {
         .eq("id", userMessageId);
     }
 
-    const persistence = summarizePersistence(persistenceAttempted, persistenceFailures);
     const synthesisPayload = synthesisResult
       ? {
           text: synthesisResult.text,
@@ -1605,6 +1784,7 @@ async function POST_handler(req: NextRequest) {
     // the reply vanished on the next reload. Fail loudly instead, while still
     // handing back the generated text so the caller can show it as unsaved.
     if (!persistence.ok) {
+      // Outcome already recorded as 'unknown' above (the turn ran; the reply write failed), lease-gated before a retry can reclaim it.
       return NextResponse.json(
         {
           ok: false,
@@ -1623,6 +1803,7 @@ async function POST_handler(req: NextRequest) {
       );
     }
 
+    // Outcome already recorded as 'delivered' above.
     return NextResponse.json({
       ok: true,
       responses,
@@ -1635,6 +1816,22 @@ async function POST_handler(req: NextRequest) {
     });
   } catch (e) {
     console.error("Chat API error:", e);
+    // An exception here is ambiguous: it may have fired before the gateway was called, or after
+    // the gateway accepted the turn. Recording 'failed' would assert a non-delivery we cannot
+    // prove, and would invite a retry that duplicates real work. 'unknown' is the honest state and
+    // is what the code below writes;
+    // it is immediately reclaimable, so a retry still works, and nothing is reported as delivered
+    // that was not.
+    if (relayFailureTracker.svc && relayFailureTracker.userMessageId) {
+      // Through the shared helper, so a fenced write (another attempt has taken over) is reported
+      // the same way here as everywhere else instead of going unnoticed.
+      await markRelayStatus(
+        relayFailureTracker.svc,
+        relayFailureTracker.userMessageId,
+        "unknown",
+        relayFailureTracker.attempt
+      );
+    }
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }

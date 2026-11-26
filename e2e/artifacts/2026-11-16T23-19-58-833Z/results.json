@@ -1,0 +1,227 @@
+{
+  "runAt": "2026-11-16T23:21:12.037Z",
+  "base": "http://127.0.0.1:54331",
+  "results": [
+    {
+      "id": "A",
+      "name": "Send a message and receive the agent response",
+      "kind": "integrated",
+      "status": "PASS",
+      "detail": "persisted + visible + exactly one dispatch + delivered",
+      "checks": {
+        "user_message_persisted_once": true,
+        "agent_message_persisted": true,
+        "agent_reply_visible": true,
+        "gateway_invoked_once": true,
+        "relay_recorded_delivery": true,
+        "no_client_errors": true
+      },
+      "clientErrors": [],
+      "environmentLimitations": 6
+    },
+    {
+      "id": "B",
+      "name": "Send a message with an attachment",
+      "kind": "integrated",
+      "status": "PASS",
+      "detail": "attachment persisted ({\"url\":\"http://127.0.0.1:54329/storage/v1/object/public/chat-attachments/cc/1794)",
+      "checks": {
+        "attachments": 1
+      }
+    },
+    {
+      "id": "B2",
+      "name": "A failed attachment upload cannot send, and can be retried or dropped",
+      "kind": "integrated",
+      "status": "PASS",
+      "detail": "failed upload is visible and blocks the send; retry stores it; removal sends text only",
+      "checks": {
+        "failed_chip_is_visible": true,
+        "dispatch_blocked_while_failed": true,
+        "operator_told_why": true,
+        "draft_survives_blocked_send": true,
+        "chip_survives_blocked_send": true,
+        "retry_available": true,
+        "retry_makes_it_stored": true,
+        "send_works_after_retry": true,
+        "persisted_url_matches_upload": true,
+        "text_only_send_works": true,
+        "_dbg": {
+          "failed2": true,
+          "hadTextOnly": true,
+          "cancelledSent": true,
+          "atts": 0
+        }
+      }
+    },
+    {
+      "id": "C",
+      "name": "Reload the page and recover the conversation",
+      "kind": "integrated",
+      "status": "PASS",
+      "detail": "both turns survived a full reload",
+      "checks": {
+        "user_message_visible": true,
+        "agent_reply_visible": true
+      }
+    },
+    {
+      "id": "D1",
+      "name": "Approve a synthesis request",
+      "kind": "integrated",
+      "status": "PASS",
+      "detail": "approve control present; approved_at written, dispatches=1, relay=delivered",
+      "checks": {
+        "approve_control_present": true,
+        "reject_control_present": true,
+        "card_rendered": true
+      },
+      "findings": []
+    },
+    {
+      "id": "D2",
+      "name": "Reject a synthesis request",
+      "kind": "integrated",
+      "status": "PASS",
+      "detail": "reject writes rejected_at, cancels every action, dispatches nothing, and a subsequent approve is refused",
+      "checks": {
+        "reject_control_present": true,
+        "rejected_at_written": true,
+        "all_actions_cancelled": true,
+        "nothing_dispatched": true,
+        "approve_now_refused": true
+      }
+    },
+    {
+      "id": "E",
+      "name": "Duplicate clicks do not duplicate execution",
+      "kind": "integrated",
+      "status": "PASS",
+      "detail": "one persisted message, one agent turn",
+      "checks": {
+        "one_user_row": true,
+        "one_agent_turn": true,
+        "one_agent_row": true
+      }
+    },
+    {
+      "id": "F",
+      "name": "Lost acknowledgment, then retry",
+      "kind": "integrated",
+      "status": "PASS",
+      "detail": "dispatches=1, user rows=2",
+      "checks": {
+        "error_surfaced": true,
+        "recovered_after_retry": true,
+        "no_duplicate_dispatch": true,
+        "user_rows_consistent": true
+      }
+    },
+    {
+      "id": "G",
+      "name": "Backend failure produces actionable feedback",
+      "kind": "integrated",
+      "status": "PASS",
+      "detail": "operator sees a failure; relay state=unknown",
+      "checks": {
+        "visible_failure": true,
+        "no_raw_json": true,
+        "has_reference": true,
+        "relay_not_delivered": true
+      }
+    },
+    {
+      "id": "H",
+      "name": "Classic console message workflow",
+      "kind": "integrated",
+      "status": "PASS",
+      "detail": "no dead composer; the screen explains it and links to the working chat",
+      "checks": {
+        "composer_removed": true,
+        "explains_why": true,
+        "points_to_working_chat": true
+      }
+    },
+    {
+      "id": "Z",
+      "name": "Isolation: the harness cannot reach a real service",
+      "kind": "simulated",
+      "status": "PASS",
+      "detail": "boot refuses a hosted Supabase URL and never starts the fake backends on top of it",
+      "checks": {
+        "refused_production_env": true,
+        "fakes_are_loopback": true
+      }
+    },
+    {
+      "id": "I",
+      "name": "Visible delivery state matches backend outcome",
+      "kind": "integrated",
+      "status": "PASS",
+      "detail": "row=read/delivered (read is a later legal state), reply visible, no false banner",
+      "checks": {
+        "user_row_status_sent": true,
+        "relay_delivered": true,
+        "reply_present": true,
+        "no_false_error_banner": true
+      }
+    },
+    {
+      "id": "M",
+      "name": "Mobile viewport (390x844) visual acceptance",
+      "kind": "integrated",
+      "status": "PASS",
+      "detail": "send control 320:62x44 390:62x44 1440:62x44; overflow 320:0 390:0 1440:0; reply=true",
+      "checks": {
+        "horizontalOverflow": 0,
+        "composer": {
+          "h": 46,
+          "w": 316,
+          "bottom": 791
+        },
+        "send": {
+          "w": 62,
+          "h": 44
+        },
+        "sendTouchOk": true,
+        "viewportH": 844,
+        "measured": [
+          {
+            "width": 320,
+            "send": {
+              "w": 62,
+              "h": 44
+            },
+            "overflow": 0
+          },
+          {
+            "width": 390,
+            "send": {
+              "w": 62,
+              "h": 44
+            },
+            "overflow": 0
+          },
+          {
+            "width": 1440,
+            "send": {
+              "w": 62,
+              "h": 44
+            },
+            "overflow": 0
+          }
+        ],
+        "touchOk": true,
+        "overflowOk": true
+      },
+      "shots": {
+        "dm": "e2e/artifacts/2026-11-16T23-19-58-833Z/M-01-mobile-dm.png",
+        "sent": "e2e/artifacts/2026-11-16T23-19-58-833Z/M-02-mobile-sent.png"
+      },
+      "findings": []
+    }
+  ],
+  "counts": {
+    "PASS": 13
+  }
+}
