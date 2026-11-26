@@ -7,7 +7,7 @@
  *  CC_OWNER        owner-only (ownerOnly / requireCommandCenterOwner); asserted in authorization-inventory.test.ts
  *  CC_MACHINE      own secret, listed in MACHINE_ROUTES
  *  CC_MACHINE_EXT  non-command-center machine route with its own secret (bridge POST, cron)
- *  SESSION         Firebase session/ID-token flow (auth endpoints, stripe connect)
+ *  SESSION         Firebase session/ID-token flow (auth endpoints)
  *  PROVIDER_SIG    third-party signature (Stripe webhook)
  *  PUBLIC          unauthenticated by product design (marketing forms, checkout, health)
  *  OPEN_FINDING    UNAUTHENTICATED today and not fixed here because it belongs to METTLE / another
@@ -31,29 +31,36 @@ const SURFACE: Record<string, Cls> = {
   "bridge/tasks": "CC_OWNER",
   "auth/command-session": "SESSION",
   "auth/session": "SESSION",
-  "stripe/connect": "SESSION",
-  "stripe/webhook": "PROVIDER_SIG",
   "meet-results/cron": "CC_MACHINE_EXT", // HOTFIX-SECURITY-001: bearer secret only, timing-safe, fails closed when unset
   "health": "PUBLIC",
   "free-audit": "PUBLIC",
   "studio-inquiry": "PUBLIC",
-  "stripe/checkout": "PUBLIC",
-  "stripe/agents-checkout": "PUBLIC",
-  "stripe/portal": "DISABLED", // CC-CLOSURE-02: no trusted uid mapping exists yet and no caller anywhere; disabled (404) rather than shipped fallback-only
   "power-challenge/checkout": "PUBLIC",
   "power-challenge/admin": "CC_OWNER", // HOTFIX-SECURITY-001: ownerOnly; the published PIN is gone
   "power-challenge/export": "CC_OWNER", // HOTFIX-SECURITY-001: ownerOnly; the published PIN is gone
   "sentry-smoke": "PUBLIC", // token-gated no-op
+  // CC-CLOSURE-02: .vercelignore excluded these from every deployment for months (unrelated to
+  // this release — see .vercelignore's own comment), which collided with Next's output-file
+  // tracing and broke `vercel deploy --prebuilt`. Disabled explicitly at the code layer instead,
+  // so unreachability is an auditable decision, not an accidental side effect of a deploy-ignore
+  // line, and .vercelignore no longer needs to exclude them. Observed production behavior
+  // (404, confirmed live before this change) is unchanged. See CC-STRIPE-RECOVERY-01 for the
+  // separately-queued functional restoration work.
+  "stripe/checkout": "DISABLED",
+  "stripe/agents-checkout": "DISABLED",
+  "stripe/connect": "DISABLED",
+  "stripe/portal": "DISABLED", // CC-CLOSURE-02: no trusted uid mapping exists yet and no caller anywhere; disabled (404) rather than shipped fallback-only
+  "stripe/webhook": "DISABLED",
+  "notifications/send": "DISABLED",
+  "push/send": "DISABLED", // was OPEN_FINDING ("called by apex-athlete coach page"); already 404 in production before this change
+  "push/subscribe": "DISABLED",
   // Known unauthenticated, other-product surfaces. NOT fixed here; see readiness doc.
   "bff/athlete": "OPEN_FINDING",
   "bff/coach": "OPEN_FINDING",
   "bff/parent": "OPEN_FINDING",
   "meet-results": "OPEN_FINDING",
   "meet-schedule": "OPEN_FINDING",
-  "notifications/send": "OPEN_FINDING",
   "power-challenge/registrations": "OPEN_FINDING",
-  "push/send": "OPEN_FINDING", // called by apex-athlete coach page; needs METTLE auth design
-  "push/subscribe": "OPEN_FINDING",
   "swimcloud": "OPEN_FINDING",
 };
 

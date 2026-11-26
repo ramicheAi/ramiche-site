@@ -1,13 +1,20 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { adminWriteSubscription, adminWriteConnectedAccount } from "@/lib/firebase-admin";
+import { dormantRouteResponse } from "@/lib/server/dormant-route";
 
 /* ══════════════════════════════════════════════════════════════
    STRIPE WEBHOOK — Handles subscription + Connect lifecycle events
    Verifies signature, processes checkout, subscriptions, payments,
    and Connect account status updates
    Writes to Firestore via Admin SDK
+
+   DISABLED (CC-CLOSURE-02): see src/lib/server/dormant-route.ts. No
+   checkout/portal/connect route is live to generate events for this
+   to process anyway.
    ══════════════════════════════════════════════════════════════ */
+
+const DORMANT = true;
 
 function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -16,6 +23,8 @@ function getStripe(): Stripe {
 }
 
 export async function POST(req: Request) {
+  if (DORMANT) return dormantRouteResponse();
+
   const sig = req.headers.get("stripe-signature");
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 

@@ -1,8 +1,3 @@
-# Temporarily exclude problematic API routes for CSV import deployment
-src/app/api/notifications/
-src/app/api/push/
-src/app/api/stripe/
-
 # Local archive exceeds Vercel 100MB file limit — not needed at runtime
 public/projects/galactik-antics/galactik-antics-source.tar.gz
 
