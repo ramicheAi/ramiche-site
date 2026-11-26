@@ -21,7 +21,22 @@ import { verifyIdToken } from "@/lib/firebase-admin";
    denies every uid other than the exact match — a coincidentally equal or
    subsequently changed email never overrides that. `return_url` no longer
    trusts the attacker-controlled Origin/Referer header.
+
+   DISABLED (CC-CLOSURE-02): `customer.metadata.firebaseUid` is never
+   actually stamped anywhere in this codebase today (checkout is fully
+   anonymous — see src/app/api/stripe/checkout/route.ts), so in practice
+   every real request would run the verified-email fallback below, not the
+   uid-mapped path the comment above describes as primary. That fallback is
+   fail-closed and requires both an unguessable customerId and control of a
+   verified mailbox, but it is not the reliable, trusted ownership mapping
+   this route needs, and this route has ZERO callers anywhere in this repo,
+   ros-ctx01, or ramiche-os (verified by repo-wide search, not assumed).
+   Rather than ship an unused route on a weaker-than-intended auth path,
+   it is disabled until checkout stamps a real uid mapping. The logic below
+   is left in place, unreachable, so re-enabling later is a one-line diff.
    ══════════════════════════════════════════════════════════════ */
+
+const PORTAL_DISABLED = true;
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://ramiche-site.vercel.app";
 
@@ -32,6 +47,10 @@ function getStripe(): Stripe {
 }
 
 export async function POST(req: Request) {
+  if (PORTAL_DISABLED) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const ip = getClientIp(req);
   const rl = rateLimit(`stripe-portal:${ip}`, 10, 60_000);
   if (!rl.allowed) return rateLimitResponse(rl);

@@ -12,12 +12,14 @@
  *  PUBLIC          unauthenticated by product design (marketing forms, checkout, health)
  *  OPEN_FINDING    UNAUTHENTICATED today and not fixed here because it belongs to METTLE / another
  *                  product and a fix needs that owner's decision. Tracked in the readiness doc.
+ *  DISABLED        intentionally returns 404 for every caller; not a gap, a deliberate kill of an
+ *                  unused surface pending a trusted design (CC-CLOSURE-02)
  */
 import { readdirSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
-type Cls = "CC_OWNER" | "CC_MACHINE_EXT" | "SESSION" | "PROVIDER_SIG" | "PUBLIC" | "OPEN_FINDING";
+type Cls = "CC_OWNER" | "CC_MACHINE_EXT" | "SESSION" | "PROVIDER_SIG" | "PUBLIC" | "OPEN_FINDING" | "DISABLED";
 
 const SURFACE: Record<string, Cls> = {
   "atlas/chat": "CC_OWNER",
@@ -37,7 +39,7 @@ const SURFACE: Record<string, Cls> = {
   "studio-inquiry": "PUBLIC",
   "stripe/checkout": "PUBLIC",
   "stripe/agents-checkout": "PUBLIC",
-  "stripe/portal": "SESSION", // HOTFIX-SECURITY-001: verified Firebase ID token, uid mapping or verified-email ownership
+  "stripe/portal": "DISABLED", // CC-CLOSURE-02: no trusted uid mapping exists yet and no caller anywhere; disabled (404) rather than shipped fallback-only
   "power-challenge/checkout": "PUBLIC",
   "power-challenge/admin": "CC_OWNER", // HOTFIX-SECURITY-001: ownerOnly; the published PIN is gone
   "power-challenge/export": "CC_OWNER", // HOTFIX-SECURITY-001: ownerOnly; the published PIN is gone

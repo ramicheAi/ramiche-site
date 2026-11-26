@@ -26,7 +26,32 @@ const req = (body: unknown, headers: Record<string, string> = {}) =>
     body: JSON.stringify(body),
   }));
 
-describe("POST /api/stripe/portal — uid mapping is authoritative, never email alone", () => {
+describe("POST /api/stripe/portal — disabled (CC-CLOSURE-02): no trusted ownership mapping, no callers", () => {
+  beforeEach(() => {
+    process.env.STRIPE_SECRET_KEY = "sk_test_x";
+    verifyIdToken.mockReset();
+    retrieve.mockReset();
+    create.mockReset();
+  });
+
+  it("returns 404 unconditionally, even with a valid token and a would-be-authorized customer, and never touches Stripe", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "owner-uid", email: "owner@example.com", emailVerified: true });
+    retrieve.mockResolvedValue({ email: "owner@example.com", metadata: { firebaseUid: "owner-uid" } });
+    create.mockResolvedValue({ url: "https://billing.stripe.com/p/session_x" });
+    const res = await req({ customerId: "cus_owner" }, { authorization: "Bearer good" });
+    expect(res.status).toBe(404);
+    expect(retrieve).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 with no token at all, same shape as every other denial", async () => {
+    const res = await req({ customerId: "cus_anything" });
+    expect(res.status).toBe(404);
+    expect(retrieve).not.toHaveBeenCalled();
+  });
+});
+
+describe.skip("dormant logic below — uid mapping is authoritative, never email alone (re-enable only once checkout stamps a real firebaseUid mapping; set PORTAL_DISABLED = false to run these)", () => {
   beforeEach(() => {
     process.env.STRIPE_SECRET_KEY = "sk_test_x";
     verifyIdToken.mockReset();
