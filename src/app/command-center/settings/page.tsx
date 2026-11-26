@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { InstrumentPage, PgBtn } from "@/components/command-center/po/Instrument";
+import { usePoTheme } from "@/components/command-center/PoShell";
+import FleetModelSettings from "@/components/command-center/FleetModelSettings";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    SETTINGS — System Configuration & Agent Management
@@ -35,17 +37,6 @@ const TIER_COLORS: Record<string, string> = {
   SYSTEM: "#6b7280",
 };
 
-const AVAILABLE_MODELS = [
-  { value: "claude-opus-4-6", label: "Claude Opus 4.6", tier: "APEX" },
-  { value: "claude-sonnet-4-5-20250929", label: "Claude Sonnet 4.5", tier: "PRO" },
-  { value: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro", tier: "PRO" },
-  { value: "kimi-k2.5", label: "Kimi K2.5", tier: "CORE" },
-  { value: "deepseek-v3.2", label: "DeepSeek V3.2", tier: "CORE" },
-  { value: "qwen3:14b", label: "Qwen3 14B", tier: "LOCAL" },
-  { value: "qwen3:8b", label: "Qwen3 8B", tier: "LOCAL" },
-  { value: "gemma2:9b", label: "Gemma2 9B", tier: "LOCAL" },
-  { value: "llama3.1:8b", label: "Llama 3.1 8B", tier: "LOCAL" },
-];
 
 function getStatusColor(status: string) {
   if (status === "active") return "#22c55e";
@@ -69,6 +60,7 @@ interface SystemVitals {
 }
 
 function SettingsContent() {
+  const { theme, toggleTheme } = usePoTheme();
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
@@ -76,8 +68,6 @@ function SettingsContent() {
   const [loading, setLoading] = useState(true);
   const [lastSync, setLastSync] = useState("");
   const [activeTab, setActiveTab] = useState<"agents" | "system" | "crons">("agents");
-  const [editingAgent, setEditingAgent] = useState<string | null>(null);
-  const [editModel, setEditModel] = useState("");
   const [vitals, setVitals] = useState<SystemVitals | null>(null);
   const [gatewayAction, setGatewayAction] = useState<string | null>(null);
   const [gatewayOutput, setGatewayOutput] = useState("");
@@ -90,7 +80,6 @@ function SettingsContent() {
     lastChecked?: string;
   }>({ configured: false, reachable: false });
   const [source, setSource] = useState<"live" | "static">("static");
-  const [saveError, setSaveError] = useState<string | null>(null);
 
   const [cronEvents, setCronEvents] = useState<
     {
@@ -260,26 +249,6 @@ function SettingsContent() {
     return () => es.close();
   }, []);
 
-  const handleSaveModel = async (agentId: string, newModel: string) => {
-    setSaveError(null);
-    try {
-      const res = await fetch("/api/command-center/agents", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agentId, updates: { model: newModel } }),
-      });
-      if (res.ok) {
-        setAgents(prev => prev.map(a => a.id === agentId ? { ...a, model: newModel } : a));
-        setEditingAgent(null);
-      } else {
-        const data = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
-        setSaveError(data.detail || data.error || `Save failed (${res.status})`);
-      }
-    } catch (e) {
-      setSaveError(e instanceof Error ? e.message : "Network error");
-    }
-  };
-
   const handleGatewayAction = async (action: string) => {
     setGatewayAction(action);
     setGatewayOutput("Executing...");
@@ -341,6 +310,15 @@ function SettingsContent() {
       accent="var(--c-indigo)"
       actions={<PgBtn icon="pulse" onClick={fetchData}>Refresh</PgBtn>}
     >
+      <div style={{ marginBottom: 24, padding: "16px 18px", borderRadius: 12, background: "var(--ink-1)", border: "1px solid var(--line)", display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between" }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--t-hi)" }}>Appearance</div>
+          <div style={{ fontSize: 11, color: "var(--t-lo)" }}>Currently {theme} mode. Choose the appearance for Command Center.</div>
+        </div>
+        <button type="button" onClick={toggleTheme} style={{ minHeight: 44, padding: "10px 16px", borderRadius: 8, border: "1px solid var(--line-2)", background: "var(--ink-2)", color: "var(--t-hi)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+          Switch to {theme === "dark" ? "light" : "dark"} mode
+        </button>
+      </div>
       <div style={{ marginBottom: 24 }}>
         <p style={{ fontSize: 13, color: "var(--t-mid)", margin: "0 0 18px" }}>
           {loading ? "LOADING..." : `${agents.length} agents registered`}
@@ -370,11 +348,7 @@ function SettingsContent() {
         {/* Agents Grid */}
         {activeTab === "agents" && (
           <div>
-            {saveError && (
-              <div style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 10, background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.35)", color: "#fca5a5", fontSize: 13 }}>
-                {saveError}
-              </div>
-            )}
+            <FleetModelSettings />
             {loading ? (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
                 {Array.from({ length: 8 }).map((_, i) => (
@@ -391,11 +365,10 @@ function SettingsContent() {
                   const tier = getTierFromEscalation(agent.escalation_level || agent.escalationLevel || "");
                   const tierColor = TIER_COLORS[tier] || "#34d399";
                   const statusColor = getStatusColor(agent.status);
-                  const isEditing = editingAgent === agent.id;
                   return (
                     <div key={agent.id} style={{
                       padding: 24, borderRadius: 16, background: "var(--ink-1)",
-                      border: `2px solid ${isEditing ? `${tierColor}40` : "rgba(255,255,255,0.1)"}`,
+                      border: "2px solid rgba(255,255,255,0.1)",
                       boxShadow: `0 0 24px ${tierColor}15, 0 8px 32px rgba(0,0,0,0.4)`,
                       transition: "all 0.3s"
                     }}>
@@ -408,44 +381,21 @@ function SettingsContent() {
                           <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", padding: "4px 10px", borderRadius: 6, color: tierColor, border: `1px solid ${tierColor}40`, background: `${tierColor}12`, textTransform: "uppercase" }}>
                             {tier}
                           </span>
-                          <button onClick={() => { setEditingAgent(isEditing ? null : agent.id); setEditModel(agent.model.split("/").pop() || agent.model); }} style={{
-                            fontSize: 9, padding: "4px 8px", borderRadius: 4, cursor: "pointer", transition: "all 0.2s",
-                            background: isEditing ? "rgba(201,168,76,0.15)" : "var(--ink-2)",
-                            border: isEditing ? "1px solid rgba(201,168,76,0.3)" : "1px solid var(--line)",
-                            color: isEditing ? "#C9A84C" : "var(--t-lo)"
-                          }}>
-                            {isEditing ? "CANCEL" : "EDIT"}
-                          </button>
                         </div>
                       </div>
                       <p style={{ fontSize: 12, color: "var(--t-mid)", margin: "0 0 6px" }}>{agent.role}</p>
 
-                      {isEditing ? (
-                        <div style={{ marginTop: 10 }}>
-                          <label style={{ fontSize: 9, color: "var(--t-lo)", letterSpacing: "0.15em", display: "block", marginBottom: 4 }}>MODEL</label>
-                          <select value={editModel} onChange={e => setEditModel(e.target.value)} style={{
-                            width: "100%", padding: "8px 10px", borderRadius: 6, fontSize: 11,
-                            background: "var(--ink-2)", border: "1px solid rgba(255,255,255,0.12)",
-                            color: "var(--t-hi)", fontFamily: "monospace", cursor: "pointer", outline: "none"
-                          }}>
-                            {AVAILABLE_MODELS.map(m => (
-                              <option key={m.value} value={m.value} style={{ background: "#111", color: "var(--t-hi)" }}>
-                                {m.label} ({m.tier})
-                              </option>
-                            ))}
-                          </select>
-                          <button onClick={() => handleSaveModel(agent.id, editModel)} style={{
-                            marginTop: 8, width: "100%", padding: "8px", fontSize: 10, fontWeight: 700,
-                            letterSpacing: "0.1em", borderRadius: 6, cursor: "pointer",
-                            background: "rgba(34,197,94,0.15)", border: "2px solid rgba(34,197,94,0.3)",
-                            color: "#22c55e", transition: "all 0.2s"
-                          }}>
-                            SAVE MODEL
-                          </button>
-                        </div>
-                      ) : (
-                        <p style={{ fontSize: 11, color: "var(--t-lo)", fontFamily: "monospace" }}>{agent.model}</p>
-                      )}
+                      {/* Model editing lives in Fleet models above, which writes the runtime
+                          registry and reads the value back. This card shows what the legacy roster
+                          reports and nothing more: it used to offer a hardcoded model list whose
+                          save wrote directory.json, a file the gateway never reads. A visible label
+                          is required here, not just this comment — after a verified save in Fleet
+                          models, this line can show a different, stale value for the same agent,
+                          and nothing else on screen says why. */}
+                      <p style={{ fontSize: 11, color: "var(--t-lo)", fontFamily: "monospace" }}>
+                        <span style={{ opacity: 0.6, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em" }}>legacy roster: </span>
+                        {agent.model || "no model reported"}
+                      </p>
 
                       {agent.skills && agent.skills.length > 0 && (
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 14 }}>

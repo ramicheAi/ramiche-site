@@ -9,6 +9,7 @@
 import { execSync, execFileSync } from "child_process";
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from "fs";
 import { dirname, join } from "path";
+import { resolveSecret } from "./lib/resolve-secret.mjs";
 
 /** Same rules as `src/lib/openclaw-paths.ts` — OPENCLAW_CRON_DIR, OPENCLAW_HOME/cron, or dirname(workspace)/cron. */
 function resolveOpenclawCronDir() {
@@ -22,7 +23,11 @@ function resolveOpenclawCronDir() {
 }
 
 const BRIDGE_URL = process.env.BRIDGE_URL || "https://ramiche-site.vercel.app/api/bridge";
-const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET || "";
+// CC-RECOVERY-19: BRIDGE_API_SECRET_FILE, if set, wins over the plain env var. This is the one
+// change needed to stop embedding the secret directly in this script's launchd plist (which is
+// world-readable, 644, regardless of the secret's own strength) -- the plist instead points at a
+// permission-restricted (600) file, and this script reads it once at start.
+const BRIDGE_SECRET = resolveSecret(process.env, { existsSync, readFileSync }, "BRIDGE_API_SECRET_FILE", "BRIDGE_API_SECRET");
 const WORKSPACE = process.env.OPENCLAW_WORKSPACE || "/Users/admin/.openclaw/workspace";
 const OPENCLAW_ROOT = process.env.OPENCLAW_ROOT || "/Users/admin/.openclaw";
 const SYNC_INTERVAL = 60_000; // 60 seconds

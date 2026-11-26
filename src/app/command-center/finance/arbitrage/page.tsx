@@ -37,7 +37,7 @@ export default function ArbitrageCalculatorPage() {
 
   return (
     <InstrumentPage id="arbitrage" title="Arbitrage" section="Business" icon="arbitrage" accent="var(--c-gold)">
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
+      <div className="arb-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
         {/* Input Panel */}
         <Panel title="Parameters" icon="spark">
           <div style={{ marginBottom: 20 }}>
@@ -99,7 +99,7 @@ export default function ArbitrageCalculatorPage() {
         {/* Output Panel */}
         <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 16 }}>
           {/* Metric Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div className="arb-stats" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div style={{
               background: 'var(--ink-2)', border: '1px solid var(--line)', borderRadius: 'var(--r-md)', padding: 24, textAlign: 'center' as const,
             }}>

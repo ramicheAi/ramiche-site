@@ -6,6 +6,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { supabase } from "@/lib/supabase";
 import { parseMentions } from "@/lib/chat-routing";
+import { attachmentSendability, attachmentStatusLabel } from "@/lib/chat-attachment-state";
+import { relayErrorMessage } from "@/lib/relay-error-message";
 import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
 import {
   aggregateReactions,
@@ -17,6 +19,7 @@ import { VoiceButton } from "@/components/command-center/VoiceButton";
 import { useVoiceLoop } from "@/hooks/useVoiceLoop";
 import { VOICE_CONFIG } from "@/lib/voice-config";
 import { serialFor } from "@/components/command-center/po/Instrument";
+import { useViewportHeightVar } from "@/hooks/useViewportHeightVar";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    COMMAND CENTER CHAT — Unified Design Language
@@ -114,6 +117,31 @@ const DEFAULT_CHANNELS = [
   { id: "ffffffff-ffff-ffff-ffff-ffffffffffff", name: "#creative-team", unread: 0, description: "Creative Team", type: "team" as const, members: ["atlas", "aetherion", "shuri", "nova", "ink"] },
   { id: "11111111-1111-1111-1111-111111111111", name: "#engineering-team", unread: 0, description: "Engineering Team", type: "team" as const, members: ["atlas", "shuri", "proximon", "triage", "nova"] },
 ];
+
+/**
+ * CC-CHAT-MOBILE-RECOVERY-01 (D3): the active conversation must survive a
+ * reload/restart instead of always resetting to "most recently active" or a
+ * hardcoded default — that rule is exactly how the Content Team channel
+ * (not the most recently active one) went invisible after a refresh.
+ */
+const LAST_CONVERSATION_KEY = "cc:lastConversation";
+
+function readLastConversationId(): string | null {
+  try {
+    return localStorage.getItem(LAST_CONVERSATION_KEY) || null;
+  } catch {
+    return null; // private mode / blocked storage — fall through to normal selection
+  }
+}
+
+function writeLastConversationId(id: string | null) {
+  try {
+    if (id) localStorage.setItem(LAST_CONVERSATION_KEY, id);
+    else localStorage.removeItem(LAST_CONVERSATION_KEY);
+  } catch {
+    /* best effort only */
+  }
+}
 
 /* ── DM Channel UUID Map (Supabase channel_id is UUID, not string) ── */
 const DM_CHANNEL_MAP: Record<string, string> = {
@@ -1716,6 +1744,23 @@ export default function CommandCenterChatPage() {
   /** Last relay error — rendered as a red bubble below the failing user message. */
   const [relayError, setRelayError] = useState<{ id: string; message: string } | null>(null);
 
+  /**
+   * A denied/failed history or channel-list read, distinct from "no messages
+   * yet." The anon Supabase client resolves (never throws) on a permission
+   * denial, so without this a locked-down read and a genuinely empty channel
+   * are indistinguishable (CC-CHAT-MOBILE-RECOVERY-01, D2). Cleared on the
+   * next successful read.
+   */
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  /**
+   * Separate from `historyError`: the channel LIST and the current channel's
+   * message HISTORY are different resources. Sharing one state meant a
+   * failed channel-list load could be silently hidden the moment the
+   * (unrelated) history fetch for whatever channel ended up active
+   * succeeded — independent review finding, CC-RECOVERY-INTEGRATION-01.
+   */
+  const [channelListError, setChannelListError] = useState<string | null>(null);
+
   /* ── Phase C+F — approval state for synthesis cards.
         approvingSynthId   = id of the synthesis message currently approving
         approveError       = inline error if the /approve stream fails
@@ -1871,12 +1916,23 @@ export default function CommandCenterChatPage() {
               total: (data.total as number) || 0,
             },
           }));
+          // A run whose output did not land is not an approval. The card must not settle into
+          // "Approved" and invite the operator to walk away from something that needs re-approving;
+          // the server leaves approved_at unset for exactly this case, so the next attempt works.
+          if (data.persisted === false) {
+            setApproveError({
+              id: messageId,
+              message:
+                "the plan ran but some of its output was not saved, so this does not count as approved. Nothing is lost: approve again to retry.",
+            });
+          }
           return;
         }
         if (eventName === "error") {
+          // Same rule as the chat send: the sentence beats the code.
           setApproveError({
             id: messageId,
-            message: typeof data.error === "string" ? data.error : "Approve stream error",
+            message: relayErrorMessage(data, 0, "Approve stream error"),
           });
           return;
         }
@@ -1916,6 +1972,61 @@ export default function CommandCenterChatPage() {
       });
     } finally {
       setApprovingSynthId(null);
+    }
+  };
+
+  /* ── Reject a synthesis plan (CC-RELEASE-CONSOLIDATION-01 Phase 2). No streaming: rejecting
+        never dispatches anything, so there is no multi-step progress to show, unlike Approve. ── */
+  const [rejectingSynthId, setRejectingSynthId] = useState<string | null>(null);
+  const [rejectError, setRejectError] = useState<{ id: string; message: string } | null>(null);
+  const handleRejectSynthesis = async (messageId: string) => {
+    setRejectError(null);
+    setRejectingSynthId(messageId);
+    try {
+      const res = await fetch("/api/command-center/chat/reject", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId }),
+      });
+      const data = (await res.json().catch(() => null)) as
+        | { ok: true; rejectedAt: string; alreadyRejected?: boolean }
+        | { ok: false; error?: string }
+        | null;
+      if (!res.ok || !data?.ok) {
+        setRejectError({
+          id: messageId,
+          message: (data && !data.ok && data.error) || `Reject failed (HTTP ${res.status})`,
+        });
+        return;
+      }
+      // Reflect the rejection on the in-memory message immediately, same pattern as
+      // handleSetActionStatus — don't wait on Supabase realtime for the card to update.
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== messageId) return m;
+          const prevMeta = (m.metadata as Record<string, unknown> | null) || {};
+          const totalActions = Array.isArray(
+            (prevMeta.plan as { actions?: unknown[] } | undefined)?.actions
+          )
+            ? ((prevMeta.plan as { actions: unknown[] }).actions.length)
+            : 0;
+          return {
+            ...m,
+            metadata: {
+              ...prevMeta,
+              rejected_at: data.rejectedAt,
+              action_statuses: new Array(totalActions).fill("cancelled"),
+            },
+          };
+        })
+      );
+    } catch (e) {
+      setRejectError({
+        id: messageId,
+        message: e instanceof Error ? e.message : "Reject request failed",
+      });
+    } finally {
+      setRejectingSynthId(null);
     }
   };
 
@@ -1964,9 +2075,31 @@ export default function CommandCenterChatPage() {
   };
 
   /* ── file attachments (file = local blob before upload) ── */
+  /**
+   * An attachment has three states, and only one of them may be sent.
+   *
+   * `uploading` -> `ready` | `failed`. Before this, a file was optimistically "attached" the moment it
+   * was picked, the upload result was ignored, and a failed upload still dispatched a message whose
+   * persisted `attachments` array was empty. The operator saw a paperclip and a filename for a file
+   * that was never stored.
+   */
   const [attachments, setAttachments] = useState<
-    { name: string; size: string; type: string; url: string; file?: File }[]
+    {
+      id: string;
+      name: string;
+      size: string;
+      type: string;
+      /** Local blob preview (revoked when removed). */
+      url: string;
+      file?: File;
+      status: "uploading" | "ready" | "failed";
+      /** Stored URL, present only when status is "ready". */
+      remoteUrl?: string;
+      error?: string;
+    }[]
   >([]);
+  /** Why the composer refused to send, when the reason is about attachments rather than text. */
+  const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
   const [chatSearchQuery, setChatSearchQuery] = useState("");
   const [globalSearchHits, setGlobalSearchHits] = useState<
     {
@@ -2214,35 +2347,52 @@ export default function CommandCenterChatPage() {
         return;
       }
       try {
-        // Load channels
-        const { data: channelsData } = await supabase
-          .from("channels")
-          .select("*")
-          .order("last_activity_at", { ascending: false });
+        // Load channels through the owner-gated server API, not the anon
+        // Supabase client: anon/authenticated have had zero privileges on
+        // public.channels since the P05-B3 lockdown, and the old anon read
+        // resolved to an empty/undefined result on denial instead of
+        // throwing — indistinguishable from "no channels exist" (D1/D2).
+        const channelsRes = await fetch("/api/command-center/channels", { cache: "no-store" });
+        if (!channelsRes.ok) {
+          const body = await channelsRes.json().catch(() => ({}));
+          setChannelListError(body?.error?.message || body?.reason || `channel list request failed (${channelsRes.status})`);
+          if (!pendingDmRef.current) setActiveChannel(DEFAULT_CHANNELS[1]);
+        } else {
+          setChannelListError(null);
+          const { data: channelsData } = (await channelsRes.json()) as { data?: Record<string, unknown>[] };
 
-        if (channelsData && channelsData.length > 0) {
-          const mapped = channelsData.map((ch: Record<string, unknown>) => ({
-            id: ch.id as string,
-            name: `#${(ch.slug as string) || (ch.name as string)}`,
-            unread: 0,
-            description: (ch.description as string) || "",
-            active: false,
-            type: ((ch.type as string) || "project") as "project" | "team",
-            ...((ch.type === "team" && ch.members) ? { members: ch.members as string[] } : {}),
-          }));
-          // Merge: use Supabase channels + fill in missing types from defaults
-          const hasTeam = mapped.some(c => c.type === "team");
-          const hasProject = mapped.some(c => c.type === "project");
-          const merged = [
-            ...(hasProject ? [] : DEFAULT_CHANNELS.filter(c => c.type === "project")),
-            ...mapped,
-            ...(hasTeam ? [] : DEFAULT_CHANNELS.filter(c => c.type === "team")),
-          ];
-          setChannels(merged as Channel[]);
-          if (!pendingDmRef.current) setActiveChannel((mapped[0] || merged[0]) as Channel);
-        } else if (!pendingDmRef.current) {
-          // Fallback to defaults if no Supabase data
-          setActiveChannel(DEFAULT_CHANNELS[1]);
+          if (channelsData && channelsData.length > 0) {
+            const mapped = channelsData.map((ch: Record<string, unknown>) => ({
+              id: ch.id as string,
+              name: `#${(ch.slug as string) || (ch.name as string)}`,
+              unread: 0,
+              description: (ch.description as string) || "",
+              active: false,
+              type: ((ch.type as string) || "project") as "project" | "team",
+              ...((ch.type === "team" && ch.members) ? { members: ch.members as string[] } : {}),
+            }));
+            // Merge: use Supabase channels + fill in missing types from defaults
+            const hasTeam = mapped.some(c => c.type === "team");
+            const hasProject = mapped.some(c => c.type === "project");
+            const merged = [
+              ...(hasProject ? [] : DEFAULT_CHANNELS.filter(c => c.type === "project")),
+              ...mapped,
+              ...(hasTeam ? [] : DEFAULT_CHANNELS.filter(c => c.type === "team")),
+            ];
+            setChannels(merged as Channel[]);
+            if (!pendingDmRef.current) {
+              // D3: restore the conversation the owner was last actually
+              // looking at, before falling back to "most recent" or a
+              // default — a hardcoded startup pick is exactly how a
+              // channel that wasn't most-recently-active went invisible.
+              const lastId = readLastConversationId();
+              const restored = lastId ? merged.find((c) => c.id === lastId) : undefined;
+              setActiveChannel((restored || mapped[0] || merged[0]) as Channel);
+            }
+          } else if (!pendingDmRef.current) {
+            // Fallback to defaults only on a genuinely empty list, not on a failed request.
+            setActiveChannel(DEFAULT_CHANNELS[1]);
+          }
         }
 
         // Load agents - always keep all 20 from DEFAULT_AGENTS
@@ -2304,13 +2454,43 @@ export default function CommandCenterChatPage() {
     const sb = supabase;
     const channelId = viewMode === "dm" && activeAgent ? getDmChannelId(activeAgent.id) : activeChannel?.id;
     if (!channelId) return;
+    // Guards against a slow fetch for a channel the owner has already
+    // switched away from landing LATE and overwriting the now-active
+    // channel's messages with a stale channel's history (CC-RECOVERY-
+    // INTEGRATION-01 review: "conversation switching cannot display stale
+    // messages from another channel"). Set in the cleanup below, which runs
+    // before this effect re-fires for the newly selected channel/agent.
+    let cancelled = false;
     const loadMessages = async () => {
-      const { data } = await sb
-        .from("messages")
-        .select("*")
-        .eq("channel_id", channelId)
-        .order("created_at", { ascending: true })
-        .limit(100);
+      // Server-authorized history read (D1): anon/authenticated have zero
+      // privileges on public.messages since the P05-B3 lockdown, so the old
+      // direct `sb.from("messages")` call here resolved with `data: null`
+      // on every denied read — rendered as "no messages," not "denied."
+      let data: Record<string, unknown>[] | null = null;
+      try {
+        // order=desc + reverse (not the ascending default): a channel with
+        // more than 100 messages must show its NEWEST 100, not its oldest —
+        // ascending+limit would silently drop everything after the first
+        // page ever written (independent review finding).
+        const res = await fetch(
+          `/api/command-center/conversations/${channelId}/messages?limit=100&order=desc`,
+          { cache: "no-store" }
+        );
+        if (cancelled) return; // channel/agent changed again — don't touch state for a channel we left
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          setHistoryError(body?.error?.message || body?.reason || `history request failed (${res.status})`);
+        } else {
+          setHistoryError(null);
+          const json = await res.json();
+          if (cancelled) return;
+          data = Array.isArray(json.data) ? [...json.data].reverse() : json.data;
+        }
+      } catch (err) {
+        if (!cancelled) setHistoryError(err instanceof Error ? err.message : "history request failed");
+      }
+
+      if (cancelled) return; // channel/agent changed again while this fetch was in flight
 
       if (data) {
         const currentAgents = agentsRef.current;
@@ -2370,6 +2550,7 @@ export default function CommandCenterChatPage() {
         } else {
           console.warn("message_reactions load skipped:", reactErr.message);
         }
+        if (cancelled) return; // channel/agent changed again during the reactions fetch
         const withReactions: Message[] = mapped.map((m) => {
           const rows = byMid.get(m.id) ?? [];
           const agg = aggregateReactions(rows, CC_REACTION_USER_ID);
@@ -2400,6 +2581,9 @@ export default function CommandCenterChatPage() {
     loadMessages();
 
     // No polling — realtime subscription + REST polling fallback handle live updates.
+    return () => {
+      cancelled = true;
+    };
   }, [activeChannel, activeAgent, viewMode]);
 
   /* ── real-time subscription for new messages ── */
@@ -2635,20 +2819,42 @@ export default function CommandCenterChatPage() {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(channelId)) {
       return;
     }
-    const sb = supabase;
     let cancelled = false;
+    let tickCount = 0;
 
     const tick = async () => {
       if (cancelled) return;
-      if (realtimeStatusRef.current === "connected") return; // WS alive — skip
+      tickCount += 1;
+      // Realtime reporting "connected" proves the WebSocket subscribed; it
+      // does NOT prove postgres_changes events are actually being delivered
+      // — Supabase Realtime still enforces RLS/grants on the replication
+      // stream, and public.messages has zero anon/authenticated privileges
+      // (independent review finding, CC-RECOVERY-INTEGRATION-01). Skipping
+      // every tick while "connected" would mean a silently-not-delivering
+      // subscription hides new messages until a manual reload. Keep a slow
+      // (~21s) reconciliation poll running even while "connected" as a
+      // safety net; the fast 3s path still applies when it's not.
+      const SLOW_RECONCILE_EVERY_N_TICKS = 7;
+      if (realtimeStatusRef.current === "connected" && tickCount % SLOW_RECONCILE_EVERY_N_TICKS !== 0) {
+        return;
+      }
       try {
-        const { data, error } = await sb
-          .from("messages")
-          .select("*")
-          .eq("channel_id", channelId)
-          .order("created_at", { ascending: false })
-          .limit(50); // was 20 — bump so high-traffic channels don't lose tail
-        if (error || !data || cancelled) return;
+        // Server-authorized read (D1), same reasoning as loadMessages above —
+        // the anon client has no privileges on public.messages. order=desc
+        // matches the previous "most recent 50, then reverse" behavior.
+        const res = await fetch(
+          `/api/command-center/conversations/${channelId}/messages?limit=50&order=desc`,
+          { cache: "no-store" }
+        );
+        if (cancelled) return;
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          setHistoryError(body?.error?.message || body?.reason || `history poll failed (${res.status})`);
+          return;
+        }
+        setHistoryError(null);
+        const { data } = await res.json();
+        if (!data || cancelled) return;
         const fresh = [...data].reverse(); // oldest → newest
         setMessages((prev) => {
           // CRITICAL: dedupe ONLY against the current `prev` state, NOT a
@@ -2759,7 +2965,9 @@ export default function CommandCenterChatPage() {
 
   /* ── handlers ── */
   const handleChannelSelect = (channel: Channel) => {
+    if (channel.id !== activeChannel?.id) setMessages([]); // never show the previous channel's messages while this one loads
     setActiveChannel(channel);
+    writeLastConversationId(channel.id); // D3: survive reload/restart, see loadData above
     setActiveAgent(null);
     setViewMode("channel");
     setThreadMessage(null);
@@ -2774,6 +2982,7 @@ export default function CommandCenterChatPage() {
   };
 
   const handleAgentSelect = (agent: Agent) => {
+    if (agent.id !== activeAgent?.id) setMessages([]); // never show the previous conversation's messages while this one loads
     setActiveAgent(agent);
     setActiveChannel(null);
     setViewMode("dm");
@@ -2793,7 +3002,7 @@ export default function CommandCenterChatPage() {
     displayContent: string,
     opts?: {
       threadParentId?: string;
-      localAttachments?: { name: string; size: string; type: string; url: string; file?: File }[];
+      localAttachments?: typeof attachments;
       onAgentVoiceReply?: (text: string) => void;
       onVoiceRelayError?: () => void;
     }
@@ -2807,16 +3016,14 @@ export default function CommandCenterChatPage() {
     if (sendingRef.current) return;
     sendingRef.current = true;
     try {
-    const uploads: ChatAttachment[] = [];
-    for (const att of attList) {
-      if (att.file) {
-        const fd = new FormData();
-        fd.append("file", att.file);
-        const res = await fetch("/api/command-center/chat/upload", { method: "POST", body: fd });
-        const j = (await res.json()) as { url?: string; skipped?: boolean };
-        if (j.url) uploads.push({ url: j.url, name: att.name, type: att.type });
-      }
+    // Attachments were uploaded when they were attached. The decision is a pure function so the four
+    // cases (uploading, failed, retried, removed) are unit-tested rather than inferred from the UI.
+    const verdict = attachmentSendability(attList);
+    if (!verdict.ok) {
+      setAttachmentNotice(verdict.message);
+      return;
     }
+    const uploads: ChatAttachment[] = verdict.sendable;
     for (const att of attList) {
       if (att.url.startsWith("blob:")) URL.revokeObjectURL(att.url);
     }
@@ -2831,8 +3038,18 @@ export default function CommandCenterChatPage() {
     setMentionPick(null);
 
     const isDM = viewMode === "dm" && activeAgent;
-    const targetChannelId = isDM ? getDmChannelId(activeAgent!.id) : (activeChannel?.id || "22222222-2222-2222-2222-222222222222");
+    // No hardcoded channel fallback (CC-CHAT-MOBILE-RECOVERY-01, D3): the
+    // guard above (`!activeChannel && !(dm && agent)` -> return) means
+    // activeChannel is guaranteed set on the non-DM branch here, so a send
+    // can never silently land in some other channel the owner wasn't on.
+    const targetChannelId = isDM ? getDmChannelId(activeAgent!.id) : activeChannel!.id;
     const tempId = `pending-${Date.now()}`;
+    // Stable per-logical-send-attempt key (CC-RECOVERY-DELIVERY-CONVERGENCE-01):
+    // generated once here, sent on every attempt for this logical message. A
+    // retry that reuses this id lets the server recognize "already persisted"
+    // instead of inserting a second row — see
+    // src/app/api/command-center/conversations/[id]/messages/route.ts.
+    const clientMessageId = crypto.randomUUID();
     const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const threadPid = opts?.threadParentId ?? null;
 
@@ -2902,7 +3119,10 @@ export default function CommandCenterChatPage() {
             /* non-JSON */
           }
           if (!r.ok) {
-            const msg = parsed.error || `Chat relay failed (${r.status})`;
+            // `error` is a stable machine code and `detail` is the sentence written for a person.
+            // Showing the code would tell the operator "relay_not_deployed" instead of "nothing
+            // ran". The choice lives in a pure function so it is tested.
+            const msg = relayErrorMessage(parsed, r.status);
             setWaitingForResponse(false);
             setTypingUsers([]);
             if (waitingTimeoutRef.current) {
@@ -3053,53 +3273,92 @@ export default function CommandCenterChatPage() {
     };
 
     if (supabase) {
-      const { data: inserted, error } = await supabase
-        .from("messages")
-        .insert({
-          channel_id: targetChannelId,
-          sender_user_id: "00000000-0000-0000-0000-000000000001",
-          sender_type: "user",
-          content: trimmed || "(attachment)",
-          tenant_id: "11111111-1111-1111-1111-111111111111",
-          attachments: uploads.length > 0 ? uploads : [],
-          status: "sent",
-          thread_parent_id: threadPid,
-          metadata: {
-            targetAgent: isDM ? activeAgent!.id : undefined,
-            isDM: isDM,
-            dmChannelId: isDM ? targetChannelId : undefined,
-            channelName: isDM ? `DM: ${activeAgent!.name}` : (activeChannel?.name || "general"),
-            source: "command-center-ui",
-          },
-        })
-        .select("id")
-        .single();
+      // Server-authorized write (CC-RECOVERY-INTEGRATION-01 pre-merge
+      // review, write-side twin of the read fix above): anon has zero
+      // INSERT privilege on public.messages since the P05-B3 lockdown, so
+      // this used to insert directly with the anon client and fail.
+      let inserted: { id?: string } | null = null;
+      let sendError: unknown = null;
+      try {
+        const res = await fetch(`/api/command-center/conversations/${targetChannelId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            content: trimmed,
+            attachments: uploads.length > 0 ? uploads : [],
+            threadParentId: threadPid,
+            clientMessageId,
+            metadata: {
+              targetAgent: isDM ? activeAgent!.id : undefined,
+              isDM: isDM,
+              dmChannelId: isDM ? targetChannelId : undefined,
+              channelName: isDM ? `DM: ${activeAgent!.name}` : (activeChannel?.name || "general"),
+              source: "command-center-ui",
+            },
+          }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          sendError = body?.error || `send failed (${res.status})`;
+        } else {
+          inserted = body.data;
+        }
+      } catch (err) {
+        sendError = err;
+      }
 
-      if (error) {
-        console.error("Supabase send failed:", error);
-        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      if (sendError || !inserted?.id) {
+        // FIXED (independent review, CC-RECOVERY-INTEGRATION-01): this used
+        // to silently remove the optimistic bubble and log only to
+        // console.error, so a failed send (e.g. the owner's session expired
+        // mid-composition, a 401/403 from the server route) left no trace
+        // that the message was never persisted — the same silent-failure
+        // class as the original incident. Keep the bubble and surface the
+        // existing relayError banner instead of discarding it.
+        console.error("Chat send failed:", sendError);
         setWaitingForResponse(false);
         setTypingUsers([]);
+        setRelayError({
+          id: tempId,
+          message: typeof sendError === "string" ? sendError : "Message not sent — it was not persisted. Tap to dismiss, then try again.",
+        });
         onVoiceRelayError?.();
         return;
       }
 
-      const realId = inserted.id as string;
+      const realId = inserted.id;
       lastPendingUserMessageIdRef.current = realId;
       setMessages((prev) =>
         prev.map((m) =>
           m.id === tempId ? { ...m, id: realId, deliveryStatus: "sent" } : m
         )
       );
+      // ALWAYS call runRelay here, even when this POST's response reported a
+      // replay (independent review finding, corrected): a replay means the
+      // MESSAGE row wasn't duplicated, not that the agent was already
+      // dispatched for it — if the earlier attempt's own HTTP response was
+      // lost, that attempt's client never reached this line either, so
+      // skipping this call on a replayed response would mean NOBODY ever
+      // dispatches the agent for that message. "Agent dispatch at most once
+      // for one accepted logical turn" is enforced server-side instead, by
+      // an atomic claim in POST /api/command-center/chat keyed on this
+      // message's stable id — see the relay_claimed column and the claim at
+      // the top of that route's POST_handler.
       runRelay(realId);
     } else {
+      // No browser database client, so the message was never persisted and there is no id to
+      // claim. Dispatching anyway used to work by skipping the claim entirely; since CC-RECOVERY-14
+      // the route fails closed and returns 400, so firing the request would just be a doomed round
+      // trip. Refuse here, with the same sentence the route would have given.
       lastPendingUserMessageIdRef.current = null;
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === tempId ? { ...m, deliveryStatus: "sent" } : m
-        )
-      );
-      runRelay();
+      setWaitingForResponse(false);
+      setTypingUsers([]);
+      setRelayError({
+        id: tempId,
+        message:
+          "This browser has no database connection, so the message could not be saved or claimed. Nothing was sent. Reload, and if it persists the app is misconfigured.",
+      });
+      onVoiceRelayError?.();
     }
     } finally {
       sendingRef.current = false;
@@ -3113,17 +3372,34 @@ export default function CommandCenterChatPage() {
     });
   };
 
-  const handleSendMessage = async () => {
-    if (!messageInput.trim() && attachments.length === 0) return;
+  const handleSendMessage = async (opts?: { withoutAttachments?: boolean }) => {
+    // The explicit text-only path is the one case where a failed attachment may be dropped without
+    // the operator removing it by hand: they chose it, and the composer says so.
+    const effective = opts?.withoutAttachments ? [] : attachments;
+    if (!messageInput.trim() && effective.length === 0) return;
     if (!activeChannel && !(viewMode === "dm" && activeAgent)) return;
 
-    const displayContent = attachments.length > 0
-      ? `${messageInput}${messageInput ? "\n" : ""}${attachments.map((a) => `[${a.type === "image" ? "Image" : "File"}: ${a.name}]`).join(" ")}`
+    // Check sendability BEFORE clearing any composer state. sendUserMessageContent
+    // runs this same check and is the source of truth for whether a send actually
+    // goes out, but if we clear the draft text and attachment chips first, a
+    // blocked send has already destroyed the thing the operator needs to retry —
+    // the typed text and the Retry button both disappear with nothing sent.
+    if (!opts?.withoutAttachments) {
+      const verdict = attachmentSendability(effective);
+      if (!verdict.ok) {
+        setAttachmentNotice(verdict.message);
+        return;
+      }
+    }
+
+    const displayContent = effective.length > 0
+      ? `${messageInput}${messageInput ? "\n" : ""}${effective.map((a) => `[${a.type === "image" ? "Image" : "File"}: ${a.name}]`).join(" ")}`
       : messageInput;
 
-    const attSnap = [...attachments];
+    const attSnap = [...effective];
     setMessageInput("");
     setAttachments([]);
+    setAttachmentNotice(null);
     await sendUserMessageContent(displayContent, { localAttachments: attSnap });
   };
 
@@ -3267,16 +3543,56 @@ export default function CommandCenterChatPage() {
     await refreshMessageReactions(messageId);
   };
 
+  /** Upload a single file. Resolves to the stored URL, or to a reason it was not stored. */
+  const uploadAttachment = async (file: File): Promise<{ url?: string; error?: string }> => {
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/command-center/chat/upload", { method: "POST", body: fd });
+      const body = (await res.json().catch(() => ({}))) as { url?: string; skipped?: boolean; error?: unknown };
+      if (!res.ok || !body.url) {
+        const why =
+          typeof body.error === "string" && body.error
+            ? body.error
+            : `the upload endpoint answered ${res.status}`;
+        return { error: why };
+      }
+      return { url: body.url };
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : "the upload request failed" };
+    }
+  };
+
+  /** Upload in place and update that one chip, so a slow or failed file cannot block the others. */
+  const startUpload = (id: string, file: File) => {
+    void uploadAttachment(file).then((out) => {
+      setAttachments((prev) =>
+        prev.map((a) =>
+          a.id === id
+            ? out.url
+              ? { ...a, status: "ready", remoteUrl: out.url, error: undefined }
+              : { ...a, status: "failed", remoteUrl: undefined, error: out.error }
+            : a,
+        ),
+      );
+    });
+  };
+
   const addLocalFiles = (files: FileList | File[]) => {
     const list = Array.from(files);
     const newAttachments = list.map((f) => ({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       name: f.name,
       size: f.size < 1024 ? `${f.size}B` : f.size < 1048576 ? `${(f.size / 1024).toFixed(1)}KB` : `${(f.size / 1048576).toFixed(1)}MB`,
       type: f.type.startsWith("image/") ? "image" : "file",
       url: URL.createObjectURL(f),
       file: f,
+      status: "uploading" as const,
     }));
     setAttachments((prev) => [...prev, ...newAttachments]);
+    // Upload immediately: the operator learns about a failure while they are still composing, not
+    // after the message has already gone out without the file.
+    for (const a of newAttachments) if (a.file) startUpload(a.id, a.file);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -3305,6 +3621,14 @@ export default function CommandCenterChatPage() {
       URL.revokeObjectURL(prev[idx].url);
       return prev.filter((_, i) => i !== idx);
     });
+  };
+
+  /** Retry a failed upload, keeping the same chip so the operator's list does not jump. */
+  const retryAttachment = (id: string) => {
+    setAttachments((prev) => prev.map((a) => (a.id === id ? { ...a, status: "uploading", error: undefined } : a)));
+    const target = attachments.find((a) => a.id === id);
+    if (target?.file) startUpload(id, target.file);
+    else setAttachments((prev) => prev.map((a) => (a.id === id ? { ...a, status: "failed", error: "the file is no longer available; remove it and attach it again" } : a)));
   };
 
   const resolveChannelLabel = useCallback(
@@ -3458,6 +3782,8 @@ export default function CommandCenterChatPage() {
     {} as Record<string, Message[]>,
   );
 
+  useViewportHeightVar();
+
   if (!mounted) return null;
 
   /* ══════════════════════════════════════════════════════════════════════════
@@ -3465,6 +3791,7 @@ export default function CommandCenterChatPage() {
      ══════════════════════════════════════════════════════════════════════════ */
   return (
     <div
+      className="chat-root"
       style={{
         display: "flex",
         flexDirection: "column",
@@ -4249,6 +4576,8 @@ export default function CommandCenterChatPage() {
             <button
               onClick={() => setSidebarOpen(true)}
               className="chat-mobile-menu"
+              aria-label="Open channels"
+              title="Open channels"
               style={{
                 display: "none",
                 padding: 6,
@@ -4261,9 +4590,10 @@ export default function CommandCenterChatPage() {
               }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <line x1="3" y1="12" x2="21" y2="12" />
-                <line x1="3" y1="18" x2="21" y2="18" />
+                <rect x="3" y="4" width="18" height="16" rx="3" />
+                <line x1="9" y1="4" x2="9" y2="20" />
+                <line x1="12" y1="9" x2="18" y2="9" />
+                <line x1="12" y1="13" x2="18" y2="13" />
               </svg>
             </button>
 
@@ -4318,6 +4648,7 @@ export default function CommandCenterChatPage() {
 
           <div
             ref={searchPortalRef}
+            className="chat-header-search"
             style={{
               flex: 1,
               minWidth: 0,
@@ -4639,6 +4970,7 @@ export default function CommandCenterChatPage() {
               </div>
             )}
             <div
+              className="chat-header-members"
               style={{
                 fontSize: 10,
                 fontWeight: 600,
@@ -4731,6 +5063,41 @@ export default function CommandCenterChatPage() {
             padding: "16px 20px",
           }}
         >
+          {(channelListError || historyError) && (
+            // CC-CHAT-MOBILE-RECOVERY-01 (D2): a denied or failed read is shown
+            // as an explicit error, never silently rendered as "no messages."
+            // The channel list and the conversation are different resources,
+            // so one failure never hides the other.
+            <div
+              role="alert"
+              style={{
+                marginBottom: 16,
+                padding: "10px 14px",
+                borderRadius: 8,
+                border: "1px solid rgba(252,165,165,0.35)",
+                background: "rgba(248,113,113,0.08)",
+                color: "#fca5a5",
+                fontSize: 12,
+                fontFamily: FONT_FAMILY,
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+              }}
+            >
+              {channelListError && <span>Couldn&apos;t load the channel list: {channelListError}</span>}
+              {historyError && <span>Couldn&apos;t load this conversation&apos;s history: {historyError}</span>}
+            </div>
+          )}
+          {!historyError && channelMessages.length === 0 && (
+            <div style={{ padding: "48px 16px", textAlign: "center", color: COLORS.text.tertiary, fontSize: 13 }}>
+              No messages in this channel yet. Start the conversation below.
+            </div>
+          )}
+          {!historyError && channelMessages.length > 0 && filteredMessages.length === 0 && (
+            <div style={{ padding: "48px 16px", textAlign: "center", color: COLORS.text.tertiary, fontSize: 13 }}>
+              No messages match this filter.
+            </div>
+          )}
           {Object.entries(groupedMessages).map(([date, dateMessages]) => (
             <div key={date}>
               {/* Date Separator — matches command center section dividers */}
@@ -4941,12 +5308,17 @@ export default function CommandCenterChatPage() {
                         const meta = (message.metadata as Record<string, unknown> | null) || {};
                         const approvedAt =
                           typeof meta.approved_at === "string" ? (meta.approved_at as string) : null;
+                        const rejectedAt =
+                          typeof meta.rejected_at === "string" ? (meta.rejected_at as string) : null;
                         const statuses = Array.isArray(meta.action_statuses)
                           ? (meta.action_statuses as string[])
                           : [];
                         const ackByOwner = acksBySynthesisId.get(message.id) ?? new Map<string, Message>();
                         const isApproving = approvingSynthId === message.id;
+                        const isRejecting = rejectingSynthId === message.id;
                         const errForThis = approveError?.id === message.id ? approveError.message : null;
+                        const rejectErrForThis =
+                          rejectError?.id === message.id ? rejectError.message : null;
                         // Progress count: how many actions are "done"
                         const doneCount = plan.actions.reduce(
                           (n, _, i) => (statuses[i] === "done" ? n + 1 : n),
@@ -5276,24 +5648,58 @@ export default function CommandCenterChatPage() {
                                   Decisions ›
                                 </a>
                               </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleApproveSynthesis(message.id)}
-                                disabled={isApproving}
+                            ) : rejectedAt ? (
+                              <div
                                 style={{
-                                  padding: "6px 14px",
-                                  borderRadius: 6,
-                                  fontSize: 12,
+                                  fontSize: 11,
+                                  color: "#f87171",
                                   fontWeight: 600,
-                                  background: isApproving ? "rgba(124,58,237,0.4)" : "#7c3aed",
-                                  color: "#fff",
-                                  border: "none",
-                                  cursor: isApproving ? "wait" : "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 8,
                                 }}
                               >
-                                {isApproving ? "Executing…" : "Approve & dispatch"}
-                              </button>
+                                ✗ Rejected — this plan will not be executed
+                              </div>
+                            ) : (
+                              <div style={{ display: "flex", gap: 8 }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleApproveSynthesis(message.id)}
+                                  disabled={isApproving || isRejecting}
+                                  style={{
+                                    padding: "6px 14px",
+                                    borderRadius: 6,
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    background: isApproving ? "rgba(124,58,237,0.4)" : "#7c3aed",
+                                    color: "#fff",
+                                    border: "none",
+                                    cursor: isApproving || isRejecting ? "wait" : "pointer",
+                                  }}
+                                >
+                                  {isApproving ? "Executing…" : "Approve & dispatch"}
+                                </button>
+                                <button
+                                  type="button"
+                                  aria-label="Reject synthesis"
+                                  onClick={() => handleRejectSynthesis(message.id)}
+                                  disabled={isApproving || isRejecting}
+                                  style={{
+                                    padding: "6px 14px",
+                                    borderRadius: 6,
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    background: "transparent",
+                                    color: isRejecting ? "rgba(248,113,113,0.5)" : "#f87171",
+                                    border: "1px solid",
+                                    borderColor: isRejecting ? "rgba(248,113,113,0.3)" : "#f87171",
+                                    cursor: isApproving || isRejecting ? "wait" : "pointer",
+                                  }}
+                                >
+                                  {isRejecting ? "Rejecting…" : "Reject"}
+                                </button>
+                              </div>
                             )}
                             {errForThis && (
                               <div
@@ -5305,6 +5711,18 @@ export default function CommandCenterChatPage() {
                                 }}
                               >
                                 {errForThis}
+                              </div>
+                            )}
+                            {rejectErrForThis && (
+                              <div
+                                role="alert"
+                                style={{
+                                  marginTop: 8,
+                                  fontSize: 11,
+                                  color: "#fca5a5",
+                                }}
+                              >
+                                {rejectErrForThis}
                               </div>
                             )}
                             {/* Final tally once the stream's `complete` event fires.
@@ -5573,7 +5991,8 @@ export default function CommandCenterChatPage() {
             <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
               {attachments.map((att, idx) => (
                 <div
-                  key={idx}
+                  key={att.id}
+                  data-attachment-state={att.status}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -5581,7 +6000,10 @@ export default function CommandCenterChatPage() {
                     padding: "6px 10px",
                     borderRadius: 8,
                     background: COLORS.bg.card,
-                    border: `1px solid ${COLORS.border.default}`,
+                    // A failed attachment looks different from a ready one. Before this, both looked
+                    // identical and the difference only showed up as a missing file after sending.
+                    border: `1px solid ${att.status === "failed" ? "rgba(239,68,68,0.55)" : COLORS.border.default}`,
+                    opacity: att.status === "uploading" ? 0.7 : 1,
                     fontSize: 12,
                   }}
                 >
@@ -5599,14 +6021,97 @@ export default function CommandCenterChatPage() {
                   )}
                   <span style={{ color: COLORS.text.secondary, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{att.name}</span>
                   <span style={{ color: COLORS.text.tertiary, fontSize: 10 }}>{att.size}</span>
+                  <span
+                    aria-live="polite"
+                    style={{
+                      fontSize: 10,
+                      color:
+                        att.status === "failed"
+                          ? "rgba(248,113,113,0.95)"
+                          : att.status === "ready"
+                            ? "rgba(52,211,153,0.9)"
+                            : COLORS.text.tertiary,
+                    }}
+                  >
+                    {attachmentStatusLabel(att.status)}
+                  </span>
+                  {att.status === "failed" && (
+                    <button
+                      onClick={() => retryAttachment(att.id)}
+                      style={{
+                        background: "none",
+                        border: `1px solid rgba(239,68,68,0.45)`,
+                        borderRadius: 4,
+                        cursor: "pointer",
+                        color: "rgba(248,113,113,0.95)",
+                        padding: "2px 6px",
+                        fontSize: 10,
+                      }}
+                    >
+                      Retry
+                    </button>
+                  )}
                   <button
+                    aria-label={`Remove ${att.name}`}
                     onClick={() => removeAttachment(idx)}
-                    style={{ background: "none", border: "none", cursor: "pointer", color: COLORS.text.tertiary, padding: 2, fontSize: 14, lineHeight: 1 }}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: COLORS.text.tertiary, padding: 6, minWidth: 32, minHeight: 32, fontSize: 14, lineHeight: 1 }}
                   >
                     x
                   </button>
                 </div>
               ))}
+            </div>
+          )}
+
+          {(attachmentNotice || attachments.some((a) => a.status === "failed")) && (
+            <div
+              role="alert"
+              data-testid="attachment-notice"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                flexWrap: "wrap",
+                marginBottom: 8,
+                padding: "8px 10px",
+                borderRadius: 8,
+                fontSize: 12,
+                color: "rgba(248,113,113,0.95)",
+                background: "rgba(239,68,68,0.08)",
+                border: "1px solid rgba(239,68,68,0.35)",
+              }}
+            >
+              <span style={{ flex: 1, minWidth: 200 }}>
+                {attachmentNotice ??
+                  "An attachment could not be stored. Retry it, remove it, or send without attachments."}
+              </span>
+              <button
+                // Disabled until there is text to send. It also removes a race: the handler reads
+                // the composer state, and a click that lands before React has committed the typed
+                // text would otherwise be a no-op on a control the operator just pressed.
+                disabled={!messageInput.trim()}
+                aria-label="Send without attachments"
+                onClick={() => {
+                  // Explicit text-only send: drop the unstoreable files and send what is left.
+                  for (const a of attachments) if (a.url.startsWith("blob:")) URL.revokeObjectURL(a.url);
+                  setAttachments([]);
+                  setAttachmentNotice(null);
+                  void handleSendMessage({ withoutAttachments: true });
+                }}
+                style={{
+                  minHeight: 44,
+                  padding: "0 12px",
+                  borderRadius: 6,
+                  cursor: messageInput.trim() ? "pointer" : "not-allowed",
+                  opacity: messageInput.trim() ? 1 : 0.55,
+                  fontSize: 11,
+                  color: COLORS.text.primary,
+                  background: COLORS.bg.card,
+                  border: `1px solid ${COLORS.border.default}`,
+                }}
+              >
+                Send without attachments
+              </button>
             </div>
           )}
 
@@ -5801,6 +6306,7 @@ export default function CommandCenterChatPage() {
                   <button
                     key={sym}
                     type="button"
+                    className="chat-inline-symbol"
                     onClick={() => insertAtMainCursor(sym)}
                     style={{
                       padding: "4px 6px",
@@ -5833,11 +6339,22 @@ export default function CommandCenterChatPage() {
 
                 {/* Send Button — game-btn style */}
                 <button
-                  onClick={handleSendMessage}
-                  disabled={!messageInput.trim() && attachments.length === 0}
+                  onClick={() => void handleSendMessage()}
+                  // Enabled whenever there is text, so a click can explain why a failed attachment
+                  // blocks the send. A disabled button that silently refuses tells nobody anything.
+                  disabled={!messageInput.trim() && !attachments.some((a) => a.status === "ready")}
                   className="game-btn"
+                  aria-label="Send message"
                   style={{
-                    padding: "6px 16px",
+                    // 44x44 minimum touch target. The text stays 10px mono, so the size comes from
+                    // padding rather than type: at the old 6px/16px this control measured 62x29 on a
+                    // phone, well under the minimum, on the primary action of the screen.
+                    minWidth: 44,
+                    minHeight: 44,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "12px 16px",
                     fontSize: 10,
                     fontWeight: 700,
                     fontFamily: "monospace",
@@ -5857,8 +6374,9 @@ export default function CommandCenterChatPage() {
             </div>
           </div>
 
-          {/* Help text */}
+          {/* Help text — desktop keys. Hidden on touch, where the keyboard leaves no room. */}
           <div
+            className="chat-key-hint"
             style={{
               marginTop: 8,
               paddingLeft: 52,
@@ -6224,12 +6742,24 @@ export default function CommandCenterChatPage() {
         @media (max-width: 767px) {
           .chat-sidebar {
             position: fixed !important;
-            top: 0 !important;
+            top: calc(56px + env(safe-area-inset-top)) !important;
             left: 0 !important;
             bottom: 0 !important;
-            z-index: 50 !important;
+            z-index: 80 !important;
             width: 280px !important;
+            /* --cc-vvh is the visible viewport; it shrinks when the iOS keyboard opens,
+               which dvh does not. Without it the composer sits behind the keyboard. */
+            height: calc(var(--cc-vvh, 100dvh) - 56px - env(safe-area-inset-top)) !important;
+            padding-bottom: env(safe-area-inset-bottom);
             transform: translateX(-100%);
+          }
+          .chat-root {
+            /* --cc-vvh is the visible viewport; it shrinks when the iOS keyboard opens,
+               which dvh does not. Without it the composer sits behind the keyboard. */
+            height: calc(var(--cc-vvh, 100dvh) - 56px - env(safe-area-inset-top)) !important;
+          }
+          body:has(#cc-alertbar) .chat-root {
+            height: calc(var(--cc-vvh, 100dvh) - 94px - env(safe-area-inset-top)) !important;
           }
           .chat-sidebar.open {
             transform: translateX(0) !important;
@@ -6242,12 +6772,13 @@ export default function CommandCenterChatPage() {
           }
           .chat-thread-panel {
             position: fixed !important;
-            top: 0 !important;
+            top: calc(56px + env(safe-area-inset-top)) !important;
             right: 0 !important;
             bottom: 0 !important;
-            z-index: 45 !important;
+            z-index: 80 !important;
             width: 100% !important;
             max-width: 100% !important;
+            padding-bottom: env(safe-area-inset-bottom);
           }
           .chat-top-nav {
             gap: 2px !important;
@@ -6260,12 +6791,36 @@ export default function CommandCenterChatPage() {
           .chat-messages-container {
             padding: 12px 10px !important;
           }
+          .chat-header-bar {
+            flex-wrap: wrap;
+          }
+          .chat-header-search {
+            order: 3;
+            flex: 1 0 100% !important;
+            max-width: none !important;
+            margin: 8px 0 0 !important;
+          }
+          .chat-header-members {
+            order: 2;
+          }
           .chat-input-area {
-            padding: 10px !important;
+            padding: 10px 10px calc(10px + env(safe-area-inset-bottom)) !important;
+          }
+          .chat-sidebar-close {
+            width: 44px !important;
+            height: 44px !important;
           }
           .chat-input-textarea {
-            padding-right: 60px !important;
+            padding-right: 118px !important;
             font-size: 16px !important;
+          }
+          .chat-inline-symbol {
+            display: none !important;
+          }
+          .chat-top-nav a {
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
           }
           .chat-header-bar {
             padding: 10px 12px !important;
@@ -6278,6 +6833,9 @@ export default function CommandCenterChatPage() {
           .chat-top-nav {
             display: none !important;
           }
+        }
+        @media (hover: none) and (pointer: coarse) {
+          .chat-key-hint { display: none !important; }
         }
         @media (min-width: 768px) {
           .chat-sidebar {

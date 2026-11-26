@@ -1,0 +1,34 @@
+{
+  "runAt": "2026-11-16T22:58:55.398Z",
+  "base": "http://127.0.0.1:54331",
+  "results": [
+    {
+      "id": "B2",
+      "name": "A failed attachment upload cannot send, and can be retried or dropped",
+      "kind": "integrated",
+      "status": "PASS",
+      "detail": "failed upload is visible and blocks the send; retry stores it; removal sends text only",
+      "checks": {
+        "failed_chip_is_visible": true,
+        "dispatch_blocked_while_failed": true,
+        "operator_told_why": true,
+        "draft_survives_blocked_send": true,
+        "chip_survives_blocked_send": true,
+        "retry_available": true,
+        "retry_makes_it_stored": true,
+        "send_works_after_retry": true,
+        "persisted_url_matches_upload": true,
+        "text_only_send_works": true,
+        "_dbg": {
+          "failed2": true,
+          "hadTextOnly": true,
+          "cancelledSent": true,
+          "atts": 0
+        }
+      }
+    }
+  ],
+  "counts": {
+    "PASS": 1
+  }
+}

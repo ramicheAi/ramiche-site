@@ -1,0 +1,166 @@
+{
+  "runAt": "2026-11-16T20:43:03.618Z",
+  "base": "http://127.0.0.1:54331",
+  "results": [
+    {
+      "id": "A",
+      "name": "Send a message and receive the agent response",
+      "kind": "integrated",
+      "status": "PASS",
+      "detail": "persisted + visible + exactly one dispatch + delivered",
+      "checks": {
+        "user_message_persisted_once": true,
+        "agent_message_persisted": true,
+        "agent_reply_visible": true,
+        "gateway_invoked_once": true,
+        "relay_recorded_delivery": true,
+        "no_client_errors": true
+      },
+      "clientErrors": [],
+      "environmentLimitations": 6
+    },
+    {
+      "id": "B",
+      "name": "Send a message with an attachment",
+      "kind": "integrated",
+      "status": "PASS",
+      "detail": "attachment persisted ({\"url\":\"http://127.0.0.1:54329/storage/v1/object/public/chat-attachments/cc/1794)",
+      "checks": {
+        "attachments": 1
+      }
+    },
+    {
+      "id": "C",
+      "name": "Reload the page and recover the conversation",
+      "kind": "integrated",
+      "status": "PASS",
+      "detail": "both turns survived a full reload",
+      "checks": {
+        "user_message_visible": true,
+        "agent_reply_visible": true
+      }
+    },
+    {
+      "id": "D1",
+      "name": "Approve a synthesis request",
+      "kind": "integrated",
+      "status": "PASS",
+      "detail": "approve control present; approved_at written, dispatches=1, relay=delivered",
+      "checks": {
+        "approve_control_present": true,
+        "reject_control_present": false,
+        "card_rendered": true
+      },
+      "findings": [
+        "the synthesis card offers no reject control: an approval can only be approved"
+      ]
+    },
+    {
+      "id": "E",
+      "name": "Duplicate clicks do not duplicate execution",
+      "kind": "integrated",
+      "status": "PASS",
+      "detail": "one persisted message, one agent turn",
+      "checks": {
+        "one_user_row": true,
+        "one_agent_turn": true,
+        "one_agent_row": true
+      }
+    },
+    {
+      "id": "F",
+      "name": "Lost acknowledgment, then retry",
+      "kind": "integrated",
+      "status": "PASS",
+      "detail": "dispatches=1, user rows=2",
+      "checks": {
+        "error_surfaced": true,
+        "recovered_after_retry": true,
+        "no_duplicate_dispatch": true,
+        "user_rows_consistent": true
+      }
+    },
+    {
+      "id": "G",
+      "name": "Backend failure produces actionable feedback",
+      "kind": "integrated",
+      "status": "PASS",
+      "detail": "operator sees a failure; relay state=unknown",
+      "checks": {
+        "visible_failure": true,
+        "relay_not_delivered": true
+      }
+    },
+    {
+      "id": "H",
+      "name": "Classic console message workflow",
+      "kind": "integrated",
+      "status": "BLOCKED",
+      "detail": "/command-center/legacy renders the v6 mission-control dashboard, not a classic console; its chat input accepted text and cleared it but issued no dispatch request, so this workflow could not be exercised",
+      "findings": [
+        "the legacy route no longer presents a working message workflow, so the classic console cannot be accepted as-is"
+      ],
+      "checks": {
+        "responded": false,
+        "refused_explicitly": false,
+        "dispatches": 0
+      }
+    },
+    {
+      "id": "Z",
+      "name": "Isolation: the harness cannot reach a real service",
+      "kind": "simulated",
+      "status": "PASS",
+      "detail": "boot refuses a hosted Supabase URL and never starts the fake backends on top of it",
+      "checks": {
+        "refused_production_env": true,
+        "fakes_are_loopback": true
+      }
+    },
+    {
+      "id": "I",
+      "name": "Visible delivery state matches backend outcome",
+      "kind": "integrated",
+      "status": "PASS",
+      "detail": "row=read/delivered (read is a later legal state), reply visible, no false banner",
+      "checks": {
+        "user_row_status_sent": true,
+        "relay_delivered": true,
+        "reply_present": true,
+        "no_false_error_banner": true
+      }
+    },
+    {
+      "id": "M",
+      "name": "Mobile viewport (390x844) visual acceptance",
+      "kind": "integrated",
+      "status": "PASS",
+      "detail": "overflow=0px, reply=true, send button=62x29px",
+      "checks": {
+        "horizontalOverflow": 0,
+        "composer": {
+          "h": 46,
+          "w": 316,
+          "bottom": 791
+        },
+        "send": {
+          "w": 62,
+          "h": 29
+        },
+        "sendTouchOk": false,
+        "viewportH": 844
+      },
+      "shots": {
+        "dm": "e2e/artifacts/2026-11-16T20-42-03-358Z/M-01-mobile-dm.png",
+        "sent": "e2e/artifacts/2026-11-16T20-42-03-358Z/M-02-mobile-sent.png"
+      },
+      "findings": [
+        "SEND control is 62x29px, below the 44x44 touch-target minimum"
+      ]
+    }
+  ],
+  "counts": {
+    "PASS": 10,
+    "BLOCKED": 1
+  }
+}

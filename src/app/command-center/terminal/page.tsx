@@ -17,14 +17,24 @@ interface TerminalLine {
 
 export default function TerminalPage() {
   const [input, setInput] = useState("");
-  const [history, setHistory] = useState<TerminalLine[]>([
-    { type: "system", text: "PARALLAX TERMINAL v1.0 — Remote Shell", timestamp: new Date().toLocaleTimeString() },
-    { type: "system", text: "Type a command and press Enter. Commands are sent to Atlas.", timestamp: new Date().toLocaleTimeString() },
-    { type: "system", text: "Type 'help' for available commands.", timestamp: new Date().toLocaleTimeString() },
-  ]);
+  // Timestamps are client-only. Initializing them in useState made the server
+  // and client HTML differ and produced React hydration error #418.
+  const [history, setHistory] = useState<TerminalLine[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const termRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const introAddedRef = useRef(false);
+
+  useEffect(() => {
+    if (introAddedRef.current) return;
+    introAddedRef.current = true;
+    const ts = new Date().toLocaleTimeString();
+    setHistory([
+      { type: "system", text: "PARALLAX TERMINAL v1.0 — Remote Shell", timestamp: ts },
+      { type: "system", text: "Type a command and press Enter. Commands are sent to Atlas.", timestamp: ts },
+      { type: "system", text: "Type 'help' for available commands.", timestamp: ts },
+    ]);
+  }, []);
 
   useEffect(() => {
     if (termRef.current) {

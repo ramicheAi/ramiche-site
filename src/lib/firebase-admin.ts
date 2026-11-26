@@ -161,6 +161,33 @@ export async function revokeSession(uid: string): Promise<boolean> {
   }
 }
 
+/** YOLO manifest read with an explicit outcome. `null` from the legacy helper cannot tell
+ *  "no manifest" from "the read failed", which made a failed Vercel read look like zero builds. */
+export type YoloManifestResult =
+  | { ok: true; builds: Record<string, unknown>[]; buildCount: number }
+  | { ok: false; reason: "not_configured" | "read_failed" | "missing" };
+
+export async function fetchCommandCenterYoloManifestResult(): Promise<YoloManifestResult> {
+  getAdminApp();
+  if (!adminDb) return { ok: false, reason: "not_configured" };
+  try {
+    const snap = await adminDb
+      .collection("command-center")
+      .doc("yolo-builds")
+      .collection("manifest")
+      .doc("latest")
+      .get();
+    if (!snap.exists) return { ok: false, reason: "missing" };
+    const data = snap.data();
+    const builds = data?.builds;
+    if (!Array.isArray(builds)) return { ok: false, reason: "missing" };
+    return { ok: true, builds: builds as Record<string, unknown>[], buildCount: Number(data?.buildCount ?? builds.length) };
+  } catch (e) {
+    console.warn("[Firebase Admin] yolo manifest read failed:", e);
+    return { ok: false, reason: "read_failed" };
+  }
+}
+
 /** YOLO builds manifest synced by POST /api/command-center/firestore-sync (local → Firestore). */
 export async function fetchCommandCenterYoloManifest(): Promise<{
   builds: Record<string, unknown>[];

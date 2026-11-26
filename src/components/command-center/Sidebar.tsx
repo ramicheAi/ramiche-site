@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Logo, Icon } from '@/components/command-center/po/Brand';
+import { usePoTheme } from '@/components/command-center/PoShell';
 
 /* ══════════════════════════════════════════════════════════════════════════════
    COMMAND CENTER SIDEBAR — Parallax OS holographic accordion
@@ -135,43 +136,110 @@ function sectionForPath(pathname: string | null): string {
   return sections[0].label;
 }
 
-export default function Sidebar() {
+export default function Sidebar({
+  wakeEnabled = false,
+  pulseOpen = false,
+}: {
+  wakeEnabled?: boolean;
+  pulseOpen?: boolean;
+} = {}) {
   const pathname = usePathname();
+  const { theme, toggleTheme } = usePoTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openSec, setOpenSec] = useState<string>(() => sectionForPath(pathname));
+  const [isPhone, setIsPhone] = useState(false);
+  const closeRef = useRef<HTMLButtonElement | null>(null);
+  const openedFrom = useRef<HTMLElement | null>(null);
+
+  // The drawer is off-canvas only below md. Above it, this same <aside> is the permanent rail, so
+  // marking it inert there would disable navigation entirely.
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const sync = () => setIsPhone(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
 
   // when the route changes, expand the section that owns it (single-open)
   useEffect(() => {
     setOpenSec(sectionForPath(pathname));
   }, [pathname]);
 
+  // The mobile menu button lives in the HUD. It dispatches this event so the
+  // drawer state stays local to the navigation component; the state is reported
+  // back so the HUD control can describe itself as the toggle it is.
+  useEffect(() => {
+    const toggle = () =>
+      setMobileOpen((open) => {
+        // remember the control that opened it here, at the moment of the click
+        if (!open) {
+          const active = document.activeElement;
+          openedFrom.current = active instanceof HTMLElement ? active : null;
+        }
+        return !open;
+      });
+    window.addEventListener('cc:toggle-nav', toggle);
+    return () => window.removeEventListener('cc:toggle-nav', toggle);
+  }, []);
+
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('cc:nav-state', { detail: { open: mobileOpen } }));
+    if (!isPhone) {
+      wasOpen.current = mobileOpen;
+      return undefined;
+    }
+
+    if (mobileOpen) {
+      wasOpen.current = true;
+      const focusId = window.setTimeout(() => closeRef.current?.focus(), 0);
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setMobileOpen(false);
+        }
+      };
+      document.addEventListener('keydown', onKey);
+      return () => {
+        window.clearTimeout(focusId);
+        document.removeEventListener('keydown', onKey);
+      };
+    }
+
+    // Closing returns focus to whatever opened the drawer, normally the HUD menu button. Mobile
+    // Safari does not focus a button on tap, so activeElement is <body>: that is "no opener",
+    // not an opener, and focusing <body> would put the user nowhere.
+    if (!wasOpen.current) return undefined;
+    wasOpen.current = false;
+    const from = openedFrom.current;
+    openedFrom.current = null;
+    const usable = from && from !== document.body && from !== document.documentElement && document.contains(from);
+    const target = usable ? from : document.getElementById('cc-menu-btn');
+    if (target) target.focus();
+    return undefined;
+  }, [mobileOpen, isPhone]);
+
   return (
     <>
-      {/* Mobile toggle (preserved behavior) */}
-      <button
-        onClick={() => setMobileOpen(!mobileOpen)}
-        className="fixed top-4 left-4 z-50 md:hidden"
-        style={{
-          padding: '8px 10px',
-          background: 'rgba(10,10,10,0.95)',
-          border: '1px solid rgba(124,58,237,0.3)',
-          borderRadius: 8,
-          color: '#7c3aed',
-          fontSize: 16,
-          cursor: 'pointer',
-          boxShadow: '0 0 12px rgba(124,58,237,0.15)',
-        }}
-        aria-label={mobileOpen ? 'Close navigation' : 'Open navigation'}
-      >
-        {mobileOpen ? '✕' : '☰'}
-      </button>
-
       <aside
         className={`po-side fixed left-0 top-0 z-40 transition-transform duration-200 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
-        style={{ position: 'fixed', height: '100vh' }}
+        style={{ position: 'fixed', height: '100dvh' }}
+        aria-label="Command Center navigation"
+        aria-hidden={isPhone && !mobileOpen ? true : undefined}
+        inert={isPhone && !mobileOpen ? true : undefined}
       >
+        <button
+          ref={closeRef}
+          type="button"
+          className="po-side-close"
+          aria-label="Close navigation"
+          onClick={() => setMobileOpen(false)}
+        >
+          ✕
+        </button>
         <div className="po-side-head">
           <Logo size={30} />
           <div>
@@ -233,13 +301,53 @@ export default function Sidebar() {
           <span>ATLAS v4 // 20 AGENTS</span>
           <span className="po-foot-dot" />
         </div>
+
+        {/* Quick controls. The HUD hides these three on phones and tablets to keep the primary
+            controls legible, so the drawer carries functional copies: not decorations, and not
+            disabled duplicates. Hidden on desktop, where the HUD already shows them. */}
+        <div className="po-side-quick" role="group" aria-label="Quick controls">
+          <button
+            type="button"
+            className="po-quick"
+            aria-label={pulseOpen ? 'Hide chat pulse' : 'Show chat pulse'}
+            aria-pressed={pulseOpen}
+            onClick={() => {
+              // the dock paints below the drawer overlay, so hand the screen back to it
+              window.dispatchEvent(new CustomEvent('cc:toggle-pulse'));
+              if (isPhone) setMobileOpen(false);
+            }}
+          >
+            <span aria-hidden>◈</span><span className="lbl">Pulse</span>
+          </button>
+          <button
+            type="button"
+            className="po-quick"
+            aria-label={wakeEnabled ? 'Disable wake word' : 'Enable wake word'}
+            aria-pressed={wakeEnabled}
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('cc:toggle-wake'));
+              if (isPhone) setMobileOpen(false);
+            }}
+          >
+            <span aria-hidden>◉</span><span className="lbl">Wake word</span>
+          </button>
+          <button
+            type="button"
+            className="po-quick"
+            aria-label="Light theme"
+            aria-pressed={theme === 'light'}
+            onClick={toggleTheme}
+          >
+            <span aria-hidden>☀</span><span className="lbl">Theme</span>
+          </button>
+        </div>
       </aside>
 
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
           onClick={() => setMobileOpen(false)}
-          className="fixed inset-0 z-30 md:hidden"
+          className="po-nav-overlay fixed inset-0 z-30 md:hidden"
           style={{ background: 'rgba(0,0,0,0.8)' }}
         />
       )}

@@ -120,6 +120,17 @@ export async function POST(req: NextRequest) {
     b > 0
       ? `Executed ${e}/${t}, blocked ${b}.`
       : `Executed ${e}/${t}.`;
+  // `persisted === false` means the run itself may have completed but this server could not record
+  // that it did (see cc-approve-synthesis.ts). Saying "Executed" with no caveat here, and marking the
+  // card Done, told the operator this finished cleanly when a re-tap would actually re-run the plan.
+  if (result.persisted === false) {
+    await telegramAnswerCallbackQuery(
+      cq.id,
+      `${msg} Could not confirm this was recorded — check before approving again.`,
+      true,
+    );
+    return NextResponse.json({ ok: true });
+  }
   await telegramAnswerCallbackQuery(cq.id, msg);
   await editMarkupDone(chatId, msgId, e, Math.max(t, 1));
 

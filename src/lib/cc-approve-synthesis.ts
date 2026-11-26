@@ -33,8 +33,20 @@ import {
   executeOpenClaw,
 } from "@/lib/provider-adapter";
 import { processImageMarkers } from "@/lib/image-gen/markers";
+import {
+  claimRelayDispatch,
+  describeDuplicate,
+  describeUnavailable,
+  markRelayStatus,
+} from "@/lib/relay-dispatch";
 
 export const TENANT_ID = "11111111-1111-1111-1111-111111111111";
+
+/**
+ * Strictly longer than `approve/stream`'s maxDuration (300 s), which is the rule the migration
+ * states and this path previously broke by inheriting the 300 s default.
+ */
+export const APPROVE_LEASE_SECONDS = 600;
 
 /** How many execute→verify attempts per action before flagging blocked. */
 const MAX_ATTEMPTS = 2;
@@ -88,6 +100,11 @@ export type ApproveResult =
       blocked?: number;
       total?: number;
       mode?: "parallel" | "sequential";
+      // False when the run's own approval record (or an output write) did not persist, even though
+      // `ok` is true and work may have actually happened. Callers must not present this as an
+      // unconditional success; see persistedCleanly in approveSynthesisMessageStreamed.
+      persisted?: boolean;
+      writeFailures?: number;
       results?: Array<{
         owner: string;
         task: string;
@@ -438,10 +455,60 @@ async function runVerifier(
   }
 }
 
+/**
+ * A run's row, plus a count of message writes that did not land.
+ *
+ * The count is carried on the object because it is passed by reference into every action, and it is
+ * what decides whether the run can honestly be called delivered. Before CC-RECOVERY-14 the five
+ * inserts below discarded their errors, so a run whose every deliverable failed to persist still
+ * recorded a terminal `delivered` for a reply that existed nowhere, and a retry was then refused
+ * with "already executed". That is the same false-delivery the chat routes were fixed for, one path
+ * over.
+ */
+type SynthesisRow = {
+  id: string;
+  metadata: Record<string, unknown> | null;
+  writeFailures?: number;
+  outputWrites?: number;
+};
+
+/**
+ * Message kinds that ARE the run's output. A failed status pill is bookkeeping: the deliverable is
+ * on disk, so counting it here would turn a recovered run into `unknown` and re-run the whole plan,
+ * duplicating LLM spend and the deliverables themselves.
+ */
+const OUTPUT_KINDS = new Set(["execution_deliverable", "execution_revision"]);
+
+/** Insert one message, counting a failed OUTPUT insert instead of discarding it. */
+async function insertMessage(
+  svc: SupabaseClient,
+  synthesisRow: SynthesisRow,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  const { error } = await svc.from("messages").insert(payload);
+  const kind = (payload?.metadata as { kind?: string } | undefined)?.kind;
+  if (kind && OUTPUT_KINDS.has(kind)) {
+    if (error) {
+      synthesisRow.writeFailures = (synthesisRow.writeFailures ?? 0) + 1;
+    } else {
+      // The run's output is what makes it a delivery, not the count of actions marked done. A
+      // self-blocking action persists its deliverable and is correctly `blocked`; a run whose every
+      // backend was down persists nothing and is correctly not a delivery.
+      synthesisRow.outputWrites = (synthesisRow.outputWrites ?? 0) + 1;
+    }
+  }
+  if (error && kind && OUTPUT_KINDS.has(kind)) {
+    console.error("[approve] message insert failed:", {
+      kind,
+      error: String((error as { message?: string })?.message ?? error).slice(0, 200),
+    });
+  }
+}
+
 /** Update the `action_statuses` array on the synthesis row. */
 async function persistStatus(
   svc: SupabaseClient,
-  synthesisRow: { id: string; metadata: Record<string, unknown> | null },
+  synthesisRow: SynthesisRow,
   totalActions: number,
   actionIndex: number,
   status: ActionStatus
@@ -478,7 +545,7 @@ async function executeAction(
   svc: SupabaseClient,
   channelId: string,
   tenantId: string,
-  synthesisRow: { id: string; metadata: Record<string, unknown> | null },
+  synthesisRow: SynthesisRow,
   totalActions: number,
   actionIndex: number,
   action: ActionItem,
@@ -551,7 +618,7 @@ async function executeAction(
 
     // Persist this attempt as a message so the channel shows the full work,
     // not just the final accepted version. Tag attempts > 1 as revisions.
-    await svc.from("messages").insert({
+    await insertMessage(svc, synthesisRow, {
       channel_id: channelId,
       sender_agent_id: ownerUUID,
       sender_type: "agent",
@@ -577,7 +644,7 @@ async function executeAction(
     const blocked = isOwnerBlocked(lastText);
     if (blocked.blocked) {
       await persistStatus(svc, synthesisRow, totalActions, actionIndex, "blocked");
-      await svc.from("messages").insert({
+      await insertMessage(svc, synthesisRow, {
         channel_id: channelId,
         sender_agent_id: ownerUUID,
         sender_type: "agent",
@@ -638,7 +705,7 @@ async function executeAction(
       // Verifier couldn't run (timeout / no backend). Accept the deliverable
       // optimistically — don't punish the owner for our infra failure.
       await persistStatus(svc, synthesisRow, totalActions, actionIndex, "done");
-      await svc.from("messages").insert({
+      await insertMessage(svc, synthesisRow, {
         channel_id: channelId,
         sender_agent_id: ownerUUID,
         sender_type: "agent",
@@ -675,7 +742,7 @@ async function executeAction(
 
     if (verdict.meets_definition) {
       await persistStatus(svc, synthesisRow, totalActions, actionIndex, "done");
-      await svc.from("messages").insert({
+      await insertMessage(svc, synthesisRow, {
         channel_id: channelId,
         sender_agent_id: ownerUUID,
         sender_type: "agent",
@@ -720,7 +787,7 @@ async function executeAction(
     lastVerdict && lastVerdict.gaps.length > 0
       ? ` — gaps: ${lastVerdict.gaps.slice(0, 3).join("; ")}`
       : "";
-  await svc.from("messages").insert({
+  await insertMessage(svc, synthesisRow, {
     channel_id: channelId,
     sender_agent_id: ownerUUID,
     sender_type: "agent",
@@ -802,6 +869,78 @@ export async function approveSynthesisMessageStreamed(
     onEvent({ type: "already_approved", approvedAt });
     return { ok: true, alreadyApproved: true, approvedAt };
   }
+  // Defense in depth, not the safety boundary (the claim below is): cc-reject-synthesis.ts marks
+  // its claim failed_permanent AFTER writing metadata.rejected_at, so the two should always agree.
+  // But if that second write (the mark) ever fails to land — a real, if rare, path reject's own
+  // code logs and tolerates rather than un-write the rejection for — relay_status could still read
+  // something other than failed_permanent while metadata.rejected_at is already true. Checking the
+  // field directly here means approve still refuses even in that gap, instead of relying solely on
+  // relay_status to have been updated correctly.
+  if (meta.rejected_at) {
+    return { ok: false, error: "this synthesis was rejected and cannot be approved", status: 409 };
+  }
+
+  // This function dispatches agent turns for ONE persisted message (the synthesis row), exactly like
+  // the chat routes, so it needs the same claim. The metadata check above is not a substitute: it is
+  // a read, and `approved_at` is only written after every action finishes, so two concurrent
+  // approvals both read it as absent and both execute the whole plan. The claim is atomic in the
+  // database, which is the only place this can be decided safely.
+  //
+  // A throw during execution deliberately leaves the row 'claimed'. Nothing there is recorded as
+  // delivered (it was not) and nothing is recorded as failed (we cannot prove it did not run); the
+  // lease expires and the next approval re-claims it, incrementing relay_attempts, which is the
+  // durable signal that this message was dispatched more than once. A partial run is therefore
+  // retryable, at the documented cost of at-least-once execution.
+  let claimAttempt: number | null = null;
+  // approve/stream has maxDuration 300, and a sequential plan can legitimately run for minutes. A
+  // lease equal to the route's own limit means a slow plan is reclaimed while it is still running
+  // and the whole plan executes a second time. 600 s keeps the lease strictly longer than the route.
+  //
+  // The cost, stated rather than discovered: if an approval process dies without recording an
+  // outcome, re-approval is refused as "still in flight" for up to 10 minutes instead of 5. That is
+  // the right trade for a plan that can run for 5, and it is the only thing that stops a killed
+  // process from being re-run concurrently with itself.
+  const claim = await claimRelayDispatch(svc, row.id as string, APPROVE_LEASE_SECONDS);
+  if (claim.state === "duplicate") {
+    // Three terminal states and one in-flight state, decided in one place so this route cannot
+    // tell an operator to "wait for it to finish" when it will never finish.
+    const dup = describeDuplicate(claim.status);
+    if (dup.alreadyDispatched) {
+      return {
+        ok: false,
+        error:
+          "this synthesis was already executed (the relay recorded a delivery); reload to see its result",
+        status: 409,
+      };
+    }
+    // cc-reject-synthesis.ts reuses this SAME claim on a synthesis row for its own exclusivity,
+    // and marks it failed_permanent as its terminal state on success. On a synthesis row that
+    // value has exactly one cause (a rejection — nothing else ever writes it here), so this
+    // refusal can and should say so, rather than the generic relay-failure wording describeDuplicate
+    // gives every other caller of this shared claim.
+    if (claim.status === "failed_permanent") {
+      return {
+        ok: false,
+        error: "this synthesis was rejected and cannot be approved",
+        status: 409,
+      };
+    }
+    return { ok: false, error: dup.detail, status: 409 };
+  }
+  if (claim.state === "unavailable") {
+    // Fail closed (CC-RECOVERY-14). Nothing has been dispatched at this point: the claim is taken
+    // before the first action. An unavailable claim means we cannot know whether another approval
+    // is already running the plan, and a plan dispatched twice runs every action twice.
+    const u = describeUnavailable(claim.reason);
+    return {
+      ok: false,
+      error: u.detail,
+      status: u.httpStatus,
+    };
+  }
+  if (claim.state === "claimed") {
+    claimAttempt = claim.attempt;
+  }
 
   const channelId = row.channel_id as string;
   const tenantId = (row.tenant_id as string) || TENANT_ID;
@@ -814,7 +953,7 @@ export async function approveSynthesisMessageStreamed(
 
   // The synthesisRow object is passed-by-reference into executeAction so the
   // .metadata field carries the latest persisted statuses across iterations.
-  const synthesisRow = { id: row.id as string, metadata: meta };
+  const synthesisRow: SynthesisRow = { id: row.id as string, metadata: meta, writeFailures: 0 };
 
   // Backfill priorDeliverables from RECENT channel history so a brand-new
   // synthesis run doesn't dispatch downstream owners blind to artifacts that
@@ -959,19 +1098,80 @@ export async function approveSynthesisMessageStreamed(
   const blocked = results.filter((r) => r.status === "blocked").length;
   const approvedAt = new Date().toISOString();
 
-  await svc
+  // Is this run a delivery? Decided BEFORE anything is written, because the answer decides whether
+  // `approved_at` may be written at all. `approved_at` is the short-circuit at the top of this
+  // function: writing it on a run that produced nothing makes the run permanently un-approvable
+  // while its relay state says `unknown` — retryable in theory, unreachable in practice. An
+  // independent review caught exactly that: the fix for "delivered with no output" had relabelled
+  // the row and left the operator with an "Approved" card and no retry.
+  //
+  // The gate is the run's OUTPUT, not the count of actions marked done: a self-blocking action
+  // persists its deliverable and is legitimately `blocked`, while a run whose every backend was down
+  // persists nothing. Both produce executed === 0; only one produced anything.
+  const outputProduced = (synthesisRow.outputWrites ?? 0) > 0;
+  const writesClean = (synthesisRow.writeFailures ?? 0) === 0;
+  const runIsDelivery = outputProduced && writesClean;
+
+  // The record of the run is always written (so the channel shows what happened). `approved_at` is
+  // included only when the run is a delivery, which is what keeps a failed run re-approvable.
+  // .select() so a write that matched no row is visible: without it a 0-row update returns
+  // { data: null, error: null } and would look like success.
+  const { data: approveWriteRows, error: approveWriteError } = await svc
     .from("messages")
     .update({
       metadata: {
         ...synthesisRow.metadata,
-        approved_at: approvedAt,
+        ...(runIsDelivery ? { approved_at: approvedAt } : {}),
         approved_execution_mode: mode,
         approved_execution_summary: { executed, blocked, total },
       },
     })
-    .eq("id", row.id);
+    .eq("id", row.id)
+    .select("id");
 
-  onEvent({ type: "complete", executed, blocked, total, mode });
+  // `delivered` is claimed only when the run produced output AND the record of it landed. The four
+  // ways a run is not a delivery: no output, a failed output write, a failed metadata write, or a
+  // metadata write that matched no row. Each has been reproduced at some point in this round.
+  const approveWriteLanded = !approveWriteError && (approveWriteRows?.length ?? 0) > 0 && runIsDelivery;
+  if (!approveWriteLanded) {
+    if (!approveWriteError && (approveWriteRows?.length ?? 0) === 0) {
+      console.error("[approve] execution record matched no row; the row may have been deleted");
+    }
+    if ((synthesisRow.writeFailures ?? 0) > 0) {
+      console.error(
+        "[approve] refusing to record delivered:",
+        synthesisRow.writeFailures,
+        "message write(s) did not land",
+      );
+    }
+    console.error(
+      "[approve] execution record failed to persist:",
+      approveWriteError ?? { reason: "no row matched the update" },
+    );
+    // No `approved_at` was written above, so the card stays approvable and the next approval
+    // re-claims this (now `unknown`) row and runs the plan again. That is what makes `unknown` here
+    // more than a label.
+    await markRelayStatus(svc, row.id as string, "unknown", claimAttempt);
+  } else {
+    await markRelayStatus(svc, row.id as string, "delivered", claimAttempt);
+  }
+
+  // `writesClean` only covers the output-message writes. A run whose outputs all landed but whose
+  // own approval record (approveWriteLanded, checked above) failed to persist is not clean either:
+  // the card stays approvable with `unknown`, and an operator who sees an unconditional "done" has
+  // no reason to know a re-approval will re-run the whole plan. This was the gap a prior review
+  // missed because `persistedCleanly` never looked at `approveWriteLanded`.
+  const persistedCleanly = writesClean && approveWriteLanded;
+  onEvent({
+    type: "complete",
+    executed,
+    blocked,
+    total,
+    mode,
+    // A clean "done" for a run whose output did not land invites the operator to walk away from
+    // something that needs re-approving.
+    ...(persistedCleanly ? {} : { persisted: false, writeFailures: synthesisRow.writeFailures ?? 0 }),
+  });
 
   return {
     ok: true,
@@ -980,6 +1180,8 @@ export async function approveSynthesisMessageStreamed(
     blocked,
     total,
     mode,
+    // Same reason: truthful about a run whose deliverables did not all persist.
+    ...(persistedCleanly ? {} : { persisted: false, writeFailures: synthesisRow.writeFailures ?? 0 }),
     results: results.map((r) => ({
       owner: r.owner,
       task: r.task,

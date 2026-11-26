@@ -6,6 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const { resolveSecret } = require('./lib/resolve-secret.cjs');
 
 const PROJECT_ROOT = path.join(__dirname, '..');
 const PIPELINE_DIR = path.join(PROJECT_ROOT, 'public', 'projects');
@@ -13,7 +14,9 @@ const PIPELINE_DIR = path.join(PROJECT_ROOT, 'public', 'projects');
 // Firestore REST API config
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'apex-athlete-73755';
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
-const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET;
+// CC-RECOVERY-20: same file-backed resolution as bridge-sync.mjs -- one of three host-side
+// scripts that need this treatment together, not in isolation.
+const BRIDGE_SECRET = resolveSecret(process.env, fs, 'BRIDGE_API_SECRET_FILE', 'BRIDGE_API_SECRET');
 const BRIDGE_URL = 'http://localhost:3000/api/bridge';
 
 if (!BRIDGE_SECRET) {
