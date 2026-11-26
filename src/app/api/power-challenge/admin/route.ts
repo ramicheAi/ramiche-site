@@ -1,15 +1,23 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
+import { timingSafeSecretEqual } from "@/lib/server/command-center-auth";
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_placeholder", {
   apiVersion: "2026-01-28.clover",
 });
 
+// SECURITY (ROE-GOVERNANCE-009): the PIN comparison used to be a hardcoded
+// literal ("PIRANHAS2026") checked with `!==`, in a public repository — a
+// published, non-rotatable secret guarding live Stripe checkout data (name,
+// email, phone, payment status). It is now read from an environment variable
+// that is NOT in source control, compared in constant time, and fails CLOSED
+// (401) if the variable is unset — never falls back to any literal.
 export async function GET(req: Request) {
   try {
     const adminPin = req.headers.get("x-admin-pin");
 
-    if (adminPin !== "PIRANHAS2026") {
+    if (!timingSafeSecretEqual(adminPin, process.env.POWER_CHALLENGE_ADMIN_PIN)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

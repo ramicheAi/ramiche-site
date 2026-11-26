@@ -1,16 +1,21 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
+import { timingSafeSecretEqual } from "@/lib/server/command-center-auth";
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_placeholder", {
   apiVersion: "2026-01-28.clover",
 });
 
+// SECURITY (ROE-GOVERNANCE-009): same published-literal issue as admin/route.ts
+// — see that file's comment. Reads from the same POWER_CHALLENGE_ADMIN_PIN
+// env var, compared in constant time, failing CLOSED when unset.
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const pin = searchParams.get("pin");
 
-    if (pin !== "PIRANHAS2026") {
+    if (!timingSafeSecretEqual(pin, process.env.POWER_CHALLENGE_ADMIN_PIN)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
