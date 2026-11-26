@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { dormantRouteResponse } from "@/lib/server/dormant-route";
 
 export const dynamic = "force-dynamic";
 
+// DISABLED (CC-CLOSURE-02): see src/lib/server/dormant-route.ts.
+const DORMANT = true;
+
 export async function POST(req: NextRequest) {
+  if (DORMANT) return dormantRouteResponse();
+
   try {
     const { title, body, group, tag, url } = await req.json();
     if (!title || !body) {

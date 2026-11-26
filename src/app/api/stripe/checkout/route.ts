@@ -3,13 +3,18 @@ import Stripe from "stripe";
 import { rateLimit, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
 import { parseBody, isOneOf, sanitize, badRequest } from "@/lib/api-security";
 import { withAudit } from "@/lib/api-audit";
+import { dormantRouteResponse } from "@/lib/server/dormant-route";
 
 /* ══════════════════════════════════════════════════════════════
    STRIPE CHECKOUT SESSION — API Route (Stripe Connect)
    Creates a Stripe Checkout session for a selected plan tier
    Supports: Starter ($149), Professional ($349), Program ($549)
    Platform fee: 10% via application_fee_percent on Connect
+
+   DISABLED (CC-CLOSURE-02): see src/lib/server/dormant-route.ts.
    ══════════════════════════════════════════════════════════════ */
+
+const DORMANT = true;
 
 const PLATFORM_FEE_PERCENT = 10; // 90/10 split: team gets 90%, platform takes 10%
 
@@ -33,6 +38,8 @@ function getStripe(): Stripe {
 }
 
 export const POST = withAudit("/api/stripe/checkout", async function POST(req: Request) {
+  if (DORMANT) return dormantRouteResponse();
+
   const ip = getClientIp(req);
   const rl = rateLimit(`checkout:${ip}`, 10, 60_000);
   if (!rl.allowed) return rateLimitResponse(rl);

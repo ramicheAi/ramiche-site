@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
+import { dormantRouteResponse } from "@/lib/server/dormant-route";
 
 /* ══════════════════════════════════════════════════════════════
    PUSH NOTIFICATION SENDER — Firebase Admin SDK
    Sends push notifications to athletes/parents via FCM
+
+   DISABLED (CC-CLOSURE-02): see src/lib/server/dormant-route.ts.
    ══════════════════════════════════════════════════════════════ */
+
+const DORMANT = true;
 
 // Dynamic import to avoid issues when firebase-admin isn't configured
 async function sendFCM(token: string, title: string, body: string, data?: Record<string, string>) {
@@ -36,6 +41,8 @@ async function sendFCM(token: string, title: string, body: string, data?: Record
 }
 
 export async function POST(req: Request) {
+  if (DORMANT) return dormantRouteResponse();
+
   try {
     const { token, tokens, title, body, data } = await req.json();
 

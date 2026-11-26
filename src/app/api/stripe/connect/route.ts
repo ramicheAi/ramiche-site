@@ -5,12 +5,18 @@ import { parseBody, sanitize, badRequest } from "@/lib/api-security";
 import { withAudit } from "@/lib/api-audit";
 import { verifyIdToken } from "@/lib/firebase-admin";
 import { adminWriteConnectedAccount } from "@/lib/firebase-admin";
+import { dormantRouteResponse } from "@/lib/server/dormant-route";
 
 /* ══════════════════════════════════════════════════════════════
    STRIPE CONNECT — Onboarding & Account Management
    Creates Connected Accounts for teams (90/10 split)
    Coach creates account → Stripe hosted onboarding → webhook confirms
+
+   DISABLED (CC-CLOSURE-02): see src/lib/server/dormant-route.ts. Both
+   exported handlers (POST and GET) are gated.
    ══════════════════════════════════════════════════════════════ */
+
+const DORMANT = true;
 
 function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -20,6 +26,8 @@ function getStripe(): Stripe {
 
 // ── POST: Create Connected Account + Onboarding Link ──────────
 export const POST = withAudit("/api/stripe/connect", async function POST(req: Request) {
+  if (DORMANT) return dormantRouteResponse();
+
   const ip = getClientIp(req);
   const rl = rateLimit(`connect:${ip}`, 5, 60_000);
   if (!rl.allowed) return rateLimitResponse(rl);
@@ -95,6 +103,8 @@ export const POST = withAudit("/api/stripe/connect", async function POST(req: Re
 
 // ── GET: Check account status ──────────────────────────────────
 export async function GET(req: Request) {
+  if (DORMANT) return dormantRouteResponse();
+
   const ip = getClientIp(req);
   const rl = rateLimit(`connect-status:${ip}`, 20, 60_000);
   if (!rl.allowed) return rateLimitResponse(rl);

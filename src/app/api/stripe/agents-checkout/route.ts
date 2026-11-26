@@ -3,12 +3,17 @@ import Stripe from "stripe";
 import { rateLimit, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
 import { parseBody, isValidEmail, isOneOf, sanitize, badRequest } from "@/lib/api-security";
 import { withAudit } from "@/lib/api-audit";
+import { dormantRouteResponse } from "@/lib/server/dormant-route";
 
 /* ══════════════════════════════════════════════════════════════
    STRIPE CHECKOUT — White-Label Agent Marketplace
    Creates checkout sessions for agent templates and bundles
    Supports: one-time purchases + monthly managed hosting
+
+   DISABLED (CC-CLOSURE-02): see src/lib/server/dormant-route.ts.
    ══════════════════════════════════════════════════════════════ */
+
+const DORMANT = true;
 
 // Product catalog — bundle and agent pricing
 const CATALOG: Record<string, { name: string; price: number; mode: "payment" | "subscription" }> = {
@@ -48,6 +53,8 @@ function getStripe(): Stripe {
 }
 
 export const POST = withAudit("/api/stripe/agents-checkout", async function POST(req: Request) {
+  if (DORMANT) return dormantRouteResponse();
+
   const ip = getClientIp(req);
   const rl = rateLimit(`agents-checkout:${ip}`, 10, 60_000);
   if (!rl.allowed) return rateLimitResponse(rl);
