@@ -114,7 +114,14 @@ describe("openclaw-gateway", () => {
     vi.stubGlobal("fetch", () => Promise.reject(new Error("network down")));
     const r = await gatewayToolsInvoke({ tool: "t" });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error).toContain("network down");
+    if (!r.ok) {
+      // A transport failure is described, not echoed. The internal exception text is for the log.
+      expect(r.error).toContain("could not be reached");
+      expect(r.error).toContain("Reference");
+      expect(r.error).toContain("try again");
+      expect(r.error).not.toContain("network down");
+      expect(r.reference).toMatch(/^[0-9a-f]{8}$/);
+    }
   });
 
   it("gatewayToolsInvoke maps HTTP error body", async () => {
@@ -382,6 +389,117 @@ describe("openclaw-gateway", () => {
     );
     const r = await gatewayToolsInvoke({ tool: "t" });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error).toBe("model overloaded");
+    if (!r.ok) {
+      // The provider's own sentence is kept (it is meaningful and safe), with the reference and a
+      // retry hint appended. What must never happen is the whole body being stringified at a person.
+      expect(r.error).toContain("model overloaded");
+      expect(r.error).toMatch(/Reference [0-9a-f]{8}\./);
+      expect(r.error).toContain("Try again");
+      expect(r.error).not.toContain("{");
+    }
+  });
+});
+
+describe("gateway failures are readable and traceable", () => {
+  it("never shows the operator raw upstream JSON", async () => {
+    vi.stubEnv("OPENCLAW_GATEWAY_TOKEN", "tok");
+    vi.stubGlobal("fetch", () =>
+      Promise.resolve({
+        ok: false,
+        status: 503,
+        statusText: "Service Unavailable",
+        headers: { get: () => "application/json" },
+        // This is the exact shape that used to be stringified into the chat bubble.
+        json: async () => ({ ok: false, error: "e2e injected gateway failure", routing: { tenant: "internal" } }),
+      }),
+    );
+    const r = await gatewayToolsInvoke({ tool: "t" });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error).toContain("e2e injected gateway failure");
+      expect(r.error).not.toContain("{");
+      expect(r.error).not.toContain("routing");
+      expect(r.error).not.toContain("internal");
+      expect(r.error).toMatch(/Reference [0-9a-f]{8}\./);
+    }
+  });
+
+  it("a body with no usable text becomes a status sentence, not a JSON dump", async () => {
+    vi.stubEnv("OPENCLAW_GATEWAY_TOKEN", "tok");
+    vi.stubGlobal("fetch", () =>
+      Promise.resolve({
+        ok: false,
+        status: 502,
+        statusText: "Bad Gateway",
+        headers: { get: () => "application/json" },
+        json: async () => ({ html: "<html>nope</html>" }),
+      }),
+    );
+    const r = await gatewayToolsInvoke({ tool: "t" });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error).toContain("HTTP 502");
+      expect(r.error).not.toContain("<html>");
+      expect(r.error).not.toContain("{");
+    }
+  });
+
+  it("a 4xx says a retry will not help, a 5xx says it might", async () => {
+    vi.stubEnv("OPENCLAW_GATEWAY_TOKEN", "tok");
+    for (const [status, expected] of [[403, "configuration fix"], [500, "Try again"]] as const) {
+      vi.stubGlobal("fetch", () =>
+        Promise.resolve({
+          ok: false,
+          status,
+          statusText: "x",
+          headers: { get: () => "application/json" },
+          json: async () => ({ error: "denied by policy" }),
+        }),
+      );
+      const r = await gatewayToolsInvoke({ tool: "t" });
+      if (!r.ok) expect(r.error).toContain(expected);
+    }
+  });
+});
+
+describe("gateway error text never carries a secret or a host path", () => {
+  const invokeWith = async (error: string) => {
+    vi.stubEnv("OPENCLAW_GATEWAY_TOKEN", "tok");
+    vi.stubGlobal("fetch", () =>
+      Promise.resolve({
+        ok: false,
+        status: 500,
+        statusText: "Err",
+        headers: { get: () => "application/json" },
+        json: async () => ({ error }),
+      }),
+    );
+    const r = await gatewayToolsInvoke({ tool: "t" });
+    if (r.ok) throw new Error("expected failure");
+    return r.error;
+  };
+
+  it("redacts a bearer credential the gateway echoed back", async () => {
+    const msg = await invokeWith("upstream rejected Bearer abc123def456ghi789");
+    expect(msg).not.toContain("abc123def456ghi789");
+    expect(msg).toContain("[redacted]");
+  });
+
+  it("redacts key-shaped tokens", async () => {
+    const msg = await invokeWith("bad key sk-ABCDEFGH12345678");
+    expect(msg).not.toContain("sk-ABCDEFGH12345678");
+  });
+
+  it("redacts a filesystem path and therefore the account name", async () => {
+    const msg = await invokeWith("cannot read /Users/admin/.openclaw/openclaw.json");
+    expect(msg).not.toContain("/Users/");
+    expect(msg).not.toContain("admin");
+    expect(msg).toContain("[path]");
+  });
+
+  it("keeps the sentence readable after redaction", async () => {
+    const msg = await invokeWith("sessions_send denied by policy");
+    expect(msg).toContain("sessions_send denied by policy");
+    expect(msg).toMatch(/Reference [0-9a-f]{8}\./);
   });
 });

@@ -1,0 +1,89 @@
+name: CC auth privilege regression
+
+# Safety model:
+#   - Runs entirely against a disposable `postgres:17` service container owned by this job. It never
+#     reads a Supabase secret, never links to the real project, and never touches
+#     command.parallaxvinc.com, the canonical cockpit release, or production data. DATABASE_URL points
+#     only at 127.0.0.1 inside this runner.
+#   - Only the four CC auth migrations are applied here (plus a CI-only role bootstrap for
+#     anon/authenticated/service_role, which the real Supabase platform provides and this plain
+#     container does not). No other schema, and no production migration path, runs in this job.
+#   - Negative scenarios mutate grants inside an uncommitted transaction and rely on the connection
+#     closing on an aborted transaction to discard them — see
+#     supabase/tests/cc_auth_privileges_negative.sh for the exact mechanism.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/20261112200000_cc_trusted_devices.sql'
+      - 'supabase/migrations/20261113000000_cc_device_enrollment_codes.sql'
+      - 'supabase/migrations/20261114000000_cc_auth_service_role_grants.sql'
+      - 'supabase/migrations/20261114010000_cc_auth_service_role_least_privilege.sql'
+      - 'supabase/tests/cc_auth_privileges*.sql'
+      - 'supabase/tests/cc_auth_privileges_negative.sh'
+      - '.github/workflows/cc-auth-privileges-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/20261112200000_cc_trusted_devices.sql'
+      - 'supabase/migrations/20261113000000_cc_device_enrollment_codes.sql'
+      - 'supabase/migrations/20261114000000_cc_auth_service_role_grants.sql'
+      - 'supabase/migrations/20261114010000_cc_auth_service_role_least_privilege.sql'
+      - 'supabase/tests/cc_auth_privileges*.sql'
+      - 'supabase/tests/cc_auth_privileges_negative.sh'
+      - '.github/workflows/cc-auth-privileges-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  privilege-regression:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for Postgres
+        run: pg_isready -h localhost -p 5432 -U postgres --timeout=30
+
+      - name: Bootstrap anon/authenticated/service_role (CI-only, not a production step)
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/cc_auth_privileges_ci_roles.sql
+
+      - name: Apply the four CC auth migrations, in order
+        run: |
+          set -eu
+          for f in \
+            supabase/migrations/20261112200000_cc_trusted_devices.sql \
+            supabase/migrations/20261113000000_cc_device_enrollment_codes.sql \
+            supabase/migrations/20261114000000_cc_auth_service_role_grants.sql \
+            supabase/migrations/20261114010000_cc_auth_service_role_least_privilege.sql \
+          ; do
+            echo "applying $f"
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
+          done
+
+      - name: Privilege regression (happy path — must PASS)
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/cc_auth_privileges.sql
+
+      - name: Privilege regression (negative scenarios — each must FAIL the gate)
+        run: |
+          chmod +x supabase/tests/cc_auth_privileges_negative.sh
+          supabase/tests/cc_auth_privileges_negative.sh "$DATABASE_URL"
+
+      - name: Re-run happy path after negative scenarios (proves no mutation leaked)
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/cc_auth_privileges.sql

@@ -170,3 +170,14 @@ describe('secondary controls stay reachable on mobile and tablet', () => {
     expect(drawerCopy).not.toMatch(/po-hud-secondary/);
   });
 });
+
+
+describe('tablet header actions keep a finger-sized floor', () => {
+  it('sizes raw header buttons and links in the 768-1024 band', () => {
+    // Slice the band so the identical phone rule cannot satisfy this assertion.
+    const start = shellCss.indexOf('@media (min-width: 768px) and (max-width: 1024px)');
+    expect(start).toBeGreaterThan(-1);
+    const band = shellCss.slice(start, shellCss.indexOf('@media', start + 10));
+    expect(band).toMatch(/\.pg-head-act\s+a,\s*\.po-shell\s+\.pg-head-act\s+button\s*\{[^}]*min-height:\s*44px/);
+  });
+});

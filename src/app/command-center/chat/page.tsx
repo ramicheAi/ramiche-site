@@ -6,6 +6,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { supabase } from "@/lib/supabase";
 import { parseMentions } from "@/lib/chat-routing";
+import { attachmentSendability, attachmentStatusLabel } from "@/lib/chat-attachment-state";
+import { relayErrorMessage } from "@/lib/relay-error-message";
 import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
 import {
   aggregateReactions,
@@ -1914,12 +1916,23 @@ export default function CommandCenterChatPage() {
               total: (data.total as number) || 0,
             },
           }));
+          // A run whose output did not land is not an approval. The card must not settle into
+          // "Approved" and invite the operator to walk away from something that needs re-approving;
+          // the server leaves approved_at unset for exactly this case, so the next attempt works.
+          if (data.persisted === false) {
+            setApproveError({
+              id: messageId,
+              message:
+                "the plan ran but some of its output was not saved, so this does not count as approved. Nothing is lost: approve again to retry.",
+            });
+          }
           return;
         }
         if (eventName === "error") {
+          // Same rule as the chat send: the sentence beats the code.
           setApproveError({
             id: messageId,
-            message: typeof data.error === "string" ? data.error : "Approve stream error",
+            message: relayErrorMessage(data, 0, "Approve stream error"),
           });
           return;
         }
@@ -1959,6 +1972,61 @@ export default function CommandCenterChatPage() {
       });
     } finally {
       setApprovingSynthId(null);
+    }
+  };
+
+  /* ── Reject a synthesis plan (CC-RELEASE-CONSOLIDATION-01 Phase 2). No streaming: rejecting
+        never dispatches anything, so there is no multi-step progress to show, unlike Approve. ── */
+  const [rejectingSynthId, setRejectingSynthId] = useState<string | null>(null);
+  const [rejectError, setRejectError] = useState<{ id: string; message: string } | null>(null);
+  const handleRejectSynthesis = async (messageId: string) => {
+    setRejectError(null);
+    setRejectingSynthId(messageId);
+    try {
+      const res = await fetch("/api/command-center/chat/reject", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId }),
+      });
+      const data = (await res.json().catch(() => null)) as
+        | { ok: true; rejectedAt: string; alreadyRejected?: boolean }
+        | { ok: false; error?: string }
+        | null;
+      if (!res.ok || !data?.ok) {
+        setRejectError({
+          id: messageId,
+          message: (data && !data.ok && data.error) || `Reject failed (HTTP ${res.status})`,
+        });
+        return;
+      }
+      // Reflect the rejection on the in-memory message immediately, same pattern as
+      // handleSetActionStatus — don't wait on Supabase realtime for the card to update.
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== messageId) return m;
+          const prevMeta = (m.metadata as Record<string, unknown> | null) || {};
+          const totalActions = Array.isArray(
+            (prevMeta.plan as { actions?: unknown[] } | undefined)?.actions
+          )
+            ? ((prevMeta.plan as { actions: unknown[] }).actions.length)
+            : 0;
+          return {
+            ...m,
+            metadata: {
+              ...prevMeta,
+              rejected_at: data.rejectedAt,
+              action_statuses: new Array(totalActions).fill("cancelled"),
+            },
+          };
+        })
+      );
+    } catch (e) {
+      setRejectError({
+        id: messageId,
+        message: e instanceof Error ? e.message : "Reject request failed",
+      });
+    } finally {
+      setRejectingSynthId(null);
     }
   };
 
@@ -2007,9 +2075,31 @@ export default function CommandCenterChatPage() {
   };
 
   /* ── file attachments (file = local blob before upload) ── */
+  /**
+   * An attachment has three states, and only one of them may be sent.
+   *
+   * `uploading` -> `ready` | `failed`. Before this, a file was optimistically "attached" the moment it
+   * was picked, the upload result was ignored, and a failed upload still dispatched a message whose
+   * persisted `attachments` array was empty. The operator saw a paperclip and a filename for a file
+   * that was never stored.
+   */
   const [attachments, setAttachments] = useState<
-    { name: string; size: string; type: string; url: string; file?: File }[]
+    {
+      id: string;
+      name: string;
+      size: string;
+      type: string;
+      /** Local blob preview (revoked when removed). */
+      url: string;
+      file?: File;
+      status: "uploading" | "ready" | "failed";
+      /** Stored URL, present only when status is "ready". */
+      remoteUrl?: string;
+      error?: string;
+    }[]
   >([]);
+  /** Why the composer refused to send, when the reason is about attachments rather than text. */
+  const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
   const [chatSearchQuery, setChatSearchQuery] = useState("");
   const [globalSearchHits, setGlobalSearchHits] = useState<
     {
@@ -2912,7 +3002,7 @@ export default function CommandCenterChatPage() {
     displayContent: string,
     opts?: {
       threadParentId?: string;
-      localAttachments?: { name: string; size: string; type: string; url: string; file?: File }[];
+      localAttachments?: typeof attachments;
       onAgentVoiceReply?: (text: string) => void;
       onVoiceRelayError?: () => void;
     }
@@ -2926,16 +3016,14 @@ export default function CommandCenterChatPage() {
     if (sendingRef.current) return;
     sendingRef.current = true;
     try {
-    const uploads: ChatAttachment[] = [];
-    for (const att of attList) {
-      if (att.file) {
-        const fd = new FormData();
-        fd.append("file", att.file);
-        const res = await fetch("/api/command-center/chat/upload", { method: "POST", body: fd });
-        const j = (await res.json()) as { url?: string; skipped?: boolean };
-        if (j.url) uploads.push({ url: j.url, name: att.name, type: att.type });
-      }
+    // Attachments were uploaded when they were attached. The decision is a pure function so the four
+    // cases (uploading, failed, retried, removed) are unit-tested rather than inferred from the UI.
+    const verdict = attachmentSendability(attList);
+    if (!verdict.ok) {
+      setAttachmentNotice(verdict.message);
+      return;
     }
+    const uploads: ChatAttachment[] = verdict.sendable;
     for (const att of attList) {
       if (att.url.startsWith("blob:")) URL.revokeObjectURL(att.url);
     }
@@ -3031,7 +3119,10 @@ export default function CommandCenterChatPage() {
             /* non-JSON */
           }
           if (!r.ok) {
-            const msg = parsed.error || `Chat relay failed (${r.status})`;
+            // `error` is a stable machine code and `detail` is the sentence written for a person.
+            // Showing the code would tell the operator "relay_not_deployed" instead of "nothing
+            // ran". The choice lives in a pure function so it is tested.
+            const msg = relayErrorMessage(parsed, r.status);
             setWaitingForResponse(false);
             setTypingUsers([]);
             if (waitingTimeoutRef.current) {
@@ -3255,13 +3346,19 @@ export default function CommandCenterChatPage() {
       // the top of that route's POST_handler.
       runRelay(realId);
     } else {
+      // No browser database client, so the message was never persisted and there is no id to
+      // claim. Dispatching anyway used to work by skipping the claim entirely; since CC-RECOVERY-14
+      // the route fails closed and returns 400, so firing the request would just be a doomed round
+      // trip. Refuse here, with the same sentence the route would have given.
       lastPendingUserMessageIdRef.current = null;
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === tempId ? { ...m, deliveryStatus: "sent" } : m
-        )
-      );
-      runRelay();
+      setWaitingForResponse(false);
+      setTypingUsers([]);
+      setRelayError({
+        id: tempId,
+        message:
+          "This browser has no database connection, so the message could not be saved or claimed. Nothing was sent. Reload, and if it persists the app is misconfigured.",
+      });
+      onVoiceRelayError?.();
     }
     } finally {
       sendingRef.current = false;
@@ -3275,17 +3372,34 @@ export default function CommandCenterChatPage() {
     });
   };
 
-  const handleSendMessage = async () => {
-    if (!messageInput.trim() && attachments.length === 0) return;
+  const handleSendMessage = async (opts?: { withoutAttachments?: boolean }) => {
+    // The explicit text-only path is the one case where a failed attachment may be dropped without
+    // the operator removing it by hand: they chose it, and the composer says so.
+    const effective = opts?.withoutAttachments ? [] : attachments;
+    if (!messageInput.trim() && effective.length === 0) return;
     if (!activeChannel && !(viewMode === "dm" && activeAgent)) return;
 
-    const displayContent = attachments.length > 0
-      ? `${messageInput}${messageInput ? "\n" : ""}${attachments.map((a) => `[${a.type === "image" ? "Image" : "File"}: ${a.name}]`).join(" ")}`
+    // Check sendability BEFORE clearing any composer state. sendUserMessageContent
+    // runs this same check and is the source of truth for whether a send actually
+    // goes out, but if we clear the draft text and attachment chips first, a
+    // blocked send has already destroyed the thing the operator needs to retry —
+    // the typed text and the Retry button both disappear with nothing sent.
+    if (!opts?.withoutAttachments) {
+      const verdict = attachmentSendability(effective);
+      if (!verdict.ok) {
+        setAttachmentNotice(verdict.message);
+        return;
+      }
+    }
+
+    const displayContent = effective.length > 0
+      ? `${messageInput}${messageInput ? "\n" : ""}${effective.map((a) => `[${a.type === "image" ? "Image" : "File"}: ${a.name}]`).join(" ")}`
       : messageInput;
 
-    const attSnap = [...attachments];
+    const attSnap = [...effective];
     setMessageInput("");
     setAttachments([]);
+    setAttachmentNotice(null);
     await sendUserMessageContent(displayContent, { localAttachments: attSnap });
   };
 
@@ -3429,16 +3543,56 @@ export default function CommandCenterChatPage() {
     await refreshMessageReactions(messageId);
   };
 
+  /** Upload a single file. Resolves to the stored URL, or to a reason it was not stored. */
+  const uploadAttachment = async (file: File): Promise<{ url?: string; error?: string }> => {
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/command-center/chat/upload", { method: "POST", body: fd });
+      const body = (await res.json().catch(() => ({}))) as { url?: string; skipped?: boolean; error?: unknown };
+      if (!res.ok || !body.url) {
+        const why =
+          typeof body.error === "string" && body.error
+            ? body.error
+            : `the upload endpoint answered ${res.status}`;
+        return { error: why };
+      }
+      return { url: body.url };
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : "the upload request failed" };
+    }
+  };
+
+  /** Upload in place and update that one chip, so a slow or failed file cannot block the others. */
+  const startUpload = (id: string, file: File) => {
+    void uploadAttachment(file).then((out) => {
+      setAttachments((prev) =>
+        prev.map((a) =>
+          a.id === id
+            ? out.url
+              ? { ...a, status: "ready", remoteUrl: out.url, error: undefined }
+              : { ...a, status: "failed", remoteUrl: undefined, error: out.error }
+            : a,
+        ),
+      );
+    });
+  };
+
   const addLocalFiles = (files: FileList | File[]) => {
     const list = Array.from(files);
     const newAttachments = list.map((f) => ({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       name: f.name,
       size: f.size < 1024 ? `${f.size}B` : f.size < 1048576 ? `${(f.size / 1024).toFixed(1)}KB` : `${(f.size / 1048576).toFixed(1)}MB`,
       type: f.type.startsWith("image/") ? "image" : "file",
       url: URL.createObjectURL(f),
       file: f,
+      status: "uploading" as const,
     }));
     setAttachments((prev) => [...prev, ...newAttachments]);
+    // Upload immediately: the operator learns about a failure while they are still composing, not
+    // after the message has already gone out without the file.
+    for (const a of newAttachments) if (a.file) startUpload(a.id, a.file);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -3467,6 +3621,14 @@ export default function CommandCenterChatPage() {
       URL.revokeObjectURL(prev[idx].url);
       return prev.filter((_, i) => i !== idx);
     });
+  };
+
+  /** Retry a failed upload, keeping the same chip so the operator's list does not jump. */
+  const retryAttachment = (id: string) => {
+    setAttachments((prev) => prev.map((a) => (a.id === id ? { ...a, status: "uploading", error: undefined } : a)));
+    const target = attachments.find((a) => a.id === id);
+    if (target?.file) startUpload(id, target.file);
+    else setAttachments((prev) => prev.map((a) => (a.id === id ? { ...a, status: "failed", error: "the file is no longer available; remove it and attach it again" } : a)));
   };
 
   const resolveChannelLabel = useCallback(
@@ -5146,12 +5308,17 @@ export default function CommandCenterChatPage() {
                         const meta = (message.metadata as Record<string, unknown> | null) || {};
                         const approvedAt =
                           typeof meta.approved_at === "string" ? (meta.approved_at as string) : null;
+                        const rejectedAt =
+                          typeof meta.rejected_at === "string" ? (meta.rejected_at as string) : null;
                         const statuses = Array.isArray(meta.action_statuses)
                           ? (meta.action_statuses as string[])
                           : [];
                         const ackByOwner = acksBySynthesisId.get(message.id) ?? new Map<string, Message>();
                         const isApproving = approvingSynthId === message.id;
+                        const isRejecting = rejectingSynthId === message.id;
                         const errForThis = approveError?.id === message.id ? approveError.message : null;
+                        const rejectErrForThis =
+                          rejectError?.id === message.id ? rejectError.message : null;
                         // Progress count: how many actions are "done"
                         const doneCount = plan.actions.reduce(
                           (n, _, i) => (statuses[i] === "done" ? n + 1 : n),
@@ -5481,24 +5648,58 @@ export default function CommandCenterChatPage() {
                                   Decisions ›
                                 </a>
                               </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleApproveSynthesis(message.id)}
-                                disabled={isApproving}
+                            ) : rejectedAt ? (
+                              <div
                                 style={{
-                                  padding: "6px 14px",
-                                  borderRadius: 6,
-                                  fontSize: 12,
+                                  fontSize: 11,
+                                  color: "#f87171",
                                   fontWeight: 600,
-                                  background: isApproving ? "rgba(124,58,237,0.4)" : "#7c3aed",
-                                  color: "#fff",
-                                  border: "none",
-                                  cursor: isApproving ? "wait" : "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 8,
                                 }}
                               >
-                                {isApproving ? "Executing…" : "Approve & dispatch"}
-                              </button>
+                                ✗ Rejected — this plan will not be executed
+                              </div>
+                            ) : (
+                              <div style={{ display: "flex", gap: 8 }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleApproveSynthesis(message.id)}
+                                  disabled={isApproving || isRejecting}
+                                  style={{
+                                    padding: "6px 14px",
+                                    borderRadius: 6,
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    background: isApproving ? "rgba(124,58,237,0.4)" : "#7c3aed",
+                                    color: "#fff",
+                                    border: "none",
+                                    cursor: isApproving || isRejecting ? "wait" : "pointer",
+                                  }}
+                                >
+                                  {isApproving ? "Executing…" : "Approve & dispatch"}
+                                </button>
+                                <button
+                                  type="button"
+                                  aria-label="Reject synthesis"
+                                  onClick={() => handleRejectSynthesis(message.id)}
+                                  disabled={isApproving || isRejecting}
+                                  style={{
+                                    padding: "6px 14px",
+                                    borderRadius: 6,
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    background: "transparent",
+                                    color: isRejecting ? "rgba(248,113,113,0.5)" : "#f87171",
+                                    border: "1px solid",
+                                    borderColor: isRejecting ? "rgba(248,113,113,0.3)" : "#f87171",
+                                    cursor: isApproving || isRejecting ? "wait" : "pointer",
+                                  }}
+                                >
+                                  {isRejecting ? "Rejecting…" : "Reject"}
+                                </button>
+                              </div>
                             )}
                             {errForThis && (
                               <div
@@ -5510,6 +5711,18 @@ export default function CommandCenterChatPage() {
                                 }}
                               >
                                 {errForThis}
+                              </div>
+                            )}
+                            {rejectErrForThis && (
+                              <div
+                                role="alert"
+                                style={{
+                                  marginTop: 8,
+                                  fontSize: 11,
+                                  color: "#fca5a5",
+                                }}
+                              >
+                                {rejectErrForThis}
                               </div>
                             )}
                             {/* Final tally once the stream's `complete` event fires.
@@ -5778,7 +5991,8 @@ export default function CommandCenterChatPage() {
             <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
               {attachments.map((att, idx) => (
                 <div
-                  key={idx}
+                  key={att.id}
+                  data-attachment-state={att.status}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -5786,7 +6000,10 @@ export default function CommandCenterChatPage() {
                     padding: "6px 10px",
                     borderRadius: 8,
                     background: COLORS.bg.card,
-                    border: `1px solid ${COLORS.border.default}`,
+                    // A failed attachment looks different from a ready one. Before this, both looked
+                    // identical and the difference only showed up as a missing file after sending.
+                    border: `1px solid ${att.status === "failed" ? "rgba(239,68,68,0.55)" : COLORS.border.default}`,
+                    opacity: att.status === "uploading" ? 0.7 : 1,
                     fontSize: 12,
                   }}
                 >
@@ -5804,14 +6021,97 @@ export default function CommandCenterChatPage() {
                   )}
                   <span style={{ color: COLORS.text.secondary, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{att.name}</span>
                   <span style={{ color: COLORS.text.tertiary, fontSize: 10 }}>{att.size}</span>
+                  <span
+                    aria-live="polite"
+                    style={{
+                      fontSize: 10,
+                      color:
+                        att.status === "failed"
+                          ? "rgba(248,113,113,0.95)"
+                          : att.status === "ready"
+                            ? "rgba(52,211,153,0.9)"
+                            : COLORS.text.tertiary,
+                    }}
+                  >
+                    {attachmentStatusLabel(att.status)}
+                  </span>
+                  {att.status === "failed" && (
+                    <button
+                      onClick={() => retryAttachment(att.id)}
+                      style={{
+                        background: "none",
+                        border: `1px solid rgba(239,68,68,0.45)`,
+                        borderRadius: 4,
+                        cursor: "pointer",
+                        color: "rgba(248,113,113,0.95)",
+                        padding: "2px 6px",
+                        fontSize: 10,
+                      }}
+                    >
+                      Retry
+                    </button>
+                  )}
                   <button
+                    aria-label={`Remove ${att.name}`}
                     onClick={() => removeAttachment(idx)}
-                    style={{ background: "none", border: "none", cursor: "pointer", color: COLORS.text.tertiary, padding: 2, fontSize: 14, lineHeight: 1 }}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: COLORS.text.tertiary, padding: 6, minWidth: 32, minHeight: 32, fontSize: 14, lineHeight: 1 }}
                   >
                     x
                   </button>
                 </div>
               ))}
+            </div>
+          )}
+
+          {(attachmentNotice || attachments.some((a) => a.status === "failed")) && (
+            <div
+              role="alert"
+              data-testid="attachment-notice"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                flexWrap: "wrap",
+                marginBottom: 8,
+                padding: "8px 10px",
+                borderRadius: 8,
+                fontSize: 12,
+                color: "rgba(248,113,113,0.95)",
+                background: "rgba(239,68,68,0.08)",
+                border: "1px solid rgba(239,68,68,0.35)",
+              }}
+            >
+              <span style={{ flex: 1, minWidth: 200 }}>
+                {attachmentNotice ??
+                  "An attachment could not be stored. Retry it, remove it, or send without attachments."}
+              </span>
+              <button
+                // Disabled until there is text to send. It also removes a race: the handler reads
+                // the composer state, and a click that lands before React has committed the typed
+                // text would otherwise be a no-op on a control the operator just pressed.
+                disabled={!messageInput.trim()}
+                aria-label="Send without attachments"
+                onClick={() => {
+                  // Explicit text-only send: drop the unstoreable files and send what is left.
+                  for (const a of attachments) if (a.url.startsWith("blob:")) URL.revokeObjectURL(a.url);
+                  setAttachments([]);
+                  setAttachmentNotice(null);
+                  void handleSendMessage({ withoutAttachments: true });
+                }}
+                style={{
+                  minHeight: 44,
+                  padding: "0 12px",
+                  borderRadius: 6,
+                  cursor: messageInput.trim() ? "pointer" : "not-allowed",
+                  opacity: messageInput.trim() ? 1 : 0.55,
+                  fontSize: 11,
+                  color: COLORS.text.primary,
+                  background: COLORS.bg.card,
+                  border: `1px solid ${COLORS.border.default}`,
+                }}
+              >
+                Send without attachments
+              </button>
             </div>
           )}
 
@@ -6039,11 +6339,22 @@ export default function CommandCenterChatPage() {
 
                 {/* Send Button — game-btn style */}
                 <button
-                  onClick={handleSendMessage}
-                  disabled={!messageInput.trim() && attachments.length === 0}
+                  onClick={() => void handleSendMessage()}
+                  // Enabled whenever there is text, so a click can explain why a failed attachment
+                  // blocks the send. A disabled button that silently refuses tells nobody anything.
+                  disabled={!messageInput.trim() && !attachments.some((a) => a.status === "ready")}
                   className="game-btn"
+                  aria-label="Send message"
                   style={{
-                    padding: "6px 16px",
+                    // 44x44 minimum touch target. The text stays 10px mono, so the size comes from
+                    // padding rather than type: at the old 6px/16px this control measured 62x29 on a
+                    // phone, well under the minimum, on the primary action of the screen.
+                    minWidth: 44,
+                    minHeight: 44,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "12px 16px",
                     fontSize: 10,
                     fontWeight: 700,
                     fontFamily: "monospace",

@@ -70,6 +70,7 @@ type Decision = {
   content: string;
   createdAt: string;
   approvedAt: string | null;
+  rejectedAt: string | null;
   plan: {
     decision: string;
     actions: Action[];
@@ -405,6 +406,18 @@ export default function DecisionsPage() {
                           }}
                         >
                           {fullyDone ? "✓ COMPLETE" : `${done}/${total} DONE`}
+                        </span>
+                      ) : d.rejectedAt ? (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            color: COLORS.status.blocked,
+                            letterSpacing: 1.2,
+                            marginLeft: 6,
+                          }}
+                        >
+                          ✗ REJECTED
                         </span>
                       ) : (
                         <span

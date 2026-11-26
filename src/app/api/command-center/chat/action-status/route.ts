@@ -95,6 +95,15 @@ async function POST_handler(req: NextRequest) {
     if (meta.kind !== "synthesis") {
       return NextResponse.json({ ok: false, error: "row is not a synthesis" }, { status: 400 });
     }
+    // A rejected plan's actions were already set to "cancelled" by cc-reject-synthesis.ts, and
+    // nothing will ever execute them — an unrelated manual status edit here must not resurrect one
+    // to "done" or "in_progress" and misrepresent a plan the owner explicitly rejected.
+    if (meta.rejected_at) {
+      return NextResponse.json(
+        { ok: false, error: "this synthesis was rejected; its action statuses are final" },
+        { status: 409 }
+      );
+    }
     const plan = meta.plan as { actions?: Array<{ owner?: string; task?: string }> } | undefined;
     if (!plan || !Array.isArray(plan.actions) || body.actionIndex >= plan.actions.length) {
       return NextResponse.json(
