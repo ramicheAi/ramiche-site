@@ -63,6 +63,30 @@ function getMemoryPercent(pct: string): number {
   return parseFloat(pct) || 0;
 }
 
+/**
+ * Pure, unit-testable sync-freshness classifier (RAMICHE-OS-CC-OVERNIGHT-RECOVERY-01,
+ * Phase 7 — Project & Agent Truth). Previously the page stamped "LIVE" + a fresh
+ * timestamp on every poll that merely COMPLETED, including a non-2xx response —
+ * a failed /api/command-center/agents call could display as LIVE. Now:
+ *   - no successful sync yet -> "unknown"
+ *   - most recent sync attempt failed/errored -> "error" (never silently hidden)
+ *   - last SUCCESSFUL sync older than 2x the poll interval -> "stale"
+ *   - otherwise -> "live"
+ */
+export type SyncStatus = "unknown" | "live" | "stale" | "error";
+export function classifySyncStatus(
+  lastSuccessAt: number | null,
+  hasRecentError: boolean,
+  now: number,
+  pollIntervalMs: number
+): SyncStatus {
+  if (hasRecentError) return "error";
+  if (lastSuccessAt == null) return "unknown";
+  return now - lastSuccessAt > pollIntervalMs * 2 ? "stale" : "live";
+}
+
+const POLL_INTERVAL_MS = 15_000;
+
 export default function SystemHealthPage() {
   const [agents, setAgents] = useState<AgentStatus[]>([]);
   const [services, setServices] = useState<ServiceCheck[]>(
@@ -70,6 +94,9 @@ export default function SystemHealthPage() {
   );
   const [loading, setLoading] = useState(true);
   const [lastSync, setLastSync] = useState("");
+  const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
+  const [syncError, setSyncError] = useState(false);
+  const [nowTick, setNowTick] = useState(() => Date.now());
   const [vitals, setVitals] = useState<SystemVitals | null>(null);
   const [cronJobs, setCronJobs] = useState<CronJob[]>([]);
   const [sessions, setSessions] = useState<{ count: number; processes: { pid: string; cpu: string; mem: string; cmd: string }[] }>({ count: 0, processes: [] });
@@ -104,21 +131,41 @@ export default function SystemHealthPage() {
   const fetchAgents = useCallback(async () => {
     try {
       const res = await fetch("/api/command-center/agents", { cache: "no-store" });
-      if (res.ok) {
-        const data = await res.json();
-        setAgents(data.agents || []);
+      if (!res.ok) {
+        // A non-2xx response is a FAILED sync, not a live one — never stamp LIVE for it.
+        setSyncError(true);
+        return;
       }
-      setLastSync(new Date().toLocaleTimeString());
-    } catch { /* retain previous state */ }
-    finally { setLoading(false); }
+      const data = await res.json();
+      setAgents(data.agents || []);
+      const now = Date.now();
+      setLastSyncAt(now);
+      setLastSync(new Date(now).toLocaleTimeString());
+      setSyncError(false);
+    } catch {
+      setSyncError(true); // network error / timeout — same honest treatment as a bad status
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     fetchAgents();
     checkServices();
-    const interval = setInterval(() => { fetchAgents(); checkServices(); }, 15_000);
-    return () => clearInterval(interval);
+    const interval = setInterval(() => { fetchAgents(); checkServices(); }, POLL_INTERVAL_MS);
+    // Re-evaluate staleness on a faster tick even between polls/fetches, so a
+    // hung poll (e.g. a backgrounded tab) can't keep showing a green LIVE badge.
+    const clock = setInterval(() => setNowTick(Date.now()), 5_000);
+    return () => { clearInterval(interval); clearInterval(clock); };
   }, [fetchAgents, checkServices]);
+
+  const syncStatus = classifySyncStatus(lastSyncAt, syncError, nowTick, POLL_INTERVAL_MS);
+  const syncBadge: Record<SyncStatus, { label: string; color: string }> = {
+    live: { label: "LIVE", color: "var(--c-green)" },
+    stale: { label: "STALE", color: "var(--c-amber)" },
+    error: { label: "ERROR", color: "var(--c-red)" },
+    unknown: { label: "UNKNOWN", color: "var(--t-mid)" },
+  };
 
   useEffect(() => {
     const es = new EventSource("/api/command-center/sse");
@@ -191,7 +238,11 @@ export default function SystemHealthPage() {
       <ParticleField />
       <p style={{ fontSize: 13, color: "var(--t-mid)", margin: "0 0 24px" }} className="mono">
         {loading ? "SCANNING..." : `${activeCount} active · ${idleCount} idle · ${upCount}/${services.length} services up · ${enabledCrons} crons`}
-        {lastSync && <span style={{ marginLeft: 8, color: "var(--c-green)" }}>● LIVE · {lastSync}</span>}
+        {syncStatus !== "unknown" && (
+          <span style={{ marginLeft: 8, color: syncBadge[syncStatus].color }}>
+            ● {syncBadge[syncStatus].label}{lastSync ? ` · ${lastSync}` : ""}
+          </span>
+        )}
       </p>
 
         {/* System Vitals Bar */}
